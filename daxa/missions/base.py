@@ -84,10 +84,12 @@ class BaseMission(metaclass=ABCMeta):
 
         :param str new_path: The new top-level storage path for archives.
         """
-        if not os.path.exists(new_path):
+        if new_path is not None and not os.path.exists(new_path):
             raise FileNotFoundError("That top-level output_path ({op}) does not exist!".format(op=new_path))
-        else:
+        elif new_path is not None:
             self._top_level_output_path = os.path.abspath(new_path)
+        else:
+            pass
 
     # Then define methods
 
