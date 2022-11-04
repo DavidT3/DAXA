@@ -5,6 +5,8 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 from typing import List
 import numpy as np
 import pandas as pd
+from astropy.coordinates import SkyCoord, BaseRADecFrame
+from astropy import units as u
 
 REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable_science', 'start', 'duration']
 
@@ -17,6 +19,7 @@ class BaseMission(metaclass=ABCMeta):
         # TODO Perhaps remove the connection URL, we should probably try to go through astroquery as much
         #  as possible
         self._miss_name = None
+        self._miss_coord_frame = None
         self._required_mission_specific_cols = []
         self._miss_poss_insts = []
         self._id_format = id_format
@@ -33,14 +36,36 @@ class BaseMission(metaclass=ABCMeta):
 
     # Defining properties first
     @property
+    @abstractmethod
     def name(self) -> str:
         """
-        Property getter for the name of this mission.
+        Abstract property getter for the name of this mission. Must be overwritten in any subclass. This is to
+        ensure that any subclasses that people might add will definitely set a proper name, which is not
+        guaranteed by having it done in the init.
 
         :return: The mission name
         :rtype: str
         """
+        # This is defined here (as well as in the init of BaseMission) because I want people to just copy this
+        #  property if they're making a new subclass, then replace None with the name of the mission.
+        self._miss_name = None
         return self._miss_name
+
+    @property
+    @abstractmethod
+    def coord_frame(self) -> BaseRADecFrame:
+        """
+        Abstract property getter for the coordinate frame of the RA-Decs of the observations of this mission. Must
+        be overwritten in any subclass. This is to ensure that any subclasses that people might add will definitely
+        set a coordinate frame, which is not guaranteed by having it done in the init.
+
+        :return: The coordinate frame of the RA-Dec
+        :rtype: BaseRADecFrame
+        """
+        # This is defined here (as well as in the init of BaseMission) because I want people to just copy this
+        #  property if they're making a new subclass, then replace None with the coordinate frame the mission uses.
+        self._miss_coord_frame = None
+        return self._miss_coord_frame
 
     @property
     def mission_instruments(self) -> List[str]:
@@ -152,8 +177,32 @@ class BaseMission(metaclass=ABCMeta):
         else:
             self._filter_allowed = new_filter_array
 
+    @property
+    def ra_decs(self) -> SkyCoord:
+        """
+        Property getter for the RA-Dec coordinates of ALL the observations associated with this mission - for the
+        coordinates of filtered observations (i.e. the observations that will actually be used for
+        downloading/processing), see the filtered_ra_decs property.
+
+        :return: The full set of RA-Dec coordinates of all observations associated with this mission.
+        :rtype: SkyCoord
+        """
+        return SkyCoord(self._obs_info['ra'].values, self._obs_info['dec'].values, unit=u.deg, frame=self.coord_frame)
+
+    @property
+    def filtered_ra_decs(self) -> SkyCoord:
+        """
+        Property getter for the RA-Dec coordinates of the filtered set of observations associated with this
+        mission - for coordinates of ALL observations see the ra_decs property.
+
+        :return: The RA-Dec coordinates of filtered observations associated with this mission.
+        :rtype: SkyCoord
+        """
+        return SkyCoord(self._obs_info['ra'].values[self.filter_array],
+                        self._obs_info['dec'].values[self.filter_array], unit=u.deg, frame=self.coord_frame)
+
     # Then define internal methods
-    def _obs_info_base_checks(self, new_info: pd.DataFrame):
+    def _obs_info_checks(self, new_info: pd.DataFrame):
         """
         Performs very simple checks on new inputs into the observation information dataframe, ensuring it at
         has the minimum required columns. This column check looks for both the columns defined in the REQUIRED_COLS
@@ -171,7 +220,7 @@ class BaseMission(metaclass=ABCMeta):
     @abstractmethod
     def fetch_obs_info(self):
         """
-        The abstract method (i.e. will be overridden in every sub-class of BaseMission) that pulls basic information
+        The abstract method (i.e. will be overridden in every subclass of BaseMission) that pulls basic information
         on all observations for a given mission down from whatever server it lives on.
         """
         # self.all_obs_info = None
