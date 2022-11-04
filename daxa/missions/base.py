@@ -6,7 +6,7 @@ from typing import List
 import numpy as np
 import pandas as pd
 
-REQUIRED_INFO = ['ra', 'dec', 'ObsID', 'usable_science', 'start', 'duration']
+REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable_science', 'start', 'duration']
 
 
 class BaseMission(metaclass=ABCMeta):
@@ -17,6 +17,7 @@ class BaseMission(metaclass=ABCMeta):
         # TODO Perhaps remove the connection URL, we should probably try to go through astroquery as much
         #  as possible
         self._miss_name = None
+        self._required_mission_specific_cols = []
         self._miss_poss_insts = []
         self._id_format = id_format
         self._obs_info = None
@@ -152,17 +153,19 @@ class BaseMission(metaclass=ABCMeta):
             self._filter_allowed = new_filter_array
 
     # Then define internal methods
-    @staticmethod
-    def _obs_info_base_checks(new_info: pd.DataFrame):
+    def _obs_info_base_checks(self, new_info: pd.DataFrame):
         """
         Performs very simple checks on new inputs into the observation information dataframe, ensuring it at
-        has the minimum required columns.
+        has the minimum required columns. This column check looks for both the columns defined in the REQUIRED_COLS
+        constant, and the extra columns which can be required for individual missions defined in each mission
+        subclass' __init__.
 
         :param pd.DataFrame new_info: The new dataframe of observation information that should be checked.
         """
-        if not isinstance(new_info, pd.DataFrame) or not all([col in new_info.columns for col in REQUIRED_INFO]):
-            raise ValueError("New all_obs_info values must be a Pandas dataframe with AT LEAST the following "
-                             "columns; {}".format(', '.join(REQUIRED_INFO)))
+        if not isinstance(new_info, pd.DataFrame) or not all([col in new_info.columns for col in
+                                                              REQUIRED_COLS + self._required_mission_specific_cols]):
+            raise ValueError("New all_obs_info values for this mission must be a Pandas dataframe with the following "
+                             "columns; {}".format(', '.join(REQUIRED_COLS+self._required_mission_specific_cols)))
 
     # Then define user-facing methods
     @abstractmethod
