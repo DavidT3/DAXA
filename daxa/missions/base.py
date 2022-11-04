@@ -174,6 +174,13 @@ class BaseMission(metaclass=ABCMeta):
         # self.all_obs_info = None
         pass
 
+    def reset_filter(self):
+        """
+        Very simple method which simply resets the filter array, meaning that all observations will now be
+        downloaded and processed, and any filters applied to the current mission have been undone.
+        """
+        self._filter_allowed = np.full(len(self._obs_info), True)
+
 
 
 
