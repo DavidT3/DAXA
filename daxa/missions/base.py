@@ -1,12 +1,13 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/11/2022, 16:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/11/2022, 16:56. Copyright (c) The Contributors
 import os.path
-from abc import ABCMeta, abstractmethod, abstractproperty
+from abc import ABCMeta, abstractmethod
 from typing import List
+
 import numpy as np
 import pandas as pd
-from astropy.coordinates import SkyCoord, BaseRADecFrame
 from astropy import units as u
+from astropy.coordinates import SkyCoord, BaseRADecFrame
 
 REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable_science', 'start', 'duration']
 
@@ -200,6 +201,29 @@ class BaseMission(metaclass=ABCMeta):
         """
         return SkyCoord(self._obs_info['ra'].values[self.filter_array],
                         self._obs_info['dec'].values[self.filter_array], unit=u.deg, frame=self.coord_frame)
+
+    @property
+    def obs_ids(self) -> np.ndarray:
+        """
+        Property getter for the ObsIDs of ALL the observations associated with this mission - for the
+        ObsIDs of filtered observations (i.e. the observations that will actually be used for
+        downloading/processing), see the filtered_obs_ids property.
+
+        :return: The full set of ObsIDs of all observations associated with this mission.
+        :rtype: np.ndarray
+        """
+        return self._obs_info['ObsID'].values
+
+    @property
+    def filtered_obs_ids(self) -> np.ndarray:
+        """
+        Property getter for the ObsIDs of the filtered set of observations associated with this
+        mission - for ObsIDs of ALL observations see the obs_ids property.
+
+        :return: The ObsIDs of filtered observations associated with this mission.
+        :rtype: np.ndarray
+        """
+        return self._obs_info[self.filter_array]
 
     # Then define internal methods
     def _obs_info_checks(self, new_info: pd.DataFrame):
