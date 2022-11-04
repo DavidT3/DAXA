@@ -28,6 +28,8 @@ class BaseMission(metaclass=ABCMeta):
 
         self._top_level_output_path = None
 
+        self._filter_allowed = None
+
     # Defining properties first
     @property
     def name(self) -> str:
@@ -118,6 +120,36 @@ class BaseMission(metaclass=ABCMeta):
         :param pd.DataFrame new_info: The new dataframe to update the all observation information.
         """
         pass
+
+    @property
+    def filter_array(self) -> np.ndarray:
+        """
+        A property getter for the 'filter' array, which is set by the filtering methods built-in to this class
+        (or can be set externally using the filter_array property setter) and controls which observations will
+        be downloaded and processed.
+
+        :return: An array of boolean values; True means that an observation is used, False means that it is not.
+        :rtype: np.ndarray
+        """
+        return self._filter_allowed
+
+    @filter_array.setter
+    def filter_array(self, new_filter_array: np.ndarray):
+        """
+        A property setter for the 'filter' array which controls which observations will be downloaded and processed.
+        The new passed filter array must be an array of boolean values, where True means an observation will be used
+        and False means it will not; the array must be the same length as the all_obs_info dataframe.
+
+        :param np.ndarray new_filter_array:
+        """
+        if new_filter_array.dtype != bool:
+            raise TypeError("Please pass an array of boolean values for the filter array.")
+        elif len(new_filter_array) != len(self._obs_info):
+            raise ValueError("Length of the filter array ({lf}) does not match the length of the dataframe containing"
+                             " all observation information for this mission ({la}).".format(lf=len(new_filter_array),
+                                                                                            la=len(self._obs_info)))
+        else:
+            self._filter_allowed = new_filter_array
 
     # Then define internal methods
     @staticmethod
