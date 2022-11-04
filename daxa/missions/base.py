@@ -1,8 +1,8 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/11/2022, 16:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/11/2022, 17:47. Copyright (c) The Contributors
 import os.path
 from abc import ABCMeta, abstractmethod
-from typing import List
+from typing import List, Union
 
 import numpy as np
 import pandas as pd
@@ -257,6 +257,17 @@ class BaseMission(metaclass=ABCMeta):
         """
         self._filter_allowed = np.full(len(self._obs_info), True)
 
+    def filter_on_obs_ids(self, allowed_obs_ids: Union[str, List[str]]):
+        """
+
+        :param allowed_obs_ids:
+        """
+        if not isinstance(allowed_obs_ids, list):
+            allowed_obs_ids = [allowed_obs_ids]
+
+        sel_obs_mask = self._obs_info['ObsID'].isin(allowed_obs_ids)
+        new_filter = self.filter_array*sel_obs_mask
+        self.filter_array = new_filter
 
 
 
