@@ -4,6 +4,9 @@ import os.path
 from abc import ABCMeta, abstractmethod, abstractproperty
 from typing import List
 import numpy as np
+import pandas as pd
+
+REQUIRED_INFO = ['ra', 'dec', 'ObsID', 'usable_science', 'start', 'duration']
 
 
 class BaseMission(metaclass=ABCMeta):
@@ -11,12 +14,12 @@ class BaseMission(metaclass=ABCMeta):
 
     """
     def __init__(self, output_archive_name: str, id_format: str, connection_url: str = None):
-
+        # TODO Perhaps remove the connection URL, we should probably try to go through astroquery as much
+        #  as possible
         self._miss_name = None
         self._miss_poss_insts = []
         self._id_format = id_format
-        self._obs_ids = []
-        self._obs_cen_coords = None
+        self._obs_info = None
 
         self._access_url = connection_url
 
@@ -91,11 +94,53 @@ class BaseMission(metaclass=ABCMeta):
         else:
             pass
 
-    # Then define methods
+    @property
     @abstractmethod
-    def fetch_obs_list(self):
-        self._obs_ids = []
-        self._obs_cen_coords = None
+    def all_obs_info(self) -> pd.DataFrame:
+        """
+        A property getter that returns the base dataframe containing information about all the observations available
+        for an instance of a mission class.
+
+        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'usable_science',
+            'start', 'duration'
+        :rtype: pd.DataFrame
+        """
+        return self._obs_info
+
+    @all_obs_info.setter
+    @abstractmethod
+    def all_obs_info(self, new_info: pd.DataFrame):
+        """
+        Abstract property setter (will be overwritten in every subclass) that allows the setting of a new
+        all-observation-information dataframe. This is the dataframe that contains information on every
+        possible observation for a mission.
+
+        :param pd.DataFrame new_info: The new dataframe to update the all observation information.
+        """
+        pass
+
+    # Then define internal methods
+    @staticmethod
+    def _obs_info_base_checks(new_info: pd.DataFrame):
+        """
+        Performs very simple checks on new inputs into the observation information dataframe, ensuring it at
+        has the minimum required columns.
+
+        :param pd.DataFrame new_info: The new dataframe of observation information that should be checked.
+        """
+        if not isinstance(new_info, pd.DataFrame) or not all([col in new_info.columns for col in REQUIRED_INFO]):
+            raise ValueError("New all_obs_info values must be a Pandas dataframe with AT LEAST the following "
+                             "columns; {}".format(', '.join(REQUIRED_INFO)))
+
+    # Then define user-facing methods
+    @abstractmethod
+    def fetch_obs_info(self):
+        """
+        The abstract method (i.e. will be overridden in every sub-class of BaseMission) that pulls basic information
+        on all observations for a given mission down from whatever server it lives on.
+        """
+        # self.all_obs_info = None
+        pass
 
 
 
