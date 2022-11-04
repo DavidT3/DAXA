@@ -10,7 +10,7 @@ class BaseMission(metaclass=ABCMeta):
     """
 
     """
-    def __init__(self, output_archive_name: str, connection_url: str, id_format: str):
+    def __init__(self, output_archive_name: str, id_format: str, connection_url: str = None):
 
         self._miss_name = None
         self._miss_poss_insts = []
@@ -92,8 +92,10 @@ class BaseMission(metaclass=ABCMeta):
             pass
 
     # Then define methods
-
-
+    @abstractmethod
+    def fetch_obs_list(self):
+        self._obs_ids = []
+        self._obs_cen_coords = None
 
 
 
