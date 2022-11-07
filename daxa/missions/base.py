@@ -1,8 +1,9 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 14:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 15:49. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
+from datetime import datetime
 from typing import List, Union
 
 import numpy as np
@@ -307,6 +308,7 @@ class BaseMission(metaclass=ABCMeta):
     def filter_on_obs_ids(self, allowed_obs_ids: Union[str, List[str]]):
         """
         This filtering method will select only observations with IDs specified by the allowed_obs_ids argument.
+
         Please be aware that filtering methods are cumulative, so running another method will not remove the
         filtering that has already been applied, you can use the reset_filter method for that.
 
@@ -343,6 +345,9 @@ class BaseMission(metaclass=ABCMeta):
         region defined using coordinates of the bottom left and top right corners. Observations are kept if they
         fall within the region.
 
+        Please be aware that filtering methods are cumulative, so running another method will not remove the
+        filtering that has already been applied, you can use the reset_filter method for that.
+
         :param SkyCoord/np.ndarray/list lower_left: The RA-Dec coordinates of the lower left corner of the
             rectangular region. This can be passed as a SkyCoord, or a list/array with two entries - this
             will then be used to create a SkyCoord which assumes the default frame of the current mission and
@@ -375,6 +380,9 @@ class BaseMission(metaclass=ABCMeta):
         This method allows you to filter the observations available for a mission based on a set of coordinates for
         which you wish to locate observations. The method searches for observations by the current mission that have
         central coordinates within the distance set by the search_distance argument.
+
+        Please be aware that filtering methods are cumulative, so running another method will not remove the
+        filtering that has already been applied, you can use the reset_filter method for that.
 
         :param list/np.ndarray/SkyCoord positions: The positions for which you wish to search for observations. They
             can be passed either as a list or nested list (i.e. [r, d] OR [[r1, d1], [r2, d2]]), a numpy array, or
@@ -424,10 +432,42 @@ class BaseMission(metaclass=ABCMeta):
         # And update the filter array
         self.filter_array = new_filter
 
-    def filter_on_time(self):
-        pass
+    def filter_on_time(self, start_datetime: datetime, end_datetime: datetime, over_run: bool = False):
+        """
+        This method allows you to filter observations for this mission based on when they were taken. A start
+        and end time are passed by the user, and observations that fall within that window are allowed through
+        the filter. The exact behaviour of this filtering method is controlled by the over_run argument, if set
+        to True then observations with a start or end within the search window will be selected, but if False
+        then only observations with a start AND end within the window are selected.
 
+        Please be aware that filtering methods are cumulative, so running another method will not remove the
+        filtering that has already been applied, you can use the reset_filter method for that.
 
+        :param datetime start_datetime: The beginning of the time window in which to search for observations.
+        :param datetime end_datetime: The end of the time window in which to search for observations.
+        :param bool over_run: This controls whether selected observations have to be entirely within the passed
+            time window or whether either a start or end time can be within the search window. If set
+            to True then observations with a start or end within the search window will be selected, but if False
+            then only observations with a start AND end within the window are selected.
+        """
+        # Just making a copy as I'm adding another column to the observation info dataframe
+        info_copy = self.all_obs_info.copy()
+        # Converting the duration column to a timedelta object, which can then be directly added to the start column
+        #  which should be a datetime object itself
+        info_copy['duration'] = pd.to_timedelta(info_copy['duration'], 's')
+        # Now creating an end column by adding duration to start
+        info_copy['end'] = info_copy.apply(lambda x: x.start + x.duration, axis=1)
+
+        # This just selects the exact behaviour of whether an observation is allowed through the filter or not.
+        if not over_run:
+            time_filter = (info_copy['start'] >= start_datetime) & (info_copy['end'] <= end_datetime)
+        else:
+            time_filter = ((info_copy['start'] >= start_datetime) & (info_copy['start'] <= end_datetime)) | \
+                          ((info_copy['end'] >= start_datetime) & (info_copy['end'] <= end_datetime))
+
+        # Combines the time filter with the existing filter and updates the property.
+        new_filter = self.filter_array * time_filter
+        self.filter_array = new_filter
 
 
 
