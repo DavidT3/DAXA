@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 15:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 16:37. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -12,7 +12,7 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord, BaseRADecFrame
 from astropy.units import Quantity
 
-REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable_science', 'start', 'duration']
+REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration']
 
 
 class BaseMission(metaclass=ABCMeta):
@@ -153,6 +153,10 @@ class BaseMission(metaclass=ABCMeta):
         :return: An array of boolean values; True means that an observation is used, False means that it is not.
         :rtype: np.ndarray
         """
+        # Bit cheesy but if a subclass forgot to setup a proper filter array, then we can do it automatically
+        if self._filter_allowed is None:
+            self.reset_filter()
+
         return self._filter_allowed
 
     @filter_array.setter
@@ -212,6 +216,20 @@ class BaseMission(metaclass=ABCMeta):
         :rtype: pd.DataFrame
         """
         return self._obs_info[self.filter_array]
+
+    @property
+    def usable(self) -> np.ndarray:
+        """
+        Property getter for the usable column of the all observation information dataframe. This usable column
+        describes whether a particular observation is actually usable by this module; for instance that the data
+        are suitable for scientific use (so far as can be identified by querying the storage service) and are not
+        proprietary. This usable property is the basis for the filter array, resetting the filter array will return
+        it to the values of this column.
+
+        :return:
+        :rtype: np.ndarray
+        """
+        return self.all_obs_info['usable'].values
 
     @property
     def ra_decs(self) -> SkyCoord:
@@ -287,10 +305,11 @@ class BaseMission(metaclass=ABCMeta):
 
     def reset_filter(self):
         """
-        Very simple method which simply resets the filter array, meaning that all observations will now be
-        downloaded and processed, and any filters applied to the current mission have been undone.
+        Very simple method which simply resets the filter array, meaning that all observations THAT HAVE BEEN
+        MARKED AS USABLE will now be downloaded and processed, and any filters applied to the current mission
+        have been undone.
         """
-        self._filter_allowed = np.full(len(self._obs_info), True)
+        self._filter_allowed = self.all_obs_info['usable'].values.copy()
 
     def check_obsid_pattern(self, obs_id_to_check: str):
         """
@@ -450,25 +469,39 @@ class BaseMission(metaclass=ABCMeta):
             to True then observations with a start or end within the search window will be selected, but if False
             then only observations with a start AND end within the window are selected.
         """
-        # Just making a copy as I'm adding another column to the observation info dataframe
-        info_copy = self.all_obs_info.copy()
-        # Converting the duration column to a timedelta object, which can then be directly added to the start column
-        #  which should be a datetime object itself
-        info_copy['duration'] = pd.to_timedelta(info_copy['duration'], 's')
-        # Now creating an end column by adding duration to start
-        info_copy['end'] = info_copy.apply(lambda x: x.start + x.duration, axis=1)
-
         # This just selects the exact behaviour of whether an observation is allowed through the filter or not.
         if not over_run:
-            time_filter = (info_copy['start'] >= start_datetime) & (info_copy['end'] <= end_datetime)
+            time_filter = (self.all_obs_info['start'] >= start_datetime) & (self.all_obs_info['end'] <= end_datetime)
         else:
-            time_filter = ((info_copy['start'] >= start_datetime) & (info_copy['start'] <= end_datetime)) | \
-                          ((info_copy['end'] >= start_datetime) & (info_copy['end'] <= end_datetime))
+            time_filter = ((self.all_obs_info['start'] >= start_datetime) &
+                           (self.all_obs_info['start'] <= end_datetime)) | \
+                          ((self.all_obs_info['end'] >= start_datetime) & (self.all_obs_info['end'] <= end_datetime))
 
         # Combines the time filter with the existing filter and updates the property.
         new_filter = self.filter_array * time_filter
         self.filter_array = new_filter
 
+    def info(self):
+        print("\n-----------------------------------------------------")
+        print("Number of Observations - {}".format(len(self)))
+        print("Number of Filtered Observations - {}".format(len(self.filtered_obs_info)))
+        print("Total Duration - {}".format(self.all_obs_info['duration'].sum()))
+        print("Total Filtered Duration - {}".format(self.filtered_obs_info['duration'].sum()))
+        print("Earliest Observation Date - {}".format(self.all_obs_info['start'].min()))
+        print("Latest Observation Date - {}".format(self.all_obs_info['end'].max()))
+        print("Earliest Filtered Observation Date - {}".format(self.filtered_obs_info['start'].min()))
+        print("Latest Filtered Observation Date - {}".format(self.filtered_obs_info['end'].max()))
+        print("-----------------------------------------------------\n")
+
+    def __len__(self):
+        """
+        The method triggered by the len() operator, returns the number of observations in the total, unfiltered,
+        info dataframe for this mission.
+
+        :return: The total number of observations available for this mission.
+        :rtype: int
+        """
+        return len(self._obs_info)
 
 
 
