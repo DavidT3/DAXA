@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 11:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 11:09. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -290,20 +290,32 @@ class BaseMission(metaclass=ABCMeta):
 
     def filter_on_obs_ids(self, allowed_obs_ids: Union[str, List[str]]):
         """
+        This filtering method will select only observations with IDs specified by the allowed_obs_ids argument.
+        Please be aware that filtering methods are cumulative, so running another method will not remove the
+        filtering that has already been applied, you can use the reset_filter method for that.
 
-        :param allowed_obs_ids:
+        :param str/List[str] allowed_obs_ids: The ObsID (or list of ObsIDs) that you wish to be let
+            through the filter.
         """
+        # Makes sure that the allowed_obs_ids variable is iterable over ObsIDs, even if just a single ObsID was passed
         if not isinstance(allowed_obs_ids, list):
             allowed_obs_ids = [allowed_obs_ids]
 
+        # Runs the ObsID pattern checks for all the passed ObsIDs
         oid_check = [oid for oid in allowed_obs_ids if not self.check_obsid_pattern(oid)]
         if len(oid_check) != 0:
+            # Raises an error if the ObsIDs don't all conform to the expected pattern defined for each mission.
             raise ValueError("One or more ObsID passed into this method does not match the expected pattern "
                              "for ObsIDs of this mission. The following are not compliant; "
                              "{}".format(', '.join(oid_check)))
 
+        # Uses the Pandas isin functionality to find the rows of the overall observation table that match the input
+        #  ObsIDs. This outputs a boolean array.
         sel_obs_mask = self._obs_info['ObsID'].isin(allowed_obs_ids)
+        # Said boolean array can be multiplied with the existing filter array (by default all ones, which means
+        #  all observations are let through) to produce an updated filter.
         new_filter = self.filter_array*sel_obs_mask
+        # Then we set the filter array property with that updated mask
         self.filter_array = new_filter
 
 
