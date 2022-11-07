@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/11/2022, 16:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 10:50. Copyright (c) The Contributors
 from datetime import datetime
 
 import numpy as np
@@ -18,7 +18,7 @@ class XMMPointed(BaseMission):
 
     """
     def __init__(self, output_archive_name: str, output_path: str = None):
-        super().__init__(output_archive_name, '', '^[0-9]{10}$')
+        super().__init__(output_archive_name, '')
 
         self._required_mission_specific_cols = ['proprietary_end_date', 'usable_proprietary']
         # if output_path is None:
@@ -45,17 +45,28 @@ class XMMPointed(BaseMission):
     @property
     def coord_frame(self) -> BaseRADecFrame:
         """
-        Abstract property getter for the coordinate frame of the RA-Decs of the observations of this mission. Must
-        be overwritten in any subclass. This is to ensure that any subclasses that people might add will definitely
-        set a coordinate frame, which is not guaranteed by having it done in the init.
+        Property getter for the coordinate frame of the RA-Decs of the observations of this mission.
 
-        :return: The coordinate frame of the RA-Dec
+        :return: The coordinate frame of the RA-Dec.
         :rtype: BaseRADecFrame
         """
         # The name is defined here because this is the pattern for this property defined in
         #  the BaseMission superclass
         self._miss_coord_frame = FK5
         return self._miss_coord_frame
+
+    @property
+    def id_regex(self) -> str:
+        """
+        Property getter for the regular expression (regex) pattern for observation IDs of this mission.
+
+        :return: The regex pattern for observation IDs.
+        :rtype: str
+        """
+        # The ObsID regular expression is defined here because this is the pattern for this property defined in
+        #  the BaseMission superclass
+        self._id_format = '^[0-9]{10}$'
+        return self._id_format
 
     @property
     def all_obs_info(self) -> pd.DataFrame:
