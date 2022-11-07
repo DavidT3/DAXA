@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/11/2022, 17:47. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 10:47. Copyright (c) The Contributors
 import os.path
 from abc import ABCMeta, abstractmethod
 from typing import List, Union
@@ -16,14 +16,14 @@ class BaseMission(metaclass=ABCMeta):
     """
 
     """
-    def __init__(self, output_archive_name: str, id_format: str, connection_url: str = None):
+    def __init__(self, output_archive_name: str, connection_url: str = None):
         # TODO Perhaps remove the connection URL, we should probably try to go through astroquery as much
         #  as possible
         self._miss_name = None
         self._miss_coord_frame = None
         self._required_mission_specific_cols = []
         self._miss_poss_insts = []
-        self._id_format = id_format
+        self._id_format = None
         self._obs_info = None
 
         self._access_url = connection_url
@@ -67,6 +67,23 @@ class BaseMission(metaclass=ABCMeta):
         #  property if they're making a new subclass, then replace None with the coordinate frame the mission uses.
         self._miss_coord_frame = None
         return self._miss_coord_frame
+
+    @property
+    @abstractmethod
+    def id_regex(self) -> str:
+        """
+        Abstract property getter for the regular expression (regex) pattern for observation IDs of this mission. Must
+        be overwritten in any subclass. This is to ensure that any subclasses that people might add will definitely
+        set an ID pattern, which is not guaranteed by having it done in the init.
+
+        :return: The regex pattern for observation IDs.
+        :rtype: str
+        """
+        # This is defined here (as well as in the init of BaseMission) because I want people to just copy this
+        #  property if they're making a new subclass, then replace None with the ID regular expression
+        #  the mission uses.
+        self._id_format = None
+        return self._id_format
 
     @property
     def mission_instruments(self) -> List[str]:
