@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 15:58. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 16:38. Copyright (c) The Contributors
 from datetime import datetime
 from warnings import warn
 
@@ -21,7 +21,7 @@ class XMMPointed(BaseMission):
     def __init__(self, output_archive_name: str, output_path: str = None):
         super().__init__(output_archive_name, '')
 
-        self._required_mission_specific_cols = ['proprietary_end_date', 'usable_proprietary']
+        self._required_mission_specific_cols = ['proprietary_end_date', 'usable_proprietary', 'usable_science']
         # if output_path is None:
         # output_path =
         self.fetch_obs_info()
@@ -120,11 +120,14 @@ class XMMPointed(BaseMission):
         # Now creating an end column by adding duration to start
         obs_info_pd['end'] = obs_info_pd.apply(lambda x: x.start + x.duration, axis=1)
 
-        obs_info_pd_cleaned = obs_info_pd[(~obs_info_pd['ra'].isna()) | (~obs_info_pd['dec'].isna())]
+        obs_info_pd['radec_good'] = obs_info_pd.apply(lambda x: np.isfinite(x['ra']) & np.isfinite(x['dec']), axis=1)
 
-        if len(obs_info_pd_cleaned) != len(obs_info_pd):
-            warn("{ta} of the {tot} observations located for this mission have been discarded due to NaN "
-                 "RA or Dec values".format(ta=len(obs_info_pd)-len(obs_info_pd_cleaned), tot=len(obs_info_pd)),
+        if len(obs_info_pd) != obs_info_pd['radec_good'].sum():
+            warn("{ta} of the {tot} observations located for this mission have been removed due to NaN "
+                 "RA or Dec values".format(ta=len(obs_info_pd)-obs_info_pd['radec_good'].sum(), tot=len(obs_info_pd)),
                  stacklevel=2)
+        obs_info_pd = obs_info_pd[obs_info_pd['radec_good']]
+        obs_info_pd['usable'] = obs_info_pd['usable_science'] * obs_info_pd['usable_proprietary']
+        del obs_info_pd['radec_good']
 
-        self.all_obs_info = obs_info_pd_cleaned
+        self.all_obs_info = obs_info_pd
