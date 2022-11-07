@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 12:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 14:36. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from astropy import units as u
 from astropy.coordinates import SkyCoord, BaseRADecFrame
+from astropy.units import Quantity
 
 REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable_science', 'start', 'duration']
 
@@ -142,6 +143,40 @@ class BaseMission(metaclass=ABCMeta):
             pass
 
     @property
+    def filter_array(self) -> np.ndarray:
+        """
+        A property getter for the 'filter' array, which is set by the filtering methods built-in to this class
+        (or can be set externally using the filter_array property setter) and controls which observations will
+        be downloaded and processed.
+
+        :return: An array of boolean values; True means that an observation is used, False means that it is not.
+        :rtype: np.ndarray
+        """
+        return self._filter_allowed
+
+    @filter_array.setter
+    def filter_array(self, new_filter_array: np.ndarray):
+        """
+        A property setter for the 'filter' array which controls which observations will be downloaded and processed.
+        The new passed filter array must be an array of boolean values, where True means an observation will be used
+        and False means it will not; the array must be the same length as the all_obs_info dataframe.
+
+        :param np.ndarray new_filter_array: The new filter array to be checked and stored. An array of boolean
+            values; True means that an observation is used, False means that it is not.
+        """
+        if new_filter_array.dtype != bool:
+            raise TypeError("Please pass an array of boolean values for the filter array.")
+        elif len(new_filter_array) != len(self._obs_info):
+            raise ValueError("Length of the filter array ({lf}) does not match the length of the dataframe containing"
+                             " all observation information for this mission ({la}).".format(lf=len(new_filter_array),
+                                                                                            la=len(self._obs_info)))
+        elif new_filter_array.sum() == 0:
+            raise ValueError("Every value in the filter array is False, meaning that no observations remain. As "
+                             "such the new filter array has not been accepted")
+        else:
+            self._filter_allowed = new_filter_array
+
+    @property
     @abstractmethod
     def all_obs_info(self) -> pd.DataFrame:
         """
@@ -167,37 +202,15 @@ class BaseMission(metaclass=ABCMeta):
         pass
 
     @property
-    def filter_array(self) -> np.ndarray:
+    def filtered_obs_info(self) -> pd.DataFrame:
         """
-        A property getter for the 'filter' array, which is set by the filtering methods built-in to this class
-        (or can be set externally using the filter_array property setter) and controls which observations will
-        be downloaded and processed.
+        A property getter that applies the current filter array to the dataframe of observation information, and
+        returns filtered dataframe containing all columns available for this mission.
 
-        :return: An array of boolean values; True means that an observation is used, False means that it is not.
-        :rtype: np.ndarray
+        :return: A filtered dataframe of observation information.
+        :rtype: pd.DataFrame
         """
-        return self._filter_allowed
-
-    @filter_array.setter
-    def filter_array(self, new_filter_array: np.ndarray):
-        """
-        A property setter for the 'filter' array which controls which observations will be downloaded and processed.
-        The new passed filter array must be an array of boolean values, where True means an observation will be used
-        and False means it will not; the array must be the same length as the all_obs_info dataframe.
-
-        :param np.ndarray new_filter_array:
-        """
-        if new_filter_array.dtype != bool:
-            raise TypeError("Please pass an array of boolean values for the filter array.")
-        elif len(new_filter_array) != len(self._obs_info):
-            raise ValueError("Length of the filter array ({lf}) does not match the length of the dataframe containing"
-                             " all observation information for this mission ({la}).".format(lf=len(new_filter_array),
-                                                                                            la=len(self._obs_info)))
-        elif new_filter_array.sum() == 0:
-            raise ValueError("Every value in the filter array is False, meaning that no observations remain. As "
-                             "such the new filter array has not been accepted")
-        else:
-            self._filter_allowed = new_filter_array
+        return self._obs_info[self.filter_array]
 
     @property
     def ra_decs(self) -> SkyCoord:
@@ -245,17 +258,6 @@ class BaseMission(metaclass=ABCMeta):
         :rtype: np.ndarray
         """
         return self._obs_info['ObsID'].values[self.filter_array]
-
-    @property
-    def filtered_obs_info(self) -> pd.DataFrame:
-        """
-        A property getter that applies the current filter array to the dataframe of observation information, and
-        returns filtered dataframe containing all columns available for this mission.
-
-        :return: A filtered dataframe of observation information.
-        :rtype: pd.DataFrame
-        """
-        return self._obs_info[self.filter_array]
 
     # Then define internal methods
     def _obs_info_checks(self, new_info: pd.DataFrame):
@@ -332,11 +334,14 @@ class BaseMission(metaclass=ABCMeta):
         # Then we set the filter array property with that updated mask
         self.filter_array = new_filter
 
+    # TODO Figure out how to support survey-type missions (i.e. eROSITA) that release large sweeps of the sky
+    #  when filtering based on position.
     def filter_on_rect_region(self, lower_left: Union[SkyCoord, np.ndarray, list],
                               upper_right: Union[SkyCoord, np.ndarray, list]):
         """
-        A method that filters observations based on whether they fall within a rectangular region defined using
-        coordinates of the bottom left and top right corners. Observations are kept if they fall within the region.
+        A method that filters observations based on whether their CENTRAL COORDINATE falls within a rectangular
+        region defined using coordinates of the bottom left and top right corners. Observations are kept if they
+        fall within the region.
 
         :param SkyCoord/np.ndarray/list lower_left: The RA-Dec coordinates of the lower left corner of the
             rectangular region. This can be passed as a SkyCoord, or a list/array with two entries - this
@@ -364,8 +369,60 @@ class BaseMission(metaclass=ABCMeta):
         new_filter = self.filter_array*box_filter
         self.filter_array = new_filter
 
-    def filter_on_positions(self):
-        pass
+    def filter_on_positions(self, positions: Union[list, np.ndarray, SkyCoord],
+                            search_distance: Union[Quantity, float, int]):
+        """
+        This method allows you to filter the observations available for a mission based on a set of coordinates for
+        which you wish to locate observations. The method searches for observations by the current mission that have
+        central coordinates within the distance set by the search_distance argument.
+
+        :param list/np.ndarray/SkyCoord positions: The positions for which you wish to search for observations. They
+            can be passed either as a list or nested list (i.e. [r, d] OR [[r1, d1], [r2, d2]]), a numpy array, or
+            an already defined SkyCoord. If a list or array is passed then the coordinates are assumed to be in
+            degrees, and the default mission frame will be used.
+        :param Quantity/float/int search_distance: The distance within which to search for observations by this
+            mission. Distance may be specified as an Astropy Quantity that can be converted to degrees, or as a
+            float/integer that will be assumed to be in units of degrees.
+        """
+
+        # Checks to see if a list/array of coordinates has been passed, in which case we convert it to a
+        #  SkyCoord (or a SkyCoord catalogue).
+        if isinstance(positions, (list, np.ndarray)):
+            positions = SkyCoord(positions, unit=u.deg, frame=self.coord_frame)
+
+        # This is slightly cheesy, but the search_around_sky method will only work if there is a catalog
+        #  of positions that is being searched around, rather than a single position. As such if a single
+        #  coordinate is being searched around I just duplicate it to placate the method. This won't produce
+        #  any ill effects because I just care about which observations are nearby, not which coordinates are
+        #  specifically matched to which observation.
+        if positions.isscalar:
+            positions = SkyCoord([positions.ra, positions.ra], [positions.dec, positions.dec], unit=u.deg,
+                                 frame=positions.frame)
+
+        # Checks to see whether a quantity has been passed, if not then the input is converted to an Astropy
+        #  quantity in units of degrees. If a Quantity that cannot be converted to degrees is passed then the
+        #  else part of the statement will error.
+        if not isinstance(search_distance, Quantity):
+            search_distance = Quantity(search_distance, 'deg')
+        else:
+            search_distance = search_distance.to('deg')
+
+        # Runs the 'catalogue matching' between all available observations and the input positions.
+        which_pos, which_obs, d2d, d3d = self.ra_decs.search_around_sky(positions, search_distance)
+
+        # Sets up a filter array that consists entirely of zeros initially (i.e. it would not let
+        #  any observations through).
+        pos_filter = np.zeros(self.filter_array.shape)
+        # The which_obs array indicates which of the entries in the table of observation info for this mission are
+        #  matching to one or more of the positions passed. The list(set()) setup is used to ensure that there are
+        #  no duplicates. These entries in the pos_filter are set to one, which will allow those observations through
+        pos_filter[np.array(list(set(which_obs)))] = 1
+        # Convert the array of ones and zeros to boolean, which is what the filter_array property setter wants
+        pos_filter = pos_filter.astype(bool)
+        # Create the combination of the existing filter array and the new position filter
+        new_filter = self.filter_array*pos_filter
+        # And update the filter array
+        self.filter_array = new_filter
 
     def filter_on_time(self):
         pass
