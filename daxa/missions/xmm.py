@@ -1,6 +1,7 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 10:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 13:59. Copyright (c) The Contributors
 from datetime import datetime
+from warnings import warn
 
 import numpy as np
 import pandas as pd
@@ -112,4 +113,11 @@ class XMMPointed(BaseMission):
         obs_info_pd = obs_info_pd.rename(columns={'observation_id': 'ObsID', 'with_science': 'usable_science',
                                                   'start_utc': 'start'})
 
-        self.all_obs_info = obs_info_pd
+        obs_info_pd_cleaned = obs_info_pd[(~obs_info_pd['ra'].isna()) | (~obs_info_pd['dec'].isna())]
+
+        if len(obs_info_pd_cleaned) != len(obs_info_pd):
+            warn("{ta} of the {tot} observations located for this mission have been discarded due to NaN "
+                 "RA or Dec values".format(ta=len(obs_info_pd)-len(obs_info_pd_cleaned), tot=len(obs_info_pd)),
+                 stacklevel=2)
+
+        self.all_obs_info = obs_info_pd_cleaned
