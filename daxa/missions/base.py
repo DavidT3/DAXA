@@ -1,6 +1,7 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 10:47. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 11:00. Copyright (c) The Contributors
 import os.path
+import re
 from abc import ABCMeta, abstractmethod
 from typing import List, Union
 
@@ -274,6 +275,19 @@ class BaseMission(metaclass=ABCMeta):
         """
         self._filter_allowed = np.full(len(self._obs_info), True)
 
+    def check_obsid_pattern(self, obs_id_to_check: str):
+        """
+        A simple method that will check an input ObsID against the ObsID regular expression pattern defined
+        for the current mission class. If the input ObsID is compliant with the regular expression then
+        True will be returned, if not then False will be returned.
+
+        :param str obs_id_to_check: The ObsID that we wish to check against the ID pattern.
+        :return: A boolean flag indicating whether the input ObsID is compliant with the ID regular expression.
+            True means that it is, False means it is not.
+        :rtype: bool
+        """
+        return bool(re.match(self.id_regex, obs_id_to_check))
+
     def filter_on_obs_ids(self, allowed_obs_ids: Union[str, List[str]]):
         """
 
@@ -281,6 +295,12 @@ class BaseMission(metaclass=ABCMeta):
         """
         if not isinstance(allowed_obs_ids, list):
             allowed_obs_ids = [allowed_obs_ids]
+
+        oid_check = [oid for oid in allowed_obs_ids if not self.check_obsid_pattern(oid)]
+        if len(oid_check) != 0:
+            raise ValueError("One or more ObsID passed into this method does not match the expected pattern "
+                             "for ObsIDs of this mission. The following are not compliant; "
+                             "{}".format(', '.join(oid_check)))
 
         sel_obs_mask = self._obs_info['ObsID'].isin(allowed_obs_ids)
         new_filter = self.filter_array*sel_obs_mask
