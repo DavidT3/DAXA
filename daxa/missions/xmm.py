@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 13:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 15:14. Copyright (c) The Contributors
 from datetime import datetime
 from warnings import warn
 
@@ -105,6 +105,7 @@ class XMMPointed(BaseMission):
 
         obs_info_pd['proprietary_end_date'] = pd.to_datetime(obs_info_pd['proprietary_end_date'], utc=False,
                                                              errors='coerce')
+        obs_info_pd['start_utc'] = pd.to_datetime(obs_info_pd['start_utc'], utc=False, errors='coerce')
         today = datetime.today()
 
         obs_info_pd['usable_proprietary'] = obs_info_pd['proprietary_end_date'].apply(
