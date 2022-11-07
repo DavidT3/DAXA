@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 15:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 15:58. Copyright (c) The Contributors
 from datetime import datetime
 from warnings import warn
 
@@ -113,6 +113,12 @@ class XMMPointed(BaseMission):
 
         obs_info_pd = obs_info_pd.rename(columns={'observation_id': 'ObsID', 'with_science': 'usable_science',
                                                   'start_utc': 'start'})
+
+        # Converting the duration column to a timedelta object, which can then be directly added to the start column
+        #  which should be a datetime object itself
+        obs_info_pd['duration'] = pd.to_timedelta(obs_info_pd['duration'], 's')
+        # Now creating an end column by adding duration to start
+        obs_info_pd['end'] = obs_info_pd.apply(lambda x: x.start + x.duration, axis=1)
 
         obs_info_pd_cleaned = obs_info_pd[(~obs_info_pd['ra'].isna()) | (~obs_info_pd['dec'].isna())]
 
