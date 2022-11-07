@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 12:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 12:13. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -334,14 +334,33 @@ class BaseMission(metaclass=ABCMeta):
 
     def filter_on_rect_region(self, lower_left: Union[SkyCoord, np.ndarray, list],
                               upper_right: Union[SkyCoord, np.ndarray, list]):
+        """
+        A method that filters observations based on whether they fall within a rectangular region defined using
+        coordinates of the bottom left and top right corners. Observations are kept if they fall within the region.
+
+        :param SkyCoord/np.ndarray/list lower_left: The RA-Dec coordinates of the lower left corner of the
+            rectangular region. This can be passed as a SkyCoord, or a list/array with two entries - this
+            will then be used to create a SkyCoord which assumes the default frame of the current mission and
+            that the inputs are in degrees.
+        :param SkyCoord/np.ndarray/list upper_right: The RA-Dec coordinates of the upper right corner of the
+            rectangular region. This can be passed as a SkyCoord, or a list/array with two entries - this
+            will then be used to create a SkyCoord which assumes the default frame of the current mission and
+            that the inputs are in degrees.
+        """
+        # Checks to see if the user has passed the lower left coordinate as an array with an RA and Dec, rather
+        #  than as an initialized SkyCoord. If so then we set up a SkyCoord assuming the default frame of this mission.
         if isinstance(lower_left, (list, np.ndarray)):
             lower_left = SkyCoord(*lower_left, unit=u.deg, frame=self.coord_frame)
 
+        # Checks to see if the user has passed the upper right coordinate as an array with an RA and Dec, rather
+        #  than as an initialized SkyCoord. If so then we set up a SkyCoord assuming the default frame of this mission.
         if isinstance(upper_right, (list, np.ndarray)):
             upper_right = SkyCoord(*upper_right, unit=u.deg, frame=self.coord_frame)
 
+        # Creates a filter based on a rectangular region defined by the input coordinates
         box_filter = (self.ra_decs.ra >= lower_left.ra) & (self.ra_decs.ra <= upper_right.ra) & \
                      (self.ra_decs.dec >= lower_left.dec) & (self.ra_decs.dec <= upper_right.dec)
+        # Updates the filter array
         new_filter = self.filter_array*box_filter
         self.filter_array = new_filter
 
