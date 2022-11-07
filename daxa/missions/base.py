@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 11:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 12:02. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -193,6 +193,9 @@ class BaseMission(metaclass=ABCMeta):
             raise ValueError("Length of the filter array ({lf}) does not match the length of the dataframe containing"
                              " all observation information for this mission ({la}).".format(lf=len(new_filter_array),
                                                                                             la=len(self._obs_info)))
+        elif new_filter_array.sum() == 0:
+            raise ValueError("Every value in the filter array is False, meaning that no observations remain. As "
+                             "such the new filter array has not been accepted")
         else:
             self._filter_allowed = new_filter_array
 
@@ -241,7 +244,7 @@ class BaseMission(metaclass=ABCMeta):
         :return: The ObsIDs of filtered observations associated with this mission.
         :rtype: np.ndarray
         """
-        return self._obs_info[self.filter_array]
+        return self._obs_info['ObsID'].values[self.filter_array]
 
     # Then define internal methods
     def _obs_info_checks(self, new_info: pd.DataFrame):
@@ -317,6 +320,25 @@ class BaseMission(metaclass=ABCMeta):
         new_filter = self.filter_array*sel_obs_mask
         # Then we set the filter array property with that updated mask
         self.filter_array = new_filter
+
+    def filter_on_rect_region(self, lower_left: Union[SkyCoord, np.ndarray, list],
+                              upper_right: Union[SkyCoord, np.ndarray, list]):
+        if isinstance(lower_left, (list, np.ndarray)):
+            lower_left = SkyCoord(*lower_left, unit=u.deg, frame=self.coord_frame)
+
+        if isinstance(upper_right, (list, np.ndarray)):
+            upper_right = SkyCoord(*upper_right, unit=u.deg, frame=self.coord_frame)
+
+        box_filter = (self.ra_decs.ra >= lower_left.ra) & (self.ra_decs.ra <= upper_right.ra) & \
+                     (self.ra_decs.dec >= lower_left.dec) & (self.ra_decs.dec <= upper_right.dec)
+        new_filter = self.filter_array*box_filter
+        self.filter_array = new_filter
+
+    def filter_on_positions(self):
+        pass
+
+    def filter_on_time(self):
+        pass
 
 
 
