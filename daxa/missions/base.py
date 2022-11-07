@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 16:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 16:50. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -17,25 +17,44 @@ REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration']
 
 class BaseMission(metaclass=ABCMeta):
     """
+    The superclass for all missions defined in this module. Mission classes will be for storing and interacting
+    with information about the available data for particular missions; including filtering the observations to be
+    prepared and reduced in various ways. The mission classes will also be responsible for providing a consistent
+    user experience of downloading data and generating processed archives.
 
+    :param str output_archive_name: The name under which the eventual processed archive will be stored.
     """
-    def __init__(self, output_archive_name: str, connection_url: str = None):
-        # TODO Perhaps remove the connection URL, we should probably try to go through astroquery as much
-        #  as possible
+    def __init__(self, output_archive_name: str):
+        """
+        The __init__ of the superclass for all missions defined in this module. Mission classes will be for storing
+        and interacting with information about the available data for particular missions; including filtering
+        the observations to be prepared and reduced in various ways. The mission classes will also be responsible
+        for providing a consistent user experience of downloading data and generating processed archives.
+
+        :param str output_archive_name: The name under which the eventual processed archive will be stored.
+        """
+        # The string name of this mission, is overwritten in abstract properties required to be implemented
+        #  by each subclass of BaseMission
         self._miss_name = None
+        # The coordinate frame (e.g. FK5, ICRS) which the mission defines its coordinates in. Again to be
+        #  overwritten in abstract properties in subclasses.
         self._miss_coord_frame = None
+        # This will be overwritten in the init of subclasses if there are any required columns specific to that
+        #  mission to be stored in the all observation information dataframe
         self._required_mission_specific_cols = []
         self._miss_poss_insts = []
+        # This is again overwritten in abstract properties in subclasses, but this is the regular expression which
+        #  observation identifiers for a particular mission must follow.
         self._id_format = None
+        # This is what the overall observation information dataframe is stored in.
         self._obs_info = None
-
-        self._access_url = connection_url
 
         self._archive_name = output_archive_name
         # self._archive_name_version =
 
         self._top_level_output_path = None
 
+        # This sets up the filter array storage attribute.
         self._filter_allowed = None
 
     # Defining properties first
