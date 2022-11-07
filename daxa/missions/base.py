@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 16:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 17:22. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -23,8 +23,10 @@ class BaseMission(metaclass=ABCMeta):
     user experience of downloading data and generating processed archives.
 
     :param str output_archive_name: The name under which the eventual processed archive will be stored.
+    :param str output_path: The top-level path where an archive directory will be created. If this is set to None
+            then the class will default to the value specified in the configuration file.
     """
-    def __init__(self, output_archive_name: str):
+    def __init__(self, output_archive_name: str, output_path: str):
         """
         The __init__ of the superclass for all missions defined in this module. Mission classes will be for storing
         and interacting with information about the available data for particular missions; including filtering
@@ -32,6 +34,8 @@ class BaseMission(metaclass=ABCMeta):
         for providing a consistent user experience of downloading data and generating processed archives.
 
         :param str output_archive_name: The name under which the eventual processed archive will be stored.
+        :param str output_path: The top-level path where an archive directory will be created. If this is set to None
+            then the class will default to the value specified in the configuration file.
         """
         # The string name of this mission, is overwritten in abstract properties required to be implemented
         #  by each subclass of BaseMission
@@ -52,7 +56,11 @@ class BaseMission(metaclass=ABCMeta):
         self._archive_name = output_archive_name
         # self._archive_name_version =
 
-        self._top_level_output_path = None
+        # TODO Once the config file can set a default output make sure that if output_path is None, it is set to
+        #  the default
+        # if output_path is None:
+        # output_path =
+        self._top_level_output_path = output_path
 
         # This sets up the filter array storage attribute.
         self._filter_allowed = None
