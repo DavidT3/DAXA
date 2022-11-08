@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2022, 09:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2022, 13:18. Copyright (c) The Contributors
 from datetime import datetime
 from warnings import warn
 
@@ -181,3 +181,6 @@ class XMMPointed(BaseMission):
         del obs_info_pd['radec_good']
 
         self.all_obs_info = obs_info_pd
+
+    def download(self):
+        AQXMMNewton.download_data('0201903501', filename='testo')
