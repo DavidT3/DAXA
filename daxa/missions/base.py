@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 17:22. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2022, 09:59. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -519,6 +519,16 @@ class BaseMission(metaclass=ABCMeta):
         print("Earliest Filtered Observation Date - {}".format(self.filtered_obs_info['start'].min()))
         print("Latest Filtered Observation Date - {}".format(self.filtered_obs_info['end'].max()))
         print("-----------------------------------------------------\n")
+
+    @abstractmethod
+    def download(self):
+        """
+        An abstract method to actually acquire and download the mission data that have not been filtered out (if
+        a filter has been applied, otherwise all data will be downloaded). This must be overwritten by every subclass
+        as each mission might need a different method of downloading the data, the same reason fetch_obs_info
+        must be overwritten in each subclass.
+        """
+        pass
 
     def __len__(self):
         """

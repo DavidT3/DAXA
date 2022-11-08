@@ -2,6 +2,8 @@
     <img src="https://raw.githubusercontent.com/DavidT3/DAXA/master/daxa/files/daxa-high-resolution-logo-black-on-white-background.png" width="500">
 </p>
 
+[![Documentation Status](https://readthedocs.org/projects/daxa/badge/?version=latest)](https://daxa.readthedocs.io/en/latest/?badge=latest)
+
 # What is Democratising Archival X-ray Astronomy (DAXA)?
 
 [I HAVE ONLY JUST STARTED WRITING THIS MODULE AND IT DOESN'T DO ANYTHING YET]
