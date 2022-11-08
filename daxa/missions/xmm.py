@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2022, 17:22. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2022, 09:59. Copyright (c) The Contributors
 from datetime import datetime
 from warnings import warn
 
@@ -110,6 +110,7 @@ class XMMPointed(BaseMission):
         self._obs_info_checks(new_info)
         self._obs_info = new_info
 
+    # Then define user-facing methods
     def fetch_obs_info(self):
         """
         This method uses the AstroQuery table access protocol implemented for the XMM Science Archive to pull
