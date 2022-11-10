@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/11/2022, 16:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/11/2022, 16:29. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -345,19 +345,24 @@ class BaseMission(metaclass=ABCMeta):
             insts = [insts]
 
         # This is clunky and inefficient but should be fine for these very limited purposes. It just checks whether
-        #  this module has a preferred name for a particular instrument
+        #  this module has a preferred name for a particular instrument. We can also make sure that there are no
+        #  duplicate instrument names here
         updated_insts = []
         altered = False
         for i in insts:
             if i in self._alt_miss_inst_names:
                 altered = True
-                updated_insts.append(self._alt_miss_inst_names[i])
+                inst_name = self._alt_miss_inst_names[i]
             else:
-                updated_insts.append(i)
+                inst_name = i
+
+            # Checks for duplicate names as we go along
+            if inst_name not in updated_insts:
+                updated_insts.append(inst_name)
 
         # I warn the user if the name(s) of instruments have been altered.
         if altered:
-            warn("Some instrument names were converted to alternative forms expected by this module, the instrument"
+            warn("Some instrument names were converted to alternative forms expected by this module, the instrument "
                  "names are now; {}".format(', '.join(updated_insts)))
 
         # This list comprehension checks that the input instrument names are in the allowed instruments for this
@@ -365,7 +370,8 @@ class BaseMission(metaclass=ABCMeta):
         inst_test = [i in self._miss_poss_insts for i in updated_insts]
         # If some aren't then we throw an error (hopefully quite an informative one).
         if not all(inst_test):
-            bad_inst = np.array(self._miss_poss_insts[np.array(inst_test)])
+            bad_inst = np.array(updated_insts)[~np.array(inst_test)]
+            print(bad_inst)
             raise ValueError("Some instruments ({bi}) are not associated with this mission, please choose from "
                              "the following; {ai}".format(bi=", ".join(bad_inst), ai=", ".join(self._miss_poss_insts)))
 
