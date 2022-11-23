@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/11/2022, 16:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 18:24. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -590,13 +590,13 @@ class BaseMission(metaclass=ABCMeta):
 
     def __len__(self):
         """
-        The method triggered by the len() operator, returns the number of observations in the total, unfiltered,
+        The method triggered by the len() operator, returns the number of observations in the filtered,
         info dataframe for this mission.
 
-        :return: The total number of observations available for this mission.
+        :return: The number of observations for this mission that made it through the filter.
         :rtype: int
         """
-        return len(self._obs_info)
+        return len(self.filtered_obs_info)
 
 
 
