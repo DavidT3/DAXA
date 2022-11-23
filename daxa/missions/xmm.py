@@ -1,6 +1,7 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2022, 13:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 18:42. Copyright (c) The Contributors
 from datetime import datetime
+from typing import List, Union
 from warnings import warn
 
 import numpy as np
@@ -24,7 +25,7 @@ class XMMPointed(BaseMission):
     :param str output_path: The top-level path where an archive directory will be created. If this is set to None
         then the class will default to the value specified in the configuration file.
     """
-    def __init__(self, output_archive_name: str, output_path: str = None):
+    def __init__(self, output_archive_name: str, output_path: str = None, insts: Union[List[str], str] = None):
         """
         The mission class init for pointed XMM observations (i.e. slewing observations are NOT included in the data
         accessed and collected by instances of this class). The available observation information is fetched from
@@ -33,9 +34,27 @@ class XMMPointed(BaseMission):
         :param str output_archive_name: The name under which the eventual processed archive will be stored.
         :param str output_path: The top-level path where an archive directory will be created. If this is set to None
             then the class will default to the value specified in the configuration file.
+        :param List[str]/str insts:
         """
         # Call the init of parent class with the required information
         super().__init__(output_archive_name, output_path)
+
+        # Sets the default instruments - #TODO Perhaps update these to include RGS and OM, once they're supported
+        if insts is None:
+            insts = ['M1', 'M2', 'PN']
+        else:
+            # Makes sure everything is uppercase
+            insts = [i.upper() for i in insts]
+
+        self._miss_poss_insts = ['M1', 'M2', 'PN', 'OM', 'R1', 'R2']
+        # The chosen_instruments property setter (see below) will use these to convert possible contractions
+        #  of XMM instrument names to the names that the module expects. The M1, M2 etc. form is not one I favour,
+        #  but is what the download function provided by astroquery wants, so that's what I'm going to use
+        self._alt_miss_inst_names = {'MOS1': 'M1', 'MOS2': 'M2', 'RGS1': 'R1', 'RGS2': 'R2'}
+
+        # Deliberately using the property setter, because it calls the internal _check_chos_insts function
+        #  to make sure the input instruments are allowed
+        self.chosen_instruments = insts
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
         self._required_mission_specific_cols = ['proprietary_end_date', 'usable_proprietary', 'usable_science']
@@ -182,5 +201,57 @@ class XMMPointed(BaseMission):
 
         self.all_obs_info = obs_info_pd
 
-    def download(self):
-        AQXMMNewton.download_data('0201903501', filename='testo')
+#     def download(self, num_cores: int = 1):
+#
+#         #
+#         #     for cmd_ind, cmd in enumerate(all_run):
+#         #         # These are just the relevant entries in all these lists for the current command
+#         #         # Just defined like this to save on line length for apply_async call.
+#         #         exp_type = all_type[cmd_ind]
+#         #         exp_path = all_path[cmd_ind]
+#         #         ext = all_extras[cmd_ind]
+#         #         src = source_rep[cmd_ind]
+#         #         pool.apply_async(execute_cmd, args=(str(cmd), str(exp_type), exp_path, ext, src),
+#         #                          error_callback=err_callback, callback=callback)
+#         #     pool.close()  # No more tasks can be added to the pool
+#         #     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+#
+#         if num_cores == 1:
+#             with tqdm(total=len(self)*len(self.chosen_instruments), desc="Downloading XMM data") as download_prog:
+#                 for obs_id in self.filtered_obs_ids:
+#                     for inst in self.chosen_instruments:
+#                         AQXMMNewton.download_data(obs_id, instname=inst, level='ODF',
+#                                                   filename='testo_{o}'.format(o=obs_id))
+#
+#
+# # with tqdm(total=len(all_run), desc="Generating products of type(s) " + prod_type_str,
+#         #           disable=disable) as gen, Pool(cores) as pool:
+#         #     def callback(results_in: Tuple[BaseProduct, str]):
+#         #         """
+#         #         Callback function for the apply_async pool method, gets called when a task finishes
+#         #         and something is returned.
+#         #         :param Tuple[BaseProduct, str] results_in: Results of the command call.
+#         #         """
+#         #         nonlocal gen  # The progress bar will need updating
+#         #         nonlocal results  # The dictionary the command call results are added to
+#         #         if results_in[0] is None:
+#         #             gen.update(1)
+#         #             return
+#         #         else:
+#         #             prod_obj, rel_src = results_in
+#         #             results[rel_src].append(prod_obj)
+#         #             gen.update(1)
+#         #
+#         #     def err_callback(err):
+#         #         """
+#         #         The callback function for errors that occur inside a task running in the pool.
+#         #         :param err: An error that occurred inside a task.
+#         #         """
+#         #         nonlocal raised_errors
+#         #         nonlocal gen
+#         #
+#         #         if err is not None:
+#         #             # Rather than throwing an error straight away I append them all to a list for later.
+#         #             raised_errors.append(err)
+#         #         gen.update(1)
+
