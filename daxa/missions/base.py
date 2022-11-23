@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 18:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 18:40. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -12,6 +12,8 @@ import pandas as pd
 from astropy import units as u
 from astropy.coordinates import SkyCoord, BaseRADecFrame
 from astropy.units import Quantity
+
+from daxa import OUTPUT
 
 REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration']
 
@@ -64,10 +66,20 @@ class BaseMission(metaclass=ABCMeta):
         self._archive_name = output_archive_name
         # self._archive_name_version =
 
-        # TODO Once the config file can set a default output make sure that if output_path is None, it is set to
-        #  the default
-        # if output_path is None:
-        # output_path =
+        # If no custom output path was passed on mission instance declaration then we overwrite that variable
+        #  with the default defined in the configuration file
+        if output_path is None:
+            output_path = OUTPUT
+        # If a custom path is passed, we ensure that its an absolute path
+        else:
+            output_path = os.path.abspath(output_path)
+
+        # Then we make sure that directory actually exists
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+
+        # This top level output path will have sub-directories in for the actual storing of raw files
+        #  and processed archives
         self._top_level_output_path = output_path
 
         # This sets up the filter array storage attribute.
