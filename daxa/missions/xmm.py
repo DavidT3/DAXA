@@ -1,8 +1,10 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 19:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 21:42. Copyright (c) The Contributors
 import os.path
+import tarfile
 from datetime import datetime
-from typing import List, Union
+from multiprocessing import Pool
+from typing import List, Union, Any
 from warnings import warn
 
 import numpy as np
@@ -13,6 +15,8 @@ from astroquery.esa.xmm_newton import XMMNewton as AQXMMNewton
 from tqdm import tqdm
 
 from .base import BaseMission
+from .. import NUM_CORES
+from ..exceptions import DaxaDownloadError
 
 log.setLevel(0)
 
@@ -78,8 +82,9 @@ class XMMPointed(BaseMission):
         :rtype: str
         """
         # The name is defined here because this is the pattern for this property defined in
-        #  the BaseMission superclass
-        self._miss_name = "XMM Pointed"
+        #  the BaseMission superclass. Suggest keeping this in a format that would be good for a unix
+        #  directory name (i.e. lowercase + underscores), because it will be used as a directory name
+        self._miss_name = "xmm_pointed"
         return self._miss_name
 
     @property
@@ -203,63 +208,115 @@ class XMMPointed(BaseMission):
 
         self.all_obs_info = obs_info_pd
 
-    def download(self, num_cores: int = 1):
+    @staticmethod
+    def _download_call(observation_id: str, instname: str, level: str, filename: str):
+        """
+        This internal static method is purely to enable parallelised downloads of XMM data, as defining
+        an internal function within download causes issues with pickling for multiprocessing.
 
-        #
-        #     for cmd_ind, cmd in enumerate(all_run):
-        #         # These are just the relevant entries in all these lists for the current command
-        #         # Just defined like this to save on line length for apply_async call.
-        #         exp_type = all_type[cmd_ind]
-        #         exp_path = all_path[cmd_ind]
-        #         ext = all_extras[cmd_ind]
-        #         src = source_rep[cmd_ind]
-        #         pool.apply_async(execute_cmd, args=(str(cmd), str(exp_type), exp_path, ext, src),
-        #                          error_callback=err_callback, callback=callback)
-        #     pool.close()  # No more tasks can be added to the pool
-        #     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+        :param str observation_id: The ObsID of the particular observation to be downloaded.
+        :param str instname: The instrument name of the data to be downloaded - the XMM download interface
+            in AstroQuery means that instruments must be downloaded one at a time.
+        :param str level: The level of data to be downloaded. Either ODF or PPS is supported.
+        :param str filename: The filename under which to save the downloaded tar.gz.
+        :return: A None value.
+        :rtype: Any
+        """
+        # Set this again here because otherwise its annoyingly verbose
+        log.setLevel(0)
+        # Download the requested data
+        AQXMMNewton.download_data(observation_id=observation_id, instname=instname, level=level,
+                                  filename=filename)
+        # As the above function downloads the data as compressed tars, we need to decompress them
+        with tarfile.open(filename+'.tar.gz') as zippo:
+            zippo.extractall(filename)
 
+        # Then remove the original compressed tar to save space
+        os.remove(filename+'.tar.gz')
+        return None
+
+    def download(self, num_cores: int = NUM_CORES):
+        """
+        A method to acquire and download the pointed XMM data that have not been filtered out (if a filter
+        has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
+        property will be downloaded, which is set either on declaration of the class instance or by passing
+        a new value to the chosen_instruments property.
+
+        :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
+            the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
+            of the cores available on the current machine.
+        """
+
+        # Ensures that a directory to store the 'raw' pointed XMM data in exists - once downloaded and unpacked
+        #  this data will be processed into a DAXA 'archive' and stored elsewhere.
         if not os.path.exists(self.top_level_path + self.name + '_raw'):
             os.makedirs(self.top_level_path + self.name + '_raw')
+        # Just make a shorthand variable for the storage path
         stor_dir = self.top_level_path + self.name + '_raw/'
 
+        # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
         if num_cores == 1:
             with tqdm(total=len(self)*len(self.chosen_instruments), desc="Downloading XMM data") as download_prog:
                 for obs_id in self.filtered_obs_ids:
                     for inst in self.chosen_instruments:
-                        AQXMMNewton.download_data(obs_id, instname=inst, level='ODF',
-                                                  filename=stor_dir + '{o}_{i}'.format(o=obs_id, i=inst))
+                        # Use the internal static method I set up which both downloads and unpacks the XMM data
+                        self._download_call(obs_id, instname=inst, level='ODF',
+                                            filename=stor_dir + '{o}_{i}'.format(o=obs_id, i=inst))
 
+                        # Update the progress bar
                         download_prog.update(1)
 
+        elif num_cores > 1:
+            # List to store any errors raised during download tasks
+            raised_errors = []
 
-# with tqdm(total=len(all_run), desc="Generating products of type(s) " + prod_type_str,
-        #           disable=disable) as gen, Pool(cores) as pool:
-        #     def callback(results_in: Tuple[BaseProduct, str]):
-        #         """
-        #         Callback function for the apply_async pool method, gets called when a task finishes
-        #         and something is returned.
-        #         :param Tuple[BaseProduct, str] results_in: Results of the command call.
-        #         """
-        #         nonlocal gen  # The progress bar will need updating
-        #         nonlocal results  # The dictionary the command call results are added to
-        #         if results_in[0] is None:
-        #             gen.update(1)
-        #             return
-        #         else:
-        #             prod_obj, rel_src = results_in
-        #             results[rel_src].append(prod_obj)
-        #             gen.update(1)
-        #
-        #     def err_callback(err):
-        #         """
-        #         The callback function for errors that occur inside a task running in the pool.
-        #         :param err: An error that occurred inside a task.
-        #         """
-        #         nonlocal raised_errors
-        #         nonlocal gen
-        #
-        #         if err is not None:
-        #             # Rather than throwing an error straight away I append them all to a list for later.
-        #             raised_errors.append(err)
-        #         gen.update(1)
+            # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
+            with tqdm(total=len(self)*len(self.chosen_instruments), desc="Downloading XMM data") as download_prog, \
+                    Pool(num_cores) as pool:
+
+                # The callback function is what is called on the successful completion of a _download_call
+                def callback(download_conf: Any):
+                    """
+                    Callback function for the apply_async pool method, gets called when a download task finishes
+                    without error.
+
+                    :param Any download_conf: The Null value confirming the operation is over.
+                    """
+                    nonlocal download_prog  # The progress bar will need updating
+                    download_prog.update(1)
+
+                # The error callback function is what happens when an exception is thrown during a _download_call
+                def err_callback(err):
+                    """
+                    The callback function for errors that occur inside a download task running in the pool.
+
+                    :param err: An error that occurred inside a task.
+                    """
+                    nonlocal raised_errors
+                    nonlocal download_prog
+
+                    if err is not None:
+                        # Rather than throwing an error straight away I append them all to a list for later.
+                        raised_errors.append(err)
+                    download_prog.update(1)
+
+                # Again nested for loop through ObsIDs and instruments
+                for obs_id in self.filtered_obs_ids:
+                    for inst in self.chosen_instruments:
+                        # Add each download task to the pool
+                        pool.apply_async(self._download_call,
+                                         kwds={'observation_id': obs_id, 'instname': inst, 'level': 'ODF',
+                                               'filename': stor_dir + '{o}_{i}'.format(o=obs_id, i=inst)},
+                                         error_callback=err_callback, callback=callback)
+                pool.close()  # No more tasks can be added to the pool
+                pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+
+            # Raise all the download errors at once, if there are any
+            if len(raised_errors) != 0:
+                raise DaxaDownloadError(str(raised_errors))
+
+        else:
+            raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
+
+
 
