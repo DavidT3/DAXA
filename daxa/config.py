@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 16:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 19:03. Copyright (c) The Contributors
 
 import os
 from configparser import ConfigParser
@@ -16,7 +16,7 @@ CONFIG_FILE = os.path.join(CONFIG_PATH, 'daxa.cfg')
 # Section of the config file for setting up the DAXA module
 DAXA_CONFIG = {"daxa_save_path": "daxa_output/",
                "global_archive_database": False,
-               "num_cores": None}
+               "num_cores": -1}
 
 if not os.path.exists(CONFIG_PATH):
     os.makedirs(CONFIG_PATH)
@@ -30,8 +30,8 @@ if not os.path.exists(CONFIG_FILE):
         daxa_default.write(new_cfg)
 
     # First time run triggers this message
-    raise warn("A configuration file has been created ({}); you can use it to control where DAXA "
-               "stores data by default.".format(CONFIG_FILE))
+    warn("A configuration file has been created ({}); you can use it to control where DAXA "
+         "stores data by default.".format(CONFIG_FILE))
 
 daxa_conf = ConfigParser()
 # It would be nice to do configparser interpolation, but it wouldn't handle the lists of energy values
@@ -44,7 +44,7 @@ if not isinstance(daxa_conf["DAXA_SETUP"]["global_archive_database"], bool):
 # Addressing works just the same
 daxa_conf = {str(sect): dict(daxa_conf[str(sect)]) for sect in daxa_conf}
 
-if daxa_conf["DAXA_SETUP"]["num_cores"] is not None:
+if daxa_conf["DAXA_SETUP"]["num_cores"] != -1:
     # If the user has set a number of cores in the config file then we'll use that.
     NUM_CORES = int(daxa_conf["DAXA_SETUP"]["num_cores"])
 else:
