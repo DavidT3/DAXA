@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 18:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 19:01. Copyright (c) The Contributors
+import os.path
 from datetime import datetime
 from typing import List, Union
 from warnings import warn
@@ -9,6 +10,7 @@ import pandas as pd
 from astropy.coordinates import BaseRADecFrame, FK5
 from astroquery import log
 from astroquery.esa.xmm_newton import XMMNewton as AQXMMNewton
+from tqdm import tqdm
 
 from .base import BaseMission
 
@@ -201,57 +203,63 @@ class XMMPointed(BaseMission):
 
         self.all_obs_info = obs_info_pd
 
-#     def download(self, num_cores: int = 1):
-#
-#         #
-#         #     for cmd_ind, cmd in enumerate(all_run):
-#         #         # These are just the relevant entries in all these lists for the current command
-#         #         # Just defined like this to save on line length for apply_async call.
-#         #         exp_type = all_type[cmd_ind]
-#         #         exp_path = all_path[cmd_ind]
-#         #         ext = all_extras[cmd_ind]
-#         #         src = source_rep[cmd_ind]
-#         #         pool.apply_async(execute_cmd, args=(str(cmd), str(exp_type), exp_path, ext, src),
-#         #                          error_callback=err_callback, callback=callback)
-#         #     pool.close()  # No more tasks can be added to the pool
-#         #     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
-#
-#         if num_cores == 1:
-#             with tqdm(total=len(self)*len(self.chosen_instruments), desc="Downloading XMM data") as download_prog:
-#                 for obs_id in self.filtered_obs_ids:
-#                     for inst in self.chosen_instruments:
-#                         AQXMMNewton.download_data(obs_id, instname=inst, level='ODF',
-#                                                   filename='testo_{o}'.format(o=obs_id))
-#
-#
-# # with tqdm(total=len(all_run), desc="Generating products of type(s) " + prod_type_str,
-#         #           disable=disable) as gen, Pool(cores) as pool:
-#         #     def callback(results_in: Tuple[BaseProduct, str]):
-#         #         """
-#         #         Callback function for the apply_async pool method, gets called when a task finishes
-#         #         and something is returned.
-#         #         :param Tuple[BaseProduct, str] results_in: Results of the command call.
-#         #         """
-#         #         nonlocal gen  # The progress bar will need updating
-#         #         nonlocal results  # The dictionary the command call results are added to
-#         #         if results_in[0] is None:
-#         #             gen.update(1)
-#         #             return
-#         #         else:
-#         #             prod_obj, rel_src = results_in
-#         #             results[rel_src].append(prod_obj)
-#         #             gen.update(1)
-#         #
-#         #     def err_callback(err):
-#         #         """
-#         #         The callback function for errors that occur inside a task running in the pool.
-#         #         :param err: An error that occurred inside a task.
-#         #         """
-#         #         nonlocal raised_errors
-#         #         nonlocal gen
-#         #
-#         #         if err is not None:
-#         #             # Rather than throwing an error straight away I append them all to a list for later.
-#         #             raised_errors.append(err)
-#         #         gen.update(1)
+    def download(self, num_cores: int = 1):
+
+        #
+        #     for cmd_ind, cmd in enumerate(all_run):
+        #         # These are just the relevant entries in all these lists for the current command
+        #         # Just defined like this to save on line length for apply_async call.
+        #         exp_type = all_type[cmd_ind]
+        #         exp_path = all_path[cmd_ind]
+        #         ext = all_extras[cmd_ind]
+        #         src = source_rep[cmd_ind]
+        #         pool.apply_async(execute_cmd, args=(str(cmd), str(exp_type), exp_path, ext, src),
+        #                          error_callback=err_callback, callback=callback)
+        #     pool.close()  # No more tasks can be added to the pool
+        #     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+
+        if not os.path.exists(self.top_level_path + self.name + '_raw'):
+            os.makedirs(self.top_level_path + self.name + '_raw')
+        stor_dir = self.top_level_path + self.name + '_raw/'
+
+        if num_cores == 1:
+            with tqdm(total=len(self)*len(self.chosen_instruments), desc="Downloading XMM data") as download_prog:
+                for obs_id in self.filtered_obs_ids:
+                    for inst in self.chosen_instruments:
+                        AQXMMNewton.download_data(obs_id, instname=inst, level='ODF',
+                                                  filename=stor_dir + '{o}_{i}'.format(o=obs_id, i=inst))
+
+                        download_prog.update(1)
+
+
+# with tqdm(total=len(all_run), desc="Generating products of type(s) " + prod_type_str,
+        #           disable=disable) as gen, Pool(cores) as pool:
+        #     def callback(results_in: Tuple[BaseProduct, str]):
+        #         """
+        #         Callback function for the apply_async pool method, gets called when a task finishes
+        #         and something is returned.
+        #         :param Tuple[BaseProduct, str] results_in: Results of the command call.
+        #         """
+        #         nonlocal gen  # The progress bar will need updating
+        #         nonlocal results  # The dictionary the command call results are added to
+        #         if results_in[0] is None:
+        #             gen.update(1)
+        #             return
+        #         else:
+        #             prod_obj, rel_src = results_in
+        #             results[rel_src].append(prod_obj)
+        #             gen.update(1)
+        #
+        #     def err_callback(err):
+        #         """
+        #         The callback function for errors that occur inside a task running in the pool.
+        #         :param err: An error that occurred inside a task.
+        #         """
+        #         nonlocal raised_errors
+        #         nonlocal gen
+        #
+        #         if err is not None:
+        #             # Rather than throwing an error straight away I append them all to a list for later.
+        #             raised_errors.append(err)
+        #         gen.update(1)
 

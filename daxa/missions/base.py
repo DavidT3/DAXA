@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 18:41. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 19:01. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -71,9 +71,9 @@ class BaseMission(metaclass=ABCMeta):
         if output_path is None:
             # Don't need to abs path OUTPUT because that already happens in config.py
             output_path = OUTPUT
-        # If a custom path is passed, we ensure that its an absolute path
+        # If a custom path is passed, we ensure that it's an absolute path
         else:
-            output_path = os.path.abspath(output_path)
+            output_path = os.path.abspath(output_path) + '/'
 
         # Then we make sure that directory actually exists
         if not os.path.exists(output_path):
