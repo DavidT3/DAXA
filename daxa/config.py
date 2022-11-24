@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 19:20. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 19:24. Copyright (c) The Contributors
 
 import os
 from configparser import ConfigParser
@@ -51,7 +51,7 @@ if cfg_cores != -1 and cfg_cores <= os.cpu_count():
     NUM_CORES = int(daxa_conf["DAXA_SETUP"]["num_cores"])
 elif cfg_cores != -1:
     raise DAXAConfigError("You have set a num_cores values that is greater than the number of cores available in"
-                          " the current system.")
+                          " the current system ({}).".format(os.cpu_count()))
 else:
     # Going to allow multi-core processing to use 90% of available cores by default, but
     # this can be over-ridden in individual SAS calls.
