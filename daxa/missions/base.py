@@ -1,16 +1,19 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2022, 09:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 19:01. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
 from typing import List, Union
+from warnings import warn
 
 import numpy as np
 import pandas as pd
 from astropy import units as u
 from astropy.coordinates import SkyCoord, BaseRADecFrame
 from astropy.units import Quantity
+
+from daxa import OUTPUT
 
 REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration']
 
@@ -46,7 +49,14 @@ class BaseMission(metaclass=ABCMeta):
         # This will be overwritten in the init of subclasses if there are any required columns specific to that
         #  mission to be stored in the all observation information dataframe
         self._required_mission_specific_cols = []
+        # All possible instruments are stored in this attribute in the init of a subclass
         self._miss_poss_insts = []
+        # This attribute stores the instruments which have actually been chosen
+        self._chos_insts = []
+        # This is for missions that might have multiple common names for instruments, so they can be converted
+        #  to the version expected by this module.
+        self._alt_miss_inst_names = {}
+
         # This is again overwritten in abstract properties in subclasses, but this is the regular expression which
         #  observation identifiers for a particular mission must follow.
         self._id_format = None
@@ -56,10 +66,21 @@ class BaseMission(metaclass=ABCMeta):
         self._archive_name = output_archive_name
         # self._archive_name_version =
 
-        # TODO Once the config file can set a default output make sure that if output_path is None, it is set to
-        #  the default
-        # if output_path is None:
-        # output_path =
+        # If no custom output path was passed on mission instance declaration then we overwrite that variable
+        #  with the default defined in the configuration file
+        if output_path is None:
+            # Don't need to abs path OUTPUT because that already happens in config.py
+            output_path = OUTPUT
+        # If a custom path is passed, we ensure that it's an absolute path
+        else:
+            output_path = os.path.abspath(output_path) + '/'
+
+        # Then we make sure that directory actually exists
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+
+        # This top level output path will have sub-directories in for the actual storing of raw files
+        #  and processed archives
         self._top_level_output_path = output_path
 
         # This sets up the filter array storage attribute.
@@ -116,18 +137,28 @@ class BaseMission(metaclass=ABCMeta):
         return self._id_format
 
     @property
-    def mission_instruments(self) -> List[str]:
+    def all_mission_instruments(self) -> List[str]:
         """
-        Property getter for the names of the instruments associated with this mission which will be
-        processed into the current archive by DAXA functions.
+        Property getter for the names of all possible instruments associated with this mission.
 
-        :return: A list of instrument names
+        :return: A list of instrument names.
         :rtype: List[str]
         """
         return self._miss_poss_insts
 
-    @mission_instruments.setter
-    def mission_instruments(self, new_insts: List[str]):
+    @property
+    def chosen_instruments(self) -> List[str]:
+        """
+        Property getter for the names of the currently selected instruments associated with this mission which
+        will be processed into an archive by DAXA functions.
+
+        :return: A list of instrument names
+        :rtype: List[str]
+        """
+        return self._chos_insts
+
+    @chosen_instruments.setter
+    def chosen_instruments(self, new_insts: List[str]):
         """
         Property setter for the instruments associated with this mission that should be processed. This property
         may only be set to a list that is a subset of the existing property value.
@@ -135,13 +166,7 @@ class BaseMission(metaclass=ABCMeta):
         :param List[str] new_insts: The new list of instruments associated with this mission which should
             be processed into the archive.
         """
-        inst_test = [ni in self._miss_poss_insts for ni in new_insts]
-        if all(inst_test):
-            self._miss_poss_insts = new_insts
-        else:
-            bad_inst = np.array(self._miss_poss_insts[np.array(inst_test)])
-            raise ValueError("The following new instruments were not already associated with this mission; "
-                             "{bi}".format(bi=", ".join(bad_inst)))
+        self._chos_insts = self._check_chos_insts(new_insts)
 
     @property
     def top_level_path(self) -> str:
@@ -319,6 +344,52 @@ class BaseMission(metaclass=ABCMeta):
                                                               REQUIRED_COLS + self._required_mission_specific_cols]):
             raise ValueError("New all_obs_info values for this mission must be a Pandas dataframe with the following "
                              "columns; {}".format(', '.join(REQUIRED_COLS+self._required_mission_specific_cols)))
+
+    def _check_chos_insts(self, insts: Union[List[str], str]):
+        """
+        An internal function to perform some checks on the validity of chosen instrument names for a given mission.
+
+        :param List[str]/str insts:
+        :return: The list of instruments (possibly altered to match formats expected by this module).
+        :rtype: List
+        """
+        # Just makes sure we can iterate across instrument(s), regardless of how many there are
+        if not isinstance(insts, list):
+            insts = [insts]
+
+        # This is clunky and inefficient but should be fine for these very limited purposes. It just checks whether
+        #  this module has a preferred name for a particular instrument. We can also make sure that there are no
+        #  duplicate instrument names here
+        updated_insts = []
+        altered = False
+        for i in insts:
+            if i in self._alt_miss_inst_names:
+                altered = True
+                inst_name = self._alt_miss_inst_names[i]
+            else:
+                inst_name = i
+
+            # Checks for duplicate names as we go along
+            if inst_name not in updated_insts:
+                updated_insts.append(inst_name)
+
+        # I warn the user if the name(s) of instruments have been altered.
+        if altered:
+            warn("Some instrument names were converted to alternative forms expected by this module, the instrument "
+                 "names are now; {}".format(', '.join(updated_insts)))
+
+        # This list comprehension checks that the input instrument names are in the allowed instruments for this
+        #  particular mission
+        inst_test = [i in self._miss_poss_insts for i in updated_insts]
+        # If some aren't then we throw an error (hopefully quite an informative one).
+        if not all(inst_test):
+            bad_inst = np.array(updated_insts)[~np.array(inst_test)]
+            print(bad_inst)
+            raise ValueError("Some instruments ({bi}) are not associated with this mission, please choose from "
+                             "the following; {ai}".format(bi=", ".join(bad_inst), ai=", ".join(self._miss_poss_insts)))
+
+        # Return the possibly altered instruments
+        return updated_insts
 
     # Then define user-facing methods
     @abstractmethod
@@ -532,13 +603,13 @@ class BaseMission(metaclass=ABCMeta):
 
     def __len__(self):
         """
-        The method triggered by the len() operator, returns the number of observations in the total, unfiltered,
+        The method triggered by the len() operator, returns the number of observations in the filtered,
         info dataframe for this mission.
 
-        :return: The total number of observations available for this mission.
+        :return: The number of observations for this mission that made it through the filter.
         :rtype: int
         """
-        return len(self._obs_info)
+        return len(self.filtered_obs_info)
 
 
 

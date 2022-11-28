@@ -1,6 +1,10 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2022, 13:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/11/2022, 16:58. Copyright (c) The Contributors
+import os.path
+import tarfile
 from datetime import datetime
+from multiprocessing import Pool
+from typing import List, Union, Any
 from warnings import warn
 
 import numpy as np
@@ -8,8 +12,11 @@ import pandas as pd
 from astropy.coordinates import BaseRADecFrame, FK5
 from astroquery import log
 from astroquery.esa.xmm_newton import XMMNewton as AQXMMNewton
+from tqdm import tqdm
 
 from .base import BaseMission
+from .. import NUM_CORES
+from ..exceptions import DaxaDownloadError
 
 log.setLevel(0)
 
@@ -24,7 +31,7 @@ class XMMPointed(BaseMission):
     :param str output_path: The top-level path where an archive directory will be created. If this is set to None
         then the class will default to the value specified in the configuration file.
     """
-    def __init__(self, output_archive_name: str, output_path: str = None):
+    def __init__(self, output_archive_name: str, output_path: str = None, insts: Union[List[str], str] = None):
         """
         The mission class init for pointed XMM observations (i.e. slewing observations are NOT included in the data
         accessed and collected by instances of this class). The available observation information is fetched from
@@ -33,9 +40,27 @@ class XMMPointed(BaseMission):
         :param str output_archive_name: The name under which the eventual processed archive will be stored.
         :param str output_path: The top-level path where an archive directory will be created. If this is set to None
             then the class will default to the value specified in the configuration file.
+        :param List[str]/str insts:
         """
         # Call the init of parent class with the required information
         super().__init__(output_archive_name, output_path)
+
+        # Sets the default instruments - #TODO Perhaps update these to include RGS and OM, once they're supported
+        if insts is None:
+            insts = ['M1', 'M2', 'PN']
+        else:
+            # Makes sure everything is uppercase
+            insts = [i.upper() for i in insts]
+
+        self._miss_poss_insts = ['M1', 'M2', 'PN', 'OM', 'R1', 'R2']
+        # The chosen_instruments property setter (see below) will use these to convert possible contractions
+        #  of XMM instrument names to the names that the module expects. The M1, M2 etc. form is not one I favour,
+        #  but is what the download function provided by astroquery wants, so that's what I'm going to use
+        self._alt_miss_inst_names = {'MOS1': 'M1', 'MOS2': 'M2', 'RGS1': 'R1', 'RGS2': 'R2'}
+
+        # Deliberately using the property setter, because it calls the internal _check_chos_insts function
+        #  to make sure the input instruments are allowed
+        self.chosen_instruments = insts
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
         self._required_mission_specific_cols = ['proprietary_end_date', 'usable_proprietary', 'usable_science']
@@ -57,8 +82,9 @@ class XMMPointed(BaseMission):
         :rtype: str
         """
         # The name is defined here because this is the pattern for this property defined in
-        #  the BaseMission superclass
-        self._miss_name = "XMM Pointed"
+        #  the BaseMission superclass. Suggest keeping this in a format that would be good for a unix
+        #  directory name (i.e. lowercase + underscores), because it will be used as a directory name
+        self._miss_name = "xmm_pointed"
         return self._miss_name
 
     @property
@@ -182,5 +208,141 @@ class XMMPointed(BaseMission):
 
         self.all_obs_info = obs_info_pd
 
-    def download(self):
-        AQXMMNewton.download_data('0201903501', filename='testo')
+    @staticmethod
+    def _download_call(observation_id: str, insts: List[str], level: str, filename: str):
+        """
+        This internal static method is purely to enable parallelised downloads of XMM data, as defining
+        an internal function within download causes issues with pickling for multiprocessing.
+
+        :param str observation_id: The ObsID of the particular observation to be downloaded.
+        :param List[str] insts: The names of instruments to be retained - currently all instruments ODFs
+            must be downloaded, and then irrelevant instruments must be deleted. The names must be
+            in the two-character format expected by the XSA AIO URLs (i.e. PN, M1, R1, OM, etc.)
+        :param str level: The level of data to be downloaded. Either ODF or PPS is supported.
+        :param str filename: The filename under which to save the downloaded tar.gz.
+        :return: A None value.
+        :rtype: Any
+        """
+        # Set this again here because otherwise its annoyingly verbose
+        log.setLevel(0)
+        # Download the requested data
+        AQXMMNewton.download_data(observation_id=observation_id, level=level, filename=filename)
+        # As the above function downloads the data as compressed tars, we need to decompress them
+        with tarfile.open(filename+'.tar.gz') as zippo:
+            zippo.extractall(filename)
+
+        # Then remove the original compressed tar to save space
+        os.remove(filename+'.tar.gz')
+
+        # Finally, the actual telescope data is in another .tar, so we expand that as well, first making
+        #  sure that there is only one tar in the observations folder
+        rel_tars = [f for f in os.listdir(filename) if "{o}.tar".format(o=observation_id) in f.lower()]
+
+        # Checks to make sure there is only one tarred file (otherwise I don't know what this will be
+        #  unzipping)
+        if len(rel_tars) == 0 or len(rel_tars) > 1:
+            raise ValueError("Multiple tarred ODFs were detected for {o}, and cannot be "
+                             "unpacked".format(o=observation_id))
+
+        # Variable to store the name of the tarred file (included revolution number and ObsID, hence why
+        #  I don't just construct it myself, don't know the revolution number a priori)
+        to_untar = filename + '/{}'.format(rel_tars[0])
+
+        # Open and untar the file
+        with tarfile.open(to_untar) as tarro:
+            untar_path = to_untar.split('.')[0] + '/'
+            tarro.extractall(untar_path)
+        # Then remove the tarred file to minimise storage usage
+        os.remove(to_untar)
+
+        # This part removes ODFs which belong to instruments the user hasn't requested, but we have
+        #  to make sure to add the code 'SC' otherwise spacecraft information files will get removed
+        to_keep = insts + ['SC']
+        throw_away = [f for f in os.listdir(untar_path) if f.split(observation_id+'_')[1][:2] not in to_keep]
+        for for_removal in throw_away:
+            os.remove(untar_path + for_removal)
+
+        return None
+
+    def download(self, num_cores: int = NUM_CORES):
+        """
+        A method to acquire and download the pointed XMM data that have not been filtered out (if a filter
+        has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
+        property will be downloaded, which is set either on declaration of the class instance or by passing
+        a new value to the chosen_instruments property.
+
+        :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
+            the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
+            of the cores available on the current machine.
+        """
+
+        # Ensures that a directory to store the 'raw' pointed XMM data in exists - once downloaded and unpacked
+        #  this data will be processed into a DAXA 'archive' and stored elsewhere.
+        if not os.path.exists(self.top_level_path + self.name + '_raw'):
+            os.makedirs(self.top_level_path + self.name + '_raw')
+        # Just make a shorthand variable for the storage path
+        stor_dir = self.top_level_path + self.name + '_raw/'
+
+        # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
+        if num_cores == 1:
+            with tqdm(total=len(self), desc="Downloading XMM data") as download_prog:
+                for obs_id in self.filtered_obs_ids:
+                    # Use the internal static method I set up which both downloads and unpacks the XMM data
+                    self._download_call(obs_id, insts=self.chosen_instruments, level='ODF',
+                                        filename=stor_dir + '{o}'.format(o=obs_id))
+                    # Update the progress bar
+                    download_prog.update(1)
+
+        elif num_cores > 1:
+            # List to store any errors raised during download tasks
+            raised_errors = []
+
+            # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
+            with tqdm(total=len(self), desc="Downloading XMM data") as download_prog, \
+                    Pool(num_cores) as pool:
+
+                # The callback function is what is called on the successful completion of a _download_call
+                def callback(download_conf: Any):
+                    """
+                    Callback function for the apply_async pool method, gets called when a download task finishes
+                    without error.
+
+                    :param Any download_conf: The Null value confirming the operation is over.
+                    """
+                    nonlocal download_prog  # The progress bar will need updating
+                    download_prog.update(1)
+
+                # The error callback function is what happens when an exception is thrown during a _download_call
+                def err_callback(err):
+                    """
+                    The callback function for errors that occur inside a download task running in the pool.
+
+                    :param err: An error that occurred inside a task.
+                    """
+                    nonlocal raised_errors
+                    nonlocal download_prog
+
+                    if err is not None:
+                        # Rather than throwing an error straight away I append them all to a list for later.
+                        raised_errors.append(err)
+                    download_prog.update(1)
+
+                # Again nested for loop through ObsIDs and instruments
+                for obs_id in self.filtered_obs_ids:
+                    # Add each download task to the pool
+                    pool.apply_async(self._download_call,
+                                     kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
+                                           'level': 'ODF', 'filename': stor_dir + '{o}'.format(o=obs_id)},
+                                     error_callback=err_callback, callback=callback)
+                pool.close()  # No more tasks can be added to the pool
+                pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+
+            # Raise all the download errors at once, if there are any
+            if len(raised_errors) != 0:
+                raise DaxaDownloadError(str(raised_errors))
+
+        else:
+            raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
+
+
+
