@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 21:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/11/2022, 16:58. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -209,14 +209,15 @@ class XMMPointed(BaseMission):
         self.all_obs_info = obs_info_pd
 
     @staticmethod
-    def _download_call(observation_id: str, instname: str, level: str, filename: str):
+    def _download_call(observation_id: str, insts: List[str], level: str, filename: str):
         """
         This internal static method is purely to enable parallelised downloads of XMM data, as defining
         an internal function within download causes issues with pickling for multiprocessing.
 
         :param str observation_id: The ObsID of the particular observation to be downloaded.
-        :param str instname: The instrument name of the data to be downloaded - the XMM download interface
-            in AstroQuery means that instruments must be downloaded one at a time.
+        :param List[str] insts: The names of instruments to be retained - currently all instruments ODFs
+            must be downloaded, and then irrelevant instruments must be deleted. The names must be
+            in the two-character format expected by the XSA AIO URLs (i.e. PN, M1, R1, OM, etc.)
         :param str level: The level of data to be downloaded. Either ODF or PPS is supported.
         :param str filename: The filename under which to save the downloaded tar.gz.
         :return: A None value.
@@ -225,14 +226,42 @@ class XMMPointed(BaseMission):
         # Set this again here because otherwise its annoyingly verbose
         log.setLevel(0)
         # Download the requested data
-        AQXMMNewton.download_data(observation_id=observation_id, instname=instname, level=level,
-                                  filename=filename)
+        AQXMMNewton.download_data(observation_id=observation_id, level=level, filename=filename)
         # As the above function downloads the data as compressed tars, we need to decompress them
         with tarfile.open(filename+'.tar.gz') as zippo:
             zippo.extractall(filename)
 
         # Then remove the original compressed tar to save space
         os.remove(filename+'.tar.gz')
+
+        # Finally, the actual telescope data is in another .tar, so we expand that as well, first making
+        #  sure that there is only one tar in the observations folder
+        rel_tars = [f for f in os.listdir(filename) if "{o}.tar".format(o=observation_id) in f.lower()]
+
+        # Checks to make sure there is only one tarred file (otherwise I don't know what this will be
+        #  unzipping)
+        if len(rel_tars) == 0 or len(rel_tars) > 1:
+            raise ValueError("Multiple tarred ODFs were detected for {o}, and cannot be "
+                             "unpacked".format(o=observation_id))
+
+        # Variable to store the name of the tarred file (included revolution number and ObsID, hence why
+        #  I don't just construct it myself, don't know the revolution number a priori)
+        to_untar = filename + '/{}'.format(rel_tars[0])
+
+        # Open and untar the file
+        with tarfile.open(to_untar) as tarro:
+            untar_path = to_untar.split('.')[0] + '/'
+            tarro.extractall(untar_path)
+        # Then remove the tarred file to minimise storage usage
+        os.remove(to_untar)
+
+        # This part removes ODFs which belong to instruments the user hasn't requested, but we have
+        #  to make sure to add the code 'SC' otherwise spacecraft information files will get removed
+        to_keep = insts + ['SC']
+        throw_away = [f for f in os.listdir(untar_path) if f.split(observation_id+'_')[1][:2] not in to_keep]
+        for for_removal in throw_away:
+            os.remove(untar_path + for_removal)
+
         return None
 
     def download(self, num_cores: int = NUM_CORES):
@@ -256,22 +285,20 @@ class XMMPointed(BaseMission):
 
         # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
         if num_cores == 1:
-            with tqdm(total=len(self)*len(self.chosen_instruments), desc="Downloading XMM data") as download_prog:
+            with tqdm(total=len(self), desc="Downloading XMM data") as download_prog:
                 for obs_id in self.filtered_obs_ids:
-                    for inst in self.chosen_instruments:
-                        # Use the internal static method I set up which both downloads and unpacks the XMM data
-                        self._download_call(obs_id, instname=inst, level='ODF',
-                                            filename=stor_dir + '{o}_{i}'.format(o=obs_id, i=inst))
-
-                        # Update the progress bar
-                        download_prog.update(1)
+                    # Use the internal static method I set up which both downloads and unpacks the XMM data
+                    self._download_call(obs_id, insts=self.chosen_instruments, level='ODF',
+                                        filename=stor_dir + '{o}'.format(o=obs_id))
+                    # Update the progress bar
+                    download_prog.update(1)
 
         elif num_cores > 1:
             # List to store any errors raised during download tasks
             raised_errors = []
 
             # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
-            with tqdm(total=len(self)*len(self.chosen_instruments), desc="Downloading XMM data") as download_prog, \
+            with tqdm(total=len(self), desc="Downloading XMM data") as download_prog, \
                     Pool(num_cores) as pool:
 
                 # The callback function is what is called on the successful completion of a _download_call
@@ -302,12 +329,11 @@ class XMMPointed(BaseMission):
 
                 # Again nested for loop through ObsIDs and instruments
                 for obs_id in self.filtered_obs_ids:
-                    for inst in self.chosen_instruments:
-                        # Add each download task to the pool
-                        pool.apply_async(self._download_call,
-                                         kwds={'observation_id': obs_id, 'instname': inst, 'level': 'ODF',
-                                               'filename': stor_dir + '{o}_{i}'.format(o=obs_id, i=inst)},
-                                         error_callback=err_callback, callback=callback)
+                    # Add each download task to the pool
+                    pool.apply_async(self._download_call,
+                                     kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
+                                           'level': 'ODF', 'filename': stor_dir + '{o}'.format(o=obs_id)},
+                                     error_callback=err_callback, callback=callback)
                 pool.close()  # No more tasks can be added to the pool
                 pool.join()  # Joins the pool, the code will only move on once the pool is empty.
 
