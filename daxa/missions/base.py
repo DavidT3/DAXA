@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:18. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -14,6 +14,7 @@ from astropy.coordinates import SkyCoord, BaseRADecFrame
 from astropy.units import Quantity
 
 from daxa import OUTPUT
+from daxa.exceptions import MissionLockedError
 
 REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration']
 
@@ -347,11 +348,19 @@ class BaseMission(metaclass=ABCMeta):
 
     @locked.setter
     def locked(self, new_val: bool):
+        """
+        Property setter for the locked state of the mission instance. New values must be boolean, and if a
+        mission has already been locked by setting locked = True, it cannot be unlocked again.
+
+        :param bool new_val: The new locked value.
+        """
         if not isinstance(new_val, bool):
             raise TypeError("The value of locked must be a boolean.")
 
-        if self._locked == True:
-            raise
+        if self._locked:
+            raise MissionLockedError("This mission has already been locked, you cannot unlock it.")
+        else:
+            self._locked = new_val
 
     # Then define internal methods
     def _obs_info_checks(self, new_info: pd.DataFrame):
