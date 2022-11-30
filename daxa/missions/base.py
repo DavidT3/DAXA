@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:47. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -174,6 +174,7 @@ class BaseMission(metaclass=ABCMeta):
         return self._chos_insts
 
     @chosen_instruments.setter
+    @_lock_check
     def chosen_instruments(self, new_insts: List[str]):
         """
         Property setter for the instruments associated with this mission that should be processed. This property
@@ -516,6 +517,7 @@ class BaseMission(metaclass=ABCMeta):
 
     # TODO Figure out how to support survey-type missions (i.e. eROSITA) that release large sweeps of the sky
     #  when filtering based on position.
+    @_lock_check
     def filter_on_rect_region(self, lower_left: Union[SkyCoord, np.ndarray, list],
                               upper_right: Union[SkyCoord, np.ndarray, list]):
         """
@@ -552,6 +554,7 @@ class BaseMission(metaclass=ABCMeta):
         new_filter = self.filter_array*box_filter
         self.filter_array = new_filter
 
+    @_lock_check
     def filter_on_positions(self, positions: Union[list, np.ndarray, SkyCoord],
                             search_distance: Union[Quantity, float, int]):
         """
@@ -610,6 +613,7 @@ class BaseMission(metaclass=ABCMeta):
         # And update the filter array
         self.filter_array = new_filter
 
+    @_lock_check
     def filter_on_time(self, start_datetime: datetime, end_datetime: datetime, over_run: bool = False):
         """
         This method allows you to filter observations for this mission based on when they were taken. A start
