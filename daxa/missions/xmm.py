@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:57. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -80,6 +80,8 @@ class XMMPointed(BaseMission):
         #  the BaseMission superclass. Suggest keeping this in a format that would be good for a unix
         #  directory name (i.e. lowercase + underscores), because it will be used as a directory name
         self._miss_name = "xmm_pointed"
+        # This won't be used to name directories, but will be used for things like progress bar descriptions
+        self._pretty_miss_name = "XMM-Newton Pointed"
         return self._miss_name
 
     @property
@@ -281,7 +283,7 @@ class XMMPointed(BaseMission):
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
             if num_cores == 1:
-                with tqdm(total=len(self), desc="Downloading XMM data") as download_prog:
+                with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
                     for obs_id in self.filtered_obs_ids:
                         # Use the internal static method I set up which both downloads and unpacks the XMM data
                         self._download_call(obs_id, insts=self.chosen_instruments, level='ODF',
@@ -294,8 +296,8 @@ class XMMPointed(BaseMission):
                 raised_errors = []
 
                 # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
-                with tqdm(total=len(self), desc="Downloading XMM data") as download_prog, \
-                        Pool(num_cores) as pool:
+                with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) \
+                        as download_prog, Pool(num_cores) as pool:
 
                     # The callback function is what is called on the successful completion of a _download_call
                     def callback(download_conf: Any):

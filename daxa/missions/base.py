@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:47. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:57. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -61,6 +61,9 @@ class BaseMission(metaclass=ABCMeta):
         # The string name of this mission, is overwritten in abstract properties required to be implemented
         #  by each subclass of BaseMission
         self._miss_name = None
+        # Used for things like progress bar descriptions
+        self._pretty_miss_name = None
+
         # The coordinate frame (e.g. FK5, ICRS) which the mission defines its coordinates in. Again to be
         #  overwritten in abstract properties in subclasses.
         self._miss_coord_frame = None
