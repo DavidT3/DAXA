@@ -1,9 +1,10 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:43. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
+from functools import wraps
 from typing import List, Union
 from warnings import warn
 
@@ -17,6 +18,30 @@ from daxa import OUTPUT
 from daxa.exceptions import MissionLockedError
 
 REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration']
+
+
+def _lock_check(change_func):
+    """
+    An internal function designed to be used as a decorator for any methods of a mission class that can make
+    changes to the selected observations - if the mission instance has been locked (i.e. the .locked property
+    setter has been set to True) then this decorator will not allow the change.
+
+    :param change_func: The method which is attempting to make changes to the selected observation data.
+    """
+
+    # The wraps decorator updates the wrapper function to look like wrapped function by copying attributes
+    #  such as __name__, __doc__ (the docstring)
+    @wraps(change_func)
+    def wrapper(*args, **kwargs):
+        # The first argument will be 'self' for any class method, so we check its 'locked' property
+        if not args[0].locked:
+            # If not locked then we can execute that method without any worries
+            change_func(*args, **kwargs)
+        else:
+            # If the mission is locked then we have to throw an error
+            raise MissionLockedError("This mission instance has been locked, and is now immutable.")
+
+    return wrapper
 
 
 class BaseMission(metaclass=ABCMeta):
@@ -457,6 +482,7 @@ class BaseMission(metaclass=ABCMeta):
         """
         return bool(re.match(self.id_regex, obs_id_to_check))
 
+    @_lock_check
     def filter_on_obs_ids(self, allowed_obs_ids: Union[str, List[str]]):
         """
         This filtering method will select only observations with IDs specified by the allowed_obs_ids argument.
