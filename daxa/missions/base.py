@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 17:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 17:58. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -68,6 +68,9 @@ class BaseMission(metaclass=ABCMeta):
 
         # This sets up the filter array storage attribute.
         self._filter_allowed = None
+
+        # This is set to True once the specified raw data for a mission have been downloaded
+        self._download_done = False
 
     # Defining properties first
     @property
@@ -312,6 +315,17 @@ class BaseMission(metaclass=ABCMeta):
         :rtype: np.ndarray
         """
         return self._obs_info['ObsID'].values[self.filter_array]
+
+    @property
+    def download_completed(self) -> bool:
+        """
+        Property getter that describes whether the specified raw data for this mission have been
+        downloaded.
+
+        :return: Boolean flag describing if data have been downloaded.
+        :rtype: bool
+        """
+        return self._download_done
 
     # Then define internal methods
     def _obs_info_checks(self, new_info: pd.DataFrame):
