@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 16:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:16. Copyright (c) The Contributors
 
 
 class DAXAConfigError(Exception):
@@ -81,3 +81,24 @@ class ArchiveExistsError(Exception):
             return '{0} '.format(self.message)
         else:
             return 'ArchiveExistsError has been raised'
+
+
+class MissionLockedError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised when a mission instance has been locked (no further changes to selected observations
+        can be made) and a change of some kind is attempted.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'MissionLockedError has been raised'

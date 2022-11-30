@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:16. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -71,6 +71,10 @@ class BaseMission(metaclass=ABCMeta):
 
         # This is set to True once the specified raw data for a mission have been downloaded
         self._download_done = False
+
+        # If this is set to True then no further changes to the selection of observations in a mission
+        #  will be allowed. This will be automatically applied when missions are added to an archive.
+        self._locked = False
 
     # Defining properties first
     @property
@@ -329,6 +333,25 @@ class BaseMission(metaclass=ABCMeta):
         :rtype: bool
         """
         return self._download_done
+
+    @property
+    def locked(self) -> bool:
+        """
+        Property getter for the locked attribute of this mission instance - if a mission is locked
+        then no further changes can be made to the observations selected.
+
+        :return: The locked boolean.
+        :rtype: bool
+        """
+        return self._locked
+
+    @locked.setter
+    def locked(self, new_val: bool):
+        if not isinstance(new_val, bool):
+            raise TypeError("The value of locked must be a boolean.")
+
+        if self._locked == True:
+            raise
 
     # Then define internal methods
     def _obs_info_checks(self, new_info: pd.DataFrame):
