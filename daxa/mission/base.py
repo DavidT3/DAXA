@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 19:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 15:17. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -20,8 +20,8 @@ REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration']
 
 class BaseMission(metaclass=ABCMeta):
     """
-    The superclass for all missions defined in this module. Mission classes will be for storing and interacting
-    with information about the available data for particular missions; including filtering the observations to be
+    The superclass for all mission defined in this module. Mission classes will be for storing and interacting
+    with information about the available data for particular mission; including filtering the observations to be
     prepared and reduced in various ways. The mission classes will also be responsible for providing a consistent
     user experience of downloading data and generating processed archives.
 
@@ -31,8 +31,8 @@ class BaseMission(metaclass=ABCMeta):
     """
     def __init__(self, output_archive_name: str, output_path: str):
         """
-        The __init__ of the superclass for all missions defined in this module. Mission classes will be for storing
-        and interacting with information about the available data for particular missions; including filtering
+        The __init__ of the superclass for all mission defined in this module. Mission classes will be for storing
+        and interacting with information about the available data for particular mission; including filtering
         the observations to be prepared and reduced in various ways. The mission classes will also be responsible
         for providing a consistent user experience of downloading data and generating processed archives.
 
@@ -53,7 +53,7 @@ class BaseMission(metaclass=ABCMeta):
         self._miss_poss_insts = []
         # This attribute stores the instruments which have actually been chosen
         self._chos_insts = []
-        # This is for missions that might have multiple common names for instruments, so they can be converted
+        # This is for mission that might have multiple common names for instruments, so they can be converted
         #  to the version expected by this module.
         self._alt_miss_inst_names = {}
 
@@ -335,7 +335,7 @@ class BaseMission(metaclass=ABCMeta):
         """
         Performs very simple checks on new inputs into the observation information dataframe, ensuring it at
         has the minimum required columns. This column check looks for both the columns defined in the REQUIRED_COLS
-        constant, and the extra columns which can be required for individual missions defined in each mission
+        constant, and the extra columns which can be required for individual mission defined in each mission
         subclass' __init__.
 
         :param pd.DataFrame new_info: The new dataframe of observation information that should be checked.
@@ -453,7 +453,7 @@ class BaseMission(metaclass=ABCMeta):
         # Then we set the filter array property with that updated mask
         self.filter_array = new_filter
 
-    # TODO Figure out how to support survey-type missions (i.e. eROSITA) that release large sweeps of the sky
+    # TODO Figure out how to support survey-type mission (i.e. eROSITA) that release large sweeps of the sky
     #  when filtering based on position.
     def filter_on_rect_region(self, lower_left: Union[SkyCoord, np.ndarray, list],
                               upper_right: Union[SkyCoord, np.ndarray, list]):
