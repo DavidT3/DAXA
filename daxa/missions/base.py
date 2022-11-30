@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 16:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 17:01. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -24,19 +24,13 @@ class BaseMission(metaclass=ABCMeta):
     with information about the available data for particular missions; including filtering the observations to be
     prepared and reduced in various ways. The mission classes will also be responsible for providing a consistent
     user experience of downloading data and generating processed archives.
-
-    :param str output_path: The top-level path where an archive directory will be created. If this is set to None
-            then the class will default to the value specified in the configuration file.
     """
-    def __init__(self, output_path: str):
+    def __init__(self):
         """
         The __init__ of the superclass for all missions defined in this module. Mission classes will be for storing
         and interacting with information about the available data for particular missions; including filtering
         the observations to be prepared and reduced in various ways. The mission classes will also be responsible
         for providing a consistent user experience of downloading data and generating processed archives.
-
-        :param str output_path: The top-level path where an archive directory will be created. If this is set to None
-            then the class will default to the value specified in the configuration file.
         """
         # The string name of this mission, is overwritten in abstract properties required to be implemented
         #  by each subclass of BaseMission
@@ -61,22 +55,16 @@ class BaseMission(metaclass=ABCMeta):
         # This is what the overall observation information dataframe is stored in.
         self._obs_info = None
 
-        # If no custom output path was passed on mission instance declaration then we overwrite that variable
-        #  with the default defined in the configuration file
-        if output_path is None:
-            # Don't need to abs path OUTPUT because that already happens in config.py
-            output_path = OUTPUT
-        # If a custom path is passed, we ensure that it's an absolute path
-        else:
-            output_path = os.path.abspath(output_path) + '/'
-
-        # Then we make sure that directory actually exists
-        if not os.path.exists(output_path):
-            os.makedirs(output_path)
+        # The output path is defined in the configuration file - considered allowing users to overwrite it
+        #  when setting up missions but that then over-complicates the definition of archives (a user could
+        #  conceivably set up different output directories for different missions).
+        # We make sure that directory actually exists
+        if not os.path.exists(OUTPUT):
+            os.makedirs(OUTPUT)
 
         # This top level output path will have sub-directories in for the actual storing of raw files
         #  and processed archives
-        self._top_level_output_path = output_path
+        self._top_level_output_path = OUTPUT
 
         # This sets up the filter array storage attribute.
         self._filter_allowed = None
@@ -166,8 +154,8 @@ class BaseMission(metaclass=ABCMeta):
     @property
     def top_level_path(self) -> str:
         """
-        The property getter for the absolute path to the top-level directory where any archives generated
-        from this object will be stored.
+        The property getter for the absolute path to the top-level directory where raw data storage directories
+        are created.
 
         :return: Absolute top-level storage path.
         :rtype: str
