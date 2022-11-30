@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 16:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:02. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -281,66 +281,72 @@ class XMMPointed(BaseMission):
         # Just make a shorthand variable for the storage path
         stor_dir = self.top_level_path + self.name + '_raw/'
 
-        # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
-        if num_cores == 1:
-            with tqdm(total=len(self), desc="Downloading XMM data") as download_prog:
-                for obs_id in self.filtered_obs_ids:
-                    # Use the internal static method I set up which both downloads and unpacks the XMM data
-                    self._download_call(obs_id, insts=self.chosen_instruments, level='ODF',
-                                        filename=stor_dir + '{o}'.format(o=obs_id))
-                    # Update the progress bar
-                    download_prog.update(1)
+        if not self._download_done:
+            # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
+            if num_cores == 1:
+                with tqdm(total=len(self), desc="Downloading XMM data") as download_prog:
+                    for obs_id in self.filtered_obs_ids:
+                        # Use the internal static method I set up which both downloads and unpacks the XMM data
+                        self._download_call(obs_id, insts=self.chosen_instruments, level='ODF',
+                                            filename=stor_dir + '{o}'.format(o=obs_id))
+                        # Update the progress bar
+                        download_prog.update(1)
 
-        elif num_cores > 1:
-            # List to store any errors raised during download tasks
-            raised_errors = []
+            elif num_cores > 1:
+                # List to store any errors raised during download tasks
+                raised_errors = []
 
-            # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
-            with tqdm(total=len(self), desc="Downloading XMM data") as download_prog, \
-                    Pool(num_cores) as pool:
+                # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
+                with tqdm(total=len(self), desc="Downloading XMM data") as download_prog, \
+                        Pool(num_cores) as pool:
 
-                # The callback function is what is called on the successful completion of a _download_call
-                def callback(download_conf: Any):
-                    """
-                    Callback function for the apply_async pool method, gets called when a download task finishes
-                    without error.
+                    # The callback function is what is called on the successful completion of a _download_call
+                    def callback(download_conf: Any):
+                        """
+                        Callback function for the apply_async pool method, gets called when a download task finishes
+                        without error.
 
-                    :param Any download_conf: The Null value confirming the operation is over.
-                    """
-                    nonlocal download_prog  # The progress bar will need updating
-                    download_prog.update(1)
+                        :param Any download_conf: The Null value confirming the operation is over.
+                        """
+                        nonlocal download_prog  # The progress bar will need updating
+                        download_prog.update(1)
 
-                # The error callback function is what happens when an exception is thrown during a _download_call
-                def err_callback(err):
-                    """
-                    The callback function for errors that occur inside a download task running in the pool.
+                    # The error callback function is what happens when an exception is thrown during a _download_call
+                    def err_callback(err):
+                        """
+                        The callback function for errors that occur inside a download task running in the pool.
 
-                    :param err: An error that occurred inside a task.
-                    """
-                    nonlocal raised_errors
-                    nonlocal download_prog
+                        :param err: An error that occurred inside a task.
+                        """
+                        nonlocal raised_errors
+                        nonlocal download_prog
 
-                    if err is not None:
-                        # Rather than throwing an error straight away I append them all to a list for later.
-                        raised_errors.append(err)
-                    download_prog.update(1)
+                        if err is not None:
+                            # Rather than throwing an error straight away I append them all to a list for later.
+                            raised_errors.append(err)
+                        download_prog.update(1)
 
-                # Again nested for loop through ObsIDs and instruments
-                for obs_id in self.filtered_obs_ids:
-                    # Add each download task to the pool
-                    pool.apply_async(self._download_call,
-                                     kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
-                                           'level': 'ODF', 'filename': stor_dir + '{o}'.format(o=obs_id)},
-                                     error_callback=err_callback, callback=callback)
-                pool.close()  # No more tasks can be added to the pool
-                pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+                    # Again nested for loop through ObsIDs and instruments
+                    for obs_id in self.filtered_obs_ids:
+                        # Add each download task to the pool
+                        pool.apply_async(self._download_call,
+                                         kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
+                                               'level': 'ODF', 'filename': stor_dir + '{o}'.format(o=obs_id)},
+                                         error_callback=err_callback, callback=callback)
+                    pool.close()  # No more tasks can be added to the pool
+                    pool.join()  # Joins the pool, the code will only move on once the pool is empty.
 
-            # Raise all the download errors at once, if there are any
-            if len(raised_errors) != 0:
-                raise DAXADownloadError(str(raised_errors))
+                # Raise all the download errors at once, if there are any
+                if len(raised_errors) != 0:
+                    raise DAXADownloadError(str(raised_errors))
+
+            else:
+                raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
+
+            # This is set to True once the download is done, and is used by archives to tell if data have been
+            #  downloaded for a particular mission or not
+            self._download_done = True
 
         else:
-            raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
-
-
+            warn("The raw data for this mission have already been downloaded.")
 

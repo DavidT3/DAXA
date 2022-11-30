@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 17:58. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:02. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -218,6 +218,9 @@ class BaseMission(metaclass=ABCMeta):
                              "such the new filter array has not been accepted")
         else:
             self._filter_allowed = new_filter_array
+            # If the filter changes then we make sure download done is set to False so that any changes
+            #  in observation selection are reflected in the download call
+            self._download_done = False
 
     @property
     @abstractmethod
@@ -405,6 +408,9 @@ class BaseMission(metaclass=ABCMeta):
         have been undone.
         """
         self._filter_allowed = self.all_obs_info['usable'].values.copy()
+        # If the filter changes then we make sure download done is set to False so that any changes
+        #  in observation selection are reflected in the download call
+        self._download_done = False
 
     def check_obsid_pattern(self, obs_id_to_check: str):
         """
