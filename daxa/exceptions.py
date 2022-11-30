@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 15:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 16:40. Copyright (c) The Contributors
 
 
 class DAXAConfigError(Exception):
@@ -60,3 +60,24 @@ class DuplicateMissionError(Exception):
             return '{0} '.format(self.message)
         else:
             return 'DuplicateMissionError has been raised'
+
+
+class ArchiveExistsError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised when an archive name that has already been used in a particular
+        DAXA output directory is used again.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'ArchiveExistsError has been raised'
