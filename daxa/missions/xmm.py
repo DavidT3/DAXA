@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:35. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -27,21 +27,18 @@ class XMMPointed(BaseMission):
     and collected by instances of this class). The available observation information is fetched from the XMM Science
     Archive using AstroQuery, and data are downloaded with the same module.
 
-    :param str output_path: The top-level path where an archive directory will be created. If this is set to None
-        then the class will default to the value specified in the configuration file.
+    :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
     """
-    def __init__(self, output_path: str = None, insts: Union[List[str], str] = None):
+    def __init__(self, insts: Union[List[str], str] = None):
         """
         The mission class init for pointed XMM observations (i.e. slewing observations are NOT included in the data
         accessed and collected by instances of this class). The available observation information is fetched from
         the XMM Science Archive using AstroQuery, and data are downloaded with the same module.
 
-        :param str output_path: The top-level path where an archive directory will be created. If this is set to None
-            then the class will default to the value specified in the configuration file.
-        :param List[str]/str insts:
+        :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
         """
         # Call the init of parent class with the required information
-        super().__init__(output_path)
+        super().__init__()
 
         # Sets the default instruments - #TODO Perhaps update these to include RGS and OM, once they're supported
         if insts is None:
