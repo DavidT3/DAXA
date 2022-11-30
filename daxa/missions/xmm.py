@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/11/2022, 16:58. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 16:02. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 from .base import BaseMission
 from .. import NUM_CORES
-from ..exceptions import DaxaDownloadError
+from ..exceptions import DAXADownloadError
 
 log.setLevel(0)
 
@@ -27,23 +27,21 @@ class XMMPointed(BaseMission):
     and collected by instances of this class). The available observation information is fetched from the XMM Science
     Archive using AstroQuery, and data are downloaded with the same module.
 
-    :param str output_archive_name: The name under which the eventual processed archive will be stored.
     :param str output_path: The top-level path where an archive directory will be created. If this is set to None
         then the class will default to the value specified in the configuration file.
     """
-    def __init__(self, output_archive_name: str, output_path: str = None, insts: Union[List[str], str] = None):
+    def __init__(self, output_path: str = None, insts: Union[List[str], str] = None):
         """
         The mission class init for pointed XMM observations (i.e. slewing observations are NOT included in the data
         accessed and collected by instances of this class). The available observation information is fetched from
         the XMM Science Archive using AstroQuery, and data are downloaded with the same module.
 
-        :param str output_archive_name: The name under which the eventual processed archive will be stored.
         :param str output_path: The top-level path where an archive directory will be created. If this is set to None
             then the class will default to the value specified in the configuration file.
         :param List[str]/str insts:
         """
         # Call the init of parent class with the required information
-        super().__init__(output_archive_name, output_path)
+        super().__init__(output_path)
 
         # Sets the default instruments - #TODO Perhaps update these to include RGS and OM, once they're supported
         if insts is None:
@@ -339,7 +337,7 @@ class XMMPointed(BaseMission):
 
             # Raise all the download errors at once, if there are any
             if len(raised_errors) != 0:
-                raise DaxaDownloadError(str(raised_errors))
+                raise DAXADownloadError(str(raised_errors))
 
         else:
             raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")

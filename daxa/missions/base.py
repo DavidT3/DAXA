@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 19:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 16:02. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -25,18 +25,16 @@ class BaseMission(metaclass=ABCMeta):
     prepared and reduced in various ways. The mission classes will also be responsible for providing a consistent
     user experience of downloading data and generating processed archives.
 
-    :param str output_archive_name: The name under which the eventual processed archive will be stored.
     :param str output_path: The top-level path where an archive directory will be created. If this is set to None
             then the class will default to the value specified in the configuration file.
     """
-    def __init__(self, output_archive_name: str, output_path: str):
+    def __init__(self, output_path: str):
         """
         The __init__ of the superclass for all missions defined in this module. Mission classes will be for storing
         and interacting with information about the available data for particular missions; including filtering
         the observations to be prepared and reduced in various ways. The mission classes will also be responsible
         for providing a consistent user experience of downloading data and generating processed archives.
 
-        :param str output_archive_name: The name under which the eventual processed archive will be stored.
         :param str output_path: The top-level path where an archive directory will be created. If this is set to None
             then the class will default to the value specified in the configuration file.
         """
@@ -62,9 +60,6 @@ class BaseMission(metaclass=ABCMeta):
         self._id_format = None
         # This is what the overall observation information dataframe is stored in.
         self._obs_info = None
-
-        self._archive_name = output_archive_name
-        # self._archive_name_version =
 
         # If no custom output path was passed on mission instance declaration then we overwrite that variable
         #  with the default defined in the configuration file
