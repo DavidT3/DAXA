@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 17:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/12/2022, 10:50. Copyright (c) The Contributors
 import os
 from typing import List, Union
 
@@ -45,6 +45,17 @@ class Archive:
         self._archive_path = OUTPUT + 'archives/' + archive_name + '/'
 
         self._missions = {m.name: m for m in missions}
+
+        # This iterates through the missions that make up this archive, and ensures that they are 'locked'
+        #  That means their observation content becomes immutable.
+        for mission in self._missions.values():
+            mission: BaseMission
+            mission.locked = True
+
+            # We also make sure that the data are downloaded
+            if not mission.download_completed:
+                mission.download()
+
 
     # Defining properties first
     @property
