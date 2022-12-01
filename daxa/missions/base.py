@@ -1,9 +1,10 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/11/2022, 19:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/12/2022, 11:24. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
+from functools import wraps
 from typing import List, Union
 from warnings import warn
 
@@ -14,8 +15,33 @@ from astropy.coordinates import SkyCoord, BaseRADecFrame
 from astropy.units import Quantity
 
 from daxa import OUTPUT
+from daxa.exceptions import MissionLockedError
 
 REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration']
+
+
+def _lock_check(change_func):
+    """
+    An internal function designed to be used as a decorator for any methods of a mission class that can make
+    changes to the selected observations - if the mission instance has been locked (i.e. the .locked property
+    setter has been set to True) then this decorator will not allow the change.
+
+    :param change_func: The method which is attempting to make changes to the selected observation data.
+    """
+
+    # The wraps decorator updates the wrapper function to look like wrapped function by copying attributes
+    #  such as __name__, __doc__ (the docstring)
+    @wraps(change_func)
+    def wrapper(*args, **kwargs):
+        # The first argument will be 'self' for any class method, so we check its 'locked' property
+        if not args[0].locked:
+            # If not locked then we can execute that method without any worries
+            change_func(*args, **kwargs)
+        else:
+            # If the mission is locked then we have to throw an error
+            raise MissionLockedError("This mission instance has been locked, and is now immutable.")
+
+    return wrapper
 
 
 class BaseMission(metaclass=ABCMeta):
@@ -24,25 +50,20 @@ class BaseMission(metaclass=ABCMeta):
     with information about the available data for particular missions; including filtering the observations to be
     prepared and reduced in various ways. The mission classes will also be responsible for providing a consistent
     user experience of downloading data and generating processed archives.
-
-    :param str output_archive_name: The name under which the eventual processed archive will be stored.
-    :param str output_path: The top-level path where an archive directory will be created. If this is set to None
-            then the class will default to the value specified in the configuration file.
     """
-    def __init__(self, output_archive_name: str, output_path: str):
+    def __init__(self):
         """
         The __init__ of the superclass for all missions defined in this module. Mission classes will be for storing
         and interacting with information about the available data for particular missions; including filtering
         the observations to be prepared and reduced in various ways. The mission classes will also be responsible
         for providing a consistent user experience of downloading data and generating processed archives.
-
-        :param str output_archive_name: The name under which the eventual processed archive will be stored.
-        :param str output_path: The top-level path where an archive directory will be created. If this is set to None
-            then the class will default to the value specified in the configuration file.
         """
         # The string name of this mission, is overwritten in abstract properties required to be implemented
         #  by each subclass of BaseMission
         self._miss_name = None
+        # Used for things like progress bar descriptions
+        self._pretty_miss_name = None
+
         # The coordinate frame (e.g. FK5, ICRS) which the mission defines its coordinates in. Again to be
         #  overwritten in abstract properties in subclasses.
         self._miss_coord_frame = None
@@ -63,28 +84,26 @@ class BaseMission(metaclass=ABCMeta):
         # This is what the overall observation information dataframe is stored in.
         self._obs_info = None
 
-        self._archive_name = output_archive_name
-        # self._archive_name_version =
-
-        # If no custom output path was passed on mission instance declaration then we overwrite that variable
-        #  with the default defined in the configuration file
-        if output_path is None:
-            # Don't need to abs path OUTPUT because that already happens in config.py
-            output_path = OUTPUT
-        # If a custom path is passed, we ensure that it's an absolute path
-        else:
-            output_path = os.path.abspath(output_path) + '/'
-
-        # Then we make sure that directory actually exists
-        if not os.path.exists(output_path):
-            os.makedirs(output_path)
+        # The output path is defined in the configuration file - considered allowing users to overwrite it
+        #  when setting up missions but that then over-complicates the definition of archives (a user could
+        #  conceivably set up different output directories for different missions).
+        # We make sure that directory actually exists
+        if not os.path.exists(OUTPUT):
+            os.makedirs(OUTPUT)
 
         # This top level output path will have sub-directories in for the actual storing of raw files
         #  and processed archives
-        self._top_level_output_path = output_path
+        self._top_level_output_path = OUTPUT
 
         # This sets up the filter array storage attribute.
         self._filter_allowed = None
+
+        # This is set to True once the specified raw data for a mission have been downloaded
+        self._download_done = False
+
+        # If this is set to True then no further changes to the selection of observations in a mission
+        #  will be allowed. This will be automatically applied when missions are added to an archive.
+        self._locked = False
 
     # Defining properties first
     @property
@@ -101,7 +120,26 @@ class BaseMission(metaclass=ABCMeta):
         # This is defined here (as well as in the init of BaseMission) because I want people to just copy this
         #  property if they're making a new subclass, then replace None with the name of the mission.
         self._miss_name = None
+        # Used for things like progress bar descriptions
+        self._pretty_miss_name = None
         return self._miss_name
+
+    @property
+    def pretty_name(self) -> str:
+        """
+        The property getter for the 'pretty name' of this mission. This version of the name will NOT be used
+        to identify a mission internally in DAXA, or to name any directories, but will be used when the user
+        sees a name (e.g. when a progress bar is running for a mission download).
+
+        :return: The 'pretty' name.
+        :rtype: str
+        """
+        if self._pretty_miss_name is None:
+            raise ValueError("This mission class has not been fully setup (by the programmer), and the "
+                             "_pretty_miss_name attribute is None - please set it in the name property of the "
+                             "mission subclass.")
+        else:
+            return self._pretty_miss_name
 
     @property
     @abstractmethod
@@ -158,6 +196,7 @@ class BaseMission(metaclass=ABCMeta):
         return self._chos_insts
 
     @chosen_instruments.setter
+    @_lock_check
     def chosen_instruments(self, new_insts: List[str]):
         """
         Property setter for the instruments associated with this mission that should be processed. This property
@@ -171,8 +210,8 @@ class BaseMission(metaclass=ABCMeta):
     @property
     def top_level_path(self) -> str:
         """
-        The property getter for the absolute path to the top-level directory where any archives generated
-        from this object will be stored.
+        The property getter for the absolute path to the top-level directory where raw data storage directories
+        are created.
 
         :return: Absolute top-level storage path.
         :rtype: str
@@ -232,6 +271,9 @@ class BaseMission(metaclass=ABCMeta):
                              "such the new filter array has not been accepted")
         else:
             self._filter_allowed = new_filter_array
+            # If the filter changes then we make sure download done is set to False so that any changes
+            #  in observation selection are reflected in the download call
+            self._download_done = False
 
     @property
     @abstractmethod
@@ -330,6 +372,44 @@ class BaseMission(metaclass=ABCMeta):
         """
         return self._obs_info['ObsID'].values[self.filter_array]
 
+    @property
+    def download_completed(self) -> bool:
+        """
+        Property getter that describes whether the specified raw data for this mission have been
+        downloaded.
+
+        :return: Boolean flag describing if data have been downloaded.
+        :rtype: bool
+        """
+        return self._download_done
+
+    @property
+    def locked(self) -> bool:
+        """
+        Property getter for the locked attribute of this mission instance - if a mission is locked
+        then no further changes can be made to the observations selected.
+
+        :return: The locked boolean.
+        :rtype: bool
+        """
+        return self._locked
+
+    @locked.setter
+    def locked(self, new_val: bool):
+        """
+        Property setter for the locked state of the mission instance. New values must be boolean, and if a
+        mission has already been locked by setting locked = True, it cannot be unlocked again.
+
+        :param bool new_val: The new locked value.
+        """
+        if not isinstance(new_val, bool):
+            raise TypeError("The value of locked must be a boolean.")
+
+        if self._locked:
+            raise MissionLockedError("This mission has already been locked, you cannot unlock it.")
+        else:
+            self._locked = new_val
+
     # Then define internal methods
     def _obs_info_checks(self, new_info: pd.DataFrame):
         """
@@ -408,6 +488,9 @@ class BaseMission(metaclass=ABCMeta):
         have been undone.
         """
         self._filter_allowed = self.all_obs_info['usable'].values.copy()
+        # If the filter changes then we make sure download done is set to False so that any changes
+        #  in observation selection are reflected in the download call
+        self._download_done = False
 
     def check_obsid_pattern(self, obs_id_to_check: str):
         """
@@ -422,6 +505,7 @@ class BaseMission(metaclass=ABCMeta):
         """
         return bool(re.match(self.id_regex, obs_id_to_check))
 
+    @_lock_check
     def filter_on_obs_ids(self, allowed_obs_ids: Union[str, List[str]]):
         """
         This filtering method will select only observations with IDs specified by the allowed_obs_ids argument.
@@ -455,6 +539,7 @@ class BaseMission(metaclass=ABCMeta):
 
     # TODO Figure out how to support survey-type missions (i.e. eROSITA) that release large sweeps of the sky
     #  when filtering based on position.
+    @_lock_check
     def filter_on_rect_region(self, lower_left: Union[SkyCoord, np.ndarray, list],
                               upper_right: Union[SkyCoord, np.ndarray, list]):
         """
@@ -491,6 +576,7 @@ class BaseMission(metaclass=ABCMeta):
         new_filter = self.filter_array*box_filter
         self.filter_array = new_filter
 
+    @_lock_check
     def filter_on_positions(self, positions: Union[list, np.ndarray, SkyCoord],
                             search_distance: Union[Quantity, float, int]):
         """
@@ -549,6 +635,7 @@ class BaseMission(metaclass=ABCMeta):
         # And update the filter array
         self.filter_array = new_filter
 
+    @_lock_check
     def filter_on_time(self, start_datetime: datetime, end_datetime: datetime, over_run: bool = False):
         """
         This method allows you to filter observations for this mission based on when they were taken. A start
