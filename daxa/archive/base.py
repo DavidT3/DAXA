@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/12/2022, 10:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/12/2022, 10:54. Copyright (c) The Contributors
 import os
 from typing import List, Union
 
@@ -10,11 +10,28 @@ from daxa.exceptions import DuplicateMissionError, ArchiveExistsError
 
 
 class Archive:
+    """
+    The Archive class, which is to be used to consolidate and provide some interface with a set
+    of mission's data. Archives can be passed to processing and cleaning functions in DAXA, and also
+    contain convenience functions for accessing summaries of the available data.
+
+    :param List[BaseMission]/BaseMission missions: The mission, or missions, which are to be included
+        in this archive - any setup processes (i.e. the filtering of data to be acquired) should be
+        performed prior to creating an archive.
+    :param str archive_name: The name to be given to this archive - it will be used for storage
+        and identification.
+    """
     def __init__(self, missions: Union[List[BaseMission], BaseMission], archive_name: str):
         """
+        The init of the Archive class, which is to be used to consolidate and provide some interface with a set
+        of mission's data. Archives can be passed to processing and cleaning functions in DAXA, and also
+        contain convenience functions for accessing summaries of the available data.
 
-        :param missions:
-        :param str archive_name: The name
+        :param List[BaseMission]/BaseMission missions: The mission, or missions, which are to be included
+            in this archive - any setup processes (i.e. the filtering of data to be acquired) should be
+            performed prior to creating an archive.
+        :param str archive_name: The name to be given to this archive - it will be used for storage
+            and identification.
         """
         # First ensure that the missions variable is iterable even if there's only one missions that has
         #  been passed, makes it easier to generalise things.
@@ -55,7 +72,6 @@ class Archive:
             # We also make sure that the data are downloaded
             if not mission.download_completed:
                 mission.download()
-
 
     # Defining properties first
     @property
