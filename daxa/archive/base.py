@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/12/2022, 10:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/12/2022, 11:43. Copyright (c) The Contributors
 import os
 from typing import List, Union
 
@@ -126,6 +126,24 @@ class Archive:
             return list(self._missions.values())[0]
         else:
             return list(self._missions.values())
+
+    # Then define internal methods
+
+    # Then define user-facing methods
+    def info(self):
+        """
+        A simple method to present summary information about this archive.
+        """
+        print("\n-----------------------------------------------------")
+        print("Number of missions - {}".format(len(self)))
+        print("Total number of observations - {}".format(sum([len(m) for m in self._missions.values()])))
+        for m in self._missions.values():
+            print('')
+            print('-- ' + m.pretty_name + ' --')
+            print('   Internal DAXA name - {}'.format(m.name))
+            print('   Chosen instruments - {}'.format(', '.join(m.chosen_instruments)))
+            print('   Number of observations - {}'.format(len(m)))
+        print("-----------------------------------------------------\n")
 
     # Define the 'special' Python methods
     def __len__(self):
