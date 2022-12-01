@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/12/2022, 11:24. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -120,7 +120,26 @@ class BaseMission(metaclass=ABCMeta):
         # This is defined here (as well as in the init of BaseMission) because I want people to just copy this
         #  property if they're making a new subclass, then replace None with the name of the mission.
         self._miss_name = None
+        # Used for things like progress bar descriptions
+        self._pretty_miss_name = None
         return self._miss_name
+
+    @property
+    def pretty_name(self) -> str:
+        """
+        The property getter for the 'pretty name' of this mission. This version of the name will NOT be used
+        to identify a mission internally in DAXA, or to name any directories, but will be used when the user
+        sees a name (e.g. when a progress bar is running for a mission download).
+
+        :return: The 'pretty' name.
+        :rtype: str
+        """
+        if self._pretty_miss_name is None:
+            raise ValueError("This mission class has not been fully setup (by the programmer), and the "
+                             "_pretty_miss_name attribute is None - please set it in the name property of the "
+                             "mission subclass.")
+        else:
+            return self._pretty_miss_name
 
     @property
     @abstractmethod
