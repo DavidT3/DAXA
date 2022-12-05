@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/12/2022, 18:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/12/2022, 12:10. Copyright (c) The Contributors
 
 
 class DAXAConfigError(Exception):
@@ -122,3 +122,24 @@ class SASNotFoundError(Exception):
             return '{0} '.format(self.message)
         else:
             return 'SASNotFoundError has been raised'
+
+
+class SASVersionError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if the XMM Scientific Analysis System located on the system is a version
+        that is not compatible with DAXA.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'SASVersionError has been raised'
