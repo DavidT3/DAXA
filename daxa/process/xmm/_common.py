@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/12/2022, 16:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/12/2022, 16:36. Copyright (c) The Contributors
+from warnings import warn
 
 from daxa.archive.base import Archive
 from daxa.exceptions import NoXMMMissionsError
@@ -29,6 +30,10 @@ def _sas_process_setup(obs_archive: Archive):
     if len(xmm_miss) == 0:
         raise NoXMMMissionsError("None of the missions that make up the passed observation archive are "
                                  "XMM missions, and thus this XMM-specific function cannot continue.")
+    else:
+        processed = [xm.processed for xm in xmm_miss]
+        if any(processed):
+            warn("One or more XMM missions have already been fully processed")
 
     return sas_vers
 
