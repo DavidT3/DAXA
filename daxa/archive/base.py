@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/12/2022, 11:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/12/2022, 15:55. Copyright (c) The Contributors
 import os
 from typing import List, Union
 
@@ -111,7 +111,7 @@ class Archive:
         :return:
         :rtype: List[str]
         """
-        return [m.name for m in self._missions]
+        return [m for m in self._missions]
 
     @property
     def missions(self) -> Union[List[BaseMission], BaseMission]:
