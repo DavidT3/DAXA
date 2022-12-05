@@ -1,11 +1,36 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/12/2022, 14:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/12/2022, 16:15. Copyright (c) The Contributors
 
+from daxa.archive.base import Archive
+from daxa.exceptions import NoXMMMissionsError
 from daxa.process._backend_check import find_sas
 
+ALLOWED_XMM_MISSIONS = ['xmm_pointed']
 
-def _sas_process_setup():
+
+def _sas_process_setup(obs_archive: Archive):
+    """
+    This function is to be called at the beginning of XMM specific processing functions, and contains several
+    checks to ensure that passed data common to multiple process function calls is suitable.
+
+    :param Archive obs_archive: The observation archive passed to the processing function that called this function.
+    :return:
+    :rtype:
+    """
+    # This makes sure that SAS is installed on the host system, and also identifies the version
     sas_vers = find_sas()
+
+    if not isinstance(obs_archive, Archive):
+        raise TypeError('The passed obs_archive must be an instance of the Archive class, which is made up of one '
+                        'or more mission class instances.')
+
+    # Now we ensure that the passed observation archive actually contains XMM mission(s)
+    xmm_miss = [mission for mission in obs_archive if mission.name in ALLOWED_XMM_MISSIONS]
+    if len(xmm_miss) == 0:
+        raise NoXMMMissionsError("None of the missions that make up the passed observation archive are "
+                                 "XMM missions, and thus this XMM-specific function cannot continue.")
+
+    return sas_vers
 
 
 def sas_call(sas_func):
