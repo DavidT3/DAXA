@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 06/12/2022, 11:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 06/12/2022, 15:14. Copyright (c) The Contributors
 import os
 from typing import List, Union
 
@@ -141,6 +141,57 @@ class Archive:
     # Then define internal methods
 
     # Then define user-facing methods
+    def get_processed_data_path(self, mission: [BaseMission, str] = None, obs_id: str = None):
+        """
+        This method is to construct paths to directories where processed data for a particular mission + observation
+        ID combination will be stored. That functionality is added here so that any change to how those directories
+        are named will take place in only one part of DAXA, and will propagate to other parts of the module. It is
+        unlikely that a user will need to directly use this method.
+
+        If no mission is passed, then no observation ID may be passed. In the case of 'mission' and 'obs_id' being
+        None, the returned string will be constructed ready to format; {mn} should be replaced by the DAXA mission
+        name, and {oi} by the relevant ObsID.
+
+        :param BaseMission/str mission: The mission for which to retrieve the processed data path. Default is None
+            in which case a path ready to be formatted with a mission name will be provided.
+        :param str obs_id: The ObsID for which to retrieve the processed data path, cannot be set if 'mission' is
+            set to None. Default is None, in which case a path ready to be formatted with an observation ID will
+            be provided.
+        :return: The requested path.
+        :rtype: str
+        """
+        # Make sure that mission is not Null whilst obs_id has been set
+        if mission is None and obs_id is not None:
+            raise ValueError("The obs_id argument may only be set if the mission argument is set.")
+
+        # Extract an internal DAXA name for the mission, regardless of whether a string name or an actual
+        #  mission was passed to this method
+        if isinstance(mission, BaseMission):
+            m_name = mission.name
+        else:
+            m_name = mission
+
+        # Need to check that the mission is actually associated with this archive.
+        if m_name not in self:
+            raise ValueError("The mission {m} is not a part of this Archive; the current missions are "
+                             "{cm}".format(m=m_name, cm=', '.join(self.mission_names)))
+
+        # Need to make sure that the passed ObsID (if one was passed) is in the correct format for the
+        #  specified mission - can use this handy method for that.
+        if obs_id is not None:
+            self[m_name].check_obsid_pattern(obs_id)
+
+        # Now we just run through the different possible combinations of circumstances.
+        base_path = self.archive_path+'processed_data/{mn}/{oi}/'
+        if mission is not None and obs_id is not None:
+            ret_str = base_path.format(mn=m_name, oi=obs_id)
+        elif mission is not None and obs_id is None:
+            ret_str = base_path.format(mn=m_name, oi='{oi}')
+        else:
+            ret_str = base_path
+
+        return ret_str
+
     def info(self):
         """
         A simple method to present summary information about this archive.
