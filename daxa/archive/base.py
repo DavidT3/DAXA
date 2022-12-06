@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 06/12/2022, 15:31. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 06/12/2022, 15:39. Copyright (c) The Contributors
 import os
 from typing import List, Union
 
@@ -151,6 +151,8 @@ class Archive:
         If no mission is passed, then no observation ID may be passed. In the case of 'mission' and 'obs_id' being
         None, the returned string will be constructed ready to format; {mn} should be replaced by the DAXA mission
         name, and {oi} by the relevant ObsID.
+
+        Retrieving a data path from this method DOES NOT guarantee that it has been created.
 
         :param BaseMission/str mission: The mission for which to retrieve the processed data path. Default is None
             in which case a path ready to be formatted with a mission name will be provided.
