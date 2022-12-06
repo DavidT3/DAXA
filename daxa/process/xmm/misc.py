@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 06/12/2022, 17:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 06/12/2022, 17:35. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -31,8 +31,8 @@ def cif_build(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
         internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
-        obs and analysis dates), d) the generated product type, e) the number of cores allowed, and f) whether
-        the progress bar should be hidden or not.
+        obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
+        f) whether the progress bar should be hidden or not.
     :rtype: Tuple[dict, dict, dict, str, int, bool]
     """
 
@@ -112,9 +112,9 @@ def cif_build(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress
                 miss_extras[miss.name][obs_id] = {'obs_date': obs_date, 'analysis_date': analysis_date}
 
     # This is just used for populating a progress bar during generation
-    out_product_type = 'ccf'
+    process_message = 'Generating calibration files'
 
-    return miss_cmds, miss_final_paths, miss_extras, out_product_type, num_cores, disable_progress
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
 
 
 def odf_ingest():
