@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 06/12/2022, 15:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 06/12/2022, 17:08. Copyright (c) The Contributors
 
 import os.path
 from warnings import warn
@@ -48,7 +48,7 @@ def _sas_process_setup(obs_archive: Archive) -> Version:
         # We make sure that the archive directory has folders to store the processed XMM data that will eventually
         #  be created by most functions that call this _sas_process_setup function
         for obs_id in miss.filtered_obs_ids:
-            stor_dir = obs_archive.get_processed_data_path(xmm_miss, obs_id)
+            stor_dir = obs_archive.get_processed_data_path(miss, obs_id)
             if not os.path.exists(stor_dir):
                 os.makedirs(stor_dir)
 
@@ -74,8 +74,8 @@ def _sas_process_setup(obs_archive: Archive) -> Version:
 #
 #
 #     return prod, src
-#
-#
+
+
 # def sas_call(sas_func):
 #     """
 #     This is used as a decorator for functions that produce SAS command strings.
