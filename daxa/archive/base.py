@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 06/12/2022, 15:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 06/12/2022, 15:31. Copyright (c) The Contributors
 import os
 from typing import List, Union
 
@@ -172,14 +172,15 @@ class Archive:
             m_name = mission
 
         # Need to check that the mission is actually associated with this archive.
-        if m_name not in self:
+        if m_name is not None and m_name not in self.mission_names:
             raise ValueError("The mission {m} is not a part of this Archive; the current missions are "
                              "{cm}".format(m=m_name, cm=', '.join(self.mission_names)))
 
         # Need to make sure that the passed ObsID (if one was passed) is in the correct format for the
         #  specified mission - can use this handy method for that.
-        if obs_id is not None:
-            self[m_name].check_obsid_pattern(obs_id)
+        if obs_id is not None and not self[m_name].check_obsid_pattern(obs_id):
+            raise ValueError("The passed ObsID ({oi}) does not match the pattern expected for {mn} "
+                             "identifiers.".format(mn=m_name, oi=obs_id))
 
         # Now we just run through the different possible combinations of circumstances.
         base_path = self.archive_path+'processed_data/{mn}/{oi}/'
