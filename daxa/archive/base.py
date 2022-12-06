@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/12/2022, 15:55. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 06/12/2022, 11:51. Copyright (c) The Contributors
 import os
 from typing import List, Union
 
@@ -33,7 +33,7 @@ class Archive:
         :param str archive_name: The name to be given to this archive - it will be used for storage
             and identification.
         """
-        # First ensure that the missions variable is iterable even if there's only one missions that has
+        # First ensure that the missions variable is iterable even if there's only one mission that has
         #  been passed, makes it easier to generalise things.
         if isinstance(missions, BaseMission):
             missions = [missions]
@@ -41,27 +41,38 @@ class Archive:
             raise TypeError("Please pass either a single missions class instance, or a list of missions class "
                             "instances to the 'missions' argument.")
 
+        # Here we ensure that there are no duplicate mission instances, each mission should be filtered in such
+        #  a way that all observations for that mission are in one mission instance
         miss_names = [m.name for m in missions]
         if len(miss_names) != len(list(set(miss_names))):
             raise DuplicateMissionError("There are multiple instances of the same missions present in "
                                         "the 'missions' argument - only one instance of each is allowed for "
                                         "a particular archive.")
 
+        # Store the archive name in an attribute
         self._archive_name = archive_name
 
+        # Then make sure that the path to store the archive is created, and that it hasn't been created
+        #  before, which would mean an existing archive with the same name
         if not os.path.exists(OUTPUT + 'archives/' + archive_name):
             os.makedirs(OUTPUT + 'archives/' + archive_name)
         else:
             raise ArchiveExistsError("An archive named {an} already exists in the output directory "
                                      "({od}).".format(an=archive_name, od=OUTPUT + 'archives/'))
-
         # TODO maybe check for the existence of some late-stage product/file to see whether the archive
         #  has already been successfully generated
         # elif os.path.exists(OUTPUT + archive_name + '/')
 
+        # An attribute for the path to the particular archive directory is also setup, as it's a very useful
+        #  piece of knowledge
         self._archive_path = OUTPUT + 'archives/' + archive_name + '/'
 
+        # The mission instances (or single instance) used to create the archive are stored in a dictionary, with
+        #  the key being the internal DAXA name for that mission
         self._missions = {m.name: m for m in missions}
+
+        # An attribute to store a command queue for those missions which have a command line processing
+        #  backend (like XMM for instance)
 
         # This iterates through the missions that make up this archive, and ensures that they are 'locked'
         #  That means their observation content becomes immutable.
@@ -143,6 +154,7 @@ class Archive:
             print('   Internal DAXA name - {}'.format(m.name))
             print('   Chosen instruments - {}'.format(', '.join(m.chosen_instruments)))
             print('   Number of observations - {}'.format(len(m)))
+            print('   Fully Processed - {}'.format(m.processed))
         print("-----------------------------------------------------\n")
 
     # Define the 'special' Python methods
