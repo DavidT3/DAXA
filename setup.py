@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2022, 13:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/12/2022, 13:23. Copyright (c) The Contributors
 
 from os import path
 
@@ -27,5 +27,5 @@ setup(
     setup_requires=[],
     install_requires=["numpy==1.23.4", "astroquery==0.4.6", "pandas==1.5.1", "astropy==5.1.1", "packaging==21.3"],
     include_package_data=True,
-    python_requires='>=3'
+    python_requires='>=3.8'
 )
