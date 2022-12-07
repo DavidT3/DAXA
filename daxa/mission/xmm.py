@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/12/2022, 14:44. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -220,44 +220,48 @@ class XMMPointed(BaseMission):
         :return: A None value.
         :rtype: Any
         """
-        # Set this again here because otherwise its annoyingly verbose
-        log.setLevel(0)
-        # Download the requested data
-        AQXMMNewton.download_data(observation_id=observation_id, level=level, filename=filename)
-        # As the above function downloads the data as compressed tars, we need to decompress them
-        with tarfile.open(filename+'.tar.gz') as zippo:
-            zippo.extractall(filename)
+        # Another part of the very unsophisticated method I currently have for checking whether a raw XMM data
+        #  download has already been performed (see issue #30). If the ObsID directory doesn't exist then
+        #  an attempt will be made.
+        if not os.path.exists(filename):
+            # Set this again here because otherwise its annoyingly verbose
+            log.setLevel(0)
+            # Download the requested data
+            AQXMMNewton.download_data(observation_id=observation_id, level=level, filename=filename)
+            # As the above function downloads the data as compressed tars, we need to decompress them
+            with tarfile.open(filename+'.tar.gz') as zippo:
+                zippo.extractall(filename)
 
-        # Then remove the original compressed tar to save space
-        os.remove(filename+'.tar.gz')
+            # Then remove the original compressed tar to save space
+            os.remove(filename+'.tar.gz')
 
-        # Finally, the actual telescope data is in another .tar, so we expand that as well, first making
-        #  sure that there is only one tar in the observations folder
-        rel_tars = [f for f in os.listdir(filename) if "{o}.tar".format(o=observation_id) in f.lower()]
+            # Finally, the actual telescope data is in another .tar, so we expand that as well, first making
+            #  sure that there is only one tar in the observations folder
+            rel_tars = [f for f in os.listdir(filename) if "{o}.tar".format(o=observation_id) in f.lower()]
 
-        # Checks to make sure there is only one tarred file (otherwise I don't know what this will be
-        #  unzipping)
-        if len(rel_tars) == 0 or len(rel_tars) > 1:
-            raise ValueError("Multiple tarred ODFs were detected for {o}, and cannot be "
-                             "unpacked".format(o=observation_id))
+            # Checks to make sure there is only one tarred file (otherwise I don't know what this will be
+            #  unzipping)
+            if len(rel_tars) == 0 or len(rel_tars) > 1:
+                raise ValueError("Multiple tarred ODFs were detected for {o}, and cannot be "
+                                 "unpacked".format(o=observation_id))
 
-        # Variable to store the name of the tarred file (included revolution number and ObsID, hence why
-        #  I don't just construct it myself, don't know the revolution number a priori)
-        to_untar = filename + '/{}'.format(rel_tars[0])
+            # Variable to store the name of the tarred file (included revolution number and ObsID, hence why
+            #  I don't just construct it myself, don't know the revolution number a priori)
+            to_untar = filename + '/{}'.format(rel_tars[0])
 
-        # Open and untar the file
-        with tarfile.open(to_untar) as tarro:
-            untar_path = to_untar.split('.')[0] + '/'
-            tarro.extractall(untar_path)
-        # Then remove the tarred file to minimise storage usage
-        os.remove(to_untar)
+            # Open and untar the file
+            with tarfile.open(to_untar) as tarro:
+                untar_path = to_untar.split('.')[0] + '/'
+                tarro.extractall(untar_path)
+            # Then remove the tarred file to minimise storage usage
+            os.remove(to_untar)
 
-        # This part removes ODFs which belong to instruments the user hasn't requested, but we have
-        #  to make sure to add the code 'SC' otherwise spacecraft information files will get removed
-        to_keep = insts + ['SC']
-        throw_away = [f for f in os.listdir(untar_path) if f.split(observation_id+'_')[1][:2] not in to_keep]
-        for for_removal in throw_away:
-            os.remove(untar_path + for_removal)
+            # This part removes ODFs which belong to instruments the user hasn't requested, but we have
+            #  to make sure to add the code 'SC' otherwise spacecraft information files will get removed
+            to_keep = insts + ['SC']
+            throw_away = [f for f in os.listdir(untar_path) if f.split(observation_id+'_')[1][:2] not in to_keep]
+            for for_removal in throw_away:
+                os.remove(untar_path + for_removal)
 
         return None
 
@@ -279,6 +283,12 @@ class XMMPointed(BaseMission):
             os.makedirs(self.top_level_path + self.name + '_raw')
         # Just make a shorthand variable for the storage path
         stor_dir = self.top_level_path + self.name + '_raw/'
+
+        # A very unsophisticated way of checking whether raw data have been downloaded before (see issue #30)
+        #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
+        #  the _download_call method
+        if all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in self.filtered_obs_ids]):
+            self._download_done = True
 
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
