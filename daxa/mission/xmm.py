@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/12/2022, 14:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/12/2022, 16:45. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -251,7 +251,8 @@ class XMMPointed(BaseMission):
 
             # Open and untar the file
             with tarfile.open(to_untar) as tarro:
-                untar_path = to_untar.split('.')[0] + '/'
+                # untar_path = to_untar.split('.')[0] + '/'
+                untar_path = filename + '/odf/'
                 tarro.extractall(untar_path)
             # Then remove the tarred file to minimise storage usage
             os.remove(to_untar)
