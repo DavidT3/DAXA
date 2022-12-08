@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/12/2022, 20:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/12/2022, 20:33. Copyright (c) The Contributors
 import os
 from typing import List, Union, Tuple
 from warnings import warn
@@ -309,8 +309,9 @@ class Archive:
 
         # Have to check that the top level keys are all mission names associated with this archive
         top_key_check = [top_key for top_key in process_info if top_key not in self.mission_names]
+
         # If not then we throw a hopefully quite informative error
-        if not len(top_key_check) != 0:
+        if len(top_key_check) != 0:
             raise KeyError("One or more top-level keys ({bk}) in the process information dictionary do not "
                            "correspond to missions associated with this archive; {mn} are "
                            "allowed.".format(bk=','.join(top_key_check), mn=','.join(self.mission_names)))
