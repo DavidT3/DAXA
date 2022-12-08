@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/12/2022, 20:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/12/2022, 20:18. Copyright (c) The Contributors
 import os
 from typing import List, Union, Tuple
 from warnings import warn
@@ -183,6 +183,7 @@ class Archive:
             process for which a success dictionary is being passed, and the second being the success dictionary
             with top level keys being mission names, and bottom level keys being ObsID or ObsID+instrument keys.
         """
+        # This applies checks to the input to this setter
         pr_name, success_flags = self._check_process_inputs(process_name_success_dict)
 
         # Iterate through the missions in the input dictionary
@@ -220,7 +221,7 @@ class Archive:
             process for which a success dictionary is being passed, and the second being the error dictionary
             with top level keys being mission names, and bottom level keys being ObsID or ObsID+instrument keys.
         """
-
+        # This applies checks to the input to this setter
         pr_name, error_info = self._check_process_inputs(process_name_error_dict)
 
         # Iterate through the missions in the input dictionary
@@ -232,6 +233,48 @@ class Archive:
                      "made.".format(prn=pr_name, mn=mn))
             else:
                 self._process_errors[mn][pr_name] = error_info[mn]
+
+    @property
+    def process_logs(self) -> dict:
+        """
+        Property getter for a nested dictionary containing log information from processing applied to mission data.
+
+        :return: A nested dictionary where top level keys are mission names, next level keys are processing
+            function names, and lowest level keys are either ObsID or ObsID+instrument names. The values
+            attributed with the lowest level keys are logs (e.g. stdout from command line tools).
+        :rtype: dict
+        """
+        # Check to make sure that success information for at least one processing function on at least one mission
+        #  has been added to this archive, otherwise an error is thrown.
+        if sum([len(self._process_logs[mn]) for mn in self.mission_names]) == 0:
+            raise NoProcessingError("No processing log information has been added to this archive, meaning "
+                                    "that no data processing has been applied.")
+
+        return self._process_logs
+
+    @process_logs.setter
+    def process_logs(self, process_name_log_dict: Tuple[str, dict]):
+        """
+        Property setter for a nested dictionary containing log information from processing applied to mission
+        data. This shouldn't be used directly by a user, rather DAXA processing functions will use it themselves. This
+        setter does not overwrite the existing dictionary, but rather adds extra information.
+
+        :param Tuple[str, dict] process_name_log_dict: A tuple with the first element being the name of the
+            process for which a success dictionary is being passed, and the second being the log dictionary
+            with top level keys being mission names, and bottom level keys being ObsID or ObsID+instrument keys.
+        """
+        # This applies checks to the input to this setter
+        pr_name, log_info = self._check_process_inputs(process_name_log_dict)
+
+        # Iterate through the missions in the input dictionary
+        for mn in log_info:
+            # If the particular process does not have an entry for the particular mission then we add it to the
+            #  dictionary, but if it does then we warn the user and do nothing
+            if pr_name in self._process_logs[mn]:
+                warn("The process_logs property already has an entry for {prn} under {mn}, no change will be "
+                     "made.".format(prn=pr_name, mn=mn))
+            else:
+                self._process_logs[mn][pr_name] = log_info[mn]
 
     # Then define internal methods
     def _check_process_inputs(self, process_vals: Tuple[str, dict]) -> Tuple[str, dict]:
