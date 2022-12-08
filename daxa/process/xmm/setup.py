@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 06/12/2022, 17:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/12/2022, 10:22. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
