@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/12/2022, 14:25. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/12/2022, 19:31. Copyright (c) The Contributors
 
 import os.path
 from functools import wraps
@@ -106,6 +106,7 @@ def sas_call(sas_func):
         # The first argument of all the SAS processing functions will be an archive instance, and pulling
         #  that out of the arguments will be useful later
         obs_archive = args[0]
+        obs_archive: Archive  # Just for autocomplete purposes in my IDE
 
         # This is the output from whatever function this is a decorator for
         miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable = sas_func(*args, **kwargs)
@@ -193,6 +194,7 @@ def sas_call(sas_func):
                         if err is not None:
                             # Rather than throwing an error straight away I append them all to a list for later.
                             python_errors.append(err)
+                        # Still want to update the progress bar if an error has occurred
                         gen.update(1)
 
                     for rel_id, cmd in miss_cmds[miss_name].items():
@@ -208,7 +210,7 @@ def sas_call(sas_func):
             if len(python_errors) != 0:
                 raise ExceptionGroup("Python errors raised during SAS commands", python_errors)
 
-        return success_flags, process_stderrs, process_stdouts
+            obs_archive.process_success = (sas_func.__name__, success_flags)
     return wrapper
 
 

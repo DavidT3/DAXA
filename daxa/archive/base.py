@@ -1,12 +1,13 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 06/12/2022, 15:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/12/2022, 19:31. Copyright (c) The Contributors
 import os
-from typing import List, Union
+from typing import List, Union, Tuple
+from warnings import warn
 
 import numpy as np
 
 from daxa import BaseMission, OUTPUT
-from daxa.exceptions import DuplicateMissionError, ArchiveExistsError
+from daxa.exceptions import DuplicateMissionError, ArchiveExistsError, NoProcessingError
 
 
 class Archive:
@@ -84,6 +85,18 @@ class Archive:
             if not mission.download_completed:
                 mission.download()
 
+        # These attributes are to store outputs from command-line based processes (such as the SAS processing
+        #  tools for XMM missions). Top level keys are mission names, one level down from that uses process names
+        #  as keys (the function name; e.g. cif_build), and one level down from that uses either an ObsID or ObsID
+        #  + instrument combo as keys.
+        # The _process_success_flags dictionary stores whether the process was successful, which means that the
+        #  final output file exists, and that there were no errors from stderr
+        self._process_success_flags = {mn: {} for mn in self.mission_names}
+        # The _process_stderr dictionary stores any stderr outputs that may have been generated, _process_stdout
+        #  stores the stdout for each process
+        self._process_stderr = {mn: {} for mn in self.mission_names}
+        self._process_stdout = {mn: {} for mn in self.mission_names}
+
     # Defining properties first
     @property
     def archive_name(self) -> str:
@@ -137,6 +150,74 @@ class Archive:
             return list(self._missions.values())[0]
         else:
             return list(self._missions.values())
+
+    @property
+    def process_success(self) -> dict:
+        """
+        Property getter for a nested dictionary containing boolean flags describing whether different processing steps
+        applied to observations from various missions are considered to have completed successfully.
+
+        :return: A nested dictionary where top level keys are mission names, next level keys are processing
+            function names, and lowest level keys are either ObsID or ObsID+instrument names. The values
+            attributed with the lowest level keys are boolean, with True indicating that the processing function
+            was successful
+        :rtype: dict
+        """
+        # Check to make sure that success information for at least one processing function on at least one mission
+        #  has been added to this archive, otherwise and error is thrown.
+        if sum([len(self._process_success_flags[mn]) for mn in self.mission_names]) == 0:
+            raise NoProcessingError("No processing success information has been added to this archive, meaning "
+                                    "that no data processing has been applied.")
+
+        return self._process_success_flags
+
+    @process_success.setter
+    def process_success(self, process_name_success_dict: Tuple[str, dict]):
+        """
+        Property setter for a nested dictionary containing boolean flags describing whether different processing
+        steps applied to observations from various missions are considered to have completed successfully. This
+        shouldn't really be used directly by a user, rather DAXA processing functions will use it themselves. This
+        setter does not overwrite the existing dictionary, but rather adds extra information.
+
+        :param Tuple[str, dict] process_name_success_dict: A tuple with the first element being the name of the
+            process for which a success dictionary is being passed, and the second being the success dictionary
+            with top level keys being mission names, and bottom level keys being ObsID or ObsID+instrument keys.
+        """
+
+        # Ensure that the correct length of Tuple has been passed
+        if len(process_name_success_dict) != 2:
+            raise ValueError("The value passed to the process_success setter must be a tuple with two elements, the "
+                             "first being the name of the process and the second the dictionary of success flags.")
+        else:
+            # If it has we unpack the tuple into two variables for clarity
+            pr_name, success_flags = process_name_success_dict
+
+        # Make sure that element one is the correct type
+        if not isinstance(pr_name, str):
+            raise TypeError("The first element of the value passed to the process_success setter must be the "
+                            "string name of a DAXA processing function.")
+        # Do the same with element two
+        elif not isinstance(success_flags, dict):
+            raise TypeError("The second element of the value passed to the process_success setter must "
+                            "be a dictionary.")
+
+        # Have to check that the top level keys are all mission names associated with this archive
+        top_key_check = [top_key for top_key in success_flags if top_key not in self.mission_names]
+        # If not then we throw a hopefully quite informative error
+        if not len(top_key_check) != 0:
+            raise KeyError("One or more top-level keys ({bk}) in the success flag dictionary do not "
+                           "correspond to missions associated with this archive; {mn} are "
+                           "allowed.".format(bk=','.join(top_key_check), mn=','.join(self.mission_names)))
+
+        # Iterate through the missions in the input dictionary
+        for mn in success_flags:
+            # If the particular process does not have an entry for the particular mission then we add it to the
+            #  dictionary, but if it does then we warn the user and do nothing
+            if pr_name in self._process_success_flags[mn]:
+                warn("The process_success property already has an entry for {prn} under {mn}, no change will be "
+                     "made.".format(prn=pr_name, mn=mn))
+            else:
+                self._process_success_flags[mn][pr_name] = success_flags[mn]
 
     # Then define internal methods
 
