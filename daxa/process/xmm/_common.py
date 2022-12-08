@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/12/2022, 19:31. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/12/2022, 20:05. Copyright (c) The Contributors
 
 import os.path
 from functools import wraps
@@ -211,6 +211,8 @@ def sas_call(sas_func):
                 raise ExceptionGroup("Python errors raised during SAS commands", python_errors)
 
             obs_archive.process_success = (sas_func.__name__, success_flags)
+            obs_archive.process_errors = (sas_func.__name__, process_stderrs)
+
     return wrapper
 
 
