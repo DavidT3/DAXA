@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/12/2022, 16:45. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 15:42. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -58,7 +58,8 @@ class XMMPointed(BaseMission):
         self.chosen_instruments = insts
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = ['proprietary_end_date', 'usable_proprietary', 'usable_science']
+        self._required_mission_specific_cols = ['proprietary_end_date', 'usable_proprietary', 'usable_science',
+                                                'revolution']
 
         # Runs the method which fetches information on all available pointed XMM observations and stores that
         #  information in the all_obs_info property
@@ -152,7 +153,8 @@ class XMMPointed(BaseMission):
         #  works as intended. I hope this is a stable behaviour!
         # TODO Might want to grab footprint_fov, stc_s at some point
         obs_info = AQXMMNewton.query_xsa_tap("select TOP {} ra, dec, observation_id, start_utc, with_science, "
-                                             "duration, proprietary_end_date from v_all_observations".format(num_obs))
+                                             "duration, proprietary_end_date, revolution "
+                                             "from v_all_observations".format(num_obs))
         # The above command has gotten some basic information; central coordinates, observation ID, start time
         #  and duration, whether the data are proprietary etc. Now this Astropy table object is turned into a
         #  Pandas dataframe (which I much prefer working with).
@@ -252,7 +254,7 @@ class XMMPointed(BaseMission):
             # Open and untar the file
             with tarfile.open(to_untar) as tarro:
                 # untar_path = to_untar.split('.')[0] + '/'
-                untar_path = filename + '/odf/'
+                untar_path = filename + '/'
                 tarro.extractall(untar_path)
             # Then remove the tarred file to minimise storage usage
             os.remove(to_untar)
@@ -260,7 +262,8 @@ class XMMPointed(BaseMission):
             # This part removes ODFs which belong to instruments the user hasn't requested, but we have
             #  to make sure to add the code 'SC' otherwise spacecraft information files will get removed
             to_keep = insts + ['SC']
-            throw_away = [f for f in os.listdir(untar_path) if f.split(observation_id+'_')[1][:2] not in to_keep]
+            throw_away = [f for f in os.listdir(untar_path) if 'MANIFEST' not in f
+                          and f.split(observation_id+'_')[1][:2] not in to_keep]
             for for_removal in throw_away:
                 os.remove(untar_path + for_removal)
 
