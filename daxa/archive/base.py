@@ -1,6 +1,7 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/12/2022, 20:33. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 15:56. Copyright (c) The Contributors
 import os
+from shutil import rmtree
 from typing import List, Union, Tuple
 from warnings import warn
 
@@ -22,7 +23,7 @@ class Archive:
     :param str archive_name: The name to be given to this archive - it will be used for storage
         and identification.
     """
-    def __init__(self, missions: Union[List[BaseMission], BaseMission], archive_name: str):
+    def __init__(self, missions: Union[List[BaseMission], BaseMission], archive_name: str, clobber: bool = False):
         """
         The init of the Archive class, which is to be used to consolidate and provide some interface with a set
         of mission's data. Archives can be passed to processing and cleaning functions in DAXA, and also
@@ -33,6 +34,8 @@ class Archive:
             performed prior to creating an archive.
         :param str archive_name: The name to be given to this archive - it will be used for storage
             and identification.
+        :param bool clobber: If an archive with named 'archive_name' already exists, then setting clobber to True
+            will cause it to be deleted and overwritten.
         """
         # First ensure that the missions variable is iterable even if there's only one mission that has
         #  been passed, makes it easier to generalise things.
@@ -56,6 +59,11 @@ class Archive:
         # Then make sure that the path to store the archive is created, and that it hasn't been created
         #  before, which would mean an existing archive with the same name
         if not os.path.exists(OUTPUT + 'archives/' + archive_name):
+            os.makedirs(OUTPUT + 'archives/' + archive_name)
+        elif os.path.exists(OUTPUT + 'archives/' + archive_name) and clobber:
+            warn("An archive called {an} already existed, but as clobber=True it has been deleted and "
+                 "overwritten.".format(an=archive_name), stacklevel=2)
+            rmtree(OUTPUT + 'archives/' + archive_name)
             os.makedirs(OUTPUT + 'archives/' + archive_name)
         else:
             raise ArchiveExistsError("An archive named {an} already exists in the output directory "
