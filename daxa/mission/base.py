@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/12/2022, 16:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 17:24. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -237,6 +237,16 @@ class BaseMission(metaclass=ABCMeta):
             self._top_level_output_path = os.path.abspath(new_path)
         else:
             pass
+
+    @property
+    def raw_data_path(self) -> str:
+        """
+        Property getter for the directory in which raw data for the current mission is stored.
+
+        :return: Storage path for raw data for this mission.
+        :rtype: str
+        """
+        return self.top_level_path + self.name + '_raw/'
 
     @property
     def filter_array(self) -> np.ndarray:
