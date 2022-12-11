@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/12/2022, 10:22. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 22:14. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -42,8 +42,9 @@ def cif_build(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress
 
     # This string contains the bash code to run cifbuild, and will be filled in for each
     #  observation within each XMM mission
+    # TODO DECIDE WHETHER TO KEEP FULLPATH=YES OR NOT
     cif_cmd = "cd {d}; cifbuild calindexset=ccf.cif withobservationdate=yes " \
-              "observationdate={od} analysisdate={ad} ; mv * ../; cd ..; rm -r {n}"
+              "observationdate={od} analysisdate={ad} fullpath=yes; mv * ../; cd ..; rm -r {n}"
 
     if isinstance(analysis_date, datetime):
         # If an analysis date object, we need to convert it to the right string format for cifbuild
@@ -117,5 +118,65 @@ def cif_build(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
 
 
-def odf_ingest():
-    pass
+@sas_call
+def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False):
+
+    # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
+    #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
+    sas_version = _sas_process_setup(obs_archive)
+
+    # Define the form of the odfingest command that must be run to create an ODF summary file
+    odf_cmd = "cd {d}; export SAS_CCF={ccf}; echo $SAS_CCF; odfingest odfdir={odf_dir} outdir={out_dir} withodfdir=yes"
+
+    # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
+    #  extra information that might be useful to provide to the next step in the generation process
+    miss_cmds = {}
+    miss_final_paths = {}
+    miss_extras = {}
+
+    # Just grabs the XMM missions, we already know there will be at least one because otherwise _sas_process_setup
+    #  would have thrown an error
+    xmm_miss = [mission for mission in obs_archive if mission.name in ALLOWED_XMM_MISSIONS]
+    # We are iterating through XMM missions (options could include xmm_pointed and xmm_slew for instance).
+    for miss in xmm_miss:
+        # Sets up the top level keys (mission name) in our storage dictionaries
+        miss_cmds[miss.name] = {}
+        miss_final_paths[miss.name] = {}
+        miss_extras[miss.name] = {}
+
+        # Grabs the Pandas dataframe of observation information for those observations that have been selected
+        #  by the mission - makes a copy just to be safe (I don't think its probably necessary but I'm doing it
+        #  anyway).
+        filtered_obs_info = miss.filtered_obs_info.copy()
+
+        # Now we're iterating through the ObsIDs that have been selected for the current mission
+        for obs_id in miss.filtered_obs_ids:
+            # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
+            #  files will be written to.
+            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            ccf_path = dest_dir + 'ccf.cif'
+
+            rev = filtered_obs_info[filtered_obs_info['ObsID'] == obs_id].iloc[0]['revolution']
+            rev = str(rev).zfill(4)
+
+            # This is where the final output calibration file will be stored
+            final_path = dest_dir + "{r}_{o}_SCX00000SUM.SAS".format(r=rev, o=obs_id)
+            # This file should be deleted if it already exists
+            if os.path.exists(final_path):
+                os.remove(final_path)
+
+            # The path to the ODF (raw data) for this ObsID
+            odf_path = miss.raw_data_path + obs_id + '/'
+
+            # Construct the command with relevant information
+            cmd = odf_cmd.format(d=dest_dir, ccf=ccf_path, odf_dir=odf_path, out_dir=odf_path)
+
+            # Now store the bash command, the path, and extra info in the dictionaries
+            miss_cmds[miss.name][obs_id] = cmd
+            miss_final_paths[miss.name][obs_id] = final_path
+            miss_extras[miss.name][obs_id] = {}
+
+            # This is just used for populating a progress bar during generation
+        process_message = 'Generating ODF summary files'
+
+        return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
