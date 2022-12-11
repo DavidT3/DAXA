@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 22:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/12/2022, 15:44. Copyright (c) The Contributors
 
 import os.path
 from functools import wraps
@@ -202,6 +202,7 @@ def sas_call(sas_func):
         #  either ObsID or ObsID+Inst, depending on the task).
         success_flags = {}
         process_stderrs = {}
+        process_stderr_warns = {}
         # The std outs recorded for each task, keys are the same as the two dictionaries above
         process_stdouts = {}
         # I do not love this solution, but this will be what any python errors that are thrown during execute_cmd
@@ -215,6 +216,7 @@ def sas_call(sas_func):
             # Set up top level (mission name) keys for the output storage dictionaries
             success_flags[miss_name] = {}
             process_stderrs[miss_name] = {}
+            process_stderr_warns[miss_name] = {}
             process_stdouts[miss_name] = {}
 
             # There's no point setting up a Pool etc. if there are no tasks to run for the current mission, so
@@ -244,20 +246,25 @@ def sas_call(sas_func):
                         #  success, stderr, and stdout
                         nonlocal success_flags
                         nonlocal process_stderrs
+                        nonlocal process_stderr_warns
                         nonlocal process_stdouts
 
                         # Just unpack the results in for clarity's sake
                         relevant_id, mission_name, does_file_exist, proc_out, proc_err = results_in
-
+                        # This processes the stderr output to try and differentiate between warnings and actual
+                        #  show-stopping errors
                         sas_err, sas_warn, other_err = parse_stderr(proc_err)
 
                         # We consider the task successful if the final file exists and there is nothing
                         #  in the stderr output
-                        if does_file_exist and len(proc_err) == 0:
+                        if does_file_exist and len(sas_err) == 0:
                             success_flags[mission_name][relevant_id] = True
                         else:
                             success_flags[mission_name][relevant_id] = False
-                            process_stderrs[mission_name][relevant_id] = proc_err
+                            process_stderrs[mission_name][relevant_id] = sas_err
+
+                        if len(sas_warn) > 0:
+                            process_stderr_warns[mission_name][relevant_id] = sas_warn
 
                         # Store the stdout for logging purposes
                         process_stdouts[mission_name][relevant_id] = proc_out
@@ -296,6 +303,7 @@ def sas_call(sas_func):
 
             obs_archive.process_success = (sas_func.__name__, success_flags)
             obs_archive.process_errors = (sas_func.__name__, process_stderrs)
+            obs_archive.process_warnings = (sas_func.__name__, process_stderr_warns)
             obs_archive.process_logs = (sas_func.__name__, process_stdouts)
 
     return wrapper
