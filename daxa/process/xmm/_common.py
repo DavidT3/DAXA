@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/12/2022, 15:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/12/2022, 16:34. Copyright (c) The Contributors
 
 import os.path
 from functools import wraps
@@ -263,6 +263,8 @@ def sas_call(sas_func):
                             success_flags[mission_name][relevant_id] = False
                             process_stderrs[mission_name][relevant_id] = sas_err
 
+                        # If there are any warnings, we don't consider them an indication of the total failure of
+                        #  the process, but we do make sure to store them
                         if len(sas_warn) > 0:
                             process_stderr_warns[mission_name][relevant_id] = sas_warn
 

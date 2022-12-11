@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/12/2022, 15:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/12/2022, 16:34. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -22,7 +22,7 @@ def cif_build(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress
     prior to processing. The observation date is supplied by the XMM mission instance(s), and is the date when the
     observation was started (as acquired from the XSA).
 
-    :param Archive obs_archive: An Archive instance containing XMM mission instances for observation calibration
+    :param Archive obs_archive: An Archive instance containing XMM mission instances for which observation calibration
         files should be generated. This function will fail if no XMM missions are present in the archive.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
@@ -120,13 +120,27 @@ def cif_build(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress
 
 @sas_call
 def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False):
+    """
+    This function runs the SAS odfingest task, which creates a summary of the raw data available in the ODF
+    directory, and is used by many SAS processing tasks.
 
+    :param Archive obs_archive: An Archive instance containing XMM mission instances for which observation summary
+        files should be generated. This function will fail if no XMM missions are present in the archive.
+    :param int num_cores: The number of cores to use, default is set to 90% of available.
+    :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
+        internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
+        bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
+        obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
+        f) whether the progress bar should be hidden or not.
+    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    """
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
     sas_version = _sas_process_setup(obs_archive)
 
     # Define the form of the odfingest command that must be run to create an ODF summary file
-    odf_cmd = "cd {d}; export SAS_CCF={ccf}; echo $SAS_CCF; odfingest odfdir={odf_dir} outdir={out_dir} withodfdir=yes"
+    odf_cmd = "cd {d}; export SAS_CCF={ccf}; odfingest odfdir={odf_dir} outdir={out_dir} withodfdir=yes"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
