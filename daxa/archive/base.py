@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 15:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 22:27. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -100,9 +100,12 @@ class Archive:
         # The _process_success_flags dictionary stores whether the process was successful, which means that the
         #  final output file exists, and that there were no errors from stderr
         self._process_success_flags = {mn: {} for mn in self.mission_names}
-        # The _process_errors dictionary stores any error outputs that may have been generated, _process_logs
-        #  stores any relevant logs (mostly stdout for cmd line based tools) for each process
+        # The _process_errors dictionary stores any error outputs that may have been generated, _process_warnings
+        #  stores any warnings that (hopefully) aren't serious enough to rule that a process run was a complete
+        #  failure, and _process_logs stores any relevant logs (mostly stdout for cmd line based tools) for
+        #  each process
         self._process_errors = {mn: {} for mn in self.mission_names}
+        self._process_warnings = {mn: {} for mn in self.mission_names}
         self._process_logs = {mn: {} for mn in self.mission_names}
 
     # Defining properties first
@@ -211,7 +214,8 @@ class Archive:
 
         :return: A nested dictionary where top level keys are mission names, next level keys are processing
             function names, and lowest level keys are either ObsID or ObsID+instrument names. The values
-            attributed with the lowest level keys are error outputs (e.g. stderr from command line tools).
+            attributed with the lowest level keys are error outputs (e.g. parsed from stderr from command line
+            tools).
         :rtype: dict
         """
         # It is quite conceivable that no errors occur during processing, thus no check of any kind is applied
@@ -226,7 +230,7 @@ class Archive:
         setter does not overwrite the existing dictionary, but rather adds extra information.
 
         :param Tuple[str, dict] process_name_error_dict: A tuple with the first element being the name of the
-            process for which a success dictionary is being passed, and the second being the error dictionary
+            process for which a error dictionary is being passed, and the second being the error dictionary
             with top level keys being mission names, and bottom level keys being ObsID or ObsID+instrument keys.
         """
         # This applies checks to the input to this setter
@@ -241,6 +245,45 @@ class Archive:
                      "made.".format(prn=pr_name, mn=mn))
             else:
                 self._process_errors[mn][pr_name] = error_info[mn]
+
+    @property
+    def process_warnings(self) -> dict:
+        """
+        Property getter for a nested dictionary containing warning information from processing applied to mission data.
+
+        :return: A nested dictionary where top level keys are mission names, next level keys are processing
+            function names, and lowest level keys are either ObsID or ObsID+instrument names. The values
+            attributed with the lowest level keys are warning outputs (e.g. parsed from stderr from command line
+            tools).
+        :rtype: dict
+        """
+        # It is quite conceivable that no warnings occur during processing, thus no check of any kind is applied
+        #  to make sure that _process_warnings actually has entries
+        return self._process_warnings
+
+    @process_warnings.setter
+    def process_warnings(self, process_name_warn_dict: Tuple[str, dict]):
+        """
+        Property setter for a nested dictionary containing warning information from processing applied to mission
+        data. This shouldn't be used directly by a user, rather DAXA processing functions will use it themselves. This
+        setter does not overwrite the existing dictionary, but rather adds extra information.
+
+        :param Tuple[str, dict] process_name_warn_dict: A tuple with the first element being the name of the
+            process for which a warning dictionary is being passed, and the second being the warning dictionary
+            with top level keys being mission names, and bottom level keys being ObsID or ObsID+instrument keys.
+        """
+        # This applies checks to the input to this setter
+        pr_name, warn_info = self._check_process_inputs(process_name_warn_dict)
+
+        # Iterate through the missions in the input dictionary
+        for mn in warn_info:
+            # If the particular process does not have an entry for the particular mission then we add it to the
+            #  dictionary, but if it does then we warn the user and do nothing
+            if pr_name in self._process_warnings[mn]:
+                warn("The process_warnings property already has an entry for {prn} under {mn}, no change will be "
+                     "made.".format(prn=pr_name, mn=mn))
+            else:
+                self._process_warnings[mn][pr_name] = warn_info[mn]
 
     @property
     def process_logs(self) -> dict:
