@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 22:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/12/2022, 15:40. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -153,14 +153,16 @@ def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
         for obs_id in miss.filtered_obs_ids:
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
             #  files will be written to.
-            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
-            ccf_path = dest_dir + 'ccf.cif'
+            # dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            raw_dir = miss.raw_data_path + obs_id + '/'
+            proc_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            ccf_path = proc_dir + 'ccf.cif'
 
             rev = filtered_obs_info[filtered_obs_info['ObsID'] == obs_id].iloc[0]['revolution']
             rev = str(rev).zfill(4)
 
             # This is where the final output calibration file will be stored
-            final_path = dest_dir + "{r}_{o}_SCX00000SUM.SAS".format(r=rev, o=obs_id)
+            final_path = raw_dir + "{r}_{o}_SCX00000SUM.SAS".format(r=rev, o=obs_id)
             # This file should be deleted if it already exists
             if os.path.exists(final_path):
                 os.remove(final_path)
@@ -169,7 +171,7 @@ def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
             odf_path = miss.raw_data_path + obs_id + '/'
 
             # Construct the command with relevant information
-            cmd = odf_cmd.format(d=dest_dir, ccf=ccf_path, odf_dir=odf_path, out_dir=odf_path)
+            cmd = odf_cmd.format(d=proc_dir, ccf=ccf_path, odf_dir=odf_path, out_dir=odf_path)
 
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][obs_id] = cmd
