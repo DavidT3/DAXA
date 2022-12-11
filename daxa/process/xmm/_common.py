@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 22:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 22:14. Copyright (c) The Contributors
 
 import os.path
 from functools import wraps
@@ -249,8 +249,7 @@ def sas_call(sas_func):
                         # Just unpack the results in for clarity's sake
                         relevant_id, mission_name, does_file_exist, proc_out, proc_err = results_in
 
-                        print(parse_stderr(proc_err))
-                        print('')
+                        sas_err, sas_warn, other_err = parse_stderr(proc_err)
 
                         # We consider the task successful if the final file exists and there is nothing
                         #  in the stderr output
