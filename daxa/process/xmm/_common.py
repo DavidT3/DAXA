@@ -1,11 +1,11 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/12/2022, 20:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 22:12. Copyright (c) The Contributors
 
 import os.path
 from functools import wraps
 from multiprocessing.dummy import Pool
 from subprocess import Popen, PIPE
-from typing import Tuple
+from typing import Tuple, List, Dict
 from warnings import warn
 
 from exceptiongroup import ExceptionGroup
@@ -13,6 +13,7 @@ from packaging.version import Version
 from tqdm import tqdm
 
 from daxa.archive.base import Archive
+from daxa.config import SASERROR_LIST, SASWARNING_LIST
 from daxa.exceptions import NoXMMMissionsError
 from daxa.process._backend_check import find_sas
 
@@ -59,6 +60,87 @@ def _sas_process_setup(obs_archive: Archive) -> Version:
                 os.makedirs(stor_dir)
 
     return sas_vers
+
+
+def parse_stderr(unprocessed_stderr: str) -> Tuple[List[str], List[Dict], List]:
+    """
+    A function to parse the stderr output from SAS tasks which attempts to identify salient parts of the output
+    by matching to known SAS errors and warnings. The identified errors/warnings are returned, and will inform
+    DAXA whether a particular call of a particular SAS process was successful or not.
+
+    :return: A list of dictionaries containing parsed, confirmed SAS errors, another containing SAS warnings,
+        and another list of unidentifiable errors that occured in the stderr.
+    :rtype: Tuple[List[Dict], List[Dict], List]
+    """
+    def find_sas_error(split_stderr: list, err_type: str) -> Tuple[List[dict], List[str]]:
+        """
+        Function to search for and parse SAS errors and warnings.
+
+        :param list split_stderr: The stderr string split on line endings.
+        :param str err_type: Should this look for errors or warnings?
+        :return: Returns the dictionary of parsed errors/warnings, as well as all lines
+            with SAS errors/warnings in.
+        :rtype: Tuple[List[dict], List[str]]
+        """
+        parsed_sas = []
+        # This is a crude way of looking for SAS error/warning strings ONLY
+        sas_lines = [line for line in split_stderr if "** " in line and ": {}".format(err_type) in line]
+        for err in sas_lines:
+            try:
+                # This tries to split out the SAS task that produced the error
+                originator = err.split("** ")[-1].split(":")[0]
+                # And this should split out the actual error name
+                err_ident = err.split(": {} (".format(err_type))[-1].split(")")[0]
+                # Actual error message
+                err_body = err.split("({})".format(err_ident))[-1].strip("\n").strip(", ").strip(" ")
+
+                if err_type == "error":
+                    # Checking to see if the error identity is in the list of SAS errors
+                    sas_err_match = [sas_err for sas_err in SASERROR_LIST if err_ident.lower()
+                                     in sas_err.lower()]
+                elif err_type == "warning":
+                    # Checking to see if the error identity is in the list of SAS warnings
+                    sas_err_match = [sas_err for sas_err in SASWARNING_LIST if err_ident.lower()
+                                     in sas_err.lower()]
+
+                if len(sas_err_match) != 1:
+                    originator = ""
+                    err_ident = ""
+                    err_body = ""
+            except IndexError:
+                originator = ""
+                err_ident = ""
+                err_body = ""
+
+            parsed_sas.append({"originator": originator, "name": err_ident, "message": err_body})
+        return parsed_sas, sas_lines
+
+    # Defined as empty as they are returned by this method
+    sas_errs_msgs = []
+    parsed_sas_warns = []
+    other_err_lines = []
+    # err_str being "" is ideal, hopefully means that nothing has gone wrong
+    if unprocessed_stderr != "":
+        # Errors will be added to the error summary, then raised later
+        # That way if people try except the error away the object will have been constructed properly
+        err_lines = [e for e in unprocessed_stderr.split('\n') if e != '']
+        # Fingers crossed each line is a separate error
+        parsed_sas_errs, sas_err_lines = find_sas_error(err_lines, "error")
+        parsed_sas_warns, sas_warn_lines = find_sas_error(err_lines, "warning")
+
+        sas_errs_msgs = ["{e} raised by {t} - {b}".format(e=e["name"], t=e["originator"], b=e["message"])
+                         for e in parsed_sas_errs]
+
+        # These are impossible to predict the form of, so they won't be parsed
+        other_err_lines = [line for line in err_lines if line not in sas_err_lines
+                           and line not in sas_warn_lines and line != "" and "warn" not in line]
+        # Adding some advice
+        for e_ind, e in enumerate(other_err_lines):
+            if 'seg' in e.lower() and 'fault' in e.lower():
+                other_err_lines[e_ind] += ' - Try examining an image of the cluster with regions subtracted, ' \
+                                          'and have a look at where your coordinate lies.'
+
+    return sas_errs_msgs, parsed_sas_warns, other_err_lines
 
 
 def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str) -> Tuple[str, str, bool, str, str]:
@@ -166,6 +248,9 @@ def sas_call(sas_func):
 
                         # Just unpack the results in for clarity's sake
                         relevant_id, mission_name, does_file_exist, proc_out, proc_err = results_in
+
+                        print(parse_stderr(proc_err))
+                        print('')
 
                         # We consider the task successful if the final file exists and there is nothing
                         #  in the stderr output
