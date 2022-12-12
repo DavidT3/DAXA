@@ -1,6 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/12/2022, 11:52. Copyright (c) The Contributors
-
+#  Last modified by David J Turner (turne540@msu.edu) 12/12/2022, 12:09. Copyright (c) The Contributors
+import glob
 import os.path
 from functools import wraps
 from multiprocessing.dummy import Pool
@@ -169,7 +169,11 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str) -> Tuple
     err = err.decode("UTF-8", errors='ignore')
 
     # Simple check on whether the 'final file' passed into this function actually exists or not
-    if os.path.exists(check_path):
+    if '*' not in check_path and os.path.exists(check_path):
+        file_exists = True
+    # In the case where a wildcard is in the final file path (I will try to make sure that this is avoided, but
+    #  it is necessary right now) we use glob to find a match list and check to make sure there is at least one entry
+    elif '*' in check_path and len(glob.glob(check_path)) > 0:
         file_exists = True
     else:
         file_exists = False
@@ -257,6 +261,8 @@ def sas_call(sas_func):
                         # This processes the stderr output to try and differentiate between warnings and actual
                         #  show-stopping errors
                         sas_err, sas_warn, other_err = parse_stderr(proc_err)
+
+                        print(does_file_exist)
 
                         # We consider the task successful if the final file exists and there is nothing
                         #  in the stderr output
