@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/12/2022, 16:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/12/2022, 11:52. Copyright (c) The Contributors
 
 import os.path
 from functools import wraps
@@ -201,13 +201,14 @@ def sas_call(sas_func):
         #  top level keys are mission names, the lower level keys are whatever was used for the task being run (i.e.
         #  either ObsID or ObsID+Inst, depending on the task).
         success_flags = {}
-        process_stderrs = {}
-        process_stderr_warns = {}
+        process_raw_stderrs = {}  # Specifically the unparsed stderr
+        process_parsed_stderrs = {}  # These two are for errors and warnings extracted by parsing the stderr
+        process_parsed_stderr_warns = {}
         # The std outs recorded for each task, keys are the same as the two dictionaries above
         process_stdouts = {}
         # I do not love this solution, but this will be what any python errors that are thrown during execute_cmd
         #  are stored in. In theory, because execute_cmd is so simple, there shouldn't be Python errors thrown.
-        #  SAS errors will be stored in process_stderrs
+        #  SAS errors will be stored in process_parsed_stderrs
         python_errors = []
 
         # Iterating through the missions (there may only one but as the dictionary will have mission name as the top
@@ -215,8 +216,9 @@ def sas_call(sas_func):
         for miss_name in miss_cmds:
             # Set up top level (mission name) keys for the output storage dictionaries
             success_flags[miss_name] = {}
-            process_stderrs[miss_name] = {}
-            process_stderr_warns[miss_name] = {}
+            process_raw_stderrs[miss_name] = {}
+            process_parsed_stderrs[miss_name] = {}
+            process_parsed_stderr_warns[miss_name] = {}
             process_stdouts[miss_name] = {}
 
             # There's no point setting up a Pool etc. if there are no tasks to run for the current mission, so
@@ -245,8 +247,9 @@ def sas_call(sas_func):
                         # Need to make sure we have access to these dictionaries to store information on process
                         #  success, stderr, and stdout
                         nonlocal success_flags
-                        nonlocal process_stderrs
-                        nonlocal process_stderr_warns
+                        nonlocal process_raw_stderrs
+                        nonlocal process_parsed_stderrs
+                        nonlocal process_parsed_stderr_warns
                         nonlocal process_stdouts
 
                         # Just unpack the results in for clarity's sake
@@ -261,12 +264,14 @@ def sas_call(sas_func):
                             success_flags[mission_name][relevant_id] = True
                         else:
                             success_flags[mission_name][relevant_id] = False
-                            process_stderrs[mission_name][relevant_id] = sas_err
+                            # We store both the parsed and unparsed stderr for debugging purposes
+                            process_raw_stderrs[mission_name][relevant_id] = proc_err
+                            process_parsed_stderrs[mission_name][relevant_id] = sas_err
 
                         # If there are any warnings, we don't consider them an indication of the total failure of
                         #  the process, but we do make sure to store them
                         if len(sas_warn) > 0:
-                            process_stderr_warns[mission_name][relevant_id] = sas_warn
+                            process_parsed_stderr_warns[mission_name][relevant_id] = sas_warn
 
                         # Store the stdout for logging purposes
                         process_stdouts[mission_name][relevant_id] = proc_out
@@ -304,8 +309,9 @@ def sas_call(sas_func):
                 raise ExceptionGroup("Python errors raised during SAS commands", python_errors)
 
             obs_archive.process_success = (sas_func.__name__, success_flags)
-            obs_archive.process_errors = (sas_func.__name__, process_stderrs)
-            obs_archive.process_warnings = (sas_func.__name__, process_stderr_warns)
+            obs_archive.process_errors = (sas_func.__name__, process_parsed_stderrs)
+            obs_archive.process_warnings = (sas_func.__name__, process_parsed_stderr_warns)
+            obs_archive.raw_process_errors = (sas_func.__name__, process_raw_stderrs)
             obs_archive.process_logs = (sas_func.__name__, process_stdouts)
 
     return wrapper
