@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/12/2022, 12:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/12/2022, 16:04. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -15,6 +15,10 @@ def epchain():
 @sas_call
 def emchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False):
     """
+    This function runs the emchain SAS process on XMM missions in the passed archive, which assembles the
+    MOS-specific ODFs into combined photon event lists - rather than the per CCD files that existed before. The
+    emchain manual can be found here (https://xmm-tools.cosmos.esa.int/external/sas/current/doc/emchain.pdf) and
+    gives detailed explanations of the process.
 
     :param Archive obs_archive: An Archive instance containing XMM mission instances with MOS observations for
         which emchain should be run. This function will fail if no XMM missions are present in the archive.
@@ -34,9 +38,8 @@ def emchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
     # Define the form of the odfingest command that must be run to create an ODF summary file
     # odf_cmd = "cd {d}; export SAS_CCF={ccf}; echo $SAS_CCF; odfingest odfdir={odf_dir} outdir={out_dir}
     #  withodfdir=yes"
-    em_cmd = "cd {d}; export SAS_CCF={ccf}; emchain odf={odf} instruments={i}; mv *EVLI*.FIT ../; mv *ATTTSR*.FIT ../; "
-    # TODO Restore the deleting part
-             # "cd ..; rm -r {d}"
+    em_cmd = "cd {d}; export SAS_CCF={ccf}; emchain odf={odf} instruments={i}; mv *EVLI*.FIT ../; " \
+             "mv *ATTTSR*.FIT ../; cd ..; rm -r {d}"
 
     # TODO Once summary parser is built (see issue #34) we can make this an unambiguous path
     #  rather than a pattern matching path
