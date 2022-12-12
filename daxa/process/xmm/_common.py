@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/12/2022, 12:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/12/2022, 12:50. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -262,14 +262,14 @@ def sas_call(sas_func):
                         #  show-stopping errors
                         sas_err, sas_warn, other_err = parse_stderr(proc_err)
 
-                        print(does_file_exist)
-
                         # We consider the task successful if the final file exists and there is nothing
                         #  in the stderr output
                         if does_file_exist and len(sas_err) == 0:
                             success_flags[mission_name][relevant_id] = True
                         else:
                             success_flags[mission_name][relevant_id] = False
+                            if not does_file_exist:
+                                sas_err.append('Final file not found raised by DAXA')
                             # We store both the parsed and unparsed stderr for debugging purposes
                             process_raw_stderrs[mission_name][relevant_id] = proc_err
                             process_parsed_stderrs[mission_name][relevant_id] = sas_err
