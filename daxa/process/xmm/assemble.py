@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 13/12/2022, 12:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 13/12/2022, 14:20. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -17,6 +17,9 @@ def epchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
     found here (https://xmm-tools.cosmos.esa.int/external/sas/current/doc/epchain.pdf) and gives detailed
     explanations of the process.
 
+    Per the advice of the SAS epchain manual, the OOT event list epchain call is performed first, and its intermediate
+    files are saved and then used for the normal call to epchain.
+
     :param Archive obs_archive: An Archive instance containing XMM mission instances with PN observations for
         which epchain should be run. This function will fail if no XMM missions are present in the archive.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
@@ -33,15 +36,19 @@ def epchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
     sas_version = _sas_process_setup(obs_archive)
 
     # Define the form of the odfingest command that must be run to create an ODF summary file
-    # odf_cmd = "cd {d}; export SAS_CCF={ccf}; echo $SAS_CCF; odfingest odfdir={odf_dir} outdir={out_dir}
-    #  withodfdir=yes"
-    ep_cmd = "cd {d}; export SAS_CCF={ccf}; epchain odf={odf} odfaccess=odf exposure={e} schedule={s}; " \
-             "mv *EVLI*.FIT ../; mv *ATTTSR*.FIT ../;cd ..; rm -r {d}"
+    # Per the advice of the SAS epchain manual, the OOT event list epchain call is performed first, and its intermediate
+    #  files are saved and then used for the normal call to epchain.
+    ep_cmd = "cd {d}; export SAS_CCF={ccf}; epchain odf={odf} odfaccess=odf exposure={e} schedule={s} " \
+             "runbackground=N keepintermediate=raw withoutoftime=Y; epchain odf={odf} odfaccess=odf exposure={e} " \
+             "schedule={s} runatthkgen=N runepframes=N runbadpixfind=N runbadpix=N; mv *EVLI*.FIT ../; " \
+             "mv *ATTTSR*.FIT ../;cd ..; rm -r {d}"
 
     # TODO Once summary parser is built (see issue #34) we can make this an unambiguous path
     #  rather than a pattern matching path
     # The event list pattern that we want to check for at the end of the process
     evt_list_name = "P{o}PN{eid}PIEVLI*.FIT"
+    # TODO Might be able to change the * to just 0000, as the epchain output files info doesn't seem to indicate
+    #  that there is any other possibility
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -108,7 +115,7 @@ def epchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
                             miss_extras[miss.name][obs_id + inst + exp_id] = {}
 
     # This is just used for populating a progress bar during generation
-    process_message = 'Assembling PN event lists'
+    process_message = 'Assembling PN and PN-OOT event lists'
 
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
 
