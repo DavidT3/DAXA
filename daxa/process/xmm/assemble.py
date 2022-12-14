@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/12/2022, 10:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/12/2022, 15:15. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -168,9 +168,7 @@ def emchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
     sas_version = _sas_process_setup(obs_archive)
 
-    # Define the form of the odfingest command that must be run to create an ODF summary file
-    # odf_cmd = "cd {d}; export SAS_CCF={ccf}; echo $SAS_CCF; odfingest odfdir={odf_dir} outdir={out_dir}
-    #  withodfdir=yes"
+    # Define the form of the emchain command that must be run to create a combined MOS1/2 event list
     em_cmd = "cd {d}; export SAS_CCF={ccf}; emchain odf={odf} instruments={i}; mv *EVLI*.FIT ../; " \
              "mv *ATTTSR*.FIT ../; cd ..; rm -r {d}"
 
