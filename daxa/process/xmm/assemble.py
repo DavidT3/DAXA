@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/12/2022, 10:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/12/2022, 10:59. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -99,6 +99,14 @@ def epchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
                         # Lists the ODFs which match the search term above, finding separate imaging mode files
                         #  for each CCD of the current sub-exposure
                         ccd_files = [f for f in os.listdir(odf_dir) if search_term in f and 'IME' in f]
+
+                        # As an aside, at this point we can check to see if there are any files in this list, as
+                        #  if there are none then we can decide that this sub-exposure is not in an imaging data mode
+                        #  and as such we won't process it
+                        # TODO This will have to change when I start processing non-imaging data modes
+                        if len(ccd_files) == 0:
+                            continue
+
                         # Now the files are processed to just retrieve the list of CCDs active for this sub-exposure
                         #  of the current observation
                         ccd_ids = sorted([int(f.split(search_term)[-1].split('IME')[0]) for f in ccd_files])
