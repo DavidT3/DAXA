@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 13/12/2022, 14:20. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/12/2022, 10:48. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -38,9 +38,9 @@ def epchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
     # Define the form of the odfingest command that must be run to create an ODF summary file
     # Per the advice of the SAS epchain manual, the OOT event list epchain call is performed first, and its intermediate
     #  files are saved and then used for the normal call to epchain.
-    ep_cmd = "cd {d}; export SAS_CCF={ccf}; epchain odf={odf} odfaccess=odf exposure={e} schedule={s} " \
+    ep_cmd = "cd {d}; export SAS_CCF={ccf}; epchain odf={odf} odfaccess=odf exposure={e} schedule={s} ccds={c} " \
              "runbackground=N keepintermediate=raw withoutoftime=Y; epchain odf={odf} odfaccess=odf exposure={e} " \
-             "schedule={s} runatthkgen=N runepframes=N runbadpixfind=N runbadpix=N; mv *EVLI*.FIT ../; " \
+             "schedule={s} ccds={c} runatthkgen=N runepframes=N runbadpixfind=N runbadpix=N; mv *EVLI*.FIT ../; " \
              "mv *ATTTSR*.FIT ../;cd ..; rm -r {d}"
 
     # TODO Once summary parser is built (see issue #34) we can make this an unambiguous path
@@ -90,11 +90,28 @@ def epchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
                         dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
                         ccf_path = dest_dir + 'ccf.cif'
 
-                        # Set up a temporary directory to work in (probably not really necessary in this case, but will be
-                        #  in other processing functions).
+                        # The idea here is to figure out which CCDs where active for a particular observation - this
+                        #  is to avoid errors thrown by epchain about missing CCD data. Those errors are non-fatal,
+                        #  but they contaminate the stderr output which is parsed by DAXA, and cause us to consider
+                        #  processing small-window mode data a failure when it isn't, as only one CCD is turned on
+                        search_term = '{o}_{i}{e}'.format(o=obs_id, i=inst, e=exp_id)
+                        # TODO Again update this after SAS summary parser (issue 34) is implemented
+                        # Lists the ODFs which match the search term above, finding separate imaging mode files
+                        #  for each CCD of the current sub-exposure
+                        ccd_files = [f for f in os.listdir(odf_dir) if search_term in f and 'IME' in f]
+                        # Now the files are processed to just retrieve the list of CCDs active for this sub-exposure
+                        #  of the current observation
+                        ccd_ids = sorted([int(f.split(search_term)[-1].split('IME')[0]) for f in ccd_files])
+                        # The stupid conversion from str to int to str again is an inelegant way of removing leading
+                        #  zeros from the CCD ID numbers in their string form - also need to sort whilst they
+                        #  are in integer form
+                        ccd_ids = [str(c_id) for c_id in ccd_ids]
+                        ccd_str = ",".join(ccd_ids)
+
+                        # Set up a temporary directory to work in
                         temp_name = "tempdir_{}".format(randint(0, 1e+8))
                         temp_dir = dest_dir + temp_name + "/"
-                        # This is where the final output calibration file will be stored
+                        # This is where the final output event list file will be stored
                         final_path = dest_dir + evt_list_name.format(o=obs_id, eid=exp_id)
 
                         # If it doesn't already exist then we will create commands to generate it
@@ -107,7 +124,7 @@ def epchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
                             # Format the blank command string defined near the top of this function with information
                             #  particular to the current mission and ObsID
                             # TODO If unscheduled observations are supported, will need to alter the s= part
-                            cmd = ep_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, e=exp_id[1:], s='S')
+                            cmd = ep_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, e=exp_id[1:], s='S', c=ccd_str)
 
                             # Now store the bash command, the path, and extra info in the dictionaries
                             miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
@@ -186,7 +203,7 @@ def emchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
                     temp_name = "tempdir_{}".format(randint(0, 1e+8))
                     temp_dir = dest_dir + temp_name + "/"
 
-                    # This is where the final output calibration file will be stored
+                    # This is where the final output event list file will be stored
                     final_path = dest_dir + evt_list_name.format(o=obs_id, i=inst)
 
                     # If it doesn't already exist then we will create commands to generate it
