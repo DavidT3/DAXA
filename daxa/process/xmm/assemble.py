@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/12/2022, 17:33. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 14:04. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -137,7 +137,7 @@ def epchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
                             # Now store the bash command, the path, and extra info in the dictionaries
                             miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
                             miss_final_paths[miss.name][obs_id + inst + exp_id] = final_path
-                            miss_extras[miss.name][obs_id + inst + exp_id] = {}
+                            miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_list': final_path}
 
     # This is just used for populating a progress bar during generation
     process_message = 'Assembling PN and PN-OOT event lists'
@@ -161,7 +161,8 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
 
     :param Archive obs_archive: An Archive instance containing XMM mission instances with MOS observations for
         which emchain should be run. This function will fail if no XMM missions are present in the archive.
-    :param bool process_unscheduled:
+    :param bool process_unscheduled: Whether this function should also processed sub-exposures marked 'U', for
+        unscheduled. Default is True, in which case they will be processed.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
@@ -247,7 +248,7 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
                             # Now store the bash command, the path, and extra info in the dictionaries
                             miss_cmds[miss.name][obs_id+inst+exp_id] = cmd
                             miss_final_paths[miss.name][obs_id+inst+exp_id] = final_path
-                            miss_extras[miss.name][obs_id+inst+exp_id] = {}
+                            miss_extras[miss.name][obs_id+inst+exp_id] = {'evt_list': final_path}
 
     # This is just used for populating a progress bar during generation
     process_message = 'Assembling MOS event lists'
