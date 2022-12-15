@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 14:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 14:17. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -214,6 +214,9 @@ def sas_call(sas_func):
         process_parsed_stderr_warns = {}
         # The std outs recorded for each task, keys are the same as the two dictionaries above
         process_stdouts = {}
+        # This is for the extra information which can be passed from processing functions
+        process_einfo = {}
+
         # I do not love this solution, but this will be what any python errors that are thrown during execute_cmd
         #  are stored in. In theory, because execute_cmd is so simple, there shouldn't be Python errors thrown.
         #  SAS errors will be stored in process_parsed_stderrs
@@ -243,12 +246,12 @@ def sas_call(sas_func):
 
                     # This 'callback' function is triggered when the parallelized function completes successfully
                     #  and returns.
-                    def callback(results_in: Tuple[str, str, bool, str, str]):
+                    def callback(results_in: Tuple[str, str, bool, str, str, dict]):
                         """
                         Callback function for the apply_async pool method, gets called when a task finishes
                         and something is returned.
 
-                        :param Tuple[str, str, bool, str, str] results_in: The output of execute_cmd.
+                        :param Tuple[str, str, bool, str, str, dict] results_in: The output of execute_cmd.
                         """
                         # The progress bar will need updating
                         nonlocal gen
@@ -259,9 +262,10 @@ def sas_call(sas_func):
                         nonlocal process_parsed_stderrs
                         nonlocal process_parsed_stderr_warns
                         nonlocal process_stdouts
+                        nonlocal process_einfo
 
                         # Just unpack the results in for clarity's sake
-                        relevant_id, mission_name, does_file_exist, proc_out, proc_err = results_in
+                        relevant_id, mission_name, does_file_exist, proc_out, proc_err, proc_extra_info = results_in
                         # This processes the stderr output to try and differentiate between warnings and actual
                         #  show-stopping errors
                         sas_err, sas_warn, other_err = parse_stderr(proc_err)
@@ -286,6 +290,11 @@ def sas_call(sas_func):
                         # Store the stdout for logging purposes
                         process_stdouts[mission_name][relevant_id] = proc_out
 
+                        # If there is extra information then we shall store it in the dictionary which will
+                        #  eventually be fed to the archive
+                        if len(proc_extra_info) != 0:
+                            process_einfo[mission_name][relevant_id] = proc_extra_info
+
                         # Make sure to update the progress bar
                         gen.update(1)
 
@@ -307,8 +316,9 @@ def sas_call(sas_func):
 
                     for rel_id, cmd in miss_cmds[miss_name].items():
                         rel_fin_path = miss_final_paths[miss_name][rel_id]
+                        rel_einfo = miss_extras[miss_name][rel_id]
 
-                        pool.apply_async(execute_cmd, args=(cmd, rel_id, miss_name, rel_fin_path, miss_extras),
+                        pool.apply_async(execute_cmd, args=(cmd, rel_id, miss_name, rel_fin_path, rel_einfo),
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
@@ -323,6 +333,7 @@ def sas_call(sas_func):
             obs_archive.process_warnings = (sas_func.__name__, process_parsed_stderr_warns)
             obs_archive.raw_process_errors = (sas_func.__name__, process_raw_stderrs)
             obs_archive.process_logs = (sas_func.__name__, process_stdouts)
+            obs_archive.process_extra_info = (sas_func.__name__, process_einfo)
 
     return wrapper
 
