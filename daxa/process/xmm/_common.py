@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 14:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 14:40. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -163,7 +163,6 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str,
         final dictionary can contain extra information recorded by the processing function.
     :rtype: Tuple[str, str, bool, str, str, dict]
     """
-
     # Starts the process running on a shell, connects to the process and waits for it to terminate, and collects
     #  the stdout and stderr
     out, err = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
@@ -171,7 +170,6 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str,
     #  means that it doesn't throw errors if there is a character it doesn't recognize
     out = out.decode("UTF-8", errors='ignore')
     err = err.decode("UTF-8", errors='ignore')
-
     # Simple check on whether the 'final file' passed into this function actually exists or not
     if '*' not in check_path and os.path.exists(check_path):
         file_exists = True
@@ -181,7 +179,6 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str,
         file_exists = True
     else:
         file_exists = False
-
     return rel_id, miss_name, file_exists, out, err, extra_info
 
 
@@ -231,6 +228,7 @@ def sas_call(sas_func):
             process_parsed_stderrs[miss_name] = {}
             process_parsed_stderr_warns[miss_name] = {}
             process_stdouts[miss_name] = {}
+            process_einfo[miss_name] = {}
 
             # There's no point setting up a Pool etc. if there are no tasks to run for the current mission, so
             #  we check how many there are
@@ -315,6 +313,7 @@ def sas_call(sas_func):
                         gen.update(1)
 
                     for rel_id, cmd in miss_cmds[miss_name].items():
+                        # Grab the relevant information for the current mission and ID
                         rel_fin_path = miss_final_paths[miss_name][rel_id]
                         rel_einfo = miss_extras[miss_name][rel_id]
 
