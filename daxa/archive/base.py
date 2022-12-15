@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/12/2022, 11:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 14:11. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -108,6 +108,10 @@ class Archive:
         self._process_warnings = {mn: {} for mn in self.mission_names}
         self._process_raw_errors = {mn: {} for mn in self.mission_names}  # Specifically for unparsed stderr
         self._process_logs = {mn: {} for mn in self.mission_names}
+
+        # This attribute is used to store the 'extra info' that is sometimes passed out of processing functions (see
+        # the DAXA cif_build, epchain, and emchain functions for examples).
+        self._process_extra_info = {mn: {} for mn in self.mission_names}
 
     # Defining properties first
     @property
@@ -336,7 +340,7 @@ class Archive:
             attributed with the lowest level keys are logs (e.g. stdout from command line tools).
         :rtype: dict
         """
-        # Check to make sure that success information for at least one processing function on at least one mission
+        # Check to make sure that logging information for at least one processing function on at least one mission
         #  has been added to this archive, otherwise an error is thrown.
         if sum([len(self._process_logs[mn]) for mn in self.mission_names]) == 0:
             raise NoProcessingError("No processing log information has been added to this archive, meaning "
@@ -367,6 +371,46 @@ class Archive:
                      "made.".format(prn=pr_name, mn=mn))
             else:
                 self._process_logs[mn][pr_name] = log_info[mn]
+
+    @property
+    def process_extra_info(self) -> dict:
+        """
+        Property getter for a nested dictionary containing extra information from processing applied to mission data.
+        This can be things like paths to event lists, or configuration information. It is unlikely to be necessary
+        for users to directly access this property.
+
+        :return: A nested dictionary where top level keys are mission names, next level keys are processing
+            function names, and lowest level keys are either ObsID or ObsID+instrument names. The values
+            attributed with the lowest level keys are dictionaries of extra information (e.g. config info).
+        :rtype: dict
+        """
+        # It is quite conceivable that no extra information has been recorded from processing, thus no check of any
+        #  kind is applied to make sure that _process_extra_info actually has entries
+        return self._process_extra_info
+
+    @process_extra_info.setter
+    def process_extra_info(self, process_name_info_dict: Tuple[str, dict]):
+        """
+        Property setter for a nested dictionary containing extra information from processing applied to mission data.
+         This shouldn't be used directly by a user, rather DAXA processing functions will use it themselves. This
+        setter does not overwrite the existing dictionary, but rather adds extra information.
+
+        :param Tuple[str, dict] process_name_info_dict: A tuple with the first element being the name of the
+            process for which a success dictionary is being passed, and the second being the log dictionary
+            with top level keys being mission names, and bottom level keys being ObsID or ObsID+instrument keys.
+        """
+        # This applies checks to the input to this setter
+        pr_name, einfo_info = self._check_process_inputs(process_name_info_dict)
+
+        # Iterate through the missions in the input dictionary
+        for mn in einfo_info:
+            # If the particular process does not have an entry for the particular mission then we add it to the
+            #  dictionary, but if it does then we warn the user and do nothing
+            if pr_name in self._process_logs[mn]:
+                warn("The process_extra_info property already has an entry for {prn} under {mn}, no change will be "
+                     "made.".format(prn=pr_name, mn=mn))
+            else:
+                self._process_extra_info[mn][pr_name] = einfo_info[mn]
 
     # Then define internal methods
     def _check_process_inputs(self, process_vals: Tuple[str, dict]) -> Tuple[str, dict]:
