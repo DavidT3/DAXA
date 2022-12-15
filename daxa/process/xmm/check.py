@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 15:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 15:39. Copyright (c) The Contributors
 import os
 from random import randint
 from warnings import warn
@@ -55,10 +55,15 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
+        # Need to check to see whether ANY of ObsID-instrument-subexposure combos have had emchain run for them, as
+        #  it is a requirement for this processing function. There will probably be a more elegant way of checkinf
+        #  at some point in the future, generalised across all SAS functions
         if 'emchain' not in obs_archive.process_success[miss.name]:
             raise NoDependencyProcessError("The emchain step has not been run for the {m} mission in the {a} "
                                            "archive, it is a requirement to use "
                                            "emanom.".format(m=miss.name, a=obs_archive.archive_name))
+        # If every emchain run was a failure then we warn the user and move onto the next XMM mission (if there
+        #  is one).
         elif all([v is False for v in obs_archive.process_success[miss.name]['emchain'].values()]):
             warn("Every emchain run for the {m} mission in the {a} archive is reporting as a failure, skipping "
                  "process.".format(m=miss.name, a=obs_archive.archive_name), stacklevel=2)
