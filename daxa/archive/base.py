@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 14:11. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 14:41. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -406,7 +406,7 @@ class Archive:
         for mn in einfo_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
             #  dictionary, but if it does then we warn the user and do nothing
-            if pr_name in self._process_logs[mn]:
+            if pr_name in self._process_extra_info[mn]:
                 warn("The process_extra_info property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn))
             else:
