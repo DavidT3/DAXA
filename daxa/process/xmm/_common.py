@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/12/2022, 12:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 14:14. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -143,7 +143,8 @@ def parse_stderr(unprocessed_stderr: str) -> Tuple[List[str], List[Dict], List]:
     return sas_errs_msgs, parsed_sas_warns, other_err_lines
 
 
-def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str) -> Tuple[str, str, bool, str, str]:
+def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str,
+                extra_info: dict) -> Tuple[str, str, bool, str, str, dict]:
     """
     This is a simple function designed to execute cmd line SAS commands for the processing and reduction of
     XMM mission data. It will collect the stdout and stderr values for each command and return them too for the
@@ -156,8 +157,11 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str) -> Tuple
     :param str miss_name: The specific XMM mission name that this task belongs to.
     :param str check_path: The path where a 'final file' should exist, used for the purposes of checking
         that it exists.
-    :return: The rel_id, a boolean flag indicating whether the final file exists, the std_out, and the std_err.
-    :rtype: Tuple[str, str, bool, str, str]
+    :param dict extra_info: A dictionary which can contain extra information about the process or output that will
+        eventually be stored in the Archive.
+    :return: The rel_id, a boolean flag indicating whether the final file exists, the std_out, and the std_err. The
+        final dictionary can contain extra information recorded by the processing function.
+    :rtype: Tuple[str, str, bool, str, str, dict]
     """
 
     # Starts the process running on a shell, connects to the process and waits for it to terminate, and collects
@@ -178,7 +182,7 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str) -> Tuple
     else:
         file_exists = False
 
-    return rel_id, miss_name, file_exists, out, err
+    return rel_id, miss_name, file_exists, out, err, extra_info
 
 
 def sas_call(sas_func):
@@ -304,7 +308,7 @@ def sas_call(sas_func):
                     for rel_id, cmd in miss_cmds[miss_name].items():
                         rel_fin_path = miss_final_paths[miss_name][rel_id]
 
-                        pool.apply_async(execute_cmd, args=(cmd, rel_id, miss_name, rel_fin_path),
+                        pool.apply_async(execute_cmd, args=(cmd, rel_id, miss_name, rel_fin_path, miss_extras),
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
