@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 14:52. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 15:02. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -132,6 +132,33 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
              "withsmoothing={ws} smooth={s} withbinning={wb} binsize={bs} ratio={r} withlongnames=yes elow={el} " \
              "ehigh={eh} rangescale={rs} allowsigma={asi} limits={gls}"
 
+    # Need to change parameter to turn on smoothing if the user wants it. The parameter
+    #  must be changed from boolean to a 'yes' or 'no' string because that is what espfilt wants
+    if with_smoothing:
+        with_smoothing = 'yes'
+    else:
+        with_smoothing = 'no'
+    # Can't pass an astropy quantity as its string representation will contain a unit, we need to just
+    #  extract the value - which we have made sure is in the correct units
+    smooth_factor = smooth_factor.value
+
+    # Also need to change a parameter to turn on binning if the user wants it. The parameter
+    #  must be changed from boolean to a 'yes' or 'no' string because that is what espfilt wants
+    if with_binning:
+        with_binning = 'yes'
+    else:
+        with_binning = 'no'
+    # Can't pass an astropy quantity as its string representation will contain a unit, we need to just
+    #  extract the value - which we have made sure is in the correct units
+    bin_size = bin_size.value
+
+    # Make sure the energy limits are an integer, and that they aren't an astropy quantity
+    lo_en = int(lo_en.value)
+    hi_en = int(hi_en.value)
+
+    # Finally, the tuple of lower and upper gaussian fit limits need to be a string representation
+    gauss_fit_lims = ",".join([str(gl) for gl in gauss_fit_lims])
+
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
     miss_cmds = {}
@@ -224,35 +251,8 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
                     with_oot = 'yes'
                     rs = range_scale['pn']
                 else:
-                    with_oot = 'yes'
+                    with_oot = 'no'
                     rs = range_scale['mos']
-
-                # Also need to change a parameter to turn on smoothing if the user wants it. The parameter
-                #  must be changed from boolean to a 'yes' or 'no' string because that is what espfilt wants
-                if with_smoothing:
-                    with_smoothing = 'yes'
-                else:
-                    with_smoothing = 'no'
-                # Can't pass an astropy quantity as its string representation will contain a unit, we need to just
-                #  extract the value - which we have made sure is in the correct units
-                smooth_factor = smooth_factor.value
-
-                # Also need to change a parameter to turn on binning if the user wants it. The parameter
-                #  must be changed from boolean to a 'yes' or 'no' string because that is what espfilt wants
-                if with_binning:
-                    with_binning = 'yes'
-                else:
-                    with_binning = 'no'
-                # Can't pass an astropy quantity as its string representation will contain a unit, we need to just
-                #  extract the value - which we have made sure is in the correct units
-                bin_size = bin_size.value
-
-                # Make sure the energy limits are an integer, and that they aren't an astropy quantity
-                lo_en = int(lo_en.value)
-                hi_en = int(hi_en.value)
-
-                # Finally, the tuple of lower and upper gaussian fit limits need to be a string representation
-                gauss_fit_lims = ",".join([str(gl) for gl in gauss_fit_lims])
 
                 cmd = ef_cmd.format(d=temp_dir, ccf=ccf_path, ef=evt_list_file, woot=with_oot, oot=oot_evt_list_file,
                                     me=method, ws=with_smoothing, s=smooth_factor, wb=with_binning, bs=bin_size,
@@ -264,6 +264,6 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
                 miss_extras[miss.name][val_id] = {}
 
     # This is just used for populating a progress bar during the process run
-    process_message = 'Identifying soft-proton flaring in PN and MOS observations'
+    process_message = 'Identifying soft-proton flaring in PN and MOS'
 
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
