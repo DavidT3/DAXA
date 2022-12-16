@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 13:41. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 15:34. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -9,7 +9,8 @@ from daxa.process.xmm._common import _sas_process_setup, sas_call, ALLOWED_XMM_M
 
 
 @sas_call
-def epchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False):
+def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: int = NUM_CORES,
+            disable_progress: bool = False):
     """
     This function runs the epchain SAS process on XMM missions in the passed archive, which assembles the
     PN-specific ODFs into combined photon event lists - rather than the per CCD files that existed before. A run of
@@ -22,6 +23,8 @@ def epchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
 
     :param Archive obs_archive: An Archive instance containing XMM mission instances with PN observations for
         which epchain should be run. This function will fail if no XMM missions are present in the archive.
+    :param bool process_unscheduled: Whether this function should also process sub-exposures marked 'U', for
+        unscheduled. Default is True, in which case they will be processed.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
@@ -75,10 +78,14 @@ def epchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
                     #  loop through them, it has to be run separately for each I think (unlike emchain)
                     pn_exp = list(set([f.split(obs_id)[1].split('PN')[1][:4] for f in os.listdir(odf_dir)
                                   if 'PNS' in f or 'PNU' in f]))
-                    # Find just the 'scheduled' observations for now, this will be altered later on
-                    sch_pn_exp = [pe for pe in pn_exp if pe[0] == 'S']
 
-                    for exp_id in sch_pn_exp:
+                    # Clean out the list of exposures here rather than add another layer of nesting to the
+                    #  for loop below - this removes unscheduled exposures if the user has decided that they don't
+                    #  want to process them.
+                    if not process_unscheduled:
+                        pn_exp = [pe for pe in pn_exp if 'U' not in pe]
+
+                    for exp_id in pn_exp:
                         # TODO Again update this after SAS summary parser (issue 34), because we currently try to
                         #  process everything as imaging mode (see issue #40)
 
@@ -129,8 +136,8 @@ def epchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
 
                             # Format the blank command string defined near the top of this function with information
                             #  particular to the current mission and ObsID
-                            # TODO If unscheduled observations are supported, will need to alter the s= part
-                            cmd = ep_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, e=exp_id[1:], s='S', c=ccd_str)
+                            cmd = ep_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, e=exp_id[1:], s=exp_id[0],
+                                                c=ccd_str)
 
                             # Now store the bash command, the path, and extra info in the dictionaries
                             miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
@@ -161,7 +168,7 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
 
     :param Archive obs_archive: An Archive instance containing XMM mission instances with MOS observations for
         which emchain should be run. This function will fail if no XMM missions are present in the archive.
-    :param bool process_unscheduled: Whether this function should also processed sub-exposures marked 'U', for
+    :param bool process_unscheduled: Whether this function should also process sub-exposures marked 'U', for
         unscheduled. Default is True, in which case they will be processed.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
