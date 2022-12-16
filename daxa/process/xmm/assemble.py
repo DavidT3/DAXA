@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 14:53. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 13:41. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -43,12 +43,9 @@ def epchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
              "schedule={s} ccds={c} runatthkgen=N runepframes=N runbadpixfind=N runbadpix=N; mv *EVLI*.FIT ../; " \
              "mv *ATTTSR*.FIT ../;cd ..; rm -r {d}"
 
-    # TODO Once summary parser is built (see issue #34) we can make this an unambiguous path
-    #  rather than a pattern matching path
     # The event list pattern that we want to check for at the end of the process
-    evt_list_name = "P{o}PN{eid}PIEVLI*.FIT"
-    # TODO Might be able to change the * to just 0000, as the epchain output files info doesn't seem to indicate
-    #  that there is any other possibility
+    evt_list_name = "P{o}PN{eid}PIEVLI0000.FIT"
+    oot_evt_list_name = "P{o}PN{eid}OOEVLI0000.FIT"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -121,6 +118,7 @@ def epchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
                         temp_dir = dest_dir + temp_name + "/"
                         # This is where the final output event list file will be stored
                         final_path = dest_dir + evt_list_name.format(o=obs_id, eid=exp_id)
+                        oot_final_path = dest_dir + oot_evt_list_name.format(o=obs_id, eid=exp_id)
 
                         # If it doesn't already exist then we will create commands to generate it
                         # TODO Decide whether this is the route I really want to follow for this (see issue #28)
@@ -136,8 +134,10 @@ def epchain(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: 
 
                             # Now store the bash command, the path, and extra info in the dictionaries
                             miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
-                            miss_final_paths[miss.name][obs_id + inst + exp_id] = final_path
-                            miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_list': final_path}
+                            # The SAS wrapping functionality can check that multiple final files exist
+                            miss_final_paths[miss.name][obs_id + inst + exp_id] = [final_path, oot_final_path]
+                            miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_list': final_path,
+                                                                              'oot_evt_list': oot_final_path}
 
     # This is just used for populating a progress bar during generation
     process_message = 'Assembling PN and PN-OOT event lists'
