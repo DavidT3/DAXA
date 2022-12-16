@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 14:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 14:52. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -10,9 +10,10 @@ from astropy.units import Quantity, UnitConversionError
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
 from daxa.exceptions import NoDependencyProcessError
-from daxa.process.xmm._common import _sas_process_setup, ALLOWED_XMM_MISSIONS
+from daxa.process.xmm._common import _sas_process_setup, ALLOWED_XMM_MISSIONS, sas_call
 
 
+@sas_call
 def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Union[bool, Quantity] = False,
             with_binning: Union[bool, Quantity] = False, ratio: float = 1.2, lo_en: Quantity = Quantity(2500, 'eV'),
             hi_en: Quantity = Quantity(8000, 'eV'), range_scale: dict = None, allowed_sigma: float = 2.5,
@@ -129,7 +130,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
     # Define the form of the emchain command that must be run to check for anomalous states in MOS CCDs
     ef_cmd = "cd {d}; export SAS_CCF={ccf}; espfilt eventfile={ef} withoot={woot} ootfile={oot} method={me} " \
              "withsmoothing={ws} smooth={s} withbinning={wb} binsize={bs} ratio={r} withlongnames=yes elow={el} " \
-             "ehigh={eh} rangescale={rs} allowsigma={as} limits={ls}"
+             "ehigh={eh} rangescale={rs} allowsigma={asi} limits={gls}"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -217,10 +218,6 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
 
-                # ef_cmd = "cd {d}; export SAS_CCF={ccf}; espfilt eventfile={ef} withoot={woot} ootfile={oot} method={me} " \
-                #          "withsmoothing={ws} smooth={s} withbinning={wb} binsize={bs} ratio={r} withlongnames=yes elow={el} " \
-                         # "ehigh={eh} rangescale={rs} allowsigma={as} limits={ls}"
-
                 # Format the blank command string defined near the top of this function - in this case the
                 #  configuration needs to change depending on the instrument and user configuration
                 if inst == 'PN':
@@ -230,11 +227,36 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
                     with_oot = 'yes'
                     rs = range_scale['mos']
 
-                # Also need to change certain parameters to turn on smoothing or binning if the user wants
-                if smooth_factor is None:
-                    w_sm = 'no'
+                # Also need to change a parameter to turn on smoothing if the user wants it. The parameter
+                #  must be changed from boolean to a 'yes' or 'no' string because that is what espfilt wants
+                if with_smoothing:
+                    with_smoothing = 'yes'
+                else:
+                    with_smoothing = 'no'
+                # Can't pass an astropy quantity as its string representation will contain a unit, we need to just
+                #  extract the value - which we have made sure is in the correct units
+                smooth_factor = smooth_factor.value
 
-                cmd = ef_cmd.format(d=temp_dir, ccf=ccf_path, ef=evt_list_file, of=log_name)
+                # Also need to change a parameter to turn on binning if the user wants it. The parameter
+                #  must be changed from boolean to a 'yes' or 'no' string because that is what espfilt wants
+                if with_binning:
+                    with_binning = 'yes'
+                else:
+                    with_binning = 'no'
+                # Can't pass an astropy quantity as its string representation will contain a unit, we need to just
+                #  extract the value - which we have made sure is in the correct units
+                bin_size = bin_size.value
+
+                # Make sure the energy limits are an integer, and that they aren't an astropy quantity
+                lo_en = int(lo_en.value)
+                hi_en = int(hi_en.value)
+
+                # Finally, the tuple of lower and upper gaussian fit limits need to be a string representation
+                gauss_fit_lims = ",".join([str(gl) for gl in gauss_fit_lims])
+
+                cmd = ef_cmd.format(d=temp_dir, ccf=ccf_path, ef=evt_list_file, woot=with_oot, oot=oot_evt_list_file,
+                                    me=method, ws=with_smoothing, s=smooth_factor, wb=with_binning, bs=bin_size,
+                                    r=ratio, el=lo_en, eh=hi_en, rs=rs, asi=allowed_sigma, gls=gauss_fit_lims)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
