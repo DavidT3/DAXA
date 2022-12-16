@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 15:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 15:57. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -156,8 +156,9 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
     lo_en = int(lo_en.value)
     hi_en = int(hi_en.value)
 
-    # Finally, the tuple of lower and upper gaussian fit limits need to be a string representation
-    gauss_fit_lims = ",".join([str(gl) for gl in gauss_fit_lims])
+    # Finally, the tuple of lower and upper gaussian fit limits need to be a string representation. Apparently
+    #  needs to be space separated and in quotation marks for the call to work
+    gauss_fit_lims = '"' + " ".join([str(gl) for gl in gauss_fit_lims]) + '"'
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
