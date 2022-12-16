@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 15:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 15:16. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -140,7 +140,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
         with_smoothing = 'no'
     # Can't pass an astropy quantity as its string representation will contain a unit, we need to just
     #  extract the value - which we have made sure is in the correct units
-    smooth_factor = smooth_factor.value
+    smooth_factor = int(smooth_factor.value)
 
     # Also need to change a parameter to turn on binning if the user wants it. The parameter
     #  must be changed from boolean to a 'yes' or 'no' string because that is what espfilt wants
@@ -150,7 +150,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
         with_binning = 'no'
     # Can't pass an astropy quantity as its string representation will contain a unit, we need to just
     #  extract the value - which we have made sure is in the correct units
-    bin_size = bin_size.value
+    bin_size = int(bin_size.value)
 
     # Make sure the energy limits are an integer, and that they aren't an astropy quantity
     lo_en = int(lo_en.value)
@@ -264,6 +264,6 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
                 miss_extras[miss.name][val_id] = {}
 
     # This is just used for populating a progress bar during the process run
-    process_message = 'Identifying soft-proton flaring in PN and MOS'
+    process_message = 'Finding PN/MOS soft-proton flares'
 
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
