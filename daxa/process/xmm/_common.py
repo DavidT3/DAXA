@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 14:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 13:37. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -144,25 +144,30 @@ def parse_stderr(unprocessed_stderr: str) -> Tuple[List[str], List[Dict], List]:
 
 
 def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str,
-                extra_info: dict) -> Tuple[str, str, bool, str, str, dict]:
+                extra_info: dict) -> Tuple[str, str, List[bool], str, str, dict]:
     """
     This is a simple function designed to execute cmd line SAS commands for the processing and reduction of
     XMM mission data. It will collect the stdout and stderr values for each command and return them too for the
-    process of logging. Finally, it checks that a specified 'final file' actually exists at the expected path, as
-    a final check of the success of whatever process has been run.
+    process of logging. Finally, it checks that a specified 'final file' (or a set of 'final files') actually
+    exists at the expected path, as a final check of the success of whatever process has been run.
 
     :param str cmd: The command that should be executed in a bash shell.
     :param str rel_id: Whatever ID has been attached to the particular command (it could be an ObsID, or an ObsID
         + instrument combination depending on the task).
     :param str miss_name: The specific XMM mission name that this task belongs to.
-    :param str check_path: The path where a 'final file' should exist, used for the purposes of checking
-        that it exists.
+    :param str/list check_path: The path (or a list of paths) where a 'final file' (or final files) should exist, used
+        for the purposes of checking that it (they) exists.
     :param dict extra_info: A dictionary which can contain extra information about the process or output that will
         eventually be stored in the Archive.
-    :return: The rel_id, a boolean flag indicating whether the final file exists, the std_out, and the std_err. The
-        final dictionary can contain extra information recorded by the processing function.
-    :rtype: Tuple[str, str, bool, str, str, dict]
+    :return: The rel_id, a list of boolean flags indicating whether the final files exist, the std_out, and the
+        std_err. The final dictionary can contain extra information recorded by the processing function.
+    :rtype: Tuple[str, str, List[bool], str, str, dict]
     """
+    # Either a single path or a list of paths can be passed to check - I make sure that the checking process only
+    #  ever has to deal with a list
+    if isinstance(check_path, str):
+        check_path = [check_path]
+
     # Starts the process running on a shell, connects to the process and waits for it to terminate, and collects
     #  the stdout and stderr
     out, err = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
@@ -170,16 +175,21 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str,
     #  means that it doesn't throw errors if there is a character it doesn't recognize
     out = out.decode("UTF-8", errors='ignore')
     err = err.decode("UTF-8", errors='ignore')
-    # Simple check on whether the 'final file' passed into this function actually exists or not
-    if '*' not in check_path and os.path.exists(check_path):
-        file_exists = True
-    # In the case where a wildcard is in the final file path (I will try to make sure that this is avoided, but
-    #  it is necessary right now) we use glob to find a match list and check to make sure there is at least one entry
-    elif '*' in check_path and len(glob.glob(check_path)) > 0:
-        file_exists = True
-    else:
-        file_exists = False
-    return rel_id, miss_name, file_exists, out, err, extra_info
+
+    # Simple check on whether the 'final file' passed into this function actually exists or not - even if there is only
+    #  one path to check we made sure that its in a list so the check can be done easily for multiple paths
+    files_exist = []
+    for path in check_path:
+        if '*' not in path and os.path.exists(path):
+            files_exist.append(True)
+        # In the case where a wildcard is in the final file path (I will try to make sure that this is avoided, but it
+        #  is necessary right now) we use glob to find a match list and check to make sure there is at least one entry
+        elif '*' in path and len(glob.glob(path)) > 0:
+            files_exist.append(True)
+        else:
+            files_exist.append(False)
+
+    return rel_id, miss_name, files_exist, out, err, extra_info
 
 
 def sas_call(sas_func):
@@ -244,12 +254,12 @@ def sas_call(sas_func):
 
                     # This 'callback' function is triggered when the parallelized function completes successfully
                     #  and returns.
-                    def callback(results_in: Tuple[str, str, bool, str, str, dict]):
+                    def callback(results_in: Tuple[str, str, List[bool], str, str, dict]):
                         """
                         Callback function for the apply_async pool method, gets called when a task finishes
                         and something is returned.
 
-                        :param Tuple[str, str, bool, str, str, dict] results_in: The output of execute_cmd.
+                        :param Tuple[str, str, List[bool], str, str, dict] results_in: The output of execute_cmd.
                         """
                         # The progress bar will need updating
                         nonlocal gen
@@ -268,9 +278,9 @@ def sas_call(sas_func):
                         #  show-stopping errors
                         sas_err, sas_warn, other_err = parse_stderr(proc_err)
 
-                        # We consider the task successful if the final file exists and there is nothing
-                        #  in the stderr output
-                        if does_file_exist and len(sas_err) == 0:
+                        # We consider the task successful if all the final files exist and there are no entries in
+                        #  the parsed std_err output
+                        if all(does_file_exist) and len(sas_err) == 0:
                             success_flags[mission_name][relevant_id] = True
                         else:
                             success_flags[mission_name][relevant_id] = False
