@@ -1,8 +1,8 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/12/2022, 18:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/12/2022, 18:32. Copyright (c) The Contributors
 import os
 from random import randint
-from typing import Union
+from typing import Union, Tuple
 from warnings import warn
 
 from astropy.units import Quantity, UnitConversionError
@@ -17,8 +17,39 @@ from daxa.process.xmm._common import _sas_process_setup, ALLOWED_XMM_MISSIONS, s
 def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Union[bool, Quantity] = True,
             with_binning: Union[bool, Quantity] = True, ratio: float = 1.2, lo_en: Quantity = Quantity(2500, 'eV'),
             hi_en: Quantity = Quantity(8500, 'eV'), range_scale: dict = None, allowed_sigma: float = 3.0,
-            gauss_fit_lims: tuple = (0.1, 6.5), num_cores: int = NUM_CORES, disable_progress: bool = False):
+            gauss_fit_lims: Tuple[float, float] = (0.1, 6.5), num_cores: int = NUM_CORES,
+            disable_progress: bool = False):
+    """
+    The DAXA wrapper for the XMM SAS task espfilt, which attempts to identify good time intervals with minimal
+    soft-proton flaring for individual sub-exposures (if multiple have been taken) of XMM ObsID-Instrument
+    combinations. Both EPIC-PN and EPIC-MOS observations will be processed by this function.
 
+    :param Archive obs_archive: An Archive instance containing XMM mission instances with PN/MOS observations for
+        which espfilt should be run. This function will fail if no XMM missions are present in the archive.
+    :param str method: The method that espfilt should use to find soft proton flaring. Either 'ratio' or 'histogram'
+        can be selected. The default is 'histogram'.
+    :param bool/Quantity with_smoothing: Should smoothing be applied to the light curve data. If set to True (the
+        default) a smoothing factor of 51 seconds is used, if set to False smoothing will be turned off, if an astropy
+        Quantity is passed (with units convertible to seconds) then that value will be used for the smoothing factor.
+    :param bool/Quantity with_binning: Should binning be applied to the light curve data. If set to True (the
+        default) a bin size of 60 seconds is used, if set to False binning will be turned off, if an astropy
+        Quantity is passed (with units convertible to seconds) then that value will be used for the bin size.
+    :param float ratio: Flaring ratio of annulus counts.
+    :param Quantity lo_en: The lower energy bound for the event lists used for soft proton flaring identification.
+    :param Quantity hi_en: The upper energy bound for the event lists used for soft proton flaring identification.
+    :param dict range_scale: Histogram fit range scale factor. The default is a dictionary with an entry for 'pn'
+        (15.0) and an entry for 'mos' (6.0).
+    :param float allowed_sigma: Limit in sigma for unflared rates.
+    :param Tuple[float, float] gauss_fit_lims: The parameter limits for gaussian fits.
+    :param int num_cores: The number of cores to use, default is set to 90% of available.
+    :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
+        internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
+        bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
+        obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
+        f) whether the progress bar should be hidden or not.
+    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    """
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
     sas_version = _sas_process_setup(obs_archive)
