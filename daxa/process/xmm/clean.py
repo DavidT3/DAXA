@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 15:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/12/2022, 18:13. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -14,9 +14,9 @@ from daxa.process.xmm._common import _sas_process_setup, ALLOWED_XMM_MISSIONS, s
 
 
 @sas_call
-def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Union[bool, Quantity] = False,
-            with_binning: Union[bool, Quantity] = False, ratio: float = 1.2, lo_en: Quantity = Quantity(2500, 'eV'),
-            hi_en: Quantity = Quantity(8000, 'eV'), range_scale: dict = None, allowed_sigma: float = 2.5,
+def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Union[bool, Quantity] = True,
+            with_binning: Union[bool, Quantity] = True, ratio: float = 1.2, lo_en: Quantity = Quantity(2500, 'eV'),
+            hi_en: Quantity = Quantity(8500, 'eV'), range_scale: dict = None, allowed_sigma: float = 3.0,
             gauss_fit_lims: tuple = (0.1, 6.5), num_cores: int = NUM_CORES, disable_progress: bool = False):
 
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
@@ -130,7 +130,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
     # Define the form of the emchain command that must be run to check for anomalous states in MOS CCDs
     ef_cmd = "cd {d}; export SAS_CCF={ccf}; espfilt eventfile={ef} withoot={woot} ootfile={oot} method={me} " \
              "withsmoothing={ws} smooth={s} withbinning={wb} binsize={bs} ratio={r} withlongnames=yes elow={el} " \
-             "ehigh={eh} rangescale={rs} allowsigma={asi} limits={gls}"
+             "ehigh={eh} rangescale={rs} allowsigma={asi} keepinterfiles=no limits={gls}"
 
     # Need to change parameter to turn on smoothing if the user wants it. The parameter
     #  must be changed from boolean to a 'yes' or 'no' string because that is what espfilt wants
