@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/12/2022, 18:32. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/01/2023, 18:25. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
@@ -158,10 +158,12 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
     elif any([g_lim < 0 or g_lim > 10 for g_lim in gauss_fit_lims]):
         raise ValueError("The entries in gauss_fit_lims must be greater than zero, and less than 10.")
 
-    # Define the form of the emchain command that must be run to check for anomalous states in MOS CCDs
+    # Define the form of the espfilt command to clean the event lists for soft protons, then copy the GTI file, the
+    #  cleaned events list within the energy bands, and the diagnostic histogram
     ef_cmd = "cd {d}; export SAS_CCF={ccf}; espfilt eventfile={ef} withoot={woot} ootfile={oot} method={me} " \
              "withsmoothing={ws} smooth={s} withbinning={wb} binsize={bs} ratio={r} withlongnames=yes elow={el} " \
-             "ehigh={eh} rangescale={rs} allowsigma={asi} keepinterfiles=no limits={gls}"
+             "ehigh={eh} rangescale={rs} allowsigma={asi} keepinterfiles=no limits={gls}; mv {gti} ../; " \
+             "mv {allev} ../; mv {hist} ../; cd ../; rm -r {d}"
 
     # Need to change parameter to turn on smoothing if the user wants it. The parameter
     #  must be changed from boolean to a 'yes' or 'no' string because that is what espfilt wants
@@ -208,7 +210,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
         miss_extras[miss.name] = {}
 
         # Need to check to see whether ANY of ObsID-instrument-subexposure combos have had emchain run for them, as
-        #  it is a requirement for this processing function. There will probably be a more elegant way of checkinf
+        #  it is a requirement for this processing function. There will probably be a more elegant way of checking
         #  at some point in the future, generalised across all SAS functions
         if 'emchain' not in obs_archive.process_success[miss.name] \
                 and 'epchain' not in obs_archive.process_success[miss.name]:
@@ -237,6 +239,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
             if 'M1' in val_id:
                 obs_id, exp_id = val_id.split('M1')
                 inst = 'M1'
+                alt_inst = 'mos1'
                 evt_list_file = obs_archive.process_extra_info[miss.name]['emchain'][val_id]['evt_list']
                 oot_evt_list_file = 'dataset'
             elif 'M2' in val_id:
@@ -244,6 +247,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
                 # The form of this inst is different to the standard in DAXA/SAS (M2), because emanom log files
                 #  are named with mos1 and mos2 rather than M1 and M2
                 inst = 'M2'
+                alt_inst = 'mos2'
                 evt_list_file = obs_archive.process_extra_info[miss.name]['emchain'][val_id]['evt_list']
                 oot_evt_list_file = 'dataset'
             elif 'PN' in val_id:
@@ -251,6 +255,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
                 # The form of this inst is different to the standard in DAXA/SAS (M2), because emanom log files
                 #  are named with mos1 and mos2 rather than M1 and M2
                 inst = 'PN'
+                alt_inst = 'pn'
                 evt_list_file = obs_archive.process_extra_info[miss.name]['epchain'][val_id]['evt_list']
                 oot_evt_list_file = obs_archive.process_extra_info[miss.name]['epchain'][val_id]['oot_evt_list']
             else:
@@ -267,33 +272,41 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
             temp_name = "tempdir_{}".format(randint(0, 1e+8))
             temp_dir = dest_dir + temp_name + "/"
 
-            #
-            final_path = dest_dir + 'boi.fits'
+            # Setting up the paths to the event file, GTI file, and diagnostic histogram - these will be checked
+            #  for at the end to ensure that the process worked. Need to use 'alt_inst' here because the files
+            #  produced have mos1 rather than M1, mos2 rather than M2 in their names
+            evt_name = "{i}{exp_id}-allevc-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id, l=lo_en, u=hi_en)
+            gti_name = "{i}{exp_id}-gti-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id, l=lo_en, u=hi_en)
+            hist_name = "{i}{exp_id}-hist-{l}-{u}.qdp".format(i=alt_inst, exp_id=exp_id, l=lo_en, u=hi_en)
+            evt_path = dest_dir + evt_name
+            gti_path = dest_dir + gti_name
+            hist_path = dest_dir + hist_name
+            final_paths = [evt_path, gti_path, hist_path]
 
             # If it doesn't already exist then we will create commands to generate it
-            # TODO Decide whether this is the route I really want to follow for this (see issue #28)
-            if not os.path.exists(final_path):
-                # Make the temporary directory (it shouldn't already exist but doing this to be safe)
-                if not os.path.exists(temp_dir):
-                    os.makedirs(temp_dir)
+            # TODO Need to decide which file to check for here to see whether the command has already been run
+            # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+            if not os.path.exists(temp_dir):
+                os.makedirs(temp_dir)
 
-                # Format the blank command string defined near the top of this function - in this case the
-                #  configuration needs to change depending on the instrument and user configuration
-                if inst == 'PN':
-                    with_oot = 'yes'
-                    rs = range_scale['pn']
-                else:
-                    with_oot = 'no'
-                    rs = range_scale['mos']
+            # Format the blank command string defined near the top of this function - in this case the
+            #  configuration needs to change depending on the instrument and user configuration
+            if inst == 'PN':
+                with_oot = 'yes'
+                rs = range_scale['pn']
+            else:
+                with_oot = 'no'
+                rs = range_scale['mos']
 
-                cmd = ef_cmd.format(d=temp_dir, ccf=ccf_path, ef=evt_list_file, woot=with_oot, oot=oot_evt_list_file,
-                                    me=method, ws=with_smoothing, s=smooth_factor, wb=with_binning, bs=bin_size,
-                                    r=ratio, el=lo_en, eh=hi_en, rs=rs, asi=allowed_sigma, gls=gauss_fit_lims)
+            cmd = ef_cmd.format(d=temp_dir, ccf=ccf_path, ef=evt_list_file, woot=with_oot, oot=oot_evt_list_file,
+                                me=method, ws=with_smoothing, s=smooth_factor, wb=with_binning, bs=bin_size,
+                                r=ratio, el=lo_en, eh=hi_en, rs=rs, asi=allowed_sigma, gls=gauss_fit_lims,
+                                gti=gti_name, hist=hist_name, allev=evt_name)
 
-                # Now store the bash command, the path, and extra info in the dictionaries
-                miss_cmds[miss.name][val_id] = cmd
-                miss_final_paths[miss.name][val_id] = final_path
-                miss_extras[miss.name][val_id] = {}
+            # Now store the bash command, the path, and extra info in the dictionaries
+            miss_cmds[miss.name][val_id] = cmd
+            miss_final_paths[miss.name][val_id] = final_paths
+            miss_extras[miss.name][val_id] = {}
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Finding PN/MOS soft-proton flares'
