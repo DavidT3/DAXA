@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/01/2023, 18:25. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/01/2023, 20:17. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
@@ -15,14 +15,18 @@ from daxa.process.xmm._common import _sas_process_setup, ALLOWED_XMM_MISSIONS, s
 
 @sas_call
 def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Union[bool, Quantity] = True,
-            with_binning: Union[bool, Quantity] = True, ratio: float = 1.2, lo_en: Quantity = Quantity(2500, 'eV'),
-            hi_en: Quantity = Quantity(8500, 'eV'), range_scale: dict = None, allowed_sigma: float = 3.0,
-            gauss_fit_lims: Tuple[float, float] = (0.1, 6.5), num_cores: int = NUM_CORES,
-            disable_progress: bool = False):
+            with_binning: Union[bool, Quantity] = True, ratio: float = 1.2,
+            filter_lo_en: Quantity = Quantity(2500, 'eV'), filter_hi_en: Quantity = Quantity(8500, 'eV'),
+            range_scale: dict = None, allowed_sigma: float = 3.0, gauss_fit_lims: Tuple[float, float] = (0.1, 6.5),
+            num_cores: int = NUM_CORES, disable_progress: bool = False):
     """
     The DAXA wrapper for the XMM SAS task espfilt, which attempts to identify good time intervals with minimal
     soft-proton flaring for individual sub-exposures (if multiple have been taken) of XMM ObsID-Instrument
     combinations. Both EPIC-PN and EPIC-MOS observations will be processed by this function.
+
+    This function does not generate final event lists, but instead is used to create good-time-interval files
+    which are then applied to the creation of final event lists, along with other user-specified filters, in the
+    'cleaned_evt_lists' function.
 
     :param Archive obs_archive: An Archive instance containing XMM mission instances with PN/MOS observations for
         which espfilt should be run. This function will fail if no XMM missions are present in the archive.
@@ -35,8 +39,10 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
         default) a bin size of 60 seconds is used, if set to False binning will be turned off, if an astropy
         Quantity is passed (with units convertible to seconds) then that value will be used for the bin size.
     :param float ratio: Flaring ratio of annulus counts.
-    :param Quantity lo_en: The lower energy bound for the event lists used for soft proton flaring identification.
-    :param Quantity hi_en: The upper energy bound for the event lists used for soft proton flaring identification.
+    :param Quantity filter_lo_en: The lower energy bound for the event lists used for soft proton flaring
+        identification.
+    :param Quantity filter_hi_en: The upper energy bound for the event lists used for soft proton flaring
+        identification.
     :param dict range_scale: Histogram fit range scale factor. The default is a dictionary with an entry for 'pn'
         (15.0) and an entry for 'mos' (6.0).
     :param float allowed_sigma: Limit in sigma for unflared rates.
@@ -104,22 +110,22 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
 
     # Have to make sure that the energy bounds are in units that can be converted to eV (which is what espfilt
     #  expects for these arguments).
-    if not lo_en.unit.is_equivalent('eV') or not hi_en.unit.is_equivalent('eV'):
-        raise UnitConversionError("The lo_en and hi_en arguments must be astropy quantities in units that can be "
-                                  "converted to eV.")
+    if not filter_lo_en.unit.is_equivalent('eV') or not filter_hi_en.unit.is_equivalent('eV'):
+        raise UnitConversionError("The filter_lo_en and filter_hi_en arguments must be astropy quantities in units "
+                                  "that can be converted to eV.")
     # Obviously the upper limit can't be lower than the lower limit, or equal to it.
-    elif hi_en <= lo_en:
-        raise ValueError("The hi_en argument must be larger than the lo_en argument.")
+    elif filter_hi_en <= filter_lo_en:
+        raise ValueError("The filter_hi_en argument must be larger than the filter_lo_en argument.")
     # Make sure we're converted to the right unit
     else:
-        lo_en = lo_en.to('eV')
-        hi_en = hi_en.to('eV')
+        filter_lo_en = filter_lo_en.to('eV')
+        filter_hi_en = filter_hi_en.to('eV')
 
     # Also enforce the value limits specified in the espfilt documentation
-    if (lo_en < Quantity(1, 'eV') or lo_en > Quantity(32766, 'eV')) or \
-            (hi_en < Quantity(2, 'eV') or hi_en > Quantity(32767, 'eV')):
-        raise ValueError("The lo_en value must be greater than 1 eV and less than 32766 eV, the hi_en value must be "
-                         "greater than 2 eV and lower than 32767 eV.")
+    if (filter_lo_en < Quantity(1, 'eV') or filter_lo_en > Quantity(32766, 'eV')) or \
+            (filter_hi_en < Quantity(2, 'eV') or filter_hi_en > Quantity(32767, 'eV')):
+        raise ValueError("The filter_lo_en value must be greater than 1 eV and less than 32766 eV, the "
+                         "filter_hi_en value must be greater than 2 eV and lower than 32767 eV.")
 
     # Setting the default values for range scale, can't have a mutable argument
     if range_scale is None:
@@ -186,8 +192,8 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
     bin_size = int(bin_size.value)
 
     # Make sure the energy limits are an integer, and that they aren't an astropy quantity
-    lo_en = int(lo_en.value)
-    hi_en = int(hi_en.value)
+    filter_lo_en = int(filter_lo_en.value)
+    filter_hi_en = int(filter_hi_en.value)
 
     # Finally, the tuple of lower and upper gaussian fit limits need to be a string representation. Apparently
     #  needs to be space separated and in quotation marks for the call to work
@@ -275,9 +281,12 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
             # Setting up the paths to the event file, GTI file, and diagnostic histogram - these will be checked
             #  for at the end to ensure that the process worked. Need to use 'alt_inst' here because the files
             #  produced have mos1 rather than M1, mos2 rather than M2 in their names
-            evt_name = "{i}{exp_id}-allevc-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id, l=lo_en, u=hi_en)
-            gti_name = "{i}{exp_id}-gti-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id, l=lo_en, u=hi_en)
-            hist_name = "{i}{exp_id}-hist-{l}-{u}.qdp".format(i=alt_inst, exp_id=exp_id, l=lo_en, u=hi_en)
+            evt_name = "{i}{exp_id}-allevc-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id, l=filter_lo_en,
+                                                                u=filter_hi_en)
+            gti_name = "{i}{exp_id}-gti-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id, l=filter_lo_en,
+                                                             u=filter_hi_en)
+            hist_name = "{i}{exp_id}-hist-{l}-{u}.qdp".format(i=alt_inst, exp_id=exp_id, l=filter_lo_en,
+                                                              u=filter_hi_en)
             evt_path = dest_dir + evt_name
             gti_path = dest_dir + gti_name
             hist_path = dest_dir + hist_name
@@ -300,7 +309,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
 
             cmd = ef_cmd.format(d=temp_dir, ccf=ccf_path, ef=evt_list_file, woot=with_oot, oot=oot_evt_list_file,
                                 me=method, ws=with_smoothing, s=smooth_factor, wb=with_binning, bs=bin_size,
-                                r=ratio, el=lo_en, eh=hi_en, rs=rs, asi=allowed_sigma, gls=gauss_fit_lims,
+                                r=ratio, el=filter_lo_en, eh=filter_hi_en, rs=rs, asi=allowed_sigma, gls=gauss_fit_lims,
                                 gti=gti_name, hist=hist_name, allev=evt_name)
 
             # Now store the bash command, the path, and extra info in the dictionaries
