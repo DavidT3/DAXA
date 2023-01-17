@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/01/2023, 16:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/01/2023, 21:16. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, List
@@ -153,7 +153,7 @@ def parse_emanom_out(log_file_path: str, acceptable_states: Union[List[str], str
     """
     # Have to make sure that the file is actually there first.
     if not os.path.exists(log_file_path):
-        raise FileNotFoundError("That path to an emanom log file is not valid.")
+        raise FileNotFoundError("That path ({}) to an emanom log file is not valid.".format(log_file_path))
 
     # It is possible for the user to just pass a single state, in which case we make it a list to allow
     #  for everything later on to be consistent
