@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/01/2023, 16:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/01/2023, 18:23. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -277,6 +277,17 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
                       filt_mos_anom_state: Union[List[str], str, bool] = ('G', 'I', 'U'), num_cores: int = NUM_CORES,
                       disable_progress: bool = False):
 
+    #
+    if isinstance(pn_filt_expr, str):
+        pn_filt_expr = [pn_filt_expr]
+    elif isinstance(pn_filt_expr, tuple):
+        pn_filt_expr = list(pn_filt_expr)
+
+    if isinstance(mos_filt_expr, str):
+        mos_filt_expr = [mos_filt_expr]
+    elif isinstance(mos_filt_expr, tuple):
+        mos_filt_expr = list(mos_filt_expr)
+
     if (lo_en is not None and not lo_en.unit.is_equivalent('eV')) or \
             (hi_en is not None and not hi_en.unit.is_equivalent('eV')):
         raise UnitConversionError("The lo_en and hi_en arguments must be astropy quantities in units "
@@ -296,8 +307,8 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         hi_en = ''
 
     if not (lo_en == '' and hi_en == ''):
-        list(pn_filt_expr).append("(PI in [{l}:{u}])".format(l=lo_en, u=hi_en))
-        list(mos_filt_expr).append("(PI in [{l}:{u}])".format(l=lo_en, u=hi_en))
+        pn_filt_expr.append("(PI in [{l}:{u}])".format(l=lo_en, u=hi_en))
+        mos_filt_expr.append("(PI in [{l}:{u}])".format(l=lo_en, u=hi_en))
 
     ev_cmd = "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} " \
              "updateexposure=yes; mv {fe} ../; cd ../; rm -r {d}"
