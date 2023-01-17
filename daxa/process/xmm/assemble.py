@@ -1,11 +1,18 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 15:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/01/2023, 16:48. Copyright (c) The Contributors
 import os
+from copy import deepcopy
 from random import randint
+from typing import Union, List
+from warnings import warn
+
+from astropy.units import Quantity, UnitConversionError
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
+from daxa.exceptions import NoDependencyProcessError
 from daxa.process.xmm._common import _sas_process_setup, sas_call, ALLOWED_XMM_MISSIONS
+from daxa.process.xmm.check import parse_emanom_out
 
 
 @sas_call
@@ -261,3 +268,157 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     process_message = 'Assembling MOS event lists'
 
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+
+
+@sas_call
+def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quantity = None,
+                      pn_filt_expr: Union[str, list, tuple] = ("#XMMEA_EP", "(PATTERN <= 4)", "(FLAG .eq. 0)"),
+                      mos_filt_expr: Union[str, list, tuple] = ("#XMMEA_EM", "(PATTERN <= 12)", "(FLAG .eq. 0)"),
+                      filt_mos_anom_state: Union[List[str], str, bool] = ('G', 'I', 'U'), num_cores: int = NUM_CORES,
+                      disable_progress: bool = False):
+
+    if (lo_en is not None and not lo_en.unit.is_equivalent('eV')) or \
+            (hi_en is not None and not hi_en.unit.is_equivalent('eV')):
+        raise UnitConversionError("The lo_en and hi_en arguments must be astropy quantities in units "
+                                  "that can be converted to eV.")
+    # Obviously the upper limit can't be lower than the lower limit, or equal to it.
+    elif hi_en is not None and lo_en is not None and hi_en <= lo_en:
+        raise ValueError("The hi_en argument must be larger than the lo_en argument.")
+
+    # Make sure we're converted to the right unit
+    if lo_en is not None:
+        lo_en = lo_en.to('eV').value
+    else:
+        lo_en = ''
+    if hi_en is not None:
+        hi_en = hi_en.to('eV').value
+    else:
+        hi_en = ''
+
+    if not (lo_en == '' and hi_en == ''):
+        list(pn_filt_expr).append("(PI in [{l}:{u}])".format(l=lo_en, u=hi_en))
+        list(mos_filt_expr).append("(PI in [{l}:{u}])".format(l=lo_en, u=hi_en))
+
+    ev_cmd = "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} " \
+             "updateexposure=yes; mv {fe} ../; cd ../; rm -r {d}"
+
+    # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
+    #  extra information that might be useful to provide to the next step in the generation process
+    miss_cmds = {}
+    miss_final_paths = {}
+    miss_extras = {}
+
+    # Just grabs the XMM missions, we already know there will be at least one because otherwise _sas_process_setup
+    #  would have thrown an error
+    xmm_miss = [mission for mission in obs_archive if mission.name in ALLOWED_XMM_MISSIONS]
+    # We are iterating through XMM missions (options could include xmm_pointed and xmm_slew for instance).
+    for miss in xmm_miss:
+        # Sets up the top level keys (mission name) in our storage dictionaries
+        miss_cmds[miss.name] = {}
+        miss_final_paths[miss.name] = {}
+        miss_extras[miss.name] = {}
+
+        # Need to check to see whether ANY of ObsID-instrument-subexposure combos have had emchain run for them, as
+        #  it is a requirement for this processing function. There will probably be a more elegant way of checking
+        #  at some point in the future, generalised across all SAS functions
+        if 'emchain' not in obs_archive.process_success[miss.name] \
+                and 'epchain' not in obs_archive.process_success[miss.name]:
+            raise NoDependencyProcessError("Neither the emchain (for MOS) nor the epchain (for PN) step has been run "
+                                           "for the {m} mission in the {a} archive. At least one of these must have "
+                                           "been run to use cleaned_evt_lists.".format(m=miss.name,
+                                                                                       a=obs_archive.archive_name))
+        # If every emchain run was a failure then we warn the user and move onto the next XMM mission (if there
+        #  is one).
+        elif ('emchain' in obs_archive.process_success[miss.name] and all(
+                [v is False for v in obs_archive.process_success[miss.name]['emchain'].values()])) and (
+                'epchain' in obs_archive.process_success[miss.name] and all(
+            [v is False for v in obs_archive.process_success[miss.name]['epchain'].values()])):
+
+            warn("Every emchain and epchain run for the {m} mission in the {a} archive is reporting as a "
+                 "failure, skipping process.".format(m=miss.name, a=obs_archive.archive_name), stacklevel=2)
+            continue
+        else:
+            # This fetches those IDs for which emchain has reported success, and these are what we will iterate
+            #  through to ensure that we only act upon data that is in a final event list form.
+            valid_ids = [k for k, v in obs_archive.process_success[miss.name]['emchain'].items() if v] + \
+                        [k for k, v in obs_archive.process_success[miss.name]['epchain'].items() if v]
+
+        # We iterate through the valid IDs rather than nest ObsID and instrument for loops
+        for val_id in valid_ids:
+            # TODO Review this if I change the IDing system as I was pondering in issue #44
+            if 'M1' in val_id:
+                obs_id, exp_id = val_id.split('M1')
+                inst = 'M1'
+                evt_list_file = obs_archive.process_extra_info[miss.name]['emchain'][val_id]['evt_list']
+                oot_evt_list_file = None
+                # Makes a copy of the MOS selection expression, as we might be adding to it during this
+                #  part of the function
+                cur_sel_expr = deepcopy(mos_filt_expr)
+            elif 'M2' in val_id:
+                obs_id, exp_id = val_id.split('M2')
+                inst = 'M2'
+                evt_list_file = obs_archive.process_extra_info[miss.name]['emchain'][val_id]['evt_list']
+                oot_evt_list_file = None
+                # Makes a copy of the MOS selection expression, as we might be adding to it during this
+                #  part of the function
+                cur_sel_expr = deepcopy(mos_filt_expr)
+            elif 'PN' in val_id:
+                obs_id, exp_id = val_id.split('PN')
+                inst = 'PN'
+                evt_list_file = obs_archive.process_extra_info[miss.name]['epchain'][val_id]['evt_list']
+                oot_evt_list_file = obs_archive.process_extra_info[miss.name]['epchain'][val_id]['oot_evt_list']
+                cur_sel_expr = deepcopy(pn_filt_expr)
+            else:
+                raise ValueError("Somehow there is no instance of M1, M2, or PN in that storage key, this should be "
+                                 "impossible!")
+
+            if inst in ['M1', 'M2'] and val_id in obs_archive.process_extra_info[miss.name]['emanom'] \
+                    and filt_mos_anom_state is not False:
+                log_path = obs_archive.process_extra_info[miss.name]['emanom'][val_id]['log_path']
+                allow_ccds = [str(c_id) for c_id in parse_emanom_out(log_path, acceptable_states=filt_mos_anom_state)]
+                ccd_expr = "CCDNR in [{}]".format(','.join(allow_ccds))
+                # We add it to the list of selection expression components that we have been constructing
+                cur_sel_expr.append(ccd_expr)
+
+            # Read out where the GTIs created by espfilt live, and then create a filtering expression for the
+            #  current mission-observation-instrument-subexposure (what a mouthful...)
+            gti_path = obs_archive.process_extra_info[miss.name]['espfilt'][val_id]['gti_path']
+            cur_sel_expr.append("GTI({}, TIME)".format(gti_path))
+
+            # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
+            #  files will be written to.
+            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            ccf_path = dest_dir + 'ccf.cif'
+
+            # Set up a temporary directory to work in (probably not really necessary in this case, but will be
+            #  in other processing functions).
+            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_dir = dest_dir + temp_name + "/"
+
+            # Setting up the paths to the event file
+            filt_evt_name = "{i}{exp_id}_clean.fits".format(i=inst, exp_id=exp_id)
+            filt_evt_path = dest_dir + filt_evt_name
+            final_paths = [filt_evt_path]
+
+            # If it doesn't already exist then we will create commands to generate it
+            # TODO Need to decide which file to check for here to see whether the command has already been run
+            # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+            if not os.path.exists(temp_dir):
+                os.makedirs(temp_dir)
+
+            final_expression = "&&".join(cur_sel_expr)
+            cmd = ev_cmd.format(d=temp_dir, ccf=ccf_path, ae=evt_list_file, fe=filt_evt_path, expr=final_expression)
+
+            # Now store the bash command, the path, and extra info in the dictionaries
+            miss_cmds[miss.name][val_id] = cmd
+            miss_final_paths[miss.name][val_id] = final_paths
+            miss_extras[miss.name][val_id] = {}
+
+    # This is just used for populating a progress bar during the process run
+    process_message = ''
+
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+
+# @sas_call
+def merge(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False):
+    pass
