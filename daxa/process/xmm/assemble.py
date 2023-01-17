@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/01/2023, 18:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/01/2023, 19:59. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -387,7 +387,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
                     and filt_mos_anom_state is not False:
                 log_path = obs_archive.process_extra_info[miss.name]['emanom'][val_id]['log_path']
                 allow_ccds = [str(c_id) for c_id in parse_emanom_out(log_path, acceptable_states=filt_mos_anom_state)]
-                ccd_expr = "CCDNR in [{}]".format(','.join(allow_ccds))
+                ccd_expr = "CCDNR in {}".format(','.join(allow_ccds))
                 # We add it to the list of selection expression components that we have been constructing
                 cur_sel_expr.append(ccd_expr)
 
@@ -417,7 +417,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             if not os.path.exists(temp_dir):
                 os.makedirs(temp_dir)
 
-            final_expression = "&&".join(cur_sel_expr)
+            final_expression = "'" + " && ".join(cur_sel_expr) + "'"
             cmd = ev_cmd.format(d=temp_dir, ccf=ccf_path, ae=evt_list_file, fe=filt_evt_path, expr=final_expression)
 
             # Now store the bash command, the path, and extra info in the dictionaries
