@@ -1,9 +1,9 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/01/2023, 17:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/01/2023, 20:27. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
-from typing import Union, List
+from typing import Union, List, Tuple
 from warnings import warn
 
 from astropy.io import fits
@@ -273,11 +273,27 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
 
 @sas_call
 def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quantity = None,
-                      pn_filt_expr: Union[str, list, tuple] = ("#XMMEA_EP", "(PATTERN <= 4)", "(FLAG .eq. 0)"),
-                      mos_filt_expr: Union[str, list, tuple] = ("#XMMEA_EM", "(PATTERN <= 12)", "(FLAG .eq. 0)"),
+                      pn_filt_expr: Union[str, List[str]] = ("#XMMEA_EP", "(PATTERN <= 4)", "(FLAG .eq. 0)"),
+                      mos_filt_expr: Union[str, List[str]] = ("#XMMEA_EM", "(PATTERN <= 12)", "(FLAG .eq. 0)"),
                       filt_mos_anom_state: Union[List[str], str, bool] = ('G', 'I', 'U'), num_cores: int = NUM_CORES,
                       disable_progress: bool = False):
+    """
+    This function is used to apply the soft-proton filtering (along with any other filtering you may desire, including
+    the setting of energy limits) to XMM-Newton event lists, resulting in the creation of sets of cleaned event lists
+    which are ready to be analysed (or merged together, if there are multiple exposures for a particular
+    observation-instrument combination).
 
+    :param Archive obs_archive: An Archive instance containing XMM mission instances for which cleaned event lists
+        should be created. This function will fail if no XMM missions are present in the archive.
+    :param Quantity lo_en:
+    :param Quantity hi_en:
+    :param str/List[str]/Tuple[str] pn_filt_expr:
+    :param str/List[str]/Tuple[str] mos_filt_expr:
+    :param List[str]/str/bool filt_mos_anom_state:
+    :param int num_cores:
+    :param bool disable_progress:
+    :return:
+    """
     #
     if isinstance(pn_filt_expr, str):
         pn_filt_expr = [pn_filt_expr]
@@ -289,7 +305,10 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
     elif isinstance(mos_filt_expr, tuple):
         mos_filt_expr = list(mos_filt_expr)
 
-    if (lo_en is not None and not lo_en.unit.is_equivalent('eV')) or \
+    en_check = [en is None for en in [lo_en, hi_en]]
+    if not all(en_check) and any(en_check):
+        raise ValueError("If one energy limit is set (e.g. 'lo_en') then the other energy limit must also be set.")
+    elif (lo_en is not None and not lo_en.unit.is_equivalent('eV')) or \
             (hi_en is not None and not hi_en.unit.is_equivalent('eV')):
         raise UnitConversionError("The lo_en and hi_en arguments must be astropy quantities in units "
                                   "that can be converted to eV.")
@@ -298,18 +317,14 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         raise ValueError("The hi_en argument must be larger than the lo_en argument.")
 
     # Make sure we're converted to the right unit
-    if lo_en is not None:
+    if all(en_check):
         lo_en = lo_en.to('eV').value
-    else:
-        lo_en = ''
-    if hi_en is not None:
         hi_en = hi_en.to('eV').value
-    else:
-        hi_en = ''
-
-    if not (lo_en == '' and hi_en == ''):
         pn_filt_expr.append("(PI in [{l}:{u}])".format(l=lo_en, u=hi_en))
         mos_filt_expr.append("(PI in [{l}:{u}])".format(l=lo_en, u=hi_en))
+    else:
+        lo_en = ''
+        hi_en = ''
 
     ev_cmd = "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} " \
              "updateexposure=yes; mv {fe} ../; cd ../; rm -r {d}"
@@ -330,6 +345,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
+        # TODO Generalise this for god's sake, it shouldn't need to be repeated in any form
         # Need to check to see whether ANY of ObsID-instrument-subexposure combos have had emchain run for them, as
         #  it is a requirement for this processing function. There will probably be a more elegant way of checking
         #  at some point in the future, generalised across all SAS functions
@@ -415,7 +431,11 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             temp_dir = dest_dir + temp_name + "/"
 
             # Setting up the paths to the event file
-            filt_evt_name = "{i}{exp_id}_clean.fits".format(i=inst, exp_id=exp_id)
+            if all(en_check):
+                en_ident = '_{l}_{h}keV'.format(l=lo_en.value, h=hi_en.value)
+            else:
+                en_ident = ''
+            filt_evt_name = "{i}{exp_id}{en_id}_clean.fits".format(i=inst, exp_id=exp_id, en_id=en_ident)
             filt_evt_path = dest_dir + filt_evt_name
             final_paths = [filt_evt_path]
 
@@ -431,14 +451,10 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][val_id] = cmd
             miss_final_paths[miss.name][val_id] = final_paths
-            miss_extras[miss.name][val_id] = {}
+            miss_extras[miss.name][val_id] = {'evt_clean_path': filt_evt_path, 'lo_en': lo_en, 'hi_en': hi_en}
 
     # This is just used for populating a progress bar during the process run
-    process_message = ''
+    process_message = 'Generating cleaned PN/MOS event lists'
 
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
 
-
-# @sas_call
-def merge(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False):
-    pass
