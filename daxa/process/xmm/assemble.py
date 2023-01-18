@@ -1,11 +1,12 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/01/2023, 19:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/01/2023, 17:12. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
 from typing import Union, List
 from warnings import warn
 
+from astropy.io import fits
 from astropy.units import Quantity, UnitConversionError
 
 from daxa import NUM_CORES
@@ -383,6 +384,13 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
                 raise ValueError("Somehow there is no instance of M1, M2, or PN in that storage key, this should be "
                                  "impossible!")
 
+            # This should read in the header so that we can grab filter information from it
+            evt_hdr = fits.getheader(evt_list_file)
+            # If the filter is either CalClosed or Closed then we do not care to process it any further.
+            # TODO Consider changing this if I add the SAS summary file parser, and use it upstream
+            if evt_hdr['FILTER'] in ['CalClosed', 'Closed']:
+                continue
+
             if inst in ['M1', 'M2'] and val_id in obs_archive.process_extra_info[miss.name]['emanom'] \
                     and filt_mos_anom_state is not False:
                 log_path = obs_archive.process_extra_info[miss.name]['emanom'][val_id]['log_path']
@@ -429,6 +437,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
     process_message = ''
 
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+
 
 # @sas_call
 def merge(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False):
