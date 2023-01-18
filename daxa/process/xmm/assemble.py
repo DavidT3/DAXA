@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/01/2023, 20:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/01/2023, 20:34. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -285,14 +285,34 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
 
     :param Archive obs_archive: An Archive instance containing XMM mission instances for which cleaned event lists
         should be created. This function will fail if no XMM missions are present in the archive.
-    :param Quantity lo_en:
-    :param Quantity hi_en:
-    :param str/List[str]/Tuple[str] pn_filt_expr:
-    :param str/List[str]/Tuple[str] mos_filt_expr:
-    :param List[str]/str/bool filt_mos_anom_state:
-    :param int num_cores:
-    :param bool disable_progress:
-    :return:
+    :param Quantity lo_en: The lower bound of an energy filter to be applied to the cleaned, filtered, event lists. If
+        'lo_en' is set to an Astropy Quantity, then 'hi_en' must be as well. Default is None, in which case no
+        energy filter is applied.
+    :param Quantity hi_en: The upper bound of an energy filter to be applied to the cleaned, filtered, event lists. If
+        'hi_en' is set to an Astropy Quantity, then 'lo_en' must be as well. Default is None, in which case no
+        energy filter is applied.
+    :param str/List[str]/Tuple[str] pn_filt_expr: The filter expressions to be applied to EPIC-PN event lists. Either
+        a single string expression can be passed, or a list/tuple of separate expressions, which will be combined
+        using '&&' logic before being used as the expression for evselect. Other expression components can be
+        added during the process of the function, such as GTI filtering and energy filtering.
+    :param str/List[str]/Tuple[str] mos_filt_expr: The filter expressions to be applied to EPIC-MOS event lists. Either
+        a single string expression can be passed, or a list/tuple of separate expressions, which will be combined
+        using '&&' logic before being used as the expression for evselect. Other expression components can be
+        added during the process of the function, such as GTI filtering, energy filtering, and anomalous state CCD
+        filtering..
+    :param List[str]/str/bool filt_mos_anom_state: Whether this function should use the results of an 'emanom' run
+        to identify and remove MOS CCDs that are in anomolous states. If 'False' is passed then no such filtering
+        will be applied, with the same behaviour occuring if emanom has not been run on the passed archive. Otherwise
+        a list/tuple of acceptable status codes can be passed (status- G is good at all energies, I is intermediate
+        for E<1 keV, B is bad for E<1 keV, O is off, chip not in use, U is undetermined (low band counts <= 0)).
+    :param int num_cores: The number of cores to use, default is set to 90% of available.
+    :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
+        internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
+        bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
+        obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
+        f) whether the progress bar should be hidden or not.
+    :rtype: Tuple[dict, dict, dict, str, int, bool]
     """
     #
     if isinstance(pn_filt_expr, str):
