@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 21:10. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/01/2023, 15:25. Copyright (c) The Contributors
 
 import os
 from configparser import ConfigParser
@@ -32,7 +32,7 @@ if not os.path.exists(CONFIG_FILE):
 
     # First time run triggers this message
     warn("A configuration file has been created ({}); you can use it to control where DAXA "
-         "stores data by default.".format(CONFIG_FILE))
+         "stores data by default.".format(CONFIG_FILE), stacklevel=2)
 
 daxa_conf = ConfigParser()
 # It would be nice to do configparser interpolation, but it wouldn't handle the lists of energy values
