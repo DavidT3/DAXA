@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/01/2023, 20:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 19/01/2023, 16:46. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -325,7 +325,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
     elif isinstance(mos_filt_expr, tuple):
         mos_filt_expr = list(mos_filt_expr)
 
-    en_check = [en is None for en in [lo_en, hi_en]]
+    en_check = [en is not None for en in [lo_en, hi_en]]
     if not all(en_check) and any(en_check):
         raise ValueError("If one energy limit is set (e.g. 'lo_en') then the other energy limit must also be set.")
     elif (lo_en is not None and not lo_en.unit.is_equivalent('eV')) or \
@@ -342,9 +342,12 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         hi_en = hi_en.to('eV').value
         pn_filt_expr.append("(PI in [{l}:{u}])".format(l=lo_en, u=hi_en))
         mos_filt_expr.append("(PI in [{l}:{u}])".format(l=lo_en, u=hi_en))
+        # This is added into the filtered event list name, but only if energy limits are applied
+        en_ident = '_{l}_{h}keV'.format(l=lo_en.value, h=hi_en.value)
     else:
         lo_en = ''
         hi_en = ''
+        en_ident = ''
 
     ev_cmd = "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} " \
              "updateexposure=yes; mv {fe} ../; cd ../; rm -r {d}"
@@ -450,11 +453,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             temp_name = "tempdir_{}".format(randint(0, 1e+8))
             temp_dir = dest_dir + temp_name + "/"
 
-            # Setting up the paths to the event file
-            if all(en_check):
-                en_ident = '_{l}_{h}keV'.format(l=lo_en.value, h=hi_en.value)
-            else:
-                en_ident = ''
+            # Setting up the path to the event file
             filt_evt_name = "{i}{exp_id}{en_id}_clean.fits".format(i=inst, exp_id=exp_id, en_id=en_ident)
             filt_evt_path = dest_dir + filt_evt_name
             final_paths = [filt_evt_path]
@@ -471,10 +470,134 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][val_id] = cmd
             miss_final_paths[miss.name][val_id] = final_paths
-            miss_extras[miss.name][val_id] = {'evt_clean_path': filt_evt_path, 'lo_en': lo_en, 'hi_en': hi_en}
+            miss_extras[miss.name][val_id] = {'evt_clean_path': filt_evt_path, 'en_key': en_ident}
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Generating cleaned PN/MOS event lists'
 
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
 
+
+@sas_call
+def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False):
+
+    setup_cmd = "cd {d}"
+    merge_cmd = "merge set1={e_one} set2={e_two} outset={e_fin}"
+    cleanup_cmd = "mv {ft} ../{fe}; cd ../"  # ; rm -r {d}
+
+    # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
+    #  extra information that might be useful to provide to the next step in the generation process
+    miss_cmds = {}
+    miss_final_paths = {}
+    miss_extras = {}
+
+    # Just grabs the XMM missions, we already know there will be at least one because otherwise _sas_process_setup
+    #  would have thrown an error
+    xmm_miss = [mission for mission in obs_archive if mission.name in ALLOWED_XMM_MISSIONS]
+    # We are iterating through XMM missions (options could include xmm_pointed and xmm_slew for instance).
+    for miss in xmm_miss:
+        # Sets up the top level keys (mission name) in our storage dictionaries
+        miss_cmds[miss.name] = {}
+        miss_final_paths[miss.name] = {}
+        miss_extras[miss.name] = {}
+
+        # TODO Generalise this for god's sake, it shouldn't need to be repeated in any form
+        # Need to check to see whether ANY of ObsID-instrument-subexposure combos have had cleaned_evt_lists run for
+        #  them, as it is a requirement for this processing function.
+        if 'cleaned_evt_lists' not in obs_archive.process_success[miss.name]:
+            raise NoDependencyProcessError("The cleaned_evt_lists step has not been run for the {m} mission in the "
+                                           "{a} archive. Filtered event lists must be available for sub-exposures to "
+                                           "be merged.".format(m=miss.name, a=obs_archive.archive_name))
+        # If every cleaned_evt_lists run was a failure then we warn the user and move onto the next
+        #  XMM mission (if there is one).
+        elif 'cleaned_evt_lists' in obs_archive.process_success[miss.name] and \
+                all([v is False for v in obs_archive.process_success[miss.name]['cleaned_evt_lists'].values()]):
+            warn("Every cleaned_evt_lists run for the {m} mission in the {a} archive is reporting as a "
+                 "failure, skipping process.".format(m=miss.name, a=obs_archive.archive_name), stacklevel=2)
+            continue
+        else:
+            # This fetches those IDs for which cleaned_evt_lists has reported success, and these are what we will
+            #  iterate through to ensure that we only act upon data that is in a final event list form.
+            valid_ids = [k for k, v in obs_archive.process_success[miss.name]['cleaned_evt_lists'].items() if v]
+
+        to_combine = {}
+        # We iterate through the valid IDs rather than nest ObsID and instrument for loops
+        for val_id in valid_ids:
+            # TODO Review this if I change the IDing system as I was pondering in issue #44
+            if 'M1' in val_id:
+                obs_id, exp_id = val_id.split('M1')
+                inst = 'M1'
+
+            elif 'M2' in val_id:
+                obs_id, exp_id = val_id.split('M2')
+                inst = 'M2'
+            elif 'PN' in val_id:
+                obs_id, exp_id = val_id.split('PN')
+                inst = 'PN'
+                # filt_oot_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['oot_evt_list']
+            else:
+                raise ValueError("Somehow there is no instance of M1, M2, or PN in that storage key, this should be "
+                                 "impossible!")
+
+            filt_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['evt_clean_path']
+            en_key = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['en_key']
+
+            oi_id = obs_id + '_' + inst
+            if oi_id not in to_combine:
+                to_combine[oi_id] = [[filt_evt, en_key]]
+            else:
+                to_combine[oi_id].append([filt_evt, en_key])
+
+        for oi in to_combine:
+            obs_id, inst = oi.split('_')
+            # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
+            #  files will be written to.
+            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+
+            # Setting up the path to the final combined event file
+            final_evt_name = "{i}{en_id}_clean.fits".format(i=inst, en_id=to_combine[oi][0][1])
+            final_path = dest_dir + final_evt_name
+
+            if len(to_combine[oi]) <= 1 or os.path.exists(final_path):
+                continue
+
+            # Set up a temporary directory to work in (probably not really necessary in this case, but will be
+            #  in other processing functions).
+            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_dir = dest_dir + temp_name + "/"
+
+            # As the merge command won't overwrite an existing file name, and we don't know how many times the loop
+            #  below will iterate, we create temporary file names based on the iteration number of the loop
+            temp_evt_name = "{i}{en_id}_clean_temp{ind}.fits"
+
+            # If it doesn't already exist then we will create commands to generate it
+            # TODO Need to decide which file to check for here to see whether the command has already been run
+            # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+            if not os.path.exists(temp_dir):
+                os.makedirs(temp_dir)
+
+            cur_merge_cmds = [setup_cmd.format(d=temp_dir)]
+            for evt_ind, evt_path in enumerate(to_combine[oi][:-1]):
+                if evt_ind == 0:
+                    first_evt = evt_path[0]
+                else:
+                    # This is a bit cheeky, but this will never be used before its defined - it will always use the
+                    #  value defined in the last iteration around
+                    first_evt = cur_t_name
+                cur_t_name = temp_evt_name.format(i=inst, en_id=to_combine[oi][0][1], ind=evt_ind)
+                cur_cmd = merge_cmd.format(e_one=first_evt, e_two=to_combine[oi][evt_ind+1][0], e_fin=cur_t_name)
+
+                cur_merge_cmds.append(cur_cmd)
+
+            cur_merge_cmds.append(cleanup_cmd.format(ft=cur_t_name, fe=final_evt_name, d=temp_dir))
+            cmd = '; '.join(cur_merge_cmds)
+
+            # # Now store the bash command, the path, and extra info in the dictionaries
+            miss_cmds[miss.name][obs_id+inst] = cmd
+            miss_final_paths[miss.name][obs_id+inst] = final_path
+            miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path}
+
+        # This is just used for populating a progress bar during the process run
+        process_message = 'Generating final PN/MOS event lists'
+
+        return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
