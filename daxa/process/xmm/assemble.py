@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 20/01/2023, 19:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 20/01/2023, 20:03. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -498,6 +498,11 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
         f) whether the progress bar should be hidden or not.
     :rtype: Tuple[dict, dict, dict, str, int, bool]
     """
+
+    # These commands get filled in by various stages of this function - in most of the other reduction wrapper
+    #  functions there is only one of these template commands, but as each observation-instrument combo can have a
+    #  different number of sub-exposures, and you can only merge two at once, the 'merge_cmd' part could be repeated
+    #  multiple times, so it is separate.
     setup_cmd = "cd {d}"
     merge_cmd = "merge set1={e_one} set2={e_two} outset={e_fin}"
     cleanup_cmd = "mv {ft} ../{fe}; cd ../"  # ; rm -r {d}
@@ -537,14 +542,16 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             #  iterate through to ensure that we only act upon data that is in a final event list form.
             valid_ids = [k for k, v in obs_archive.process_success[miss.name]['cleaned_evt_lists'].items() if v]
 
+        # This dictionary will have top level keys of observation-instrument combinations, and with the values
+        #  being lists of event lists that need to be combined
         to_combine = {}
         # We iterate through the valid IDs rather than nest ObsID and instrument for loops
         for val_id in valid_ids:
+            # This sets up the observation ID, sub-exposure ID, and instrument
             # TODO Review this if I change the IDing system as I was pondering in issue #44
             if 'M1' in val_id:
                 obs_id, exp_id = val_id.split('M1')
                 inst = 'M1'
-
             elif 'M2' in val_id:
                 obs_id, exp_id = val_id.split('M2')
                 inst = 'M2'
@@ -556,16 +563,29 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                 raise ValueError("Somehow there is no instance of M1, M2, or PN in that storage key, this should be "
                                  "impossible!")
 
+            # The 'cleaned_evt_lists' function stores path info in the extra information dictionary, so we can
+            #  just go there and grab the details about where the cleaned event list for this particular
+            #  observation-instrument-exposure combination lives, as well as the energy range applied by the
+            #  user in the cleaning/filtering step.
             filt_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['evt_clean_path']
             en_key = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['en_key']
 
+            # Combines just the observation and instrument into a top-level key for the dictionary that is used
+            #  to identify which event lists needed to be added together
             oi_id = obs_id + '_' + inst
+            # If there isn't already an entry then we make a new list, storing both the path to the filtered
+            #  even list, and its energy range key
             if oi_id not in to_combine:
                 to_combine[oi_id] = [[filt_evt, en_key]]
+            # If there IS an entry, then we append the filtered event list path + energy key information
             else:
                 to_combine[oi_id].append([filt_evt, en_key])
 
+        # We've gone through all the observation-instrument-exposures that we have for the current mission and now
+        #  we cycle through the ObsID-instrument combinations and start adding event lists together
         for oi in to_combine:
+            # It seems very cyclical but ah well, we immediately split the storage key so we have the ObsID+instrument
+            #  information back again
             obs_id, inst = oi.split('_')
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
             #  files will be written to.
@@ -575,6 +595,9 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             final_evt_name = "{i}{en_id}_clean.fits".format(i=inst, en_id=to_combine[oi][0][1])
             final_path = dest_dir + final_evt_name
 
+            # If there is only one event list for a particular ObsID-instrument combination, then obviously merging
+            #  is impossible/unnecessary, so in that case we just rename the file (which will have sub-exposure ID
+            #  info in the name) to the same style of the merged files
             if len(to_combine[oi]) == 1:
                 os.rename(to_combine[oi], final_path)
                 continue
@@ -596,20 +619,42 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             if not os.path.exists(temp_dir):
                 os.makedirs(temp_dir)
 
+            # If we've got to this point then merging will definitely occur, so we start with the setup command,
+            #  which just moves us to the working directory - its in a list because said list will contain all
+            #  the stages of this command, and will be joined at the end of this process into a single bash
+            #  command.
             cur_merge_cmds = [setup_cmd.format(d=temp_dir)]
+            # Now we can iterate through the files for merging - using enumerate so we get an index for the current
+            #  event path, which we can add one to to retrieve the next event list along - i.e. what we will be
+            #  merging into. This is why we slice the event file list so that we only iterate up to the penultimate
+            #  file, because that file will be accessed by adding one to the last evt_ind.
+            # Frankly I probably should have used a while loop here, but ah well
             for evt_ind, evt_path in enumerate(to_combine[oi][:-1]):
+
+                # If we haven't iterated yet then we use the currently access event list name as the first event list.
                 if evt_ind == 0:
                     first_evt = evt_path[0]
+                # However if we HAVE iterated before, then the first event list should actually be the output of the
+                #  last merging step, not the CURRENT value of evt_path (as that has already been added into the
+                #  merged list).
                 else:
                     # This is a bit cheeky, but this will never be used before its defined - it will always use the
                     #  value defined in the last iteration around
                     first_evt = cur_t_name
+                # The output of the merge has to be given a temporary name, as the merge command won't allow it to
+                #  have the same name as an existing file
                 cur_t_name = temp_evt_name.format(i=inst, en_id=to_combine[oi][0][1], ind=evt_ind)
+                # This populated the command with the event list paths and output path (note where we add 1 to the
+                #  evt_ind value).
                 cur_cmd = merge_cmd.format(e_one=first_evt, e_two=to_combine[oi][evt_ind+1][0], e_fin=cur_t_name)
-
+                # Then the command is added to the command list
                 cur_merge_cmds.append(cur_cmd)
 
+            # The final command added to the cmd list is a cleanup step, removing the temporary working directory
+            #  (and all the transient part merged event lists that might have been created along the way).
             cur_merge_cmds.append(cleanup_cmd.format(ft=cur_t_name, fe=final_evt_name, d=temp_dir))
+            # Finally the list of commands is all joined together so it is one, like the commands of the rest of the
+            #  SAS wrapper functions
             cmd = '; '.join(cur_merge_cmds)
 
             # # Now store the bash command, the path, and extra info in the dictionaries
