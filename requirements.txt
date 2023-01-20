@@ -10,6 +10,5 @@ astroquery~=0.4.6
 pandas~=1.5.1
 astropy~=5.1.1
 tqdm~=4.64.1
-daxa~=0.1
 packaging~=21.3
 exceptiongroup~=1.0.4
