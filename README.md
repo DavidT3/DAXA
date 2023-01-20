@@ -18,9 +18,38 @@ set of coordinates), and the time frame in which the observations were taken. As
 identify what archival data might be available for a set of objects you wish to study. It is also possible to place
 no filters on the desired observations, and as such process every observation available for a set of missions. 
 
-## Required Dependencies
+Documentation is available (**_[Under Development]_**) on ReadTheDocs, and can be [found here](daxa.readthedocs.io), or
+accessed by clicking on the documentation build status at the top of the README. The source for the documentation can
+be found in the 'docs' directory in this repository.
 
-XMM SAS v14 or above (I'll make this prettier later on)
+# Which missions are supported?
+
+**_DAXA is still in an early stage of development, and as such the list of supported telescopes is currently very
+limited. Support for more telescopes is either currently under development or being actively planned._** 
+
+* XMM-Newton Pointed
+* **_[Under Development]_** eROSITA Commissioning
+
+**_Chandra support is being planned as a priority_** - if you would like to help with this, please get in contact!
+
+# Required telescope-specific software
+
+DAXA makes significant use of existing processing software released by the telescope teams, and as such there are some
+specific non-Python dependencies that need to be installed if that mission is to be included in a DAXA generated archive.
+
+## An alternative to installing the dependencies yourself
+
+**_[Under Development]_** - A docker image containing relevant telescope-specific software is being created. The 
+built image will be released on DockerHub (or some other convenient platform), and the actual dockerfile used for
+building the image will also be released for anyone to use/modify. The dockerfile is heavily inspired by/based off of 
+the HEASoft docker image.
+
+## XMM-Newton
+Science Analysis System (SAS) - v14 or higher
+
+## 
+
+
 
 # Problems and Questions
 If you encounter a bug, or would like to make a feature request, please use the GitHub
