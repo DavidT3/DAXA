@@ -8,6 +8,10 @@
 
 [I HAVE ONLY JUST STARTED WRITING THIS MODULE AND IT DOESN'T DO ANYTHING YET]
 
+## Required Dependencies
+
+XMM SAS v14 or above (I'll make this prettier later on)
+
 # Problems and Questions
 If you encounter a bug, or would like to make a feature request, please use the GitHub
 [issues](https://github.com/DavidT3/DAXA/issues) page, it really helps to keep track of everything.

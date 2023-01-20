@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/11/2022, 18:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 13:00. Copyright (c) The Contributors
 
 
 class DAXAConfigError(Exception):
@@ -102,3 +102,104 @@ class MissionLockedError(Exception):
             return '{0} '.format(self.message)
         else:
             return 'MissionLockedError has been raised'
+
+
+class SASNotFoundError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if the XMM Scientific Analysis System can not be found on the system.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'SASNotFoundError has been raised'
+
+
+class SASVersionError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if the XMM Scientific Analysis System located on the system is a version
+        that is not compatible with DAXA.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'SASVersionError has been raised'
+
+
+class NoXMMMissionsError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if an archive containing no XMM missions is passed to an XMM specific processing function.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'NoXMMMissionsError has been raised'
+
+
+class NoProcessingError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if a method tries to access processed data when no processing has been applied.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'NoProcessingError has been raised'
+
+
+class NoDependencyProcessError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if a processing method that the current process depends on has not been run.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'NoDependencyProcessError has been raised'

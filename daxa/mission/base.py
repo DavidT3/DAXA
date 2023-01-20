@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/12/2022, 11:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 17:24. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -104,6 +104,10 @@ class BaseMission(metaclass=ABCMeta):
         # If this is set to True then no further changes to the selection of observations in a mission
         #  will be allowed. This will be automatically applied when missions are added to an archive.
         self._locked = False
+
+        # This attribute is for making sure the mission instance (and thus whatever archive it might be a
+        #  part of) knows whether or not the raw data have been processed.
+        self._processed = False
 
     # Defining properties first
     @property
@@ -233,6 +237,16 @@ class BaseMission(metaclass=ABCMeta):
             self._top_level_output_path = os.path.abspath(new_path)
         else:
             pass
+
+    @property
+    def raw_data_path(self) -> str:
+        """
+        Property getter for the directory in which raw data for the current mission is stored.
+
+        :return: Storage path for raw data for this mission.
+        :rtype: str
+        """
+        return self.top_level_path + self.name + '_raw/'
 
     @property
     def filter_array(self) -> np.ndarray:
@@ -409,6 +423,35 @@ class BaseMission(metaclass=ABCMeta):
             raise MissionLockedError("This mission has already been locked, you cannot unlock it.")
         else:
             self._locked = new_val
+
+    @property
+    def processed(self) -> bool:
+        """
+        A property getter that returns whether the observations associated with this mission have been
+        fully processed or not.
+
+        :return: The processed boolean flag.
+        :rtype: bool
+        """
+        return self._processed
+
+    @processed.setter
+    def processed(self, new_val: bool):
+        """
+        A property setter for whether the observations associated with this mission have been fully
+        processed or not. If processed has already been set to True, then it cannot be reset to False, and once
+        processed has been set to True, the 'locked' property will also be set to True and the observation
+        selection for this mission instance will become immutable.
+
+        :param bool new_val: The new value for processed.
+        """
+        if not isinstance(new_val, bool):
+            raise TypeError("New values for 'processed' must be boolean.")
+        elif self._processed:
+            raise ValueError("The processed property has already been set to True, and is now immutable.")
+        elif new_val:
+            self.locked = True
+        self._processed = new_val
 
     # Then define internal methods
     def _obs_info_checks(self, new_info: pd.DataFrame):
