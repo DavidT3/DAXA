@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 19/01/2023, 16:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 20/01/2023, 19:06. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -480,7 +480,24 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
 
 @sas_call
 def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False):
+    """
+    A function to identify cases where an instrument for a particular XMM observation has multiple
+    sub-exposures, for which the event lists can be merged. This produces a final event list, which is a
+    combination of the sub-exposures. For those observation-instrument combinations with only a single
+    exposure, this function will rename the cleaned event list so that the naming convention is comparable
+    to the merged event list naming convention (i.e. sub-exposure identifier will be removed).
 
+    :param Archive obs_archive: An Archive instance containing XMM mission instances for which cleaned event lists
+        should be created. This function will fail if no XMM missions are present in the archive.
+    :param int num_cores: The number of cores to use, default is set to 90% of available.
+    :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
+        internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
+        bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
+        obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
+        f) whether the progress bar should be hidden or not.
+    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    """
     setup_cmd = "cd {d}"
     merge_cmd = "merge set1={e_one} set2={e_two} outset={e_fin}"
     cleanup_cmd = "mv {ft} ../{fe}; cd ../"  # ; rm -r {d}
