@@ -49,7 +49,15 @@ Science Analysis System (SAS) - v14 or higher
 
 ## 
 
+# Analysing the processed archives
+Once an archive of cleaned X-ray data has been created, it can be analysed in all the standard ways, however you may
+also wish to consider the module that DAXA was built as a companion for [X-ray: Generate and Analyse (XGA)](https://github.com/DavidT3/XGA).
 
+XGA is also completely open source, and is a generalised tool for the analysis of X-ray emission from astrophysical 
+sources. The software operates on a 'source based' paradigm, where the user declares sources or samples of objects
+which are analogous to astrophysical sources in the sky, with XGA determining which data (if any) are relevant to a 
+particular source, and providing a powerful (but easy to use) interface for the generation and analysis of data 
+products. The module is fully documented, with tutorials and API documentation available.
 
 # Problems and Questions
 If you encounter a bug, or would like to make a feature request, please use the GitHub
