@@ -24,7 +24,7 @@ be found in the 'docs' directory in this repository.
 
 # Which missions are supported?
 
-**_DAXA is still in an early stage of development, and as such the list of supported telescopes is currently very
+**_DAXA is still in an early stage of development, and as such the list of supported telescopes is currently
 limited. Support for more telescopes is either currently under development or being actively planned._** 
 
 * XMM-Newton Pointed
