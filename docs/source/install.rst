@@ -19,7 +19,7 @@ You can fetch the current working version from the git repository, and install i
     cd DAXA
     python setup.py install
 
-Alternatively you could use the 'develop' option so that any changes you pull from the remote repository are reflected without having to reinstall DAXA>
+Alternatively you could use the 'develop' option so that any changes you pull from the remote repository are reflected without having to reinstall DAXA.
 
 .. code-block::
 
