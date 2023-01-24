@@ -20,8 +20,9 @@ Which missions are supported?
 limited. Support for more telescopes is either currently under development or being actively planned.*
 
     * XMM-Newton Pointed
-    * *[Under Development]* eROSITA Commissioning
-    * *Chandra support is being planned as a priority* - if you would like to help with this, please get in contact!
+    * [Under Development] eROSITA Commissioning
+
+*Chandra support is being planned as a priority - if you would like to help with this, please get in contact!*
 
 Analysing the processed archives
 --------------------------------
