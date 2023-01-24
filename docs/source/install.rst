@@ -38,7 +38,7 @@ Required Dependencies
     - Science Analysis System (SAS) - v14 or above
     - HEASoft (lcurve is required for XMM processing) - tested on v6.29 and v6.31
 
-All required Python modules can be found in requirements.txt, and should be added to your system during the installation of XGA.
+All required Python modules can be found in requirements.txt, and should be added to your system during the installation of DAXA.
 
 Excellent installation guides for `SAS <https://www.cosmos.esa.int/web/xmm-newton/sas-installation>`_ and
 `HEASoft <https://heasarc.gsfc.nasa.gov/lheasoft/install.html>`_ exist.
