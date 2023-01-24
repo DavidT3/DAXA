@@ -1,0 +1,18 @@
+mission
+=======
+
+mission.base module
+-------------------
+
+.. automodule:: daxa.mission.base
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+mission.xmm module
+----------------------
+
+.. automodule:: daxa.mission.xmm
+   :members:
+   :undoc-members:
+   :show-inheritance:
