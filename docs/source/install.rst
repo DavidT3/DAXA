@@ -49,4 +49,5 @@ A docker container for DAXA (and the related module XGA) is in development, wher
 Configuring DAXA
 ---------------
 
-The first run of DAXA will create a
+The first run of DAXA will create a configuration file, which by default will be ~/.config/daxa/daxa.cfg. This does not **need** to be configured
+by the user, but you can use it to set the default directory for saving DAXA outputs, as well as an override of the number of cores that DAXA is allowed to use.
