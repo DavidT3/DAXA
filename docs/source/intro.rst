@@ -13,17 +13,19 @@ set of coordinates), and the time frame in which the observations were taken. As
 identify what archival data might be available for a set of objects you wish to study. It is also possible to place
 no filters on the desired observations, and as such process every observation available for a set of missions.
 
-# Which missions are supported?
+Which missions are supported?
+-----------------------------
 
 **_DAXA is still in an early stage of development, and as such the list of supported telescopes is currently
 limited. Support for more telescopes is either currently under development or being actively planned._**
 
 * XMM-Newton Pointed
 * **_[Under Development]_** eROSITA Commissioning
-
 **_Chandra support is being planned as a priority_** - if you would like to help with this, please get in contact!
 
-# Analysing the processed archives
+Analysing the processed archives
+--------------------------------
+
 Once an archive of cleaned X-ray data has been created, it can be analysed in all the standard ways, however you may
 also wish to consider [X-ray: Generate and Analyse (XGA)](https://github.com/DavidT3/XGA), a companion module to DAXA.
 
