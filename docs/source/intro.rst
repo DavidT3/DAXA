@@ -16,12 +16,12 @@ no filters on the desired observations, and as such process every observation av
 Which missions are supported?
 -----------------------------
 
-**_DAXA is still in an early stage of development, and as such the list of supported telescopes is currently
-limited. Support for more telescopes is either currently under development or being actively planned._**
+*DAXA is still in an early stage of development, and as such the list of supported telescopes is currently
+limited. Support for more telescopes is either currently under development or being actively planned.*
 
-* XMM-Newton Pointed
-* **_[Under Development]_** eROSITA Commissioning
-**_Chandra support is being planned as a priority_** - if you would like to help with this, please get in contact!
+    * XMM-Newton Pointed
+    * *[Under Development]* eROSITA Commissioning
+    * *Chandra support is being planned as a priority* - if you would like to help with this, please get in contact!
 
 Analysing the processed archives
 --------------------------------
