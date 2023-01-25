@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 20/01/2023, 20:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 25/01/2023, 21:02. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -599,9 +599,9 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             #  is impossible/unnecessary, so in that case we just rename the file (which will have sub-exposure ID
             #  info in the name) to the same style of the merged files
             if len(to_combine[oi]) == 1:
-                os.rename(to_combine[oi], final_path)
+                os.rename(to_combine[oi][0][0], final_path)
                 continue
-            elif len(to_combine[oi]) == 1 or os.path.exists(final_path):
+            elif os.path.exists(final_path):
                 continue
 
             # Set up a temporary directory to work in (probably not really necessary in this case, but will be
