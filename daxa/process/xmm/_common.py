@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 17:08. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -224,9 +224,9 @@ def sas_call(sas_func):
 
         # Converting the timeout from whatever time units it is in, to seconds - but first checking that the user
         #  hasn't been daft and passed a non-time quantity
-        if not timeout.unit.is_equivalent('s'):
+        if timeout is not None and not timeout.unit.is_equivalent('s'):
             raise UnitConversionError("The value of timeout must be convertible to seconds.")
-        else:
+        elif timeout is not None:
             timeout = timeout.to('s').value
 
         # This just sets up a dictionary of how many tasks there are for each mission
