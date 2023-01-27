@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 17:08. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -675,7 +675,7 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             miss_final_paths[miss.name][obs_id+inst] = final_path
             miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path}
 
-        # This is just used for populating a progress bar during the process run
-        process_message = 'Generating final PN/MOS event lists'
+    # This is just used for populating a progress bar during the process run
+    process_message = 'Generating final PN/MOS event lists'
 
-        return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
