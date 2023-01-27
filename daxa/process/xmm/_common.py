@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:17. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -219,7 +219,7 @@ def sas_call(sas_func):
         obs_archive: Archive  # Just for autocomplete purposes in my IDE
 
         # This is the output from whatever function this is a decorator for
-        miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable = sas_func(*args, **kwargs)
+        miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout = sas_func(*args, **kwargs)
 
         # This just sets up a dictionary of how many tasks there are for each mission
         num_to_run = {mn: len(miss_cmds[mn]) for mn in miss_cmds}
@@ -340,7 +340,7 @@ def sas_call(sas_func):
                         rel_fin_path = miss_final_paths[miss_name][rel_id]
                         rel_einfo = miss_extras[miss_name][rel_id]
 
-                        pool.apply_async(execute_cmd, args=(cmd, rel_id, miss_name, rel_fin_path, rel_einfo),
+                        pool.apply_async(execute_cmd, args=(cmd, rel_id, miss_name, rel_fin_path, rel_einfo, timeout),
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
