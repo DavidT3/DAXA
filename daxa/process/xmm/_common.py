@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:29. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -8,6 +8,7 @@ from subprocess import Popen, PIPE, TimeoutExpired
 from typing import Tuple, List, Dict
 from warnings import warn
 
+from astropy.units import UnitConversionError
 from exceptiongroup import ExceptionGroup
 from packaging.version import Version
 from tqdm import tqdm
@@ -220,6 +221,13 @@ def sas_call(sas_func):
 
         # This is the output from whatever function this is a decorator for
         miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout = sas_func(*args, **kwargs)
+
+        # Converting the timeout from whatever time units it is in, to seconds - but first checking that the user
+        #  hasn't been daft and passed a non-time quantity
+        if not timeout.unit.is_equivalent('s'):
+            raise UnitConversionError("The value of timeout must be convertible to seconds.")
+        else:
+            timeout = timeout.to('s').value
 
         # This just sets up a dictionary of how many tasks there are for each mission
         num_to_run = {mn: len(miss_cmds[mn]) for mn in miss_cmds}
