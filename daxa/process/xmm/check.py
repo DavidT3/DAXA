@@ -1,9 +1,11 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/01/2023, 21:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:34. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, List
 from warnings import warn
+
+from astropy.units import Quantity
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
@@ -12,7 +14,7 @@ from daxa.process.xmm._common import ALLOWED_XMM_MISSIONS, _sas_process_setup, s
 
 
 @sas_call
-def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False):
+def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
     """
     This function runs the SAS emanom function, which attempts to identify when MOS CCDs are have operated in an
     'anomalous' state, where the  background at E < 1 keV is strongly enhanced. Data above 2 keV are unaffected, so
@@ -26,6 +28,9 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
         which emchain should be run. This function will fail if no XMM missions are present in the archive.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire emanom process, but a timeout for individual
+        ObsID-subexposure processes.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
         internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
@@ -128,7 +133,7 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
     # This is just used for populating a progress bar during the process run
     process_message = 'Checking for MOS CCD anomalous states'
 
-    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
 def parse_emanom_out(log_file_path: str, acceptable_states: Union[List[str], str] = ('G', 'I', 'U')) -> List[int]:
