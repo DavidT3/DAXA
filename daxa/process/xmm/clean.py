@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/01/2023, 15:47. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:37. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
@@ -18,7 +18,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
             with_binning: Union[bool, Quantity] = True, ratio: float = 1.2,
             filter_lo_en: Quantity = Quantity(2500, 'eV'), filter_hi_en: Quantity = Quantity(8500, 'eV'),
             range_scale: dict = None, allowed_sigma: float = 3.0, gauss_fit_lims: Tuple[float, float] = (0.1, 6.5),
-            num_cores: int = NUM_CORES, disable_progress: bool = False):
+            num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
     """
     The DAXA wrapper for the XMM SAS task espfilt, which attempts to identify good time intervals with minimal
     soft-proton flaring for individual sub-exposures (if multiple have been taken) of XMM ObsID-Instrument
@@ -49,6 +49,9 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
     :param Tuple[float, float] gauss_fit_lims: The parameter limits for gaussian fits.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire espfilt process, but a timeout for individual
+        ObsID-Inst-subexposure processes.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
         internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
@@ -328,4 +331,4 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
     # This is just used for populating a progress bar during the process run
     process_message = 'Finding PN/MOS soft-proton flares'
 
-    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
