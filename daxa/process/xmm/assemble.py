@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:33. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:43. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -43,7 +43,7 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
@@ -191,7 +191,7 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
@@ -321,7 +321,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
     #
     if isinstance(pn_filt_expr, str):
@@ -509,7 +509,7 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
 
     # These commands get filled in by various stages of this function - in most of the other reduction wrapper

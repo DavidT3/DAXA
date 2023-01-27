@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:43. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, List
@@ -36,7 +36,7 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
