@@ -1,10 +1,10 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 13:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:14. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
 from multiprocessing.dummy import Pool
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, TimeoutExpired
 from typing import Tuple, List, Dict
 from warnings import warn
 
@@ -143,8 +143,8 @@ def parse_stderr(unprocessed_stderr: str) -> Tuple[List[str], List[Dict], List]:
     return sas_errs_msgs, parsed_sas_warns, other_err_lines
 
 
-def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str,
-                extra_info: dict) -> Tuple[str, str, List[bool], str, str, dict]:
+def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_info: dict,
+                timeout: float = None) -> Tuple[str, str, List[bool], str, str, dict]:
     """
     This is a simple function designed to execute cmd line SAS commands for the processing and reduction of
     XMM mission data. It will collect the stdout and stderr values for each command and return them too for the
@@ -159,6 +159,8 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str,
         for the purposes of checking that it (they) exists.
     :param dict extra_info: A dictionary which can contain extra information about the process or output that will
         eventually be stored in the Archive.
+    :param float timeout: The length of time (in seconds) which the process is allowed to run for before being
+        killed. Default is None, which is supported as an input by communicate().
     :return: The rel_id, a list of boolean flags indicating whether the final files exist, the std_out, and the
         std_err. The final dictionary can contain extra information recorded by the processing function.
     :rtype: Tuple[str, str, List[bool], str, str, dict]
@@ -168,9 +170,20 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str,
     if isinstance(check_path, str):
         check_path = [check_path]
 
-    # Starts the process running on a shell, connects to the process and waits for it to terminate, and collects
-    #  the stdout and stderr
-    out, err = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
+    # Starts the process running on a shell
+    # I add exec to the beginning to make sure that the command inherits the same process ID as the shell, which
+    #  allows the timeout to kill the XSPEC run rather than the shell process. Entirely thanks to slayton on
+    #   https://stackoverflow.com/questions/4789837/how-to-terminate-a-python-subprocess-launched-with-shell-true
+    cmd_proc = Popen("exec " + cmd, shell=True, stdout=PIPE, stderr=PIPE)
+
+    # This makes sure the process is killed if it does timeout
+    try:
+        out, err = cmd_proc.communicate(timeout=timeout)
+    except TimeoutExpired:
+        cmd_proc.kill()
+        out, err = cmd_proc.communicate()
+        warn("An XMM process for {} has timed out".format(rel_id))
+
     # Decodes the stdout and stderr from the binary encoding it currently exists in. The errors='ignore' flag
     #  means that it doesn't throw errors if there is a character it doesn't recognize
     out = out.decode("UTF-8", errors='ignore')
