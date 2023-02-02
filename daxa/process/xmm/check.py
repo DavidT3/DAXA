@@ -1,11 +1,12 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/02/2023, 13:42. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, List
 from warnings import warn
 
 from astropy.units import Quantity
+from packaging.version import Version
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
@@ -24,6 +25,9 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
     whether a chip is in an anomalous state. However, it should be noted that the "anonymous" anomalous state of
     MOS1 CCD#4 is not always detectable from the unexposed corner data.
 
+    This functionality is only usable if you have SAS v19.0.0 or higher - a version check will be performed and
+    a warning raised (though no error will be raised) if you use this function with an earlier SAS version.
+
     :param Archive obs_archive: An Archive instance containing XMM mission instances with MOS observations for
         which emchain should be run. This function will fail if no XMM missions are present in the archive.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
@@ -41,6 +45,13 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
     sas_version = _sas_process_setup(obs_archive)
+
+    # As it turns out, emanom was only introduced in v19.0.0. Thankfully emanom is optional in processing XMM, so
+    #  I don't have to change the required SAS version - I'll just put a version check here
+    if sas_version < Version('14.0.0'):
+        warn("The emanom task was introduced in SAS v19.0.0, you have SAS {} - skipping "
+             "emanom.".format(str(sas_version)))
+        return {}, {}, {}, '', num_cores, disable_progress, timeout
 
     # Define the form of the emchain command that must be run to check for anomalous states in MOS CCDs
     emanom_cmd = "cd {d}; export SAS_CCF={ccf}; emanom eventfile={ef} keepcorner=no; mv {of} ../; cd ..; rm -r {d}"
