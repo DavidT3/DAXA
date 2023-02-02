@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/02/2023, 13:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/02/2023, 13:46. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, List
@@ -50,7 +50,7 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
     #  I don't have to change the required SAS version - I'll just put a version check here
     if sas_version < Version('19.0.0'):
         warn("The emanom task was introduced in SAS v19.0.0, you have SAS {} - skipping "
-             "emanom.".format(str(sas_version)))
+             "emanom.".format(str(sas_version)), stacklevel=2)
         return {}, {}, {}, '', num_cores, disable_progress, timeout
 
     # Define the form of the emchain command that must be run to check for anomalous states in MOS CCDs
