@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 25/01/2023, 21:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 17:08. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -18,7 +18,7 @@ from daxa.process.xmm.check import parse_emanom_out
 
 @sas_call
 def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: int = NUM_CORES,
-            disable_progress: bool = False):
+            disable_progress: bool = False, timeout: Quantity = None):
     """
     This function runs the epchain SAS process on XMM missions in the passed archive, which assembles the
     PN-specific ODFs into combined photon event lists - rather than the per CCD files that existed before. A run of
@@ -35,12 +35,15 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
         unscheduled. Default is True, in which case they will be processed.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire epchain process, but a timeout for individual
+        ObsID-subexposure processes.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
         internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
@@ -157,12 +160,12 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     # This is just used for populating a progress bar during generation
     process_message = 'Assembling PN and PN-OOT event lists'
 
-    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
 @sas_call
 def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: int = NUM_CORES,
-            disable_progress: bool = False):
+            disable_progress: bool = False, timeout: Quantity = None):
     """
     This function runs the emchain SAS process on XMM missions in the passed archive, which assembles the
     MOS-specific ODFs into combined photon event lists - rather than the per CCD files that existed before. The
@@ -180,12 +183,15 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
         unscheduled. Default is True, in which case they will be processed.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire emchain process, but a timeout for individual
+        ObsID-subexposure processes.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
         internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
@@ -268,7 +274,7 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     # This is just used for populating a progress bar during generation
     process_message = 'Assembling MOS event lists'
 
-    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
 @sas_call
@@ -276,7 +282,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
                       pn_filt_expr: Union[str, List[str]] = ("#XMMEA_EP", "(PATTERN <= 4)", "(FLAG .eq. 0)"),
                       mos_filt_expr: Union[str, List[str]] = ("#XMMEA_EM", "(PATTERN <= 12)", "(FLAG .eq. 0)"),
                       filt_mos_anom_state: Union[List[str], str, bool] = ('G', 'I', 'U'), num_cores: int = NUM_CORES,
-                      disable_progress: bool = False):
+                      disable_progress: bool = False, timeout: Quantity = None):
     """
     This function is used to apply the soft-proton filtering (along with any other filtering you may desire, including
     the setting of energy limits) to XMM-Newton event lists, resulting in the creation of sets of cleaned event lists
@@ -307,12 +313,15 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         for E<1 keV, B is bad for E<1 keV, O is off, chip not in use, U is undetermined (low band counts <= 0)).
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire cleaned_evt_lists process, but a timeout for individual
+        ObsID-Inst-subexposure processes.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
         internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
     #
     if isinstance(pn_filt_expr, str):
@@ -475,11 +484,12 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
     # This is just used for populating a progress bar during the process run
     process_message = 'Generating cleaned PN/MOS event lists'
 
-    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
 @sas_call
-def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False):
+def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False,
+                       timeout: Quantity = None):
     """
     A function to identify cases where an instrument for a particular XMM observation has multiple
     sub-exposures, for which the event lists can be merged. This produces a final event list, which is a
@@ -491,12 +501,15 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
         should be created. This function will fail if no XMM missions are present in the archive.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire merge_subexposures process, but a timeout for individual
+        ObsID-Inst processes.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
         internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
 
     # These commands get filled in by various stages of this function - in most of the other reduction wrapper
@@ -662,7 +675,7 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             miss_final_paths[miss.name][obs_id+inst] = final_path
             miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path}
 
-        # This is just used for populating a progress bar during the process run
-        process_message = 'Generating final PN/MOS event lists'
+    # This is just used for populating a progress bar during the process run
+    process_message = 'Generating final PN/MOS event lists'
 
-        return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
