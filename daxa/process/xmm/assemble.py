@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 17:08. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/02/2023, 14:47. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -323,17 +323,21 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         f) whether the progress bar should be hidden or not.
     :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
-    #
+
+    # Have to make sure that the filter expressions are a list, as we want to append to them (if necessary), and then
+    #  join them into a final filter string
     if isinstance(pn_filt_expr, str):
         pn_filt_expr = [pn_filt_expr]
     elif isinstance(pn_filt_expr, tuple):
         pn_filt_expr = list(pn_filt_expr)
 
+    # Same deal here with the MOS filter expressions
     if isinstance(mos_filt_expr, str):
         mos_filt_expr = [mos_filt_expr]
     elif isinstance(mos_filt_expr, tuple):
         mos_filt_expr = list(mos_filt_expr)
 
+    # Here we are making sure that the input energy limits are legal and sensible
     en_check = [en is not None for en in [lo_en, hi_en]]
     if not all(en_check) and any(en_check):
         raise ValueError("If one energy limit is set (e.g. 'lo_en') then the other energy limit must also be set.")
@@ -439,8 +443,10 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             if evt_hdr['FILTER'] in ['CalClosed', 'Closed']:
                 continue
 
-            if inst in ['M1', 'M2'] and val_id in obs_archive.process_extra_info[miss.name]['emanom'] \
-                    and filt_mos_anom_state is not False:
+            # This is only triggered if the user WANTS to filter out anomolous states, and has actually run
+            #  the emanom task (if they haven't there won't be an 'emanom' entry in the extra info dictionary
+            if inst in ['M1', 'M2'] and filt_mos_anom_state is not False \
+                    and val_id in obs_archive.process_extra_info[miss.name]['emanom']:
                 log_path = obs_archive.process_extra_info[miss.name]['emanom'][val_id]['log_path']
                 allow_ccds = [str(c_id) for c_id in parse_emanom_out(log_path, acceptable_states=filt_mos_anom_state)]
                 ccd_expr = "CCDNR in {}".format(','.join(allow_ccds))
