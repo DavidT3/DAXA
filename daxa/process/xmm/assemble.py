@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/02/2023, 14:47. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/02/2023, 15:42. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -446,6 +446,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             # This is only triggered if the user WANTS to filter out anomolous states, and has actually run
             #  the emanom task (if they haven't there won't be an 'emanom' entry in the extra info dictionary
             if inst in ['M1', 'M2'] and filt_mos_anom_state is not False \
+                    and 'emanom' in obs_archive.process_extra_info[miss.name]\
                     and val_id in obs_archive.process_extra_info[miss.name]['emanom']:
                 log_path = obs_archive.process_extra_info[miss.name]['emanom'][val_id]['log_path']
                 allow_ccds = [str(c_id) for c_id in parse_emanom_out(log_path, acceptable_states=filt_mos_anom_state)]
