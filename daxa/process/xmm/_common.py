@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 17:22. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/02/2023, 12:07. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -172,12 +172,7 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_in
         check_path = [check_path]
 
     # Starts the process running on a shell
-    # I add exec to the beginning to make sure that the command inherits the same process ID as the shell, which
-    #  allows the timeout to kill the XSPEC run rather than the shell process. Entirely thanks to slayton on
-    #   https://stackoverflow.com/questions/4789837/how-to-terminate-a-python-subprocess-launched-with-shell-true
-    cmd_proc = Popen("exec " + cmd, shell=True, stdout=PIPE, stderr=PIPE)
-
-    print(timeout, '\n')
+    cmd_proc = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
 
     # This makes sure the process is killed if it does timeout
     try:
