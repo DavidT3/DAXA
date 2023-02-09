@@ -1,7 +1,9 @@
-import numpy as np
-import pandas as pd
 import pkg_resources
 from typing import List, Union
+
+import numpy as np
+import pandas as pd
+from astropy.coordinates import BaseRADecFrame, FK5
 
 from .base import BaseMission
 
@@ -51,6 +53,38 @@ class eROSITACalPV(BaseMission):
         
         self._miss_poss_insts = ['TM1', 'TM2', 'TM3', 'TM4', 'TM5', 'TM6', 'TM7']
         self.chosen_instruments = insts
+    
+    # Defining properties first
+    @property
+    def name(self) -> str:
+        """
+        Abstract property getter for the name of this mission. Must be overwritten in any subclass. This is to
+        ensure that any subclasses that people might add will definitely set a proper name, which is not
+        guaranteed by having it done in the init.
+
+        :return: The mission name
+        :rtype: str
+        """
+        # This is defined here (as well as in the init of BaseMission) because I want people to just copy this
+        #  property if they're making a new subclass, then replace None with the name of the mission.
+        self._miss_name = "erosita_calpv"
+        # Used for things like progress bar descriptions
+        self._pretty_miss_name = "eROSITA Calibration and Performance Verification"
+        return self._miss_name
+    
+    @property
+    def coord_frame(self) -> BaseRADecFrame:
+        """
+        Property getter for the coordinate frame of the RA-Decs of the observations of this mission.
+
+        :return: The coordinate frame of the RA-Dec.
+        :rtype: BaseRADecFrame
+        """
+        # The name is defined here because this is the pattern for this property defined in
+        #  the BaseMission superclass
+        #DAVID_QUESTION I know it is J2000 but not what to use in astropy
+        self._miss_coord_frame = FK5
+        return self._miss_coord_frame
     
     @property
     def all_mission_fields(self) -> List[str]:
@@ -108,7 +142,7 @@ class eROSITACalPV(BaseMission):
         """
         # Reading in what data is available in the Cal-PV release
         CalPV_info = pd.read_csv(pkg_resources.resource_filename(__name__, "files/eROSITACalPV_info.csv"), header="infer")
-        
+
         # Just makes sure we can iterate across field(s), regardless of how many there are
         if not isinstance(fields, list):
             fields = [fields]
