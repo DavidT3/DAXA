@@ -1,6 +1,5 @@
 import os.path
 import tarfile
-import pkg_resources
 import requests
 from typing import List, Union
 from warnings import warn
@@ -13,6 +12,7 @@ from tqdm import tqdm
 from .base import BaseMission
 from .base import _lock_check
 from .. import NUM_CORES
+from ..config import CalPV_info
 
 class eROSITACalPV(BaseMission):
     """
@@ -33,8 +33,6 @@ class eROSITACalPV(BaseMission):
         # Call the init of parent class with the required information
         super().__init__() 
 
-        # Reading in what data is available in the Cal-PV release
-        CalPV_info = pd.read_csv(pkg_resources.resource_filename(__name__, "files/eROSITACalPV_info.csv"), header="infer")
         # All the allowed names of fields 
         self._miss_poss_fields = CalPV_info["Field_Name"].tolist()
         # All the allowed types of field, ie. survey, magellanic cloud, galactic field, extragalactic field
@@ -142,9 +140,6 @@ class eROSITACalPV(BaseMission):
         :return: The list of fields.
         :rtype: List
         """
-        # Reading in what data is available in the Cal-PV release
-        CalPV_info = pd.read_csv(pkg_resources.resource_filename(__name__, "files/eROSITACalPV_info.csv"), header="infer")
-
         # Just makes sure we can iterate across field(s), regardless of how many there are
         if not isinstance(fields, list):
             fields = [fields]
@@ -185,10 +180,6 @@ class eROSITACalPV(BaseMission):
         :return: A None value.
         :rtype: Any
         """
-
-        # Reading in what data is available in the Cal-PV release
-        CalPV_info = pd.read_csv(pkg_resources.resource_filename(__name__, "files/eROSITACalPV_info.csv"), header="infer")
-    
         # Another part of the very unsophisticated method I currently have for checking whether a raw XMM data
         #  download has already been performed (see issue #30). If the ObsID directory doesn't exist then
         #  an attempt will be made.
@@ -216,10 +207,6 @@ class eROSITACalPV(BaseMission):
         has been applied, otherwise all data will be downloaded). Fields (or field types), which is set either 
         on declaration of the class instance or by passing a new value to the chosen_instruments property.
         """
-
-        # Reading in what data is available in the Cal-PV release
-        CalPV_info = pd.read_csv(pkg_resources.resource_filename(__name__, "files/eROSITACalPV_info.csv"), header="infer")
-
         # Ensures that a directory to store the 'raw' pointed XMM data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
         if not os.path.exists(self.top_level_path + self.name + '_raw'):
