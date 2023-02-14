@@ -1,11 +1,18 @@
+import os.path
+import tarfile
 import pkg_resources
+import requests
 from typing import List, Union
+from warnings import warn
 
 import numpy as np
 import pandas as pd
 from astropy.coordinates import BaseRADecFrame, FK5
+from tqdm import tqdm
 
 from .base import BaseMission
+from .base import _lock_check
+from .. import NUM_CORES
 
 class eROSITACalPV(BaseMission):
     """
@@ -41,7 +48,7 @@ class eROSITACalPV(BaseMission):
             #  which deals with the fields being given as a name or field type
             self.chosen_fields = fields
 
-        # DAVID_QUESTION what is going on with crab
+        # JESS_TODO what is going on with crab
         # DAVID_QUESTION what shall we do about catalogues
 
         # Sets the default instruments
@@ -119,7 +126,8 @@ class eROSITACalPV(BaseMission):
     
     @chosen_fields.setter
     # DAVID_QUESTION do i need to do a lock check here?
-    #@_lock_check
+    # DAVID_QUESTION need to change the lock check perhaps?
+    @_lock_check
     def chosen_fields(self, new_fields: List[str]):
         """
         Property setter for the fields associated with this mission that should be processed. This property
@@ -171,6 +179,89 @@ class eROSITACalPV(BaseMission):
 
         # Return the chosen fields 
         return updated_fields
+    
+    @staticmethod
+    def _download_call(field: str, level: str, filename: str):
+        """
+        This internal static method is purely to enable parallelised downloads of XMM data, as defining
+        an internal function within download causes issues with pickling for multiprocessing.
+
+        :param str observation_id: The ObsID of the particular observation to be downloaded.
+        :param List[str] insts: The names of instruments to be retained - currently all instruments ODFs
+            must be downloaded, and then irrelevant instruments must be deleted. The names must be
+            in the two-character format expected by the XSA AIO URLs (i.e. PN, M1, R1, OM, etc.)
+        :param str level: The level of data to be downloaded. Either ODF or PPS is supported.
+        :param str filename: The filename under which to save the downloaded tar.gz.
+        :return: A None value.
+        :rtype: Any
+        """
+
+        # Reading in what data is available in the Cal-PV release
+        CalPV_info = pd.read_csv(pkg_resources.resource_filename(__name__, "files/eROSITACalPV_info.csv"), header="infer")
+    
+        # Another part of the very unsophisticated method I currently have for checking whether a raw XMM data
+        #  download has already been performed (see issue #30). If the ObsID directory doesn't exist then
+        #  an attempt will be made.
+        if not os.path.exists(filename):
+            os.makedirs(filename)
+            # Download the requested data
+            r = requests.get(CalPV_info["download"].loc[CalPV_info["Field_Name"] == field].values[0])
+            # The full file path
+            file_path = filename + "/{}.tar.gz".format(field)
+            # Saving the requested data
+            open(file_path, "wb").write(r.content)
+            # Unpacking the tar file
+            tar = tarfile.open(file_path, "r:gz")
+            tar.extractall()
+            tar.close()
+            # Then remove the original compressed tar to save space
+            os.remove(file_path)
+
+        return None
+
+
+    def download(self, num_cores: int = NUM_CORES):
+        """
+        A method to acquire and download the eROSITA CalPV data that have not been filtered out (if a filter
+        has been applied, otherwise all data will be downloaded). Fields (or field types) and instruments
+        specified by the chosen_instruments property will be downloaded, which is set either on declaration 
+        of the class instance or by passing a new value to the chosen_instruments property.
+        """
+
+        # Reading in what data is available in the Cal-PV release
+        CalPV_info = pd.read_csv(pkg_resources.resource_filename(__name__, "files/eROSITACalPV_info.csv"), header="infer")
+
+        # Ensures that a directory to store the 'raw' pointed XMM data in exists - once downloaded and unpacked
+        #  this data will be processed into a DAXA 'archive' and stored elsewhere.
+        if not os.path.exists(self.top_level_path + self.name + '_raw'):
+            os.makedirs(self.top_level_path + self.name + '_raw')
+        # Grabs the raw data storage path
+        stor_dir = self.raw_data_path
+
+        # A very unsophisticated way of checking whether raw data have been downloaded before (see issue #30)
+        #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
+        #  the _download_call method
+        if all([os.path.exists(stor_dir + '{f}'.format(f=f)) for f in self._miss_poss_fields]):
+            self._download_done = True
+        
+        if not self._download_done:
+            # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
+            if num_cores == 1:
+                with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
+                    for field in self._chos_fields:
+                        # Use the internal static method I set up which both downloads and unpacks the XMM data
+                        self._download_call(field, filename=stor_dir + '/{f}'.format(f=field))
+                        # Update the progress bar
+                        download_prog.update(1)
+
+            else:
+                raise NotImplementedError("The download for {} currently only works on one core".format(self._pretty_miss_name))
+        
+            self._download_done = True
+
+        else:
+            warn("The raw data for this mission have already been downloaded.")
+
 
 
 
