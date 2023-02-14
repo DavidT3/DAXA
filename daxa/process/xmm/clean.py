@@ -1,11 +1,12 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/02/2023, 17:10. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
 from warnings import warn
 
 from astropy.units import Quantity, UnitConversionError
+from packaging.version import Version
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
@@ -167,12 +168,23 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
     elif any([g_lim < 0 or g_lim > 10 for g_lim in gauss_fit_lims]):
         raise ValueError("The entries in gauss_fit_lims must be greater than zero, and less than 10.")
 
-    # Define the form of the espfilt command to clean the event lists for soft protons, then copy the GTI file, the
-    #  cleaned events list within the energy bands, and the diagnostic histogram
-    ef_cmd = "cd {d}; export SAS_CCF={ccf}; espfilt eventfile={ef} withoot={woot} ootfile={oot} method={me} " \
-             "withsmoothing={ws} smooth={s} withbinning={wb} binsize={bs} ratio={r} withlongnames=yes elow={el} " \
-             "ehigh={eh} rangescale={rs} allowsigma={asi} keepinterfiles=no limits={gls}; mv {ogti} ../{gti}; " \
-             "mv {oallev} ../{allev}; mv {ohist} ../{hist}; cd ../; rm -r {d}"
+    # Different SAS versions have different commands for espfilt, changing in SAS 20.0.0 - as such we have to alter
+    #  the command depending on the version that DAXA knows has been loaded in.
+    if sas_version >= Version('20.0.0'):
+        # Define the form of the espfilt command to clean the event lists for soft protons, then copy the GTI file, the
+        #  cleaned events list within the energy bands, and the diagnostic histogram
+        ef_cmd = "cd {d}; export SAS_CCF={ccf}; espfilt eventfile={ef} withoot={woot} ootfile={oot} method={me} " \
+                 "withsmoothing={ws} smooth={s} withbinning={wb} binsize={bs} ratio={r} withlongnames=yes elow={el} " \
+                 "ehigh={eh} rangescale={rs} allowsigma={asi} keepinterfiles=no limits={gls}; mv {ogti} ../{gti}; " \
+                 "mv {oallev} ../{allev}; mv {ohist} ../{hist}; cd ../; rm -r {d}"
+
+    else:
+        if method != 'ratio':
+            raise ValueError("SAS v{} does not support the 'histogram' method, this was only added in "
+                             "v20.0.0".format(str(sas_version)))
+        ef_cmd = "cd {d}; export SAS_CCF={ccf}; espfilt eventset={ef} method={me} withsmoothing={ws} smooth={s} " \
+                 "withbinning={wb} binning={bs} ratio={r}; mv {ogti} ../{gti}; mv {oallev} ../{allev}; mv {ohist} " \
+                 "../{hist}; cd ../; rm -r {d}"
 
     # Need to change parameter to turn on smoothing if the user wants it. The parameter
     #  must be changed from boolean to a 'yes' or 'no' string because that is what espfilt wants
