@@ -22,7 +22,7 @@ class eROSITACalPV(BaseMission):
     :param [str]/str fields: The fields or field type that the user is choosing to download/process data from.
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
     """
-    def __init__(self, fields: Union[List[str], str] = None, insts: Union[List[str], str] = None):
+    def __init__(self, insts: Union[List[str], str] = None, fields: Union[List[str], str] = None):
         """
         The mission class for the eROSITA early data release observations made during the Calibration and Performance 
         Verification program. 
@@ -49,7 +49,6 @@ class eROSITACalPV(BaseMission):
             self.chosen_fields = fields
 
         # JESS_TODO what is going on with crab
-        # DAVID_QUESTION what shall we do about catalogues
 
         # Sets the default instruments
         if insts is None:
@@ -65,9 +64,7 @@ class eROSITACalPV(BaseMission):
     @property
     def name(self) -> str:
         """
-        Abstract property getter for the name of this mission. Must be overwritten in any subclass. This is to
-        ensure that any subclasses that people might add will definitely set a proper name, which is not
-        guaranteed by having it done in the init.
+        Property getter for the name of this mission.
 
         :return: The mission name
         :rtype: str
@@ -89,7 +86,6 @@ class eROSITACalPV(BaseMission):
         """
         # The name is defined here because this is the pattern for this property defined in
         #  the BaseMission superclass
-        #DAVID_QUESTION I know it is J2000 but not what to use in astropy
         self._miss_coord_frame = FK5
         return self._miss_coord_frame
     
@@ -125,8 +121,6 @@ class eROSITACalPV(BaseMission):
         return self._chos_fields
     
     @chosen_fields.setter
-    # DAVID_QUESTION do i need to do a lock check here?
-    # DAVID_QUESTION need to change the lock check perhaps?
     @_lock_check
     def chosen_fields(self, new_fields: List[str]):
         """
@@ -181,17 +175,13 @@ class eROSITACalPV(BaseMission):
         return updated_fields
     
     @staticmethod
-    def _download_call(field: str, level: str, filename: str):
+    def _download_call(field: str, filename: str):
         """
-        This internal static method is purely to enable parallelised downloads of XMM data, as defining
+        This internal static method is purely to enable parallelised downloads of data, as defining
         an internal function within download causes issues with pickling for multiprocessing.
 
-        :param str observation_id: The ObsID of the particular observation to be downloaded.
-        :param List[str] insts: The names of instruments to be retained - currently all instruments ODFs
-            must be downloaded, and then irrelevant instruments must be deleted. The names must be
-            in the two-character format expected by the XSA AIO URLs (i.e. PN, M1, R1, OM, etc.)
-        :param str level: The level of data to be downloaded. Either ODF or PPS is supported.
-        :param str filename: The filename under which to save the downloaded tar.gz.
+        :param str field: The field name of the particular field to be downloaded.
+        :param str filename: The directory under which to save the downloaded tar.gz.
         :return: A None value.
         :rtype: Any
         """
@@ -223,9 +213,8 @@ class eROSITACalPV(BaseMission):
     def download(self, num_cores: int = NUM_CORES):
         """
         A method to acquire and download the eROSITA CalPV data that have not been filtered out (if a filter
-        has been applied, otherwise all data will be downloaded). Fields (or field types) and instruments
-        specified by the chosen_instruments property will be downloaded, which is set either on declaration 
-        of the class instance or by passing a new value to the chosen_instruments property.
+        has been applied, otherwise all data will be downloaded). Fields (or field types), which is set either 
+        on declaration of the class instance or by passing a new value to the chosen_instruments property.
         """
 
         # Reading in what data is available in the Cal-PV release
