@@ -241,7 +241,7 @@ class eROSITACalPV(BaseMission):
             # Download the requested data
             r = requests.get(CalPV_info["download"].loc[CalPV_info["Field_Name"] == field].values[0])
             # The full file path
-            file_path = filename + "/{}.tar.gz".format(field)
+            file_path = filename + "{}.tar.gz".format(field)
             # Saving the requested data
             open(file_path, "wb").write(r.content)
             # Unpacking the tar file
@@ -250,6 +250,12 @@ class eROSITACalPV(BaseMission):
             tar.close()
             # Then remove the original compressed tar to save space
             os.remove(file_path)
+            # Then removing the pdfs that come with the data
+            all_files = os.listdir(filename)
+            for file in all_files:
+                if file.endswith(".pdf"):
+                    os.remove(os.path.join(filename, file))
+
 
         return None
 
@@ -277,8 +283,8 @@ class eROSITACalPV(BaseMission):
             if num_cores == 1:
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
                     for field in self._chos_fields:
-                        # Use the internal static method I set up which both downloads and unpacks the XMM data
-                        self._download_call(field, filename=stor_dir + '/{f}'.format(f=field))
+                        # Use the internal static method I set up which both downloads and unpacks the eROSITACalPV data
+                        self._download_call(field, filename=stor_dir + '/{f}/'.format(f=field))
                         # Update the progress bar
                         download_prog.update(1)
 
