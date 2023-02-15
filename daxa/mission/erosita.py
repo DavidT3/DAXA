@@ -57,7 +57,7 @@ class eROSITACalPV(BaseMission):
         
         self._miss_poss_insts = ['TM1', 'TM2', 'TM3', 'TM4', 'TM5', 'TM6', 'TM7']
         self.chosen_instruments = insts
-    
+
     # Defining properties first
     @property
     def name(self) -> str:
@@ -86,6 +86,31 @@ class eROSITACalPV(BaseMission):
         #  the BaseMission superclass
         self._miss_coord_frame = FK5
         return self._miss_coord_frame
+        
+    # DAVID_QUESTION not sure what id_regex is
+
+    @property
+    def all_obs_info(self) -> pd.DataFrame:
+        """
+        A property getter that returns the base dataframe containing information about all the observations available
+        for an instance of a mission class.
+
+        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'usable_science',
+            'start', 'duration'
+        :rtype: pd.DataFrame
+        """
+        return self._obs_info
+
+    @all_obs_info.setter
+    def all_obs_info(self, new_info: pd.DataFrame):
+        """
+        Property setter that allows the setting of a new all-observation-information dataframe. This is the dataframe
+        that contains information on every possible observation for a mission.
+
+        :param pd.DataFrame new_info: The new dataframe to update the all observation information.
+        """
+        self._obs_info_checks(new_info)
+        self._obs_info = new_info
     
     @property
     def all_mission_fields(self) -> List[str]:
@@ -129,6 +154,34 @@ class eROSITACalPV(BaseMission):
             be processed into the archive.
         """
         self._chos_fields = self._check_chos_fields(new_fields)
+    
+    # Then define user-facing methods
+    def fetch_obs_info(self):
+        """
+        This method uses the hard coded csv file in to pull information on all eROSITACalPV observations. 
+        The data are processed into a Pandas dataframe and stored.
+        """
+        # DF has 'Obs_ID', 'start', 'duration, 'end'
+        # Getting a list of the observations
+        obs_unformatted = CalPV_info["Obs_ID"].tolist()
+
+        obs_formatted = []
+        for obs in obs_unformatted:
+            if "," in obs:
+                # This checks if multiple observations are associated with one field
+                indv_obs = obs.split(", ")
+                for ind_ob in indv_obs:
+                    obs_formatted.append(ind_ob)
+            else:
+                obs_formatted.append(obs)
+
+        # Creating a column for the Obs_IDs
+        obs_info_pd = pd.DataFrame(obs_formatted, columns=["Obs_ID"])
+
+        #JESS_TODO need to input the start end and duration deets
+
+        self.all_obs_info = obs_info_pd
+
 
     def _check_chos_fields(self, fields: Union[List[str], str]):
         """
@@ -199,7 +252,6 @@ class eROSITACalPV(BaseMission):
             os.remove(file_path)
 
         return None
-
 
     def download(self, num_cores: int = NUM_CORES):
         """
