@@ -25,7 +25,7 @@ authors:
     orcid: 0000-0002-9328-879X
     affiliation: 2
 affiliations:
-  - name: Department of Physics and Astronomy, Michigan State University, Biomedical and Physical Sciences Building, 567 Wilson Rd, East Lansing, Michigan, 48824, USA
+  - name: Department of Physics and Astronomy, Michigan State University, East Lansing, Michigan, 48824, USA
     index: 1
   - name: Department of Physics and Astronomy, University of Sussex, Brighton, BN1 9QH, UK
     index: 2
