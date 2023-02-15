@@ -16,7 +16,7 @@ authors:
     orcid: 0000-0001-9658-1396
     affiliation: 1,2
   - name: Jessica Pilling
-    orcid: -
+    orcid: 
     affiliation: 2
   - name: Paul A. Giles
     orcid: 0000-0003-4937-8453
@@ -29,7 +29,7 @@ affiliations:
     index: 1
   - name: Department of Physics and Astronomy, University of Sussex, Brighton, BN1 9QH, UK
     index: 2
-date: 01 February 2022
+date: 15 February 2023
 bibliography: paper.bib
 ---
 
@@ -40,20 +40,13 @@ bibliography: paper.bib
 
 [^*]: turne540@msu.edu
 
-<!-- ![Demonstration of the view methods of the `RateMap` and `Spectrum` classes, when applied to the Abell 907 galaxy 
-cluster. Data from the _XMM_ EPIC-PN instrument of 0404910601 is used. _Left_: A count-rate map with a mask that 
-removes contaminant sources (using XCS region information) and applies an $R_{500}$ aperture. _Right_: A spectrum 
-generated for the $R_{500}$ region with contaminants removed, and fit with an absorbed plasma emission model using 
-XSPEC. \label{fig:rtspec}](figures/combo_rt_spec_a907.png) -->
-
 # Features
 
-<!-- ![A flowchart giving a brief overview of the \texttt{XGA} workflow. \label{fig:flowchart}](figures/xga_flowchart.png) -->
 
 # Existing software packages
 
 
-# Research projects using \texttt{XGA}
+# Research projects using DAXA
 
 
 # Future Work
