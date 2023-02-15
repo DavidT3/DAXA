@@ -1,8 +1,8 @@
 import os.path
 import tarfile
 import requests
-from typing import List, Union
-from warnings import warn
+from typing import List, Union, Any
+from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
@@ -13,6 +13,7 @@ from .base import BaseMission
 from .base import _lock_check
 from .. import NUM_CORES
 from ..config import CalPV_info
+from ..exceptions import DAXADownloadError
 
 class eROSITACalPV(BaseMission):
     """
@@ -256,7 +257,6 @@ class eROSITACalPV(BaseMission):
                 if file.endswith(".pdf"):
                     os.remove(os.path.join(filename, file))
 
-
         return None
 
     def download(self, num_cores: int = NUM_CORES):
@@ -288,14 +288,58 @@ class eROSITACalPV(BaseMission):
                         # Update the progress bar
                         download_prog.update(1)
 
+            elif num_cores > 1:
+                # List to store any errors raised during download tasks
+                raised_errors = []
+
+                # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
+                with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) \
+                        as download_prog, Pool(num_cores) as pool:
+
+                    # The callback function is what is called on the successful completion of a _download_call
+                    def callback(download_conf: Any):
+                        """
+                        Callback function for the apply_async pool method, gets called when a download task finishes
+                        without error.
+
+                        :param Any download_conf: The Null value confirming the operation is over.
+                        """
+                        nonlocal download_prog  # The progress bar will need updating
+                        download_prog.update(1)
+
+                    # The error callback function is what happens when an exception is thrown during a _download_call
+                    def err_callback(err):
+                        """
+                        The callback function for errors that occur inside a download task running in the pool.
+
+                        :param err: An error that occurred inside a task.
+                        """
+                        nonlocal raised_errors
+                        nonlocal download_prog
+
+                        if err is not None:
+                            # Rather than throwing an error straight away I append them all to a list for later.
+                            raised_errors.append(err)
+                        download_prog.update(1)
+
+                    # Again nested for loop through ObsIDs and instruments
+                    for field in self._chos_fields:
+                        # Add each download task to the pool
+                        pool.apply_async(self._download_call,
+                                            kwds={'field': field, 'filename': stor_dir + '/{f}/'.format(f=field)},
+                                            error_callback=err_callback, callback=callback)
+                    pool.close()  # No more tasks can be added to the pool
+                    pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+
+                # Raise all the download errors at once, if there are any
+                if len(raised_errors) != 0:
+                    raise DAXADownloadError(str(raised_errors))
+
             else:
-                raise NotImplementedError("The download for {} currently only works on one core".format(self._pretty_miss_name))
+                raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
+
         
             self._download_done = True
-
-        else:
-            warn("The raw data for this mission have already been downloaded.")
-
 
 
 
