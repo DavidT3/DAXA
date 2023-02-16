@@ -37,7 +37,7 @@ class eROSITACalPV(BaseMission):
         # All the allowed names of fields 
         self._miss_poss_fields = CalPV_info["Field_Name"].tolist()
         # All the allowed types of field, ie. survey, magellanic cloud, galactic field, extragalactic field
-        self._moss_poss_field_types = CalPV_info["Field_Type"].unique().tolist()
+        self._miss_poss_field_types = CalPV_info["Field_Type"].unique().tolist()
 
         # Sets the default fields
         if fields is None:
@@ -156,6 +156,42 @@ class eROSITACalPV(BaseMission):
         """
         self._chos_fields = self._check_chos_fields(new_fields)
     
+    @_lock_check
+    def _filter_on_fields(self, fields: Union[str, List[str]]):
+        """
+        This filtering method will select only observations included in the fields specified.
+
+        :param str/List[str] allowed_fields: The fields or field types (or list of fields or field types) 
+            that you wish to be let through the filter.
+        """
+
+        # Convert field types or a singular field name into a list of field name(s)
+        fields = self._check_chos_fields(fields=fields)
+
+        # Creating a dictionary to store obs_ids as keys and their field name as values
+        field_dict = {}
+        for field in self._miss_poss_fields:
+            obs = CalPV_info["Obs_ID"].loc[CalPV_info["Field_Name"] == field].values[0]
+            if "," in obs:
+                # This checks if multiple observations are associated with one field
+                indv_obs = obs.split(", ")
+                for ind_ob in indv_obs:
+                    field_dict[ind_ob] = field
+            else:
+                field_dict[obs] = field
+        
+        # Selecting all Obs_IDs from every field
+        field_obs_ids = [obs for field in fields for obs in field_dict if field_dict[obs] == field]
+
+        # Uses the Pandas isin functionality to find the rows of the overall observation table that match the input
+        #  ObsIDs. This outputs a boolean array.
+        sel_obs_mask = self._obs_info['ObsID'].isin(field_obs_ids)
+        # Said boolean array can be multiplied with the existing filter array (by default all ones, which means
+        #  all observations are let through) to produce an updated filter.
+        new_filter = self.filter_array*sel_obs_mask
+        # Then we set the filter array property with that updated mask
+        self.filter_array = new_filter
+    
     # Then define user-facing methods
     def fetch_obs_info(self):
         """
@@ -182,7 +218,6 @@ class eROSITACalPV(BaseMission):
         #JESS_TODO need to input the start end and duration deets
 
         self.all_obs_info = obs_info_pd
-
 
     def _check_chos_fields(self, fields: Union[List[str], str]):
         """
