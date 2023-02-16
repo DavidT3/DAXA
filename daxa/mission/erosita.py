@@ -46,6 +46,8 @@ class eROSITACalPV(BaseMission):
             # Using the property setter because it calls the internal _check_chos_fields function
             #  which deals with the fields being given as a name or field type
             self.chosen_fields = fields
+            # Applying filters on obs_ids so that only obs_ids associated with the chosen fields are included
+            self._filter_on_fields(fields)
 
         # JESS_TODO what is going on with crab
 
@@ -156,6 +158,30 @@ class eROSITACalPV(BaseMission):
         """
         self._chos_fields = self._check_chos_fields(new_fields)
     
+    def _field_dict_generator(self, fields: Union[str, List[str]]): 
+        """
+        Returns a dictionary with all eROSITACalPV Obs_IDs as keys and their field as the value.
+
+        :param str/List[str] allowed_fields: The fields or field types (or list of fields or field types) 
+            that you wish to be let through the filter.
+        :return: The field dictionary.
+        :rtype: dict
+        """
+        # Creating a dictionary to store obs_ids as keys and their field name as values
+        field_dict = {}
+        for field in self._miss_poss_fields:
+            obs = CalPV_info["Obs_ID"].loc[CalPV_info["Field_Name"] == field].values[0]
+            if "," in obs:
+                # This checks if multiple observations are associated with one field
+                indv_obs = obs.split(", ")
+                for ind_ob in indv_obs:
+                    field_dict[ind_ob] = field
+            else:
+                field_dict[obs] = field
+        
+        return field_dict
+
+    
     @_lock_check
     def _filter_on_fields(self, fields: Union[str, List[str]]):
         """
@@ -169,16 +195,7 @@ class eROSITACalPV(BaseMission):
         fields = self._check_chos_fields(fields=fields)
 
         # Creating a dictionary to store obs_ids as keys and their field name as values
-        field_dict = {}
-        for field in self._miss_poss_fields:
-            obs = CalPV_info["Obs_ID"].loc[CalPV_info["Field_Name"] == field].values[0]
-            if "," in obs:
-                # This checks if multiple observations are associated with one field
-                indv_obs = obs.split(", ")
-                for ind_ob in indv_obs:
-                    field_dict[ind_ob] = field
-            else:
-                field_dict[obs] = field
+        field_dict = self._field_dict_generator(fields)
         
         # Selecting all Obs_IDs from every field
         field_obs_ids = [obs for field in fields for obs in field_dict if field_dict[obs] == field]
