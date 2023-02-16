@@ -1,6 +1,7 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 16:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 16:37. Copyright (c) The Contributors
 from typing import Tuple
+from warnings import warn
 
 import numpy as np
 import pandas as pd
@@ -86,25 +87,30 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
     # We are iterating through XMM missions (options could include xmm_pointed and xmm_slew for instance).
     for miss in xmm_miss:
         # This will trigger and exception if the mission is for slew data, which XGA doesn't work with at
-        #  the time of writing
+        #  the time of writing.
         if miss == 'xmm_slew':
             raise NotImplementedError("XGA cannot currently be used to generate XMM slew observation images.")
 
-        if 'merge_subexposures' not in obs_archive.process_success[miss]:
+        # If the merging function hasn't been run, I won't allow this function to run - I was thinking I would let
+        #  the user generate sub-exposure images, but actually XGA doesn't support that, and though it would be
+        #  possible by iterating and bodging, I'm not going to do that now
+        if 'merge_subexposures' not in obs_archive.process_success[miss.name]:
             raise NoDependencyProcessError("The 'merge_subexposures' process must have been run to generate "
                                            "images.")
 
-        # I was thinking I would let the user generate sub-exposure images, but actually XGA doesn't support that, and
-        #  though it would be possible by iterating and bodging, I'm not going to do that now
-        # elif 'cleaned_evt_lists' in obs_archive.process_success[miss]:
-        #     obs_archive.process_success[miss]['cleaned_evt_lists']
-
+        # This tells me which ObsID-Instrument combos successfully navigated the merge_subexposures function
         rel_ids = [k for k, v in obs_archive.process_success[miss]['merge_subexposures'].items() if v]
+        # If there are no entries in rel_ids then there are no event lists to work on, so we raise a warning
+        if len(rel_ids) == 0:
+            warn("Every merge_subexposures run for the {m} mission in the {a} archive is reporting as a "
+                 "failure, skipping process.".format(m=miss.name, a=obs_archive.archive_name), stacklevel=2)
+            continue
 
         which_obs = {}
         # A bit ugly and inelegant but oh well - this just iterates through all the relevant IDs, separating them
         #  into a dictionary that has ObsIDs as top level keys, and a list of available instruments as the values
         for cur_id in rel_ids:
+            # I know that the last two characters are the instrument identifier, so we split the ID
             obs_id = cur_id[:-2]
             inst = cur_id[-2:]
 
