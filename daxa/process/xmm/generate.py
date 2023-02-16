@@ -1,11 +1,12 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 15:53. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 15:58. Copyright (c) The Contributors
 from typing import Tuple
 
 import numpy as np
 import pandas as pd
 from astropy.units import Quantity, UnitConversionError
 
+from daxa import NUM_CORES
 from daxa.archive.base import Archive
 from daxa.exceptions import NoDependencyProcessError
 from daxa.process.xmm._common import ALLOWED_XMM_MISSIONS
@@ -59,7 +60,7 @@ def _en_checks(lo_en: Quantity, hi_en: Quantity) -> Tuple[Quantity, Quantity]:
 
 
 def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0], 'keV'),
-                    hi_en: Quantity = Quantity([2.0, 10.0], 'keV')):
+                    hi_en: Quantity = Quantity([2.0, 10.0], 'keV'), num_cores: int = NUM_CORES):
     """
 
     :param obs_archive:
@@ -73,6 +74,7 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
         non-scalar Astropy Quantity. If multiple upper bounds are passed, they must each have an entry in the
         lo_en argument. The default is 'Quantity([2.0, 10.0], 'keV')', which will generate two sets of products, one
         with upper bound 2.0 keV, the other with upper bound 10 keV.
+    :param int num_cores:
     """
 
     # Run the energy bounds checks
