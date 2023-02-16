@@ -12,4 +12,4 @@ astropy~=4.1
 tqdm~=4.64.1
 packaging~=21.3
 exceptiongroup~=1.0.4
-xga~=0.3.0
+xga>=0.3.0
