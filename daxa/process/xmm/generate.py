@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 17:33. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 17:49. Copyright (c) The Contributors
 from typing import Tuple
 from warnings import warn
 
@@ -125,7 +125,7 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
         #  XGA variables that tell the module where to look for data AFTER it's been imported
 
         # These are the column names for an XGA census - will be used in the creation of a pandas dataframe
-        census_cols = ['ObsID,RA_PNT,DEC_PNT,USE_PN,USE_MOS1,USE_MOS2']
+        census_cols = ['ObsID', 'RA_PNT', 'DEC_PNT', 'USE_PN', 'USE_MOS1', 'USE_MOS2']
         # This list will get filled in with the observation data
         census_data = []
         for obs_id in which_obs:
@@ -141,7 +141,12 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
         blacklist = pd.DataFrame([[]], columns=blacklist_cols)
         print(blacklist)
 
-        # xmm_config = {'XMM_FILES'}
+        # xmm_config = {'XMM_FILES': {'root_xmm_dir': obs_archive.archive_path+'processed_data/' + miss.name,
+        #                             'clean_pn_evts': '{obs_id}/',
+        #                             'clean_mos1_evts': '',
+        #                             'clean_mos2_evts': '',
+        #                             'attitude_file': '',
+        #                             'lo_en': }}
 
         # 1) make a census dataframe
         # 2) make an empty blacklist dataframe
