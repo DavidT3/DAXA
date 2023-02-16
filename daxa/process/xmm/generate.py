@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 16:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 17:05. Copyright (c) The Contributors
 from typing import Tuple
 from warnings import warn
 
@@ -99,7 +99,7 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
                                            "images.")
 
         # This tells me which ObsID-Instrument combos successfully navigated the merge_subexposures function
-        rel_ids = [k for k, v in obs_archive.process_success[miss]['merge_subexposures'].items() if v]
+        rel_ids = [k for k, v in obs_archive.process_success[miss.name]['merge_subexposures'].items() if v]
         # If there are no entries in rel_ids then there are no event lists to work on, so we raise a warning
         if len(rel_ids) == 0:
             warn("Every merge_subexposures run for the {m} mission in the {a} archive is reporting as a "
