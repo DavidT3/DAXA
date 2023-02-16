@@ -15,8 +15,8 @@ authors:
   - name: David J. Turner[^*]
     orcid: 0000-0001-9658-1396
     affiliation: 1,2
-  - name: Jessica Pilling
-    orcid: 
+  - name: Jessica E. Pilling
+    orcid: 0000-0002-3211-928X
     affiliation: 2
   - name: Megan Donahue
     orcid: 0000-0002-2808-0853
@@ -37,7 +37,7 @@ bibliography: paper.bib
 ---
 
 # Summary
-We introduce a new, open-source, Python module for the acquisition and processing of archival data from multiple X-ray telescopes, `Democratising Archival X-ray Astronomy' (hereafter referred to as \texttt{DAXA}). The aim of \texttt{DAXA is to provide a consistent, easy-to-use, interface with the disparate interfaces to different X-ray telescope data archives, and their processing packges, thus enabling much greater access to X-ray data for non-specialists. This in addition to providing low-level control of processing for X-ray experts.
+We introduce a new, open-source, Python module for the acquisition and processing of archival data from multiple X-ray telescopes, Democratising Archival X-ray Astronomy (hereafter referred to as \texttt{DAXA}). The aim of \texttt{DAXA is to provide a consistent, easy-to-use, interface with the disparate interfaces to different X-ray telescope data archives, and their processing packges, thus enabling much greater access to X-ray data for non-specialists. This in addition to providing low-level control of processing for X-ray experts.
 
 
 # Statement of need
