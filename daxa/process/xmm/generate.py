@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 17:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 17:18. Copyright (c) The Contributors
 from typing import Tuple
 from warnings import warn
 
@@ -129,11 +129,17 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
         # This list will get filled in with the observation data
         census_data = []
         for obs_id in which_obs:
-            obs_info = obs_archive[miss].all_obs_info[obs_archive[miss].all_obs_info['ObsID'] == obs_id].iloc[0]
+            obs_info = obs_archive[miss.name].all_obs_info[obs_archive[miss.name].all_obs_info['ObsID'] ==
+                                                           obs_id].iloc[0]
             census_data.append([obs_id, obs_info['ra'], obs_info['dec'], 'PN' in which_obs[obs_id],
                                 'M1' in which_obs[obs_id], 'M2' in which_obs[obs_id]])
         census = pd.DataFrame(census_data, columns=census_cols, dtype={'ObsID': str})
         print(census)
+        print('')
+
+        blacklist_cols = ["ObsID", "EXCLUDE_PN", "EXCLUDE_MOS1", "EXCLUDE_MOS2"]
+        blacklist = pd.DataFrame([[]], columns=blacklist_cols)
+        print(blacklist)
 
         # 1) make a census dataframe
         # 2) make an empty blacklist dataframe
