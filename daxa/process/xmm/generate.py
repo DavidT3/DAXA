@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 17:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 18:40. Copyright (c) The Contributors
 from typing import Tuple
 from warnings import warn
 
@@ -106,7 +106,11 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
                  "failure, skipping process.".format(m=miss.name, a=obs_archive.archive_name), stacklevel=2)
             continue
 
+        # The dictionary that stores which ObsIDs have which instruments
         which_obs = {}
+        # A dictionary that stores example file names for event lists - these will be overwritten every iteration
+        #  but that's okay.
+        evt_names = {}
         # A bit ugly and inelegant but oh well - this just iterates through all the relevant IDs, separating them
         #  into a dictionary that has ObsIDs as top level keys, and a list of available instruments as the values
         for cur_id in rel_ids:
@@ -118,6 +122,21 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
                 which_obs[obs_id] = [inst]
             else:
                 which_obs[obs_id].append(inst)
+
+            # Grabs the output path for the final event list, then splits it to remove the absolute bit of the
+            #  absolute path, leaving just the filename.
+            evt_path = obs_archive.process_extra_info[miss.name]['merge_subexposures']['final_evt']
+            evt_names[inst] = evt_path.split('/')[-1]
+
+        # It is conceivable that there are no observations with a particular instrument, so we check for that and
+        #  put a dummy path in the dictionary because whilst it may need to actually point at a file, XGA does need
+        #  an entry in the configuration file for all instruments
+        if 'PN' not in evt_names:
+            evt_names['PN'] = 'PN_clean_evts.fits'
+        if 'M1' not in evt_names:
+            evt_names['M1'] = 'M1_clean_evts.fits'
+        if 'M2' not in evt_names:
+            evt_names['M2'] = 'M2_clean_evts.fits'
 
         # Now we can do some post-processing, and turn the information in 'which_obs' into the various
         #  dataframes required to trick XGA into making our images for us. Normally you have to setup a configuration
@@ -134,19 +153,28 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
             census_data.append([obs_id, obs_info['ra'], obs_info['dec'], 'PN' in which_obs[obs_id],
                                 'M1' in which_obs[obs_id], 'M2' in which_obs[obs_id]])
         census = pd.DataFrame(census_data, columns=census_cols)  # , dtype={'ObsID': str}
-        print(census)
-        print('')
 
         blacklist_cols = ["ObsID", "EXCLUDE_PN", "EXCLUDE_MOS1", "EXCLUDE_MOS2"]
-        blacklist = pd.DataFrame([[]], columns=blacklist_cols)
+        blacklist = pd.DataFrame(None, columns=blacklist_cols)
         print(blacklist)
 
-        # xmm_config = {'XMM_FILES': {'root_xmm_dir': obs_archive.archive_path+'processed_data/' + miss.name,
-        #                             'clean_pn_evts': '{obs_id}/',
-        #                             'clean_mos1_evts': '',
-        #                             'clean_mos2_evts': '',
-        #                             'attitude_file': '',
-        #                             'lo_en': }}
+        xmm_files = {"root_xmm_dir": obs_archive.archive_path+'processed_data/' + miss.name,
+                     "clean_pn_evts": '{obs_id}/' + evt_names['PN'],
+                     "clean_mos1_evts": '{obs_id}/' + evt_names['M1'],
+                     "clean_mos2_evts": '{obs_id}/' + evt_names['M2'],
+                     "attitude_file": '',
+                     "lo_en": ['0.50', '2.00'],
+                     "hi_en": ['2.00', '10.00'],
+                     "pn_image": "/this/is/optional/{obs_id}/{obs_id}-{lo_en}-{hi_en}keV-pn_merged_img.fits",
+                     "mos1_image": "/this/is/optional/{obs_id}/{obs_id}-{lo_en}-{hi_en}keV-mos1_merged_img.fits",
+                     "mos2_image": "/this/is/optional/{obs_id}/{obs_id}-{lo_en}-{hi_en}keV-mos2_merged_img.fits",
+                     "pn_expmap": "/this/is/optional/{obs_id}/{obs_id}-{lo_en}-{hi_en}keV-pn_merged_img.fits",
+                     "mos1_expmap": "/this/is/optional/{obs_id}/{obs_id}-{lo_en}-{hi_en}keV-mos1_merged_expmap.fits",
+                     "mos2_expmap": "/this/is/optional/{obs_id}/{obs_id}-{lo_en}-{hi_en}keV-mos2_merged_expmap.fits",
+                     "region_file": "/this/is/optional/xmm_obs/regions/{obs_id}/regions.reg"}
+
+        # The actual config file has another subdictionary, but that doesn't matter for this bodge
+        xmm_config = {'XMM_FILES': xmm_files}
 
         # 1) make a census dataframe
         # 2) make an empty blacklist dataframe
