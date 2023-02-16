@@ -1,13 +1,14 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 13:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/02/2023, 12:07. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
 from multiprocessing.dummy import Pool
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, TimeoutExpired
 from typing import Tuple, List, Dict
 from warnings import warn
 
+from astropy.units import UnitConversionError
 from exceptiongroup import ExceptionGroup
 from packaging.version import Version
 from tqdm import tqdm
@@ -44,7 +45,7 @@ def _sas_process_setup(obs_archive: Archive) -> Version:
     else:
         processed = [xm.processed for xm in xmm_miss]
         if any(processed):
-            warn("One or more XMM missions have already been fully processed")
+            warn("One or more XMM missions have already been fully processed", stacklevel=2)
 
     # TODO Remove this when XMM slew is implemented and SAS procedures have been verified as working
     if any([m.name == 'xmm_slew' for m in xmm_miss]):
@@ -143,8 +144,8 @@ def parse_stderr(unprocessed_stderr: str) -> Tuple[List[str], List[Dict], List]:
     return sas_errs_msgs, parsed_sas_warns, other_err_lines
 
 
-def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str,
-                extra_info: dict) -> Tuple[str, str, List[bool], str, str, dict]:
+def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_info: dict,
+                timeout: float = None) -> Tuple[str, str, List[bool], str, str, dict]:
     """
     This is a simple function designed to execute cmd line SAS commands for the processing and reduction of
     XMM mission data. It will collect the stdout and stderr values for each command and return them too for the
@@ -159,6 +160,8 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str,
         for the purposes of checking that it (they) exists.
     :param dict extra_info: A dictionary which can contain extra information about the process or output that will
         eventually be stored in the Archive.
+    :param float timeout: The length of time (in seconds) which the process is allowed to run for before being
+        killed. Default is None, which is supported as an input by communicate().
     :return: The rel_id, a list of boolean flags indicating whether the final files exist, the std_out, and the
         std_err. The final dictionary can contain extra information recorded by the processing function.
     :rtype: Tuple[str, str, List[bool], str, str, dict]
@@ -168,9 +171,17 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str,
     if isinstance(check_path, str):
         check_path = [check_path]
 
-    # Starts the process running on a shell, connects to the process and waits for it to terminate, and collects
-    #  the stdout and stderr
-    out, err = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
+    # Starts the process running on a shell
+    cmd_proc = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
+
+    # This makes sure the process is killed if it does timeout
+    try:
+        out, err = cmd_proc.communicate(timeout=timeout)
+    except TimeoutExpired:
+        cmd_proc.kill()
+        out, err = cmd_proc.communicate()
+        warn("An XMM process for {} has timed out".format(rel_id), stacklevel=2)
+
     # Decodes the stdout and stderr from the binary encoding it currently exists in. The errors='ignore' flag
     #  means that it doesn't throw errors if there is a character it doesn't recognize
     out = out.decode("UTF-8", errors='ignore')
@@ -206,7 +217,14 @@ def sas_call(sas_func):
         obs_archive: Archive  # Just for autocomplete purposes in my IDE
 
         # This is the output from whatever function this is a decorator for
-        miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable = sas_func(*args, **kwargs)
+        miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout = sas_func(*args, **kwargs)
+
+        # Converting the timeout from whatever time units it is in, to seconds - but first checking that the user
+        #  hasn't been daft and passed a non-time quantity
+        if timeout is not None and not timeout.unit.is_equivalent('s'):
+            raise UnitConversionError("The value of timeout must be convertible to seconds.")
+        elif timeout is not None:
+            timeout = timeout.to('s').value
 
         # This just sets up a dictionary of how many tasks there are for each mission
         num_to_run = {mn: len(miss_cmds[mn]) for mn in miss_cmds}
@@ -327,7 +345,7 @@ def sas_call(sas_func):
                         rel_fin_path = miss_final_paths[miss_name][rel_id]
                         rel_einfo = miss_extras[miss_name][rel_id]
 
-                        pool.apply_async(execute_cmd, args=(cmd, rel_id, miss_name, rel_fin_path, rel_einfo),
+                        pool.apply_async(execute_cmd, args=(cmd, rel_id, miss_name, rel_fin_path, rel_einfo, timeout),
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
