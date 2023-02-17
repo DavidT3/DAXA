@@ -1,12 +1,15 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 16:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 17:37. Copyright (c) The Contributors
 import os
 from typing import Tuple
 from warnings import warn
 
 import numpy as np
 import pandas as pd
+import xga
 from astropy.units import Quantity, UnitConversionError
+from xga.sas import eexpmap
+from xga.sources import NullSource
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
@@ -187,26 +190,22 @@ def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.
         if not os.path.exists(new_out):
             os.makedirs(new_out)
 
-        import xga
-        xga.CENSUS = census
-        xga.utils.CENSUS = census
-        xga.xga_conf = xmm_config
-        xga.utils.xga_conf = xmm_config
-        xga.BLACKLIST = blacklist
-        xga.utils.BLACKLIST = blacklist
-        xga.OUTPUT = new_out
-        xga.utils.OUTPUT = new_out
+        # xga.CENSUS = census
+        # xga.utils.CENSUS = census
+        # xga.xga_conf = xmm_config
+        # xga.utils.xga_conf = xmm_config
+        # xga.BLACKLIST = blacklist
+        # xga.utils.BLACKLIST = blacklist
+        # xga.OUTPUT = new_out
+        # xga.utils.OUTPUT = new_out
 
-        # 1) make a census dataframe
-        # 2) make an empty blacklist dataframe
-        # 3) Make a temporary config
-        # 4) Alter the output directory
-        from xga.sources import NullSource
+        xga.sources.CENSUS = census
+        xga.sources.xga_conf = xmm_config
+        xga.sources.BLACKLIST = blacklist
+        xga.sources.OUTPUT = new_out
 
         null_src = NullSource()
         null_src.info()
-
-        from xga.sas import eexpmap
 
         for en_ind, lo in enumerate(lo_en):
             hi = hi_en[en_ind]
