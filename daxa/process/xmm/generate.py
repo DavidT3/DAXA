@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 11:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 13:42. Copyright (c) The Contributors
+import os
 from typing import Tuple
 from warnings import warn
 
@@ -178,6 +179,7 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
 
         # This is where the outputs from XGA will be stored
         new_out = obs_archive.archive_path+'processed_data/' + miss.name + '/xga_output/'
+        os.makedirs(new_out)
 
         import xga
         xga.CENSUS = census
