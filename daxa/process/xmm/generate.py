@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 14:07. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 14:19. Copyright (c) The Contributors
 import os
 from typing import Tuple
 from warnings import warn
@@ -176,6 +176,8 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
                      "mos1_expmap": "/this/is/optional/{obs_id}/{obs_id}-{lo_en}-{hi_en}keV-mos1_merged_expmap.fits",
                      "mos2_expmap": "/this/is/optional/{obs_id}/{obs_id}-{lo_en}-{hi_en}keV-mos2_merged_expmap.fits",
                      "region_file": "/this/is/optional/xmm_obs/regions/{obs_id}/regions.reg"}
+
+        print(xmm_files)
 
         # The actual config file has another subdictionary, but that doesn't matter for this bodge
         xmm_config = {'XMM_FILES': xmm_files}
