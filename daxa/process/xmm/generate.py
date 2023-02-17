@@ -1,11 +1,13 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 18:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 21:33. Copyright (c) The Contributors
 from typing import Tuple
 from warnings import warn
 
 import numpy as np
 import pandas as pd
+import xga
 from astropy.units import Quantity, UnitConversionError
+from xga.sources import NullSource
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
@@ -176,11 +178,24 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
         # The actual config file has another subdictionary, but that doesn't matter for this bodge
         xmm_config = {'XMM_FILES': xmm_files}
 
+        # This is where the outputs from XGA will be stored
+        new_out = obs_archive.archive_path+'processed_data/' + miss.name + '/xga_output/'
+
+        xga.CENSUS = census
+        xga.xga_conf = xmm_config
+        xga.BLACKLIST = blacklist
+        xga.OUTPUT = new_out
+
         # 1) make a census dataframe
         # 2) make an empty blacklist dataframe
         # 3) Make a temporary config
         # 4) Alter the output directory
-        # null_src = NullSource()
+        null_src = NullSource()
+        null_src.info()
+
+        # for en_ind, lo in enumerate(lo_en):
+        #     hi = hi_en[en_ind]
+        #     evselect_image(null_src, lo, hi, num_cores=num_cores)
 
 
 
