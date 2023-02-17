@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 14:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 15:28. Copyright (c) The Contributors
 import os
 from typing import Tuple
 from warnings import warn
@@ -61,8 +61,8 @@ def _en_checks(lo_en: Quantity, hi_en: Quantity) -> Tuple[Quantity, Quantity]:
     return lo_en, hi_en
 
 
-def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0], 'keV'),
-                    hi_en: Quantity = Quantity([2.0, 10.0], 'keV'), num_cores: int = NUM_CORES):
+def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0], 'keV'),
+                            hi_en: Quantity = Quantity([2.0, 10.0], 'keV'), num_cores: int = NUM_CORES):
     """
 
     :param obs_archive:
@@ -204,15 +204,12 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
         null_src = NullSource()
         null_src.info()
 
-        for evt_list in null_src.get_products('events'):
-            print(evt_list.path)
-        print('')
-
-        from xga.sas import evselect_image
+        from xga.sas import eexpmap
 
         for en_ind, lo in enumerate(lo_en):
             hi = hi_en[en_ind]
-            evselect_image(null_src, lo, hi, num_cores=num_cores)
+            # This function will also generate images, before it makes exposure maps
+            eexpmap(null_src, lo, hi, num_cores=num_cores)
 
 
 
