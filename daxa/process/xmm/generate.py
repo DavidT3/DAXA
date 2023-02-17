@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 13:55. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 14:07. Copyright (c) The Contributors
 import os
 from typing import Tuple
 from warnings import warn
@@ -133,11 +133,14 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
         #  put a dummy path in the dictionary because whilst it may need to actually point at a file, XGA does need
         #  an entry in the configuration file for all instruments
         if 'PN' not in evt_names:
+            print('missing pn')
             evt_names['PN'] = 'PN_clean_evts.fits'
         if 'M1' not in evt_names:
             evt_names['M1'] = 'M1_clean_evts.fits'
+            print('missing m1')
         if 'M2' not in evt_names:
             evt_names['M2'] = 'M2_clean_evts.fits'
+            print('missing m2')
 
         # Now we can do some post-processing, and turn the information in 'which_obs' into the various
         #  dataframes required to trick XGA into making our images for us. Normally you have to setup a configuration
@@ -200,6 +203,10 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
         null_src = NullSource()
         null_src.info()
         print(null_src.instruments)
+
+        for evt_list in null_src.get_products('events'):
+            print(evt_list.path)
+        print('')
 
         from xga.sas import evselect_image
 
