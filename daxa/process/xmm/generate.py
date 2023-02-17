@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 21:33. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 21:35. Copyright (c) The Contributors
 from typing import Tuple
 from warnings import warn
 
@@ -160,11 +160,12 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
         blacklist = pd.DataFrame(None, columns=blacklist_cols)
         print(blacklist)
 
+        # TODO set the attitude file programmatically
         xmm_files = {"root_xmm_dir": obs_archive.archive_path+'processed_data/' + miss.name,
                      "clean_pn_evts": '{obs_id}/' + evt_names['PN'],
                      "clean_mos1_evts": '{obs_id}/' + evt_names['M1'],
                      "clean_mos2_evts": '{obs_id}/' + evt_names['M2'],
-                     "attitude_file": '',
+                     "attitude_file": '{obs_id}/P{obs_id}OBX000ATTTSR0000.FIT',
                      "lo_en": ['0.50', '2.00'],
                      "hi_en": ['2.00', '10.00'],
                      "pn_image": "/this/is/optional/{obs_id}/{obs_id}-{lo_en}-{hi_en}keV-pn_merged_img.fits",
