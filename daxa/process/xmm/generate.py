@@ -1,11 +1,10 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 22:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 08:15. Copyright (c) The Contributors
 from typing import Tuple
 from warnings import warn
 
 import numpy as np
 import pandas as pd
-import xga
 from astropy.units import Quantity, UnitConversionError
 
 from daxa import NUM_CORES
@@ -157,7 +156,6 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
 
         blacklist_cols = ["ObsID", "EXCLUDE_PN", "EXCLUDE_MOS1", "EXCLUDE_MOS2"]
         blacklist = pd.DataFrame(None, columns=blacklist_cols)
-        print(blacklist)
 
         # TODO set the attitude file programmatically
         xmm_files = {"root_xmm_dir": obs_archive.archive_path+'processed_data/' + miss.name,
@@ -181,6 +179,7 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
         # This is where the outputs from XGA will be stored
         new_out = obs_archive.archive_path+'processed_data/' + miss.name + '/xga_output/'
 
+        import xga
         xga.CENSUS = census
         xga.xga_conf = xmm_config
         xga.BLACKLIST = blacklist
