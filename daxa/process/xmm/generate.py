@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 08:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 10:13. Copyright (c) The Contributors
 from typing import Tuple
 from warnings import warn
 
@@ -181,9 +181,13 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
 
         import xga
         xga.CENSUS = census
+        xga.utils.CENSUS = census
         xga.xga_conf = xmm_config
+        xga.utils.xga_conf = xmm_config
         xga.BLACKLIST = blacklist
+        xga.utils.BLACKLIST = blacklist
         xga.OUTPUT = new_out
+        xga.utils.OUTPUT = new_out
 
         # 1) make a census dataframe
         # 2) make an empty blacklist dataframe
