@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 10:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 11:27. Copyright (c) The Contributors
 from typing import Tuple
 from warnings import warn
 
@@ -197,10 +197,13 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
 
         null_src = NullSource()
         null_src.info()
+        print(null_src.instruments)
 
-        # for en_ind, lo in enumerate(lo_en):
-        #     hi = hi_en[en_ind]
-        #     evselect_image(null_src, lo, hi, num_cores=num_cores)
+        from xga.sas import evselect_image
+
+        for en_ind, lo in enumerate(lo_en):
+            hi = hi_en[en_ind]
+            evselect_image(null_src, lo, hi, num_cores=num_cores)
 
 
 
