@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 14:19. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 14:34. Copyright (c) The Contributors
 import os
 from typing import Tuple
 from warnings import warn
@@ -133,14 +133,11 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
         #  put a dummy path in the dictionary because whilst it may need to actually point at a file, XGA does need
         #  an entry in the configuration file for all instruments
         if 'PN' not in evt_names:
-            print('missing pn')
             evt_names['PN'] = 'PN_clean_evts.fits'
         if 'M1' not in evt_names:
             evt_names['M1'] = 'M1_clean_evts.fits'
-            print('missing m1')
         if 'M2' not in evt_names:
             evt_names['M2'] = 'M2_clean_evts.fits'
-            print('missing m2')
 
         # Now we can do some post-processing, and turn the information in 'which_obs' into the various
         #  dataframes required to trick XGA into making our images for us. Normally you have to setup a configuration
@@ -163,10 +160,14 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
 
         # TODO set the attitude file programmatically
         xmm_files = {"root_xmm_dir": obs_archive.archive_path+'processed_data/' + miss.name + '/',
-                     "clean_pn_evts": '{obs_id}/' + evt_names['PN'],
-                     "clean_mos1_evts": '{obs_id}/' + evt_names['M1'],
-                     "clean_mos2_evts": '{obs_id}/' + evt_names['M2'],
-                     "attitude_file": '{obs_id}/P{obs_id}OBX000ATTTSR0000.FIT',
+                     "clean_pn_evts": obs_archive.archive_path+'processed_data/' + miss.name + '/{obs_id}/' +
+                                      evt_names['PN'],
+                     "clean_mos1_evts": obs_archive.archive_path+'processed_data/' + miss.name + '/{obs_id}/' +
+                                        evt_names['M1'],
+                     "clean_mos2_evts": obs_archive.archive_path+'processed_data/' + miss.name + '/{obs_id}/' +
+                                        evt_names['M2'],
+                     "attitude_file": obs_archive.archive_path+'processed_data/' + miss.name +
+                                      '/{obs_id}/P{obs_id}OBX000ATTTSR0000.FIT',
                      "lo_en": ['0.50', '2.00'],
                      "hi_en": ['2.00', '10.00'],
                      "pn_image": "/this/is/optional/{obs_id}/{obs_id}-{lo_en}-{hi_en}keV-pn_merged_img.fits",
@@ -176,8 +177,6 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
                      "mos1_expmap": "/this/is/optional/{obs_id}/{obs_id}-{lo_en}-{hi_en}keV-mos1_merged_expmap.fits",
                      "mos2_expmap": "/this/is/optional/{obs_id}/{obs_id}-{lo_en}-{hi_en}keV-mos2_merged_expmap.fits",
                      "region_file": "/this/is/optional/xmm_obs/regions/{obs_id}/regions.reg"}
-
-        print(xmm_files)
 
         # The actual config file has another subdictionary, but that doesn't matter for this bodge
         xmm_config = {'XMM_FILES': xmm_files}
@@ -204,7 +203,6 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
 
         null_src = NullSource()
         null_src.info()
-        print(null_src.instruments)
 
         for evt_list in null_src.get_products('events'):
             print(evt_list.path)
