@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 21:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 22:12. Copyright (c) The Contributors
 from typing import Tuple
 from warnings import warn
 
@@ -127,7 +127,7 @@ def generate_images(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0],
 
             # Grabs the output path for the final event list, then splits it to remove the absolute bit of the
             #  absolute path, leaving just the filename.
-            evt_path = obs_archive.process_extra_info[miss.name]['merge_subexposures']['final_evt']
+            evt_path = obs_archive.process_extra_info[miss.name]['merge_subexposures'][cur_id]['final_evt']
             evt_names[inst] = evt_path.split('/')[-1]
 
         # It is conceivable that there are no observations with a particular instrument, so we check for that and
