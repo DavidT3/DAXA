@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 20:10. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 22:05. Copyright (c) The Contributors
 import os
 from typing import Tuple
 from warnings import warn
@@ -204,6 +204,7 @@ def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.
         xga.sources.base.BLACKLIST = blacklist
         xga.sources.base.OUTPUT = new_out
         xga.sas.phot.OUTPUT = new_out
+        xga.sas.misc.OUTPUT = new_out
 
         null_src = NullSource()
         null_src.info()
