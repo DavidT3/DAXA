@@ -1,6 +1,7 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/02/2023, 22:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/02/2023, 15:44. Copyright (c) The Contributors
 import os
+import shutil
 from typing import Tuple
 from warnings import warn
 
@@ -67,8 +68,10 @@ def _en_checks(lo_en: Quantity, hi_en: Quantity) -> Tuple[Quantity, Quantity]:
 def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.5, 2.0], 'keV'),
                             hi_en: Quantity = Quantity([2.0, 10.0], 'keV'), num_cores: int = NUM_CORES):
     """
+    A function to generate images and exposure maps for a processed XMM mission dataset contained within an
+    archive. Users can select the energy band(s) that they wish to generate images and exposure maps within.
 
-    :param obs_archive:
+    :param Archive obs_archive:
     :param lo_en: The lower energy bound(s) for the product being generated. This can either be passed as a
         scalar Astropy Quantity or, if sets of the same product in different energy bands are to be generated, as a
         non-scalar Astropy Quantity. If multiple lower bounds are passed, they must each have an entry in the
@@ -152,15 +155,21 @@ def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.
         # This list will get filled in with the observation data
         census_data = []
         for obs_id in which_obs:
+            # Grabs the information about the current ObsID, which we will use to supply the pointing coordinates
             obs_info = obs_archive[miss.name].all_obs_info[obs_archive[miss.name].all_obs_info['ObsID'] ==
                                                            obs_id].iloc[0]
             census_data.append([obs_id, obs_info['ra'], obs_info['dec'], 'PN' in which_obs[obs_id],
                                 'M1' in which_obs[obs_id], 'M2' in which_obs[obs_id]])
-        census = pd.DataFrame(census_data, columns=census_cols)  # , dtype={'ObsID': str}
+        # Constructs the census dataframe from the data we assembled, and the columns we defined earlier
+        census = pd.DataFrame(census_data, columns=census_cols)
 
+        # Makes an empty blacklist dataframe - we don't want to blacklist any observation, so we have to replace
+        #  whatever XGA already had loaded
         blacklist_cols = ["ObsID", "EXCLUDE_PN", "EXCLUDE_MOS1", "EXCLUDE_MOS2"]
         blacklist = pd.DataFrame(None, columns=blacklist_cols)
 
+        # Setting up the configuration file - all that really matters in this is the paths to the cleaned event
+        #  lists, and the path to the attitude file.
         # TODO set the attitude file programmatically
         xmm_files = {"root_xmm_dir": obs_archive.archive_path+'processed_data/' + miss.name + '/',
                      "clean_pn_evts": obs_archive.archive_path+'processed_data/' + miss.name + '/{obs_id}/' +
@@ -190,15 +199,12 @@ def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.
         if not os.path.exists(new_out):
             os.makedirs(new_out)
 
-        # xga.CENSUS = census
-        # xga.utils.CENSUS = census
-        # xga.xga_conf = xmm_config
-        # xga.utils.xga_conf = xmm_config
-        # xga.BLACKLIST = blacklist
-        # xga.utils.BLACKLIST = blacklist
-        # xga.OUTPUT = new_out
-        # xga.utils.OUTPUT = new_out
-
+        # Here we manually replace the global variables in XGA - this is viable because the NullSource class is very
+        #  limited and we're using it to do a very limited number of things. Otherwise replacing variables like this
+        #  in a module is a very bad idea - you'll see that some variables have to be overwritten multiple times in
+        #  different places, and that's because the sub-modules load in the CENSUS, OUTPUT etc. global variables from
+        #  utils when they're imported, and if this function is called multiple times for multiple archives in one
+        #  session then we have to overwrite the OUTPUT variable in those individual sub-modules.
         xga.sources.base.CENSUS = census
         xga.sources.base.xga_conf = xmm_config
         xga.sources.base.BLACKLIST = blacklist
@@ -206,13 +212,32 @@ def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.
         xga.sas.phot.OUTPUT = new_out
         xga.sas.misc.OUTPUT = new_out
 
+        # Setting up a NullSource, which will contain every ObsID in this archive
         null_src = NullSource()
-        null_src.info()
 
+        # Iterating through the energy band pairs (if there are multiple), to generate images and exposure maps.
         for en_ind, lo in enumerate(lo_en):
             hi = hi_en[en_ind]
             # This function will also generate images, before it makes exposure maps
             eexpmap(null_src, lo, hi, num_cores=num_cores)
+
+        # This goes through and
+        for obs_id in which_obs:
+            # This is the directory where XGA stored the files generated for the current value of ObsID
+            cur_path = new_out + obs_id
+            # We make sure that directory exists (can't think why it wouldn't, but better to be safe).
+            if os.path.exists(cur_path):
+                # This is the path we're going to move it to, in the existing DAXA directory structure
+                dest_path = obs_archive.get_processed_data_path(miss.name, obs_id) + 'images/'
+                # Doing the actual moving of the directory
+                shutil.move(cur_path, dest_path)
+                # Then we check to see if the calibration file exists in the images directory, and if so then
+                #  we remove it, as we already have one of those.
+                if os.path.exists(dest_path + 'ccf.cif'):
+                    os.remove(dest_path + 'ccf.cif')
+
+        # Finally we remove the XGA output directory.
+        os.remove(new_out)
 
 
 
