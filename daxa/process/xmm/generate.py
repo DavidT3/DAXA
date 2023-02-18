@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/02/2023, 15:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/02/2023, 15:55. Copyright (c) The Contributors
 import os
 import shutil
 from typing import Tuple
@@ -237,7 +237,7 @@ def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.
                     os.remove(dest_path + 'ccf.cif')
 
         # Finally we remove the XGA output directory.
-        os.remove(new_out)
+        shutil.rmtree(new_out)
 
 
 
