@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/02/2023, 15:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 14:30. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -500,7 +500,9 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
     """
     A function to identify cases where an instrument for a particular XMM observation has multiple
     sub-exposures, for which the event lists can be merged. This produces a final event list, which is a
-    combination of the sub-exposures. For those observation-instrument combinations with only a single
+    combination of the sub-exposures.
+
+    For those observation-instrument combinations with only a single
     exposure, this function will rename the cleaned event list so that the naming convention is comparable
     to the merged event list naming convention (i.e. sub-exposure identifier will be removed).
 
@@ -526,6 +528,12 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
     setup_cmd = "cd {d}"
     merge_cmd = "merge set1={e_one} set2={e_two} outset={e_fin}"
     cleanup_cmd = "mv {ft} ../{fe}; cd ../"  # ; rm -r {d}
+
+    # This command is for those observation-instrument combos which DON'T have multiple sub-exposures to be merged
+    #  but instead will have their cleaned event list renamed to a filename consistent with the merged events.
+    # I could have done this using a Python function (and did at first), but doing it this way means that there
+    #  is an entry regarding this change in the log dictionaries.
+    rename_cmd = "mv {cne} {nne}"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -619,65 +627,67 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             #  is impossible/unnecessary, so in that case we just rename the file (which will have sub-exposure ID
             #  info in the name) to the same style of the merged files
             if len(to_combine[oi]) == 1:
-                os.rename(to_combine[oi][0][0], final_path)
-                continue
+                # os.rename(to_combine[oi][0][0], final_path)
+                cmd = rename_cmd.format(cne=to_combine[oi][0][0], nne=final_path)
             elif os.path.exists(final_path):
                 continue
+            else:
 
-            # Set up a temporary directory to work in (probably not really necessary in this case, but will be
-            #  in other processing functions).
-            temp_name = "tempdir_{}".format(randint(0, 1e+8))
-            temp_dir = dest_dir + temp_name + "/"
+                # Set up a temporary directory to work in (probably not really necessary in this case, but will be
+                #  in other processing functions).
+                temp_name = "tempdir_{}".format(randint(0, 1e+8))
+                temp_dir = dest_dir + temp_name + "/"
 
-            # As the merge command won't overwrite an existing file name, and we don't know how many times the loop
-            #  below will iterate, we create temporary file names based on the iteration number of the loop
-            temp_evt_name = "{i}{en_id}_clean_temp{ind}.fits"
+                # As the merge command won't overwrite an existing file name, and we don't know how many times the loop
+                #  below will iterate, we create temporary file names based on the iteration number of the loop
+                temp_evt_name = "{i}{en_id}_clean_temp{ind}.fits"
 
-            # If it doesn't already exist then we will create commands to generate it
-            # TODO Need to decide which file to check for here to see whether the command has already been run
-            # Make the temporary directory (it shouldn't already exist but doing this to be safe)
-            if not os.path.exists(temp_dir):
-                os.makedirs(temp_dir)
+                # If it doesn't already exist then we will create commands to generate it
+                # TODO Need to decide which file to check for here to see whether the command has already been run
+                # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
 
-            # If we've got to this point then merging will definitely occur, so we start with the setup command,
-            #  which just moves us to the working directory - its in a list because said list will contain all
-            #  the stages of this command, and will be joined at the end of this process into a single bash
-            #  command.
-            cur_merge_cmds = [setup_cmd.format(d=temp_dir)]
-            # Now we can iterate through the files for merging - using enumerate so we get an index for the current
-            #  event path, which we can add one to to retrieve the next event list along - i.e. what we will be
-            #  merging into. This is why we slice the event file list so that we only iterate up to the penultimate
-            #  file, because that file will be accessed by adding one to the last evt_ind.
-            # Frankly I probably should have used a while loop here, but ah well
-            for evt_ind, evt_path in enumerate(to_combine[oi][:-1]):
+                # If we've got to this point then merging will definitely occur, so we start with the setup command,
+                #  which just moves us to the working directory - its in a list because said list will contain all
+                #  the stages of this command, and will be joined at the end of this process into a single bash
+                #  command.
+                cur_merge_cmds = [setup_cmd.format(d=temp_dir)]
+                # Now we can iterate through the files for merging - using enumerate so we get an index for the current
+                #  event path, which we can add one to to retrieve the next event list along - i.e. what we will be
+                #  merging into. This is why we slice the event file list so that we only iterate up to the penultimate
+                #  file, because that file will be accessed by adding one to the last evt_ind.
+                # Frankly I probably should have used a while loop here, but ah well
+                for evt_ind, evt_path in enumerate(to_combine[oi][:-1]):
 
-                # If we haven't iterated yet then we use the currently access event list name as the first event list.
-                if evt_ind == 0:
-                    first_evt = evt_path[0]
-                # However if we HAVE iterated before, then the first event list should actually be the output of the
-                #  last merging step, not the CURRENT value of evt_path (as that has already been added into the
-                #  merged list).
-                else:
-                    # This is a bit cheeky, but this will never be used before its defined - it will always use the
-                    #  value defined in the last iteration around
-                    first_evt = cur_t_name
-                # The output of the merge has to be given a temporary name, as the merge command won't allow it to
-                #  have the same name as an existing file
-                cur_t_name = temp_evt_name.format(i=inst, en_id=to_combine[oi][0][1], ind=evt_ind)
-                # This populated the command with the event list paths and output path (note where we add 1 to the
-                #  evt_ind value).
-                cur_cmd = merge_cmd.format(e_one=first_evt, e_two=to_combine[oi][evt_ind+1][0], e_fin=cur_t_name)
-                # Then the command is added to the command list
-                cur_merge_cmds.append(cur_cmd)
+                    # If we haven't iterated yet then we use the currently access event list name as the
+                    #  first event list.
+                    if evt_ind == 0:
+                        first_evt = evt_path[0]
+                    # However if we HAVE iterated before, then the first event list should actually be the output of the
+                    #  last merging step, not the CURRENT value of evt_path (as that has already been added into the
+                    #  merged list).
+                    else:
+                        # This is a bit cheeky, but this will never be used before its defined - it will always use the
+                        #  value defined in the last iteration around
+                        first_evt = cur_t_name
+                    # The output of the merge has to be given a temporary name, as the merge command won't allow it to
+                    #  have the same name as an existing file
+                    cur_t_name = temp_evt_name.format(i=inst, en_id=to_combine[oi][0][1], ind=evt_ind)
+                    # This populated the command with the event list paths and output path (note where we add 1 to the
+                    #  evt_ind value).
+                    cur_cmd = merge_cmd.format(e_one=first_evt, e_two=to_combine[oi][evt_ind+1][0], e_fin=cur_t_name)
+                    # Then the command is added to the command list
+                    cur_merge_cmds.append(cur_cmd)
 
-            # The final command added to the cmd list is a cleanup step, removing the temporary working directory
-            #  (and all the transient part merged event lists that might have been created along the way).
-            cur_merge_cmds.append(cleanup_cmd.format(ft=cur_t_name, fe=final_evt_name, d=temp_dir))
-            # Finally the list of commands is all joined together so it is one, like the commands of the rest of the
-            #  SAS wrapper functions
-            cmd = '; '.join(cur_merge_cmds)
+                # The final command added to the cmd list is a cleanup step, removing the temporary working directory
+                #  (and all the transient part merged event lists that might have been created along the way).
+                cur_merge_cmds.append(cleanup_cmd.format(ft=cur_t_name, fe=final_evt_name, d=temp_dir))
+                # Finally the list of commands is all joined together so it is one, like the commands of the rest
+                #  of the SAS wrapper functions
+                cmd = '; '.join(cur_merge_cmds)
 
-            # # Now store the bash command, the path, and extra info in the dictionaries
+            # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][obs_id+inst] = cmd
             miss_final_paths[miss.name][obs_id+inst] = final_path
             miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path}
