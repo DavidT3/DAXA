@@ -7,6 +7,7 @@ from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
+import re
 from astropy.coordinates import BaseRADecFrame, FK5
 from tqdm import tqdm
 
@@ -252,12 +253,36 @@ class eROSITACalPV(BaseMission):
         # Just makes sure we can iterate across field(s), regardless of how many there are
         if not isinstance(fields, list):
             fields = [fields]
-
         # Storing the input fields original format so that the ValueError later will clearer for the user
         input_fields = fields
 
-        # Converting to upper case to match the entries in CalPV_info 
-        fields = [field.upper() for field in fields]
+        # Converting to upper case and replacing special characters and whitespaces
+        #  with underscores to match the entries in CalPV_info 
+        fields = [re.sub("[()+/-. ]", "_", field.upper()) for field in fields]
+
+        # In case people use roman numerals or dont include the brackets in their input
+        # Lovely and hard coded but not sure if there is any better way to do this
+        poss_alt_field_names = {"IGR_J13020_6359": "IGR_J13020_6359__2RXP_J130159_635806_", 
+                                "HR_3165": "HR_3165__ZET_PUP_", "CRAB_I": "CRAB_1", "CRAB_II": "CRAB_2",
+                                "CRAB_III": "CRAB_3", "CRAB_IV": "CRAB_4", "CRAB": "", 
+                                "47_TUC": "47_TUC__NGC_04_", "TGUH2213P1": "TGUH2213P1__DARK CLOUD_",
+                                "A3391": "A3391_A3395", "A3395": "A3391_A3395"}
+        
+        # Replacing the possible alternative names people could have inputted with the equivalent DAXA friendly formatted one
+        for field in poss_alt_field_names:
+            # In case they just put in crab, again sorry this is so digustingly hard coded
+            if field == "CRAB" and field in fields:
+                # Replacing "CRAB" in the list with the way the links are written in the CalPV_info DataFrame
+                i = fields.index("CRAB")
+                fields[i:i+2] = "CRAB_1", "CRAB_2", "CRAB_3", "CRAB_4"
+            elif field in fields:
+                # Doing this for all the other alternative field names
+                fields = [poss_alt_field_names[field] if f==field else f for f in poss_alt_field_names]
+            else:
+                bad_fields = [f for f in fields if f not in poss_alt_field_names]
+                raise ValueError("Some field names or field types {bf} are not associated with this mission, please"
+                        "choose from the following fields; {gf} or field types; {gft}".format(
+                        bf=",".join(bad_fields), gf=",".join(self._miss_poss_fields), gft=",".join(self._miss_poss_field_types)))
         
         if all(field in self._miss_poss_field_types for field in fields):
             # Checking if the fields were given as a field type 
