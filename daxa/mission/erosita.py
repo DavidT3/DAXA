@@ -217,14 +217,16 @@ class eROSITACalPV(BaseMission):
         The data are processed into a Pandas dataframe and stored.
         """
         # DF has 'Obs_ID', 'start', 'duration, 'end'
-        # Getting a list of the observations
-        obs_unformatted = CalPV_info["Obs_ID"].tolist()
+        # Getting a list of the observations, if there are multiple associated with one field they are 
+        #  written as one entry in the Dataframe seperated by commas
+        obs_inc_multi = CalPV_info["Obs_ID"].tolist()
 
         obs_formatted = []
-        for obs in obs_unformatted:
+        for obs in obs_inc_multi:
             if "," in obs:
                 # This checks if multiple observations are associated with one field
                 indv_obs = obs.split(", ")
+                # Then appends each observation as its own entry to a list
                 for ind_ob in indv_obs:
                     obs_formatted.append(ind_ob)
             else:
@@ -308,6 +310,9 @@ class eROSITACalPV(BaseMission):
             tar.extractall(temp_dir)
             tar.close()
             os.remove(tarname)
+            # Need to change the directory name to be uppercase for compatibilty with later methods
+            file = os.listdir(temp_dir)[0]
+            os.rename(temp_dir + file, temp_dir + file.upper() )
         else: 
             field_dir = os.path.join(temp_dir, "{f}".format(f=field))
             os.makedirs(field_dir)
