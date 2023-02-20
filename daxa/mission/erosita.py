@@ -1,4 +1,5 @@
-import os.path
+import os
+import shutil
 import tarfile
 import requests
 from typing import List, Union, Any
@@ -158,7 +159,7 @@ class eROSITACalPV(BaseMission):
         """
         self._chos_fields = self._check_chos_fields(new_fields)
     
-    def _field_dict_generator(self, fields: Union[str, List[str]]): 
+    def _field_dict_generator(self): 
         """
         Returns a dictionary with all eROSITACalPV Obs_IDs as keys and their field as the value.
 
@@ -194,10 +195,10 @@ class eROSITACalPV(BaseMission):
         # Convert field types or a singular field name into a list of field name(s)
         fields = self._check_chos_fields(fields=fields)
 
-        # Creating a dictionary to store obs_ids as keys and their field name as values
+        # Creating a dictionary that store obs_ids as keys and their field name as values
         field_dict = self._field_dict_generator(fields)
         
-        # Selecting all Obs_IDs from every field
+        # Selecting all Obs_IDs from each field
         field_obs_ids = [obs for field in fields for obs in field_dict if field_dict[obs] == field]
 
         # Uses the Pandas isin functionality to find the rows of the overall observation table that match the input
@@ -276,7 +277,7 @@ class eROSITACalPV(BaseMission):
         return updated_fields
     
     @staticmethod
-    def _download_call(field: str, filename: str):
+    def _download_call(self, field: str):
         """
         This internal static method is purely to enable parallelised downloads of data, as defining
         an internal function within download causes issues with pickling for multiprocessing.
@@ -286,30 +287,72 @@ class eROSITACalPV(BaseMission):
         :return: A None value.
         :rtype: Any
         """
-        # Another part of the very unsophisticated method I currently have for checking whether a raw XMM data
-        #  download has already been performed (see issue #30). If the ObsID directory doesn't exist then
-        #  an attempt will be made.
-        if not os.path.exists(filename):
-            os.makedirs(filename)
-            # Download the requested data
-            r = requests.get(CalPV_info["download"].loc[CalPV_info["Field_Name"] == field].values[0])
-            # The full file path
-            file_path = filename + "{}.tar.gz".format(field)
-            # Saving the requested data
-            open(file_path, "wb").write(r.content)
-            # Unpacking the tar file
-            tar = tarfile.open(file_path, "r:gz")
-            tar.extractall()
+         # JESS_TODO i think somewhere i need a check that I haven't done the download before
+
+        # Since you can't download a single observation for a field, you have to download them all in one tar file,
+        #  I am making a temporary directory to download the tar file and unpack it in, then move the observations 
+        #  to their own directory afterwards in the _directory_formatting function
+        temp_dir = os.path.join(self.raw_data_path, "temp_download")
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
+
+        # Download the requested data
+        r = requests.get(CalPV_info["download"].loc[CalPV_info["Field_Name"] == field].values[0])
+        if field in {"EFEDS", "ETA_CHA"}:
+             # The eFEDS and eta_cha data come in a folder inside the tar file 
+             #  instead of files - like the rest of the CalPV data
+            tarname = os.path.join(temp_dir, "{f}.tar.gz".format(f=field))
+            open(tarname, "wb").write(r.content)
+            # unzipping the tar file
+            tar = tarfile.open(tarname, "r:gz")
+            tar.extractall(temp_dir)
             tar.close()
-            # Then remove the original compressed tar to save space
-            os.remove(file_path)
-            # Then removing the pdfs that come with the data
-            all_files = os.listdir(filename)
-            for file in all_files:
-                if file.endswith(".pdf"):
-                    os.remove(os.path.join(filename, file))
+            os.remove(tarname)
+        else: 
+            field_dir = os.path.join(temp_dir, "{f}".format(f=field))
+            os.makedirs(field_dir)
+            open(field_dir + "{f}.tar.gz".format(f=field), "wb").write(r.content)
+            # unzipping the tar file
+            tarname = field_dir + "{f}.tar.gz".format(f=field)
+            tar = tarfile.open(tarname, "r:gz")
+            tar.extractall(field_dir)
+            tar.close()
+            os.remove(tarname)
 
         return None
+    
+    def _directory_formatting(self):
+        """
+        Internal method to rearrange the downloaded files from field names into the Obs_ID top layer 
+        directory structure for consistency with other missions in DAXA. To be called after the initial 
+        download of the fields has been completed.
+        """
+
+        if os.path.exists(os.path.join(self.raw_data_path, "temp_download")):
+            # Creating a dictionary that stores obs_ids as keys and their field name as values
+            field_dict = self._field_dict_generator()
+
+            # Moving the eventlist for each obs_id from its downloaded path the path DAXA expects
+            for o in self.filtered_obs_ids:
+                if not os.path.exists(self.raw_data_path + '{o}'.format(o=o)):
+                    os.makedirs(self.raw_data_path + '{o}'.format(o=o))
+                    # The path to the obs_id directory
+                    obs_dir = os.path.join(self.raw_data_path, '{o}'.format(o=o))
+                    # The field the obs_id was downloaded with
+                    field_name = field_dict[o]
+                    # The path to where the obs_id was initially downloaded
+                    field_dir = os.path.join(self.raw_data_path, "temp_download", field_name)
+                    # All the obs_id files 
+                    all_files = os.listdir(os.path.join(self.raw_data_path, "temp_download", field_name))
+                    # Selecting the eventlist for the obs_id
+                    obs_file_name =  [obs_file for obs_file in all_files if o in obs_file and "eRO" not in obs_file ][0]
+                    source = os.path.join(field_dir, obs_file_name)
+                    dest = os.path.join(obs_dir, obs_file_name)
+                    shutil.move(source, dest)
+        
+            # Deleting temp_download directory containing the extra files that were not the obs_id eventlists
+            shutil.rmtree(os.path.join(self.raw_data_path, "temp_download"))
+
 
     def download(self, num_cores: int = NUM_CORES):
         """
@@ -327,16 +370,22 @@ class eROSITACalPV(BaseMission):
         # A very unsophisticated way of checking whether raw data have been downloaded before (see issue #30)
         #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
         #  the _download_call method
-        if all([os.path.exists(stor_dir + '{f}'.format(f=f)) for f in self._miss_poss_fields]):
+        if all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in self.filtered_obs_ids]):
             self._download_done = True
+        
+        # Since multiple Obs_IDs are downloaded with one field, we are first downloading all fields needed.
+        # This dictionary contains which obs_ids are associated with which field
+        field_dict = self._field_dict_generator()
+        # A list of fields needed to get the required obs_ids (with no duplicate fields)
+        required_fields = list(set([field_dict[o] for o in self.filtered_obs_ids]))
         
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
             if num_cores == 1:
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
-                    for field in self._chos_fields:
+                    for field in required_fields:
                         # Use the internal static method I set up which both downloads and unpacks the eROSITACalPV data
-                        self._download_call(field, filename=stor_dir + '/{f}/'.format(f=field))
+                        self._download_call(field)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -375,10 +424,10 @@ class eROSITACalPV(BaseMission):
                         download_prog.update(1)
 
                     # Again nested for loop through ObsIDs and instruments
-                    for field in self._chos_fields:
+                    for field in required_fields:
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
-                                            kwds={'field': field, 'filename': stor_dir + '/{f}/'.format(f=field)},
+                                            kwds={'field': field},
                                             error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
@@ -390,6 +439,8 @@ class eROSITACalPV(BaseMission):
             else:
                 raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
 
+            # Rearranging the obs_id eventlists into the directory format DAXA expects
+            self._directory_formatting()
         
             self._download_done = True
 
