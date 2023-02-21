@@ -8,6 +8,7 @@ from multiprocessing import Pool
 import numpy as np
 import pandas as pd
 import re
+from astropy.io import fits
 from astropy.coordinates import BaseRADecFrame, FK5
 from tqdm import tqdm
 
@@ -303,6 +304,39 @@ class eROSITACalPV(BaseMission):
         # Return the chosen fields 
         return updated_fields
     
+    def _inst_filtering(self):
+        """
+        Method to filter event lists for eROSITACalPV data based on instrument choice.
+        
+        :param Union[List[str], str] gd_tscopes: The names of telescopes from which the user wishes to INCLUDE data from.
+        """
+        # JESS_TODO this must be parralelisable 
+        fits_paths = [os.path.join(self.raw_data_path + '{o}'.format(o=o)) for o in self.filtered_obs_ids]
+        # Reading in the file
+        for path in fits_paths:
+            hdul = fits.open(path)
+
+            # Selecting the telescope module number column
+            data = hdul[1].data
+            t_col = data["TM_NR"]
+            
+            # DAVID_QUESTION not sure if this is the correct attribute to use here (getting lost in setters and getters!)
+            insts = self.chosen_instruments
+            # Just makes sure we can iterate across inst(s), regardless of how many there are
+            if not isinstance(insts, list):
+                insts = [insts]
+            # Putting inst names into correct format to search in t_col for 
+            gd_insts = [int(re.sub('[^0-9]','', tscope)) for tscope in insts]
+            
+            # Getting the indexes of events with the chosen insts
+            gd_insts_indx = np.hstack([(t_col==i).nonzero()[0] for i in gd_insts])
+            
+            # Filtering the data on those tscopes
+            filtered_data = data[gd_insts_indx]
+
+            # DAVID_QUESTION how should i store the original file?
+            # DAVID_QUESTION should have function to tell people how much storage they would need?
+    
     @staticmethod
     def _download_call(self, field: str):
         """
@@ -471,6 +505,9 @@ class eROSITACalPV(BaseMission):
 
             # Rearranging the obs_id eventlists into the directory format DAXA expects
             self._directory_formatting()
+            # Filtering out any events from the raw data that arent from the selected instruments
+            self._inst_filtering()
+
         
             self._download_done = True
 
