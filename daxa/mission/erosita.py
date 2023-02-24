@@ -351,9 +351,18 @@ class eROSITACalPV(BaseMission):
             # Filtering the data on those tscopes
             filtered_data = data[gd_insts_indx]
 
-            # DAVID_QUESTION how should i store the original file?
-            # Store both 
-            # DAVID_QUESTION should have function to tell people how much storage they would need?
+            # Replacing unfiltered eventlist in the fits file with the new ones
+            hdul[1].data = filtered_data
+
+            # Writing this to a new file (the if is for instrument filtered)
+            # DAVID_QUESTION the instrument choice wont change?
+            hdul.writeto(path[:-5] + '_if.fits')
+
+
+
+
+
+
     
     @staticmethod
     def _download_call(self, field: str):
