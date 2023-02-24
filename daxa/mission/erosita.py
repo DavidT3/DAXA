@@ -211,6 +211,9 @@ class eROSITACalPV(BaseMission):
         # Convert field types or a singular field name into a list of field name(s)
         fields = self._check_chos_fields(fields=fields)
 
+        # Updating the chosen_field attribute
+        self.chosen_fields = fields
+
         # Creating a dictionary that store obs_ids as keys and their field name as values
         field_dict = self._field_dict_generator()
         
@@ -307,7 +310,7 @@ class eROSITACalPV(BaseMission):
                 # Doing this for all the other alternative field names
                 fields = [poss_alt_field_names[field] if f==field else f for f in poss_alt_field_names]
             else:
-                bad_fields = [f for f in fields if f not in poss_alt_field_names and f not in self._miss_poss_fields]
+                bad_fields = [f for f in fields if f not in poss_alt_field_names and f not in self._miss_poss_fields and f not in self._miss_poss_field_types]
                 if len(bad_fields) != 0:
                     # JESS_TODO write something to make this look neater 
                     raise ValueError("Some field names or field types {bf} are not associated with this mission, please"
@@ -317,7 +320,7 @@ class eROSITACalPV(BaseMission):
         if all(field in self._miss_poss_field_types for field in fields):
             # Checking if the fields were given as a field type 
             # Then collecting all the fields associated with that field type/s
-            updated_fields = CalPV_info.loc[CalPV_info["Field_Type".isin(fields), "Field_Name"]].tolist()
+            updated_fields = CalPV_info.loc[CalPV_info["Field_Type"].isin(fields), "Field_Name"].tolist()
         elif all(field in self._miss_poss_fields for field in fields):
             # Checking if the field names are valid
             updated_fields = fields
