@@ -332,7 +332,18 @@ class eROSITACalPV(BaseMission):
                 raise ValueError("Some field names or field types {bf} are not associated with this mission, please"
                         "choose from the following fields; {gf} or field types; {gft}".format(
                         bf=",".join(bad_fields), gf=",".join(self._miss_poss_fields), gft=",".join(self._miss_poss_field_types)))
-
+            
+            else:
+                # If its got to this stage that means the field where input as a mix of field types and field names
+                # I did this when i was tired so sorry it looks a but weird?? i think it might look weird
+                # Selecting the field types from the input
+                field_types = [ft for ft in fields if ft in self._miss_poss_field_types]
+                # Turning them into their field names
+                fields_in_types = CalPV_info.loc[CalPV_info["Field_Type"].isin(field_types), "Field_Name"].tolist()
+                # Selecting the field names from the input
+                field_names = [ft for ft in fields if ft in self._miss_poss_fields]
+                updated_fields = fields_in_types + field_names
+                
         # Return the chosen fields 
         return updated_fields
     
