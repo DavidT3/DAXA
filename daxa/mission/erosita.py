@@ -300,15 +300,16 @@ class eROSITACalPV(BaseMission):
                                 "A3391": "A3391_A3395", "A3395": "A3391_A3395"}
         
         # Replacing the possible alternative names people could have inputted with the equivalent DAXA friendly formatted one
-        for field in poss_alt_field_names:
+        for alt_field in poss_alt_field_names:
             # In case they just put in crab, again sorry this is so digustingly hard coded
-            if field == "CRAB" and field in fields:
+            if alt_field == "CRAB" and alt_field in fields:
                 # Replacing "CRAB" in the list with the way the links are written in the CalPV_info DataFrame
                 i = fields.index("CRAB")
                 fields[i:i+2] = "CRAB_1", "CRAB_2", "CRAB_3", "CRAB_4"
-            elif field in fields:
-                # Doing this for all the other alternative field names
-                fields = [poss_alt_field_names[field] if f==field else f for f in poss_alt_field_names]
+            elif alt_field in fields:
+                # Doing this for all the other alternative field name
+                i = fields.index(alt_field)
+                fields[i] = poss_alt_field_names[alt_field]
             else:
                 bad_fields = [f for f in fields if f not in poss_alt_field_names and f not in self._miss_poss_fields and f not in self._miss_poss_field_types]
                 if len(bad_fields) != 0:
@@ -343,6 +344,9 @@ class eROSITACalPV(BaseMission):
                 # Selecting the field names from the input
                 field_names = [ft for ft in fields if ft in self._miss_poss_fields]
                 updated_fields = fields_in_types + field_names
+        
+        # Removing the duplicates from updated_fields
+        updated_fields = list(set(updated_fields))
 
         # Return the chosen fields 
         return updated_fields
