@@ -50,7 +50,7 @@ class eROSITACalPV(BaseMission):
             #  which deals with the fields being given as a name or field type
             self.chosen_fields = fields
             # Applying filters on obs_ids so that only obs_ids associated with the chosen fields are included
-            self._filter_on_fields(fields)
+            self.filter_on_fields(fields)
 
         # JESS_TODO what is going on with crab
 
@@ -94,6 +94,7 @@ class eROSITACalPV(BaseMission):
         return self._miss_coord_frame
         
     # DAVID_QUESTION not sure what id_regex is
+    # JESS_TODO basically change curly brakcet number
 
     @property
     def all_obs_info(self) -> pd.DataFrame:
@@ -186,7 +187,7 @@ class eROSITACalPV(BaseMission):
 
     
     @_lock_check
-    def _filter_on_fields(self, fields: Union[str, List[str]]):
+    def filter_on_fields(self, fields: Union[str, List[str]]):
         """
         This filtering method will select only observations included in the fields specified.
 
@@ -235,9 +236,10 @@ class eROSITACalPV(BaseMission):
                 obs_formatted.append(obs)
 
         # Creating a column for the Obs_IDs
-        obs_info_pd = pd.DataFrame(obs_formatted, columns=["Obs_ID"])
+        obs_info_pd = pd.DataFrame(obs_formatted, columns=["ObsID"])
 
         #JESS_TODO need to input the start end and duration deets
+        # JESS_TODO usable will be true for everything
 
         self.all_obs_info = obs_info_pd
 
@@ -254,6 +256,11 @@ class eROSITACalPV(BaseMission):
         # Just makes sure we can iterate across field(s), regardless of how many there are
         if not isinstance(fields, list):
             fields = [fields]
+
+        # Making sure all the items in the list are strings
+        if not all(isinstance(field, str) for field in fields):
+            raise ValueError("The fields input must be entered as a string, or a list of strings.")
+
         # Storing the input fields original format so that the ValueError later will clearer for the user
         input_fields = fields
 
@@ -335,6 +342,7 @@ class eROSITACalPV(BaseMission):
             filtered_data = data[gd_insts_indx]
 
             # DAVID_QUESTION how should i store the original file?
+            # Store both 
             # DAVID_QUESTION should have function to tell people how much storage they would need?
     
     @staticmethod
@@ -508,7 +516,6 @@ class eROSITACalPV(BaseMission):
             # Filtering out any events from the raw data that arent from the selected instruments
             self._inst_filtering()
 
-        
             self._download_done = True
 
 
