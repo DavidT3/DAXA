@@ -528,65 +528,67 @@ class eROSITACalPV(BaseMission):
             # Rearranging the obs_id eventlists into the directory format DAXA expects
             self._directory_formatting()
 
-            # Getting all the path for each eventlist corresponding to an obs_id for the _inst_filtering function later
-            fits_paths = [os.path.join(self.raw_data_path + '{o}'.format(o=o)) for o in self.filtered_obs_ids]
+            # Only doing the instrument filtering step if not all the instruments have been chosen
+            if len(self.chosen_instruments) != 7:
+                # Getting all the path for each eventlist corresponding to an obs_id for the _inst_filtering function later
+                fits_paths = [os.path.join(self.raw_data_path + '{o}'.format(o=o)) for o in self.filtered_obs_ids]
 
-            # Filtering out any events from the raw data that arent from the selected instruments
-            if num_cores == 1:
-                with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) as download_prog:
-                    for path in fits_paths:
-                        self._inst_filtering(evlist_path=path)
-                        # Update the progress bar
-                        download_prog.update(1)
+                # Filtering out any events from the raw data that arent from the selected instruments
+                if num_cores == 1:
+                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) as download_prog:
+                        for path in fits_paths:
+                            self._inst_filtering(evlist_path=path)
+                            # Update the progress bar
+                            download_prog.update(1)
 
-            elif num_cores > 1:
-                # List to store any errors raised during download tasks
-                raised_errors = []
+                elif num_cores > 1:
+                    # List to store any errors raised during download tasks
+                    raised_errors = []
 
-                # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
-                with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) \
-                        as download_prog, Pool(num_cores) as pool:
+                    # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
+                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) \
+                            as download_prog, Pool(num_cores) as pool:
 
-                    # The callback function is what is called on the successful completion of a _download_call
-                    def callback(download_conf: Any):
-                        """
-                        Callback function for the apply_async pool method, gets called when a download task finishes
-                        without error.
+                        # The callback function is what is called on the successful completion of a _download_call
+                        def callback(download_conf: Any):
+                            """
+                            Callback function for the apply_async pool method, gets called when a download task finishes
+                            without error.
 
-                        :param Any download_conf: The Null value confirming the operation is over.
-                        """
-                        nonlocal download_prog  # The progress bar will need updating
-                        download_prog.update(1)
+                            :param Any download_conf: The Null value confirming the operation is over.
+                            """
+                            nonlocal download_prog  # The progress bar will need updating
+                            download_prog.update(1)
 
-                    # The error callback function is what happens when an exception is thrown during a _download_call
-                    def err_callback(err):
-                        """
-                        The callback function for errors that occur inside a download task running in the pool.
+                        # The error callback function is what happens when an exception is thrown during a _download_call
+                        def err_callback(err):
+                            """
+                            The callback function for errors that occur inside a download task running in the pool.
 
-                        :param err: An error that occurred inside a task.
-                        """
-                        nonlocal raised_errors
-                        nonlocal download_prog
+                            :param err: An error that occurred inside a task.
+                            """
+                            nonlocal raised_errors
+                            nonlocal download_prog
 
-                        if err is not None:
-                            # Rather than throwing an error straight away I append them all to a list for later.
-                            raised_errors.append(err)
-                        download_prog.update(1)
+                            if err is not None:
+                                # Rather than throwing an error straight away I append them all to a list for later.
+                                raised_errors.append(err)
+                            download_prog.update(1)
 
-                    # Again nested for loop through each Obs_ID
-                    for path in fits_paths:
-                        # Add each download task to the pool
-                        pool.apply_async(self._inst_filtering, kwds={'evlist_path': path}, 
-                                         error_callback=err_callback, callback=callback)
-                    pool.close()  # No more tasks can be added to the pool
-                    pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+                        # Again nested for loop through each Obs_ID
+                        for path in fits_paths:
+                            # Add each download task to the pool
+                            pool.apply_async(self._inst_filtering, kwds={'evlist_path': path}, 
+                                            error_callback=err_callback, callback=callback)
+                        pool.close()  # No more tasks can be added to the pool
+                        pool.join()  # Joins the pool, the code will only move on once the pool is empty.
 
-                # Raise all the download errors at once, if there are any
-                if len(raised_errors) != 0:
-                    raise DAXADownloadError(str(raised_errors))
+                    # Raise all the download errors at once, if there are any
+                    if len(raised_errors) != 0:
+                        raise DAXADownloadError(str(raised_errors))
 
-            else:
-                raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
+                else:
+                    raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
 
             self._download_done = True
         
