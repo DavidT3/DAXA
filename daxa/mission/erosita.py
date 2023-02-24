@@ -93,8 +93,18 @@ class eROSITACalPV(BaseMission):
         self._miss_coord_frame = FK5
         return self._miss_coord_frame
         
-    # DAVID_QUESTION not sure what id_regex is
-    # JESS_TODO basically change curly brakcet number
+    @property
+    def id_regex(self) -> str:
+        """
+        Property getter for the regular expression (regex) pattern for observation IDs of this mission.
+
+        :return: The regex pattern for observation IDs.
+        :rtype: str
+        """
+        # The ObsID regular expression is defined here because this is the pattern for this property defined in
+        #  the BaseMission superclass
+        self._id_format = '^[0-9]{6}$'
+        return self._id_format
 
     @property
     def all_obs_info(self) -> pd.DataFrame:
