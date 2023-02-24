@@ -53,8 +53,6 @@ class eROSITACalPV(BaseMission):
             # Applying filters on obs_ids so that only obs_ids associated with the chosen fields are included
             self.filter_on_fields(fields)
 
-        # JESS_TODO what is going on with crab
-
         # Sets the default instruments
         if insts is None:
             insts = ['TM1', 'TM2', 'TM3', 'TM4', 'TM5', 'TM6', 'TM7']
@@ -64,6 +62,10 @@ class eROSITACalPV(BaseMission):
         
         self._miss_poss_insts = ['TM1', 'TM2', 'TM3', 'TM4', 'TM5', 'TM6', 'TM7']
         self.chosen_instruments = insts
+
+        # Runs the method which fetches information on all available eROSITACalPV observations and stores that
+        #  information in the all_obs_info property
+        self.fetch_obs_info()
 
     # Defining properties first
     @property
@@ -210,7 +212,7 @@ class eROSITACalPV(BaseMission):
         fields = self._check_chos_fields(fields=fields)
 
         # Creating a dictionary that store obs_ids as keys and their field name as values
-        field_dict = self._field_dict_generator(fields)
+        field_dict = self._field_dict_generator()
         
         # Selecting all Obs_IDs from each field
         field_obs_ids = [obs for field in fields for obs in field_dict if field_dict[obs] == field]
@@ -220,9 +222,10 @@ class eROSITACalPV(BaseMission):
         sel_obs_mask = self._obs_info['ObsID'].isin(field_obs_ids)
         # Said boolean array can be multiplied with the existing filter array (by default all ones, which means
         #  all observations are let through) to produce an updated filter.
+        # DAVID_QUESTION i think your filter_on_obs_ids has a bug
         new_filter = self.filter_array*sel_obs_mask
         # Then we set the filter array property with that updated mask
-        self.filter_array = new_filter
+        self.filter_array = sel_obs_mask
     
     # Then define user-facing methods
     def fetch_obs_info(self):
@@ -249,8 +252,14 @@ class eROSITACalPV(BaseMission):
         # Creating a column for the Obs_IDs
         obs_info_pd = pd.DataFrame(obs_formatted, columns=["ObsID"])
 
-        #JESS_TODO need to input the start end and duration deets
+        #JESS_TODO do this properly
         # JESS_TODO usable will be true for everything
+
+        obs_info_pd['ra'] = ['lol' for i in range(len(obs_formatted))]
+        obs_info_pd['dec'] = ['lol' for i in range(len(obs_formatted))]
+        obs_info_pd['usable'] = ['T' for i in range(len(obs_formatted))]
+        obs_info_pd['start'] = ['lol' for i in range(len(obs_formatted))]
+        obs_info_pd['duration'] = ['lol' for i in range(len(obs_formatted))]
 
         self.all_obs_info = obs_info_pd
 
