@@ -43,6 +43,10 @@ class eROSITACalPV(BaseMission):
         # All the allowed types of field, ie. survey, magellanic cloud, galactic field, extragalactic field
         self._miss_poss_field_types = CalPV_info["Field_Type"].unique().tolist()
 
+        # Runs the method which fetches information on all available eROSITACalPV observations and stores that
+        #  information in the all_obs_info property
+        self.fetch_obs_info()
+
         # Sets the default fields
         if fields is None:
             self.chosen_fields = self._miss_poss_fields
@@ -62,10 +66,6 @@ class eROSITACalPV(BaseMission):
         
         self._miss_poss_insts = ['TM1', 'TM2', 'TM3', 'TM4', 'TM5', 'TM6', 'TM7']
         self.chosen_instruments = insts
-
-        # Runs the method which fetches information on all available eROSITACalPV observations and stores that
-        #  information in the all_obs_info property
-        self.fetch_obs_info()
 
     # Defining properties first
     @property
@@ -343,7 +343,7 @@ class eROSITACalPV(BaseMission):
                 # Selecting the field names from the input
                 field_names = [ft for ft in fields if ft in self._miss_poss_fields]
                 updated_fields = fields_in_types + field_names
-                
+
         # Return the chosen fields 
         return updated_fields
     
