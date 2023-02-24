@@ -27,7 +27,7 @@ EXTRAGALACTIC FIELDS,A3266,N,700154,67.84,-61.44,p,https://erosita.mpe.mpg.de/ed
 EXTRAGALACTIC FIELDS,1H0707,N,300003,107.17,-49.55,p,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/1H0707.tar.gz,N
 EXTRAGALACTIC FIELDS,NGC_7793_P13,N,300011,359.46,-32.62,p,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/NGC_7793P13.tar.gz,N
 EXTRAGALACTIC FIELDS,47_TUC__NGC_04_,N,"700011, 700012, 700013, 700014, 700163, 700173, 700174, 700175","5.52, 6.53, 6.33, 5.71, 6.53, 5.52, 6.53, 6.33","-71.98, -72.17, -71.93, -72.24, -72.18, -71.98, -72.18, -71.92","p,p,p,p,p,p,p,p",https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/47_Tuc.tar.gz,Y
-EXTRAGALACTIC FIELDS,TGUH2213P1__DARK CLOUD_,N,300017,285.59,-37.12,p,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/TGUH2213P1.tar.gz,N
+EXTRAGALACTIC FIELDS,TGUH2213P1__DARK_CLOUD_,N,300017,285.59,-37.12,p,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/TGUH2213P1.tar.gz,N
 EXTRAGALACTIC FIELDS,A3391_A3395,N,"300014, 300005, 300006, 300016	       ","96.71, 96.71, 96.71, 96.71","-54.07, -54.07, -54.07,-54.07","p,s,s,s",https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/A3391_A3395.tar.gz,N
 EXTRAGALACTIC FIELDS,1RXS_J185635_375433,N,700008,284.15,-37.91,p,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/1RXS_J185635m375433.tar.gz,Y
 EXTRAGALACTIC FIELDS,3C390_3,N,"900060, 900068, 900069, 900070","281.54, 281.50, 281.49, 281.48","79.87, 79.88, 79.89, 79.89","p,p,p,p ",https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/3C390.tar.gz,N

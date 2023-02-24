@@ -277,7 +277,7 @@ class eROSITACalPV(BaseMission):
 
         # Converting to upper case and replacing special characters and whitespaces
         #  with underscores to match the entries in CalPV_info 
-        fields = [re.sub("[()+/-. ]", "_", field.upper()) for field in fields]
+        fields = [re.sub("[-()+/. ]", "_", field.upper()) for field in fields]
 
         # In case people use roman numerals or dont include the brackets in their input
         # Lovely and hard coded but not sure if there is any better way to do this
@@ -298,9 +298,10 @@ class eROSITACalPV(BaseMission):
                 # Doing this for all the other alternative field names
                 fields = [poss_alt_field_names[field] if f==field else f for f in poss_alt_field_names]
             else:
-                bad_fields = [f for f in fields if f not in poss_alt_field_names]
+                bad_fields = [f for f in fields if f not in poss_alt_field_names and f not in self._miss_poss_fields]
+                # JESS_TODO write something to make this look neater 
                 raise ValueError("Some field names or field types {bf} are not associated with this mission, please"
-                        "choose from the following fields; {gf} or field types; {gft}".format(
+                        " choose from the following fields; {gf} or field types; {gft}".format(
                         bf=",".join(bad_fields), gf=",".join(self._miss_poss_fields), gft=",".join(self._miss_poss_field_types)))
         
         if all(field in self._miss_poss_field_types for field in fields):
