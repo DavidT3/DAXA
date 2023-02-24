@@ -4,6 +4,7 @@ import tarfile
 import requests
 from typing import List, Union, Any
 from multiprocessing import Pool
+from warnings import warn
 
 import numpy as np
 import pandas as pd
@@ -321,48 +322,40 @@ class eROSITACalPV(BaseMission):
         # Return the chosen fields 
         return updated_fields
     
-    def _inst_filtering(self):
+    def _inst_filtering(self, evlist_path: str):
         """
         Method to filter event lists for eROSITACalPV data based on instrument choice.
         
         :param Union[List[str], str] gd_tscopes: The names of telescopes from which the user wishes to INCLUDE data from.
         """
-        # JESS_TODO this must be parralelisable 
-        fits_paths = [os.path.join(self.raw_data_path + '{o}'.format(o=o)) for o in self.filtered_obs_ids]
         # Reading in the file
-        for path in fits_paths:
-            hdul = fits.open(path)
+        hdul = fits.open(evlist_path)
 
-            # Selecting the telescope module number column
-            data = hdul[1].data
-            t_col = data["TM_NR"]
-            
-            # DAVID_QUESTION not sure if this is the correct attribute to use here (getting lost in setters and getters!)
-            insts = self.chosen_instruments
-            # Just makes sure we can iterate across inst(s), regardless of how many there are
-            if not isinstance(insts, list):
-                insts = [insts]
-            # Putting inst names into correct format to search in t_col for 
-            gd_insts = [int(re.sub('[^0-9]','', tscope)) for tscope in insts]
-            
-            # Getting the indexes of events with the chosen insts
-            gd_insts_indx = np.hstack([(t_col==i).nonzero()[0] for i in gd_insts])
-            
-            # Filtering the data on those tscopes
-            filtered_data = data[gd_insts_indx]
+        # Selecting the telescope module number column
+        data = hdul[1].data
+        t_col = data["TM_NR"]
+        
+        # DAVID_QUESTION not sure if this is the correct attribute to use here (getting lost in setters and getters!)
+        insts = self.chosen_instruments
+        # Just makes sure we can iterate across inst(s), regardless of how many there are
+        if not isinstance(insts, list):
+            insts = [insts]
+        # Putting inst names into correct format to search in t_col for 
+        gd_insts = [int(re.sub('[^0-9]','', tscope)) for tscope in insts]
+        
+        # Getting the indexes of events with the chosen insts
+        gd_insts_indx = np.hstack([(t_col==i).nonzero()[0] for i in gd_insts])
+        
+        # Filtering the data on those tscopes
+        filtered_data = data[gd_insts_indx]
 
-            # Replacing unfiltered eventlist in the fits file with the new ones
-            hdul[1].data = filtered_data
+        # Replacing unfiltered eventlist in the fits file with the new ones
+        hdul[1].data = filtered_data
 
-            # Writing this to a new file (the if is for instrument filtered)
-            # DAVID_QUESTION the instrument choice wont change?
-            hdul.writeto(path[:-5] + '_if.fits')
-
-
-
-
-
-
+        # Writing this to a new file (the if is for instrument filtered)
+        # DAVID_QUESTION the instrument choice wont change?
+        hdul.writeto(evlist_path[:-5] + '_if.fits')
+        hdul.close()
     
     @staticmethod
     def _download_call(self, field: str):
@@ -532,10 +525,72 @@ class eROSITACalPV(BaseMission):
 
             # Rearranging the obs_id eventlists into the directory format DAXA expects
             self._directory_formatting()
+
+            # Getting all the path for each eventlist corresponding to an obs_id for the _inst_filtering function later
+            fits_paths = [os.path.join(self.raw_data_path + '{o}'.format(o=o)) for o in self.filtered_obs_ids]
+
             # Filtering out any events from the raw data that arent from the selected instruments
-            self._inst_filtering()
+            if num_cores == 1:
+                with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) as download_prog:
+                    for path in fits_paths:
+                        self._inst_filtering(evlist_path=path)
+                        # Update the progress bar
+                        download_prog.update(1)
+
+            elif num_cores > 1:
+                # List to store any errors raised during download tasks
+                raised_errors = []
+
+                # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
+                with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) \
+                        as download_prog, Pool(num_cores) as pool:
+
+                    # The callback function is what is called on the successful completion of a _download_call
+                    def callback(download_conf: Any):
+                        """
+                        Callback function for the apply_async pool method, gets called when a download task finishes
+                        without error.
+
+                        :param Any download_conf: The Null value confirming the operation is over.
+                        """
+                        nonlocal download_prog  # The progress bar will need updating
+                        download_prog.update(1)
+
+                    # The error callback function is what happens when an exception is thrown during a _download_call
+                    def err_callback(err):
+                        """
+                        The callback function for errors that occur inside a download task running in the pool.
+
+                        :param err: An error that occurred inside a task.
+                        """
+                        nonlocal raised_errors
+                        nonlocal download_prog
+
+                        if err is not None:
+                            # Rather than throwing an error straight away I append them all to a list for later.
+                            raised_errors.append(err)
+                        download_prog.update(1)
+
+                    # Again nested for loop through each Obs_ID
+                    for path in fits_paths:
+                        # Add each download task to the pool
+                        pool.apply_async(self._inst_filtering, kwds={'evlist_path': path}, 
+                                         error_callback=err_callback, callback=callback)
+                    pool.close()  # No more tasks can be added to the pool
+                    pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+
+                # Raise all the download errors at once, if there are any
+                if len(raised_errors) != 0:
+                    raise DAXADownloadError(str(raised_errors))
+
+            else:
+                raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
 
             self._download_done = True
+        
+        else:
+            warn("The raw data for this mission have already been downloaded.")
+
 
 
 
