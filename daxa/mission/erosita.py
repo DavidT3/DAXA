@@ -284,7 +284,7 @@ class eROSITACalPV(BaseMission):
         poss_alt_field_names = {"IGR_J13020_6359": "IGR_J13020_6359__2RXP_J130159_635806_", 
                                 "HR_3165": "HR_3165__ZET_PUP_", "CRAB_I": "CRAB_1", "CRAB_II": "CRAB_2",
                                 "CRAB_III": "CRAB_3", "CRAB_IV": "CRAB_4", "CRAB": "", 
-                                "47_TUC": "47_TUC__NGC_04_", "TGUH2213P1": "TGUH2213P1__DARK CLOUD_",
+                                "47_TUC": "47_TUC__NGC_04_", "TGUH2213P1": "TGUH2213P1__DARK_CLOUD_",
                                 "A3391": "A3391_A3395", "A3395": "A3391_A3395"}
         
         # Replacing the possible alternative names people could have inputted with the equivalent DAXA friendly formatted one
@@ -299,10 +299,11 @@ class eROSITACalPV(BaseMission):
                 fields = [poss_alt_field_names[field] if f==field else f for f in poss_alt_field_names]
             else:
                 bad_fields = [f for f in fields if f not in poss_alt_field_names and f not in self._miss_poss_fields]
-                # JESS_TODO write something to make this look neater 
-                raise ValueError("Some field names or field types {bf} are not associated with this mission, please"
-                        " choose from the following fields; {gf} or field types; {gft}".format(
-                        bf=",".join(bad_fields), gf=",".join(self._miss_poss_fields), gft=",".join(self._miss_poss_field_types)))
+                if len(bad_fields) != 0:
+                    # JESS_TODO write something to make this look neater 
+                    raise ValueError("Some field names or field types {bf} are not associated with this mission, please"
+                            " choose from the following fields; {gf} or field types; {gft}".format(
+                            bf=",".join(bad_fields), gf=",".join(self._miss_poss_fields), gft=",".join(self._miss_poss_field_types)))
         
         if all(field in self._miss_poss_field_types for field in fields):
             # Checking if the fields were given as a field type 
@@ -313,7 +314,7 @@ class eROSITACalPV(BaseMission):
             updated_fields = fields
         else:
             # Checking if any of the fields entered are not valid field names or types
-            field_test = [field in self.miss_poss_field_types or self._miss_poss_fields for field in fields]
+            field_test = [field in self._miss_poss_field_types or self._miss_poss_fields for field in fields]
             if not all(field_test):
                 bad_fields = np.array(input_fields)[~np.array(field_test)]
                 raise ValueError("Some field names or field types {bf} are not associated with this mission, please"
