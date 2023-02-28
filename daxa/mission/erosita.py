@@ -47,6 +47,10 @@ class eROSITACalPV(BaseMission):
         #  information in the all_obs_info property
         self.fetch_obs_info()
 
+        # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
+        #  column of all_obs_info, rather than the initial None value
+        self.reset_filter()
+
         # Sets the default fields
         if fields is None:
             self.chosen_fields = self._miss_poss_fields
@@ -66,6 +70,7 @@ class eROSITACalPV(BaseMission):
         
         self._miss_poss_insts = ['TM1', 'TM2', 'TM3', 'TM4', 'TM5', 'TM6', 'TM7']
         self.chosen_instruments = insts
+
 
     # Defining properties first
     @property
@@ -222,13 +227,13 @@ class eROSITACalPV(BaseMission):
 
         # Uses the Pandas isin functionality to find the rows of the overall observation table that match the input
         #  ObsIDs. This outputs a boolean array.
-        sel_obs_mask = self._obs_info['ObsID'].isin(field_obs_ids)
+        sel_obs_mask = self._obs_info['ObsID'].isin(field_obs_ids).values
         # Said boolean array can be multiplied with the existing filter array (by default all ones, which means
         #  all observations are let through) to produce an updated filter.
         # DAVID_QUESTION i think your filter_on_obs_ids has a bug
         new_filter = self.filter_array*sel_obs_mask
         # Then we set the filter array property with that updated mask
-        self.filter_array = sel_obs_mask
+        self.filter_array = new_filter
     
     # Then define user-facing methods
     def fetch_obs_info(self):
@@ -260,7 +265,7 @@ class eROSITACalPV(BaseMission):
 
         obs_info_pd['ra'] = ['lol' for i in range(len(obs_formatted))]
         obs_info_pd['dec'] = ['lol' for i in range(len(obs_formatted))]
-        obs_info_pd['usable'] = ['T' for i in range(len(obs_formatted))]
+        obs_info_pd['usable'] = [True for i in range(len(obs_formatted))]
         obs_info_pd['start'] = ['lol' for i in range(len(obs_formatted))]
         obs_info_pd['duration'] = ['lol' for i in range(len(obs_formatted))]
 
@@ -383,6 +388,7 @@ class eROSITACalPV(BaseMission):
 
         # Writing this to a new file (the if is for instrument filtered)
         # DAVID_QUESTION the instrument choice wont change?
+        # JESS_TODO maybe add in which insts were removed from the file
         hdul.writeto(evlist_path[:-5] + '_if.fits')
         hdul.close()
     
