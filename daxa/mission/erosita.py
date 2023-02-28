@@ -420,7 +420,7 @@ class eROSITACalPV(BaseMission):
             os.remove(tarname)
             # Need to change the directory name to be uppercase for compatibilty with later methods
             file = os.listdir(temp_dir)[0]
-            os.rename(temp_dir + file, temp_dir + file.upper() )
+            os.rename(temp_dir + "/" + file, temp_dir + "/" + file.upper())
         else: 
             field_dir = os.path.join(temp_dir, "{f}".format(f=field))
             os.makedirs(field_dir)
@@ -440,12 +440,12 @@ class eROSITACalPV(BaseMission):
         directory structure for consistency with other missions in DAXA. To be called after the initial 
         download of the fields has been completed.
         """
-
+        # Only executing the method if new data has been downloaded
         if os.path.exists(os.path.join(self.raw_data_path, "temp_download")):
             # Creating a dictionary that stores obs_ids as keys and their field name as values
             field_dict = self._field_dict_generator()
 
-            # Moving the eventlist for each obs_id from its downloaded path the path DAXA expects
+            # Moving the eventlist for each obs_id from its downloaded path to the path DAXA expects
             for o in self.filtered_obs_ids:
                 if not os.path.exists(self.raw_data_path + '{o}'.format(o=o)):
                     os.makedirs(self.raw_data_path + '{o}'.format(o=o))
@@ -465,6 +465,9 @@ class eROSITACalPV(BaseMission):
         
             # Deleting temp_download directory containing the extra files that were not the obs_id eventlists
             shutil.rmtree(os.path.join(self.raw_data_path, "temp_download"))
+        
+        else:
+            pass
 
 
     def download(self, num_cores: int = NUM_CORES):
@@ -491,14 +494,22 @@ class eROSITACalPV(BaseMission):
         field_dict = self._field_dict_generator()
         # A list of fields needed to get the required obs_ids (with no duplicate fields)
         required_fields = list(set([field_dict[o] for o in self.filtered_obs_ids]))
+
+        # Dictionary containing all the possible obs_ids associated with one field (field keys, obs_ids values as a list)
+        obs_dict = {}
+        for field in required_fields:
+            obs_dict[field] = [obs for obs in field_dict if field_dict[obs] == field]
+        
+        # Collect all the fields who have got an obs_id/ obs_ids that aren't already downloaded 
+        fields_to_be_downloaded = [field for field in required_fields if not all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in obs_dict[field]])]
         
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
             if num_cores == 1:
-                with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
-                    for field in required_fields:
+                with tqdm(total=len(fields_to_be_downloaded), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
+                    for field in fields_to_be_downloaded:
                         # Use the internal static method I set up which both downloads and unpacks the eROSITACalPV data
-                        self._download_call(field)
+                        self._download_call(self, field=field)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -507,7 +518,7 @@ class eROSITACalPV(BaseMission):
                 raised_errors = []
 
                 # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
-                with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) \
+                with tqdm(total=len(fields_to_be_downloaded ), desc="Downloading {} data".format(self._pretty_miss_name)) \
                         as download_prog, Pool(num_cores) as pool:
 
                     # The callback function is what is called on the successful completion of a _download_call
@@ -537,7 +548,7 @@ class eROSITACalPV(BaseMission):
                         download_prog.update(1)
 
                     # Again nested for loop through ObsIDs and instruments
-                    for field in required_fields:
+                    for field in fields_to_be_downloaded:
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
                                             kwds={'field': field},
