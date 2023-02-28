@@ -16,3 +16,11 @@ mission.xmm module
    :members:
    :undoc-members:
    :show-inheritance:
+
+mission.erosita module
+----------------------
+
+.. automodule:: daxa.mission.erosita
+   :members:
+   :undoc-members:
+   :show-inheritance:
