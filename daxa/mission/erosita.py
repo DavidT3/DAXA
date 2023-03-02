@@ -24,7 +24,7 @@ class eROSITACalPV(BaseMission):
     The mission class for the eROSITA early data release observations made during the Calibration and Performance 
     Verification program. 
 
-    :param [str]/str fields: The fields or field type that the user is choosing to download/process data from.
+    :param List[str]/str fields: The fields or field type that the user is choosing to download/process data from.
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
     """
     def __init__(self, insts: Union[List[str], str] = None, fields: Union[List[str], str] = None):
@@ -32,7 +32,7 @@ class eROSITACalPV(BaseMission):
         The mission class for the eROSITA early data release observations made during the Calibration and Performance 
         Verification program. 
 
-        :param [str]/str fields: The fields or field types that the user is choosing to download/process data from.
+        :param List[str]/str fields: The fields or field types that the user is choosing to download/process data from.
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
         """
         # Call the init of parent class with the required information
@@ -414,29 +414,15 @@ class eROSITACalPV(BaseMission):
 
         # Download the requested data
         r = requests.get(CalPV_info["download"].loc[CalPV_info["Field_Name"] == field].values[0])
-        if field in {"EFEDS", "ETA_CHA"}:
-             # The eFEDS and eta_cha data come in a folder inside the tar file 
-             #  instead of files - like the rest of the CalPV data
-            tarname = os.path.join(temp_dir, "{f}.tar.gz".format(f=field))
-            open(tarname, "wb").write(r.content)
-            # unzipping the tar file
-            tar = tarfile.open(tarname, "r:gz")
-            tar.extractall(temp_dir)
-            tar.close()
-            os.remove(tarname)
-            # Need to change the directory name to be uppercase for compatibilty with later methods
-            file = os.listdir(temp_dir)[0]
-            os.rename(temp_dir + "/" + file, temp_dir + "/" + file.upper())
-        else: 
-            field_dir = os.path.join(temp_dir, "{f}".format(f=field))
-            os.makedirs(field_dir)
-            open(field_dir + "{f}.tar.gz".format(f=field), "wb").write(r.content)
-            # unzipping the tar file
-            tarname = field_dir + "{f}.tar.gz".format(f=field)
-            tar = tarfile.open(tarname, "r:gz")
-            tar.extractall(field_dir)
-            tar.close()
-            os.remove(tarname)
+        field_dir = os.path.join(temp_dir, "{f}".format(f=field))
+        os.makedirs(field_dir)
+        open(field_dir + "{f}.tar.gz".format(f=field), "wb").write(r.content)
+        # unzipping the tar file
+        tarname = field_dir + "{f}.tar.gz".format(f=field)
+        tar = tarfile.open(tarname, "r:gz")
+        tar.extractall(field_dir)
+        tar.close()
+        os.remove(tarname)
 
         return None
     
@@ -461,20 +447,28 @@ class eROSITACalPV(BaseMission):
                     field_name = field_dict[o]
                     # The path to where the obs_id was initially downloaded
                     field_dir = os.path.join(self.raw_data_path, "temp_download", field_name)
-                    # All the obs_id files 
-                    all_files = os.listdir(os.path.join(self.raw_data_path, "temp_download", field_name))
+                    # Not including hidden files in this list
+                    all_files = [f for f in os.listdir(field_dir) if not f.startswith('.')]
+                    # Some fields are in a folder, some are just the files not in a folder
+                    # If they are in a folder, there will only be one file in all files
+                    if len(all_files) == 1:
+                        second_field_dir = all_files[0]
+                        # redefining all_files so it lists the files in the folder
+                        all_files = os.listdir(os.path.join(field_dir, second_field_dir))
+                        # redefining field_dir so in the later block, the source is correct
+                        field_dir = os.path.join(field_dir, second_field_dir)
+                        
                     # Selecting the eventlist for the obs_id
                     obs_file_name =  [obs_file for obs_file in all_files if o in obs_file and "eRO" not in obs_file ][0]
                     source = os.path.join(field_dir, obs_file_name)
                     dest = os.path.join(obs_dir, obs_file_name)
                     shutil.move(source, dest)
-        
+
             # Deleting temp_download directory containing the extra files that were not the obs_id eventlists
             shutil.rmtree(os.path.join(self.raw_data_path, "temp_download"))
         
         else:
             pass
-
 
     def download(self, num_cores: int = NUM_CORES):
         """
