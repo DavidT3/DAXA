@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/03/2023, 12:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/03/2023, 12:51. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
@@ -8,6 +8,7 @@ from daxa.archive.base import Archive
 from daxa.process.xmm.assemble import epchain, emchain, cleaned_evt_lists, merge_subexposures
 from daxa.process.xmm.check import emanom
 from daxa.process.xmm.clean import espfilt
+from daxa.process.xmm.generate import generate_images_expmaps
 from daxa.process.xmm.setup import cif_build, odf_ingest
 
 
@@ -62,3 +63,6 @@ def full_process_xmm(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quanti
     # Finally this function checks for cases where an ObsID-instrument combination has sub-exposures that should be
     #  merged into a single, final, event list.
     merge_subexposures(obs_archive, num_cores=num_cores, timeout=timeout)
+
+    # Also added the automatic generation of 0.5-2.0 and 2.0-10.0 keV images and exposure maps
+    generate_images_expmaps(obs_archive, num_cores=num_cores)
