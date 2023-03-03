@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/03/2023, 12:51. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
@@ -8,11 +8,13 @@ from daxa.archive.base import Archive
 from daxa.process.xmm.assemble import epchain, emchain, cleaned_evt_lists, merge_subexposures
 from daxa.process.xmm.check import emanom
 from daxa.process.xmm.clean import espfilt
+from daxa.process.xmm.generate import generate_images_expmaps
 from daxa.process.xmm.setup import cif_build, odf_ingest
 
 
 def full_process_xmm(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quantity = None,
-                     process_unscheduled: bool = True, num_cores: int = NUM_CORES, timeout: Quantity = None):
+                     process_unscheduled: bool = True, find_mos_anom_state: bool = False,
+                     num_cores: int = NUM_CORES, timeout: Quantity = None):
     """
     This is a convenience function that will fully process and prepare XMM data in an archive using the default
     configuration settings of all the cleaning steps. If you wish to exercise finer grained control over the
@@ -25,6 +27,9 @@ def full_process_xmm(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quanti
         upper energy bound. The default is None, in which case NO ENERGY FILTER is applied.
     :param bool process_unscheduled: Should unscheduled sub-exposures be processed and included in the final event
         lists. The default is True.
+    :param bool find_mos_anom_state: Whether the emanom task should be run to search for anomolous states of the MOS
+        cameras. This is set to False by default, and you should be aware that I have not found it to be particularly
+        reliable with the default settings, it tends to remove good chips.
     :param int num_cores: The number of cores that can be used by the processing functions. The default is set to
         the DAXA NUM_CORES parameter, which is configured to be 90% of the system's cores.
     :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
@@ -41,9 +46,14 @@ def full_process_xmm(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quanti
     epchain(obs_archive, process_unscheduled, num_cores=num_cores, timeout=timeout)
     # This step does much the same but for EPIC-MOS observations
     emchain(obs_archive, process_unscheduled, num_cores=num_cores, timeout=timeout)
-    # This checks for anomalous CCD states in MOS observations - this step isn't obligatory but is
-    #  probably a good idea
-    emanom(obs_archive, num_cores=num_cores, timeout=timeout)
+
+    # The user can choose whether this state is run, if it isn't then cleaned_evt_lists should automatically
+    #  turn off its filtering based on anomolous state codes.
+    if find_mos_anom_state:
+        # This checks for anomalous CCD states in MOS observations - this step isn't obligatory but is
+        #  probably a good idea
+        emanom(obs_archive, num_cores=num_cores, timeout=timeout)
+
     # Runs through all available data and checks for periods of soft-proton flaring - this information is used by the
     #  cleaned event lists function to remove those time periods as part of the cleaning/filtering process
     espfilt(obs_archive, num_cores=num_cores, timeout=timeout)
@@ -53,3 +63,6 @@ def full_process_xmm(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quanti
     # Finally this function checks for cases where an ObsID-instrument combination has sub-exposures that should be
     #  merged into a single, final, event list.
     merge_subexposures(obs_archive, num_cores=num_cores, timeout=timeout)
+
+    # Also added the automatic generation of 0.5-2.0 and 2.0-10.0 keV images and exposure maps
+    generate_images_expmaps(obs_archive, num_cores=num_cores)
