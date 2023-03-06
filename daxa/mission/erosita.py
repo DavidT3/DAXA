@@ -16,9 +16,10 @@ from tqdm import tqdm
 from .base import BaseMission
 from .base import _lock_check
 from .. import NUM_CORES
-from ..config import CalPV_info
+from ..config import CalPV_info, obs_info
 from ..exceptions import DAXADownloadError
 
+# JESS_TODO deal with Puppis A sitch 700195
 class eROSITACalPV(BaseMission):
     """
     The mission class for the eROSITA early data release observations made during the Calibration and Performance 
@@ -241,34 +242,8 @@ class eROSITACalPV(BaseMission):
         This method uses the hard coded csv file in to pull information on all eROSITACalPV observations. 
         The data are processed into a Pandas dataframe and stored.
         """
-        # DF has 'Obs_ID', 'start', 'duration, 'end'
-        # Getting a list of the observations, if there are multiple associated with one field they are 
-        #  written as one entry in the Dataframe seperated by commas
-        obs_inc_multi = CalPV_info["Obs_ID"].tolist()
-
-        obs_formatted = []
-        for obs in obs_inc_multi:
-            if "," in obs:
-                # This checks if multiple observations are associated with one field
-                indv_obs = obs.split(", ")
-                # Then appends each observation as its own entry to a list
-                for ind_ob in indv_obs:
-                    obs_formatted.append(ind_ob)
-            else:
-                obs_formatted.append(obs)
-
-        # Creating a column for the Obs_IDs
-        obs_info_pd = pd.DataFrame(obs_formatted, columns=["ObsID"])
-
-        #JESS_TODO do this properly
-        # JESS_TODO usable will be true for everything
-
-        obs_info_pd['ra'] = ['lol' for i in range(len(obs_formatted))]
-        obs_info_pd['dec'] = ['lol' for i in range(len(obs_formatted))]
-        obs_info_pd['usable'] = [True for i in range(len(obs_formatted))]
-        obs_info_pd['start'] = ['lol' for i in range(len(obs_formatted))]
-        obs_info_pd['duration'] = ['lol' for i in range(len(obs_formatted))]
-
+        # Hard coded this and saved it to the obs_info.csv in /files
+        obs_info_pd = obs_info
         self.all_obs_info = obs_info_pd
 
     def _check_chos_fields(self, fields: Union[List[str], str]):

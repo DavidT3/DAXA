@@ -15,7 +15,7 @@ GALACTIC_FIELDS,IGR_J16318_4848,N,900062,248.24,-48.74,p,https://erosita.mpe.mpg
 GALACTIC_FIELDS,OAO_1657_415,N,900072,255.45,-41.56,p,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/OAO_1657m415.tar.gz,N
 GALACTIC_FIELDS,1RXS_J072025_312554,N,700007,110.1,-31.43,p,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/1RXS_J072025m312554.tar.gz,Y
 GALACTIC_FIELDS,VELA_SNR,N,700039,132.19,-45.61,p,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/Vela_SNR.tar.gz,Y
-GALACTIC_FIELDS,PUPPIS_A,N,700195,126.03,-43,s,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/Puppis_A.tar.gz,Y
+GALACTIC_FIELDS,PUPPIS_A,N,"700199, 700200",126.03,-43,s,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/Puppis_A.tar.gz,Y
 GALACTIC_FIELDS,HR_3165__ZET_PUP_,Y,700167,120.9,-40,p,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/HR_3165.tar.gz,Y
 GALACTIC_FIELDS,CRAB_1,,"900056, 900075, 900076, 900077, 900078, 900079, 900080, 900081, 900082, 900083, 900084, 900085, 900086, 900087, 900088, 900089, 900090, 900091, 900092, 900093, 900094, 900095, 900096, 900097, 900098, 900099",,,,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/Crab_I.tar.gz,
 GALACTIC_FIELDS,CRAB_2,,"900100, 900101, 900102, 900103, 900104, 900105, 900106, 900107, 900108, 900109, 900110, 900111, 900112, 900113, 900114, 900115, 900116, 900117, 900118, 900119, 900120, 900121, 900122, 900123, 900124, 900125, 900126, 900127, 900128, 900129",,,,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/Crab_II.tar.gz,
@@ -26,7 +26,7 @@ EXTRAGALACTIC_FIELDS,A3158,N,700177,55.73,-53.63,p,https://erosita.mpe.mpg.de/ed
 EXTRAGALACTIC_FIELDS,A3266,N,700154,67.84,-61.44,p,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/A3266.tar.gz,N
 EXTRAGALACTIC_FIELDS,1H0707,N,300003,107.17,-49.55,p,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/1H0707.tar.gz,N
 EXTRAGALACTIC_FIELDS,NGC_7793_P13,N,300011,359.46,-32.62,p,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/NGC_7793P13.tar.gz,N
-EXTRAGALACTIC_FIELDS,47_TUC__NGC_04_,N,"700011, 700012, 700013, 700014, 700163, 700173, 700174, 700175","5.52, 6.53, 6.33, 5.71, 6.53, 5.52, 6.53, 6.33","-71.98, -72.17, -71.93, -72.24, -72.18, -71.98, -72.18, -71.92","p,p,p,p,p,p,p,p",https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/47_Tuc.tar.gz,Y
+EXTRAGALACTIC_FIELDS,47_TUC__NGC_104_,N,"700011, 700012, 700013, 700014, 700163, 700173, 700174, 700175","5.52, 6.53, 6.33, 5.71, 6.53, 5.52, 6.53, 6.33","-71.98, -72.17, -71.93, -72.24, -72.18, -71.98, -72.18, -71.92","p,p,p,p,p,p,p,p",https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/47_Tuc.tar.gz,Y
 EXTRAGALACTIC_FIELDS,TGUH2213P1__DARK_CLOUD_,N,300017,285.59,-37.12,p,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/TGUH2213P1.tar.gz,N
 EXTRAGALACTIC_FIELDS,A3391_A3395,N,"300014, 300005, 300006, 300016","96.71, 96.71, 96.71, 96.71","-54.07, -54.07, -54.07,-54.07","p,s,s,s",https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/A3391_A3395.tar.gz,N
 EXTRAGALACTIC_FIELDS,1RXS_J185635_375433,N,700008,284.15,-37.91,p,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/1RXS_J185635m375433.tar.gz,Y
