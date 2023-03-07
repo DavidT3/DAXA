@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 15:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 15:36. Copyright (c) The Contributors
 import io
 from typing import List
 from urllib.request import urlopen
@@ -135,10 +135,25 @@ class NuSTARPointed(BaseMission):
             with fits.open(io.BytesIO(urlo.read())) as full_fits:
                 # Then convert the data in that fits file just into an astropy table object, and from there to a DF
                 full_nustar = Table(full_fits[1].data).to_pandas()
+                # This cycles through any column with the 'object' data type (string in this instance), and
+                #  strips it of white space (I noticed there was extra whitespace on the end of a lot of the
+                #  string data).
+                for col in full_nustar.select_dtypes(['object']).columns:
+                    full_nustar[col] = full_nustar[col].apply(lambda x: x.strip())
 
-        full_nustar = full_nustar.rename(columns=str.lower)
-        full_nustar = full_nustar.rename(columns={'obsid': 'ObsID', 'time': 'start'})
-        return full_nustar
+        # Important first step, select only 'science mode' observations, slew observations will be dealt with in
+        #  another class - also select only those observations which have actually been taken (this table contains
+        #  planned observations as well).
+        rel_nustar = full_nustar[(full_nustar['OBSERVATION_MODE'] == 'SCIENCE') &
+                                 (full_nustar['STATUS'].isin(['processed', 'archived']))]
+
+        # Lower-casing all of the column names (personal preference largely).
+        rel_nustar = rel_nustar.rename(columns=str.lower)
+        # Changing a few column names to match what BaseMission expects
+        rel_nustar = rel_nustar.rename(columns={'obsid': 'ObsID', 'time': 'start'})
+
+        # rel_nustar['start']
+        return rel_nustar
 
     @staticmethod
     def _download_call(observation_id: str, insts: List[str], level: str, filename: str):
