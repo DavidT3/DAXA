@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 13:52. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 14:33. Copyright (c) The Contributors
 import io
 from typing import List
 from urllib.request import urlopen
@@ -16,7 +16,7 @@ class NuSTARPointed(BaseMission):
     """
     
     """
-    
+
     def __init__(self):
         super().__init__()
         pass
@@ -99,27 +99,46 @@ class NuSTARPointed(BaseMission):
         available, proprietary, and scheduled NuSTAR observations, with important information such as pointing
         coordinates, ObsIDs, and exposure.
         """
+        # This is the web interface for querying NASA HEASArc catalogues
         host_url = "https://heasarc.gsfc.nasa.gov/db-perl/W3Browse/w3query.pl?"
 
+        # This returns the requested information in a FITS format - the idea being I will stream this into memory
+        #  and then have a fits table that I can convert into a Pandas dataframe (which I much prefer working with).
         down_form = "&displaymode=FitsDisplay"
         # This should mean unlimited, as we don't know how many NuSTAR observations there are, and the number will
         #  increase with time (so long as the telescope doesn't break...)
-        result_max ="&ResultMax=0"
+        result_max = "&ResultMax=0"
+        # This just tells the interface it's a query (I think?)
         action = "&Action=Query"
+        # Tells the interface that I want to retrieve from the numaster (NuSTAR Master) catalogue
         table_head = "tablehead=name=BATCHRETRIEVALCATALOG_2.0%20numaster"
 
-        fetch_url = host_url + table_head + action + result_max + down_form
+        # The definition of all of these fields can be found here:
+        #  (https://heasarc.gsfc.nasa.gov/W3Browse/nustar/numaster.html)
+        # The INSTRUMENT_MODE is acquired here even though they say that it is unlikely any observations will be made
+        #  in 'normal' mode, just so I can exclude those observations because frankly I don't know the difference
+        # SPACECRAFT_MODE is acquired because the 'STELLAR' mode might not be suitable for science so may be excluded
+        which_cols = ['NAME', 'RA', 'DEC', 'TIME', 'OBSID', 'STATUS', 'EXPOSURE_A', 'OBSERVATION_MODE', 'PUBLIC_DATE',
+                      'ISSUE_FLAG', 'END_TIME', 'EXPOSURE_B', 'INSTRUMENT_MODE', 'NUPSDOUT', 'ONTIME_A', 'ONTIME_B',
+                      'ROLL_ANGLE', 'SPACECRAFT_MODE', 'SUBJECT_CATEGORY']
+        # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
+        #  but I curated it to only those I think might be useful for DAXA
+        fields = '&Fields=' + '&varon='.join(which_cols)
 
-        # , stream=True
-        # with requests.get(fetch_url) as streamo
+        # The full URL that we will pull the data from, with all the components we have previously defined
+        fetch_url = host_url + table_head + action + result_max + down_form + fields
+
+        # Opening that URL, we can access the results of our request!
         with urlopen(fetch_url) as urlo:
+            # This opens the data as using the astropy fits interface (using io.BytesIO() to stream it into memory
+            #  first so that fits.open can access it as an already opened file handler).
             with fits.open(io.BytesIO(urlo.read())) as full_fits:
-                # print(full_fits[0].header)
-                # print('\n\n\n')
-                # print(full_fits[1].header)
-                nustar_tab = Table(full_fits[1].data)
+                # Then convert the data in that fits file just into an astropy table object, and from there to a DF
+                full_nustar = Table(full_fits[1].data).to_pandas()
 
-        return nustar_tab
+        # print(full_nustar['SUBJECT_CATEGORY'])
+
+        #
 
     @staticmethod
     def _download_call(observation_id: str, insts: List[str], level: str, filename: str):
@@ -127,4 +146,3 @@ class NuSTARPointed(BaseMission):
 
     def download(self):
         pass
-
