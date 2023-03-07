@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 18:06. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 18:24. Copyright (c) The Contributors
 import io
 from datetime import datetime
 from typing import List, Union
@@ -16,11 +16,55 @@ from daxa.mission.base import BaseMission
 
 class NuSTARPointed(BaseMission):
     """
-    spacecraft mode inertial only
+    The mission class for pointed NuSTAR observations (i.e. slewing observations are NOT included in the data accessed
+    and collected by instances of this class), nor are observations for which the spacecraft mode was 'STELLAR'.
+    The available observation information is fetched from the HEASArc NuMASTER table, and data are downloaded from
+    the HEASArc https access to their FTP server. Proprietary data are not currently supported by this class.
+
+    :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
     """
 
     def __init__(self, insts: Union[List[str], str] = None):
+        """
+        The mission class for pointed NuSTAR observations (i.e. slewing observations are NOT included in the data accessed
+        and collected by instances of this class), nor are observations for which the spacecraft mode was 'STELLAR'.
+        The available observation information is fetched from the HEASArc NuMASTER table, and data are downloaded from
+        the HEASArc https access to their FTP server. Proprietary data are not currently supported by this class.
+
+        :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
+        """
+
         super().__init__()
+
+        # Sets the default instruments - both instruments that are on NuSTAR
+        if insts is None:
+            insts = ['FPMA', 'FPMB']
+        else:
+            # Makes sure everything is uppercase
+            insts = [i.upper() for i in insts]
+
+        # These are the allowed instruments for this mission - NuSTAR has two telescopes, and each has its own
+        #  Focal Plane Module (FPMx)
+        self._miss_poss_insts = ['FPMA', 'FPMB']
+        # The chosen_instruments property setter (see below) will use these to convert possible contractions
+        #  of NuSTAR names to the names that the module expects. I'm not that familiar with NuSTAR currently, so
+        #  I've just put in FA and FB without any real expectation that anyone would use them.
+        self._alt_miss_inst_names = {'FA': 'FPMA', 'FB': 'FPMB'}
+
+        # Deliberately using the property setter, because it calls the internal _check_chos_insts function
+        #  to make sure the input instruments are allowed
+        self.chosen_instruments = insts
+
+        # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
+        self._required_mission_specific_cols = ['proprietary_end_date', 'exposure_a', 'exposure_b', 'ontime_a',
+                                                'ontime_b', 'nupsdout', 'issue_flag']
+
+        # Runs the method which fetches information on all available pointed NuSTAR observations and stores that
+        #  information in the all_obs_info property
+        self.fetch_obs_info()
+        # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
+        #  column of all_obs_info, rather than the initial None value
+        self.reset_filter()
 
     @property
     def name(self) -> str:
