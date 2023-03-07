@@ -1,8 +1,8 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 18:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 18:06. Copyright (c) The Contributors
 import io
 from datetime import datetime
-from typing import List
+from typing import List, Union
 from urllib.request import urlopen
 
 import pandas as pd
@@ -19,9 +19,8 @@ class NuSTARPointed(BaseMission):
     spacecraft mode inertial only
     """
 
-    def __init__(self):
+    def __init__(self, insts: Union[List[str], str] = None):
         super().__init__()
-        pass
 
     @property
     def name(self) -> str:
@@ -203,9 +202,6 @@ class NuSTARPointed(BaseMission):
 
         # Use the setter for all_obs_info to actually add this information to the instance
         self.all_obs_info = rel_nustar
-
-        # OBVIOUSLY REMOVE
-        return rel_nustar
 
     @staticmethod
     def _download_call(observation_id: str, insts: List[str], level: str, filename: str):
