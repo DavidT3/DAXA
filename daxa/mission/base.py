@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 10:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 17:40. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -17,7 +17,7 @@ from astropy.units import Quantity
 from daxa import OUTPUT
 from daxa.exceptions import MissionLockedError
 
-REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration']
+REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration', 'end']
 
 
 def _lock_check(change_func):
