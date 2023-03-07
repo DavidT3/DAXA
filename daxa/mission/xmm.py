@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 17:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 17:59. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -204,6 +204,9 @@ class XMMPointed(BaseMission):
         obs_info_pd['usable'] = obs_info_pd['usable_science'] * obs_info_pd['usable_proprietary']
         # Don't really care about this column now so remove.
         del obs_info_pd['radec_good']
+
+        # This just resets the index, as some of the rows may have been removed
+        obs_info_pd = obs_info_pd.reset_index(drop=True)
 
         self.all_obs_info = obs_info_pd
 
