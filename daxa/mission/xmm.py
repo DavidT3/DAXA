@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 17:25. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 17:54. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -14,7 +14,7 @@ from astroquery import log
 from astroquery.esa.xmm_newton import XMMNewton as AQXMMNewton
 from tqdm import tqdm
 
-from .base import BaseMission
+from daxa.mission.base import BaseMission
 from .. import NUM_CORES
 from ..exceptions import DAXADownloadError
 

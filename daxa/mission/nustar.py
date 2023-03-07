@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 17:19. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 17:54. Copyright (c) The Contributors
 import io
 from datetime import datetime
 from typing import List
@@ -11,7 +11,7 @@ from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time
 
-from daxa import BaseMission
+from daxa.mission.base import BaseMission
 
 
 class NuSTARPointed(BaseMission):
@@ -154,7 +154,7 @@ class NuSTARPointed(BaseMission):
         # Lower-casing all the column names (personal preference largely).
         rel_nustar = rel_nustar.rename(columns=str.lower)
         # Changing a few column names to match what BaseMission expects
-        rel_nustar = rel_nustar.rename(columns={'obsid': 'ObsID', 'time': 'start',
+        rel_nustar = rel_nustar.rename(columns={'obsid': 'ObsID', 'time': 'start', 'end_time': 'end',
                                                 'public_date': 'proprietary_end_date'})
 
         # print(rel_nustar[rel_nustar['proprietary_end_date'] == 0])
@@ -163,6 +163,16 @@ class NuSTARPointed(BaseMission):
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
         #  BaseMission time selection methods expect
         rel_nustar['start'] = pd.to_datetime(Time(rel_nustar['start'].values, format='mjd', scale='utc').to_datetime())
+        rel_nustar['end'] = pd.to_datetime(Time(rel_nustar['end'].values, format='mjd', scale='utc').to_datetime())
+        # Then make a duration column by subtracting one from t'other - there are also exposure and ontime columns
+        #  which I've acquired, but I think total duration is what I will go with here.
+        rel_nustar['duration'] = rel_nustar['end']-rel_nustar['start']
+
+        # Converting the exposure times and ontimes to Pandas time deltas
+        for col in rel_nustar.columns[(rel_nustar.columns.str.contains('exposure')) |
+                                      rel_nustar.columns.str.contains('ontime')]:
+            rel_nustar[col] = pd.to_timedelta(rel_nustar[col], 's')
+
         # Slightly more complicated with the public release dates, as some of them are set to 0 MJD, which makes the
         #  conversion routine quite upset (0 is not valid) - as such I convert only those which aren't 0, then
         #  replace the 0 valued ones with Pandas' Not a Time (NaT) value
@@ -181,6 +191,12 @@ class NuSTARPointed(BaseMission):
         #  observations are marked '1' (for an issue) and I don't really want to exclude that many out of hand so
         #  I will just make anything public usable for now.
         rel_nustar['usable'] = rel_nustar['usable_proprietary']
+
+        # Re-ordering the table, and not including certain columns which have served their purpose
+        rel_nustar = rel_nustar[['ObsID', 'ra', 'dec', 'usable', 'start', 'end', 'duration',
+                                 'proprietary_end_date', 'exposure_a', 'exposure_b', 'ontime_a', 'ontime_b',
+                                 'nupsdout', 'issue_flag']]
+
         # Use the setter for all_obs_info to actually add this information to the instance
         self.all_obs_info = rel_nustar
 
