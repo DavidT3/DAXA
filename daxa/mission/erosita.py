@@ -65,9 +65,6 @@ class eROSITACalPV(BaseMission):
         # Sets the default instruments
         if insts is None:
             insts = ['TM1', 'TM2', 'TM3', 'TM4', 'TM5', 'TM6', 'TM7']
-        else:
-            # Make sure everything is uppercase
-            insts = [i.upper() for i in insts]
         
         self._miss_poss_insts = ['TM1', 'TM2', 'TM3', 'TM4', 'TM5', 'TM6', 'TM7']
         self.chosen_instruments = insts

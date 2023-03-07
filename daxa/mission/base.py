@@ -479,7 +479,14 @@ class BaseMission(metaclass=ABCMeta):
         # Just makes sure we can iterate across instrument(s), regardless of how many there are
         if not isinstance(insts, list):
             insts = [insts]
-
+        
+        # Raising and error if the input is not Union[List[str], str]
+        if not all(isinstance(inst, str) for inst in insts):
+            raise TypeError("Instruments must be input as a string or a list of strings.")
+        
+        # Making sure the input is capitalised for compatibilty with the rest of the module
+        insts = [i.upper() for i in insts]
+        
         # This is clunky and inefficient but should be fine for these very limited purposes. It just checks whether
         #  this module has a preferred name for a particular instrument. We can also make sure that there are no
         #  duplicate instrument names here
