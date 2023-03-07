@@ -231,7 +231,6 @@ class eROSITACalPV(BaseMission):
         sel_obs_mask = self._obs_info['ObsID'].isin(field_obs_ids).values
         # Said boolean array can be multiplied with the existing filter array (by default all ones, which means
         #  all observations are let through) to produce an updated filter.
-        # DAVID_QUESTION i think your filter_on_obs_ids has a bug
         new_filter = self.filter_array*sel_obs_mask
         # Then we set the filter array property with that updated mask
         self.filter_array = new_filter
@@ -243,8 +242,8 @@ class eROSITACalPV(BaseMission):
         The data are processed into a Pandas dataframe and stored.
         """
         # Hard coded this and saved it to the obs_info.csv in /files
-        obs_info_pd = obs_info
-        self.all_obs_info = obs_info_pd
+        obs_info['ObsID'] = [str(obs) for obs in obs_info['ObsID']]
+        self.all_obs_info = obs_info
 
     def _check_chos_fields(self, fields: Union[List[str], str]):
         """
@@ -343,8 +342,7 @@ class eROSITACalPV(BaseMission):
         # Selecting the telescope module number column
         data = hdul[1].data
         t_col = data["TM_NR"]
-        
-        # DAVID_QUESTION not sure if this is the correct attribute to use here (getting lost in setters and getters!)
+    
         insts = self.chosen_instruments
         # Just makes sure we can iterate across inst(s), regardless of how many there are
         if not isinstance(insts, list):
@@ -362,11 +360,9 @@ class eROSITACalPV(BaseMission):
         hdul[1].data = filtered_data
 
         # Writing this to a new file (the if is for instrument filtered)
-        # DAVID_QUESTION the instrument choice wont change?
-        # JESS_TODO maybe add in which insts were removed from the file
         hdul.writeto(evlist_path[:-5] + '_if.fits')
         hdul.close()
-    
+        
     @staticmethod
     def _download_call(self, field: str):
         """
@@ -444,7 +440,21 @@ class eROSITACalPV(BaseMission):
         
         else:
             pass
+    
+    def _get_evlist_path_from_obs(self, obs: str):
+        '''
+        Internal method to get the unfiltered, downloaded event list path for a given
+        obs id, for use in the download method. 
 
+        :param str obs: The obs id for the event list required.
+        :return: The path of the event list.
+        :rtype: str
+        '''
+        file_name = os.listdir(os.path.join(self.raw_data_path + '{o}'.format(o=obs)))[0]
+        ev_list_path = os.path.join(self.raw_data_path + '{o}'.format(o=obs), file_name)
+
+        return ev_list_path
+    
     def download(self, num_cores: int = NUM_CORES):
         """
         A method to acquire and download the eROSITA CalPV data that have not been filtered out (if a filter
@@ -544,7 +554,7 @@ class eROSITACalPV(BaseMission):
             # Only doing the instrument filtering step if not all the instruments have been chosen
             if len(self.chosen_instruments) != 7:
                 # Getting all the path for each eventlist corresponding to an obs_id for the _inst_filtering function later
-                fits_paths = [os.path.join(self.raw_data_path + '{o}'.format(o=o)) for o in self.filtered_obs_ids]
+                fits_paths = [self._get_evlist_path_from_obs(obs=o) for o in self.filtered_obs_ids]
 
                 # Filtering out any events from the raw data that arent from the selected instruments
                 if num_cores == 1:
