@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 10:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 10:36. Copyright (c) The Contributors
 from typing import List
 
 import pandas as pd
@@ -61,11 +61,30 @@ class NuSTAR(BaseMission):
 
     @property
     def all_obs_info(self) -> pd.DataFrame:
-        pass
+        """
+        A property getter that returns the base dataframe containing information about all the observations available
+        for an instance of a mission class.
+
+        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'usable_science',
+            'start', 'duration'
+        :rtype: pd.DataFrame
+        """
+        return self._obs_info
 
     @all_obs_info.setter
     def all_obs_info(self, new_info: pd.DataFrame):
-        pass
+        """
+        Property setter that allows the setting of a new all-observation-information dataframe. This is the dataframe
+        that contains information on every possible observation for a mission.
+
+        :param pd.DataFrame new_info: The new dataframe to update the all observation information.
+        """
+        # Frankly I'm not really sure why I made this an abstract method, but possibly because I thought some
+        #  missions might need extra checks run on their observation information dataframes?
+        # This _obs_info_checks method is defined in BaseMission, and uses the ObsID regex defined near the top of
+        #  this class to ensure that the dataframe's ObsID column contains legal values.
+        self._obs_info_checks(new_info)
+        self._obs_info = new_info
 
     def fetch_obs_info(self):
         pass
