@@ -1,9 +1,13 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 10:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 13:45. Copyright (c) The Contributors
+import io
 from typing import List
+from urllib.request import urlopen
 
 import pandas as pd
 from astropy.coordinates import BaseRADecFrame, FK5
+from astropy.io import fits
+from astropy.table import Table
 
 from daxa import BaseMission
 
@@ -14,6 +18,7 @@ class NuSTAR(BaseMission):
     """
     
     def __init__(self):
+        super().__init__()
         pass
 
     @property
@@ -87,7 +92,34 @@ class NuSTAR(BaseMission):
         self._obs_info = new_info
 
     def fetch_obs_info(self):
-        pass
+        """
+        This method adapts the 'browse_extract.pl' script (a copy of which can be found in daxa/files for the proper
+        credit) to acquire the 'numaster' table from HEASArc - this method is much simpler, as it doesn't need to be
+        dynamic and accept different arguments, and we will filter observations locally. This table describes the
+        available, proprietary, and scheduled NuSTAR observations, with important information such as pointing
+        coordinates, ObsIDs, and exposure.
+        """
+        host_url = "https://heasarc.gsfc.nasa.gov/db-perl/W3Browse/w3query.pl?"
+
+        down_form = "&displaymode=FitsDisplay"
+        # This should mean unlimited, as we don't know how many NuSTAR observations there are, and the number will
+        #  increase with time (so long as the telescope doesn't break...)
+        result_max ="&ResultMax=0"
+        action = "&Action=Query"
+        table_head = "tablehead=name=BATCHRETRIEVALCATALOG_2.0%20numaster"
+
+        fetch_url = host_url + table_head + action + result_max + down_form
+
+        # , stream=True
+        # with requests.get(fetch_url) as streamo
+        with urlopen(fetch_url) as urlo:
+            with fits.open(io.BytesIO(urlo.read())) as full_fits:
+                # print(full_fits[0].header)
+                # print('\n\n\n')
+                # print(full_fits[1].header)
+                nustar_tab = Table(full_fits[1].data)
+
+        return nustar_tab
 
     @staticmethod
     def _download_call(observation_id: str, insts: List[str], level: str, filename: str):
