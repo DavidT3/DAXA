@@ -1,6 +1,7 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 15:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 17:19. Copyright (c) The Contributors
 import io
+from datetime import datetime
 from typing import List
 from urllib.request import urlopen
 
@@ -8,13 +9,14 @@ import pandas as pd
 from astropy.coordinates import BaseRADecFrame, FK5
 from astropy.io import fits
 from astropy.table import Table
+from astropy.time import Time
 
 from daxa import BaseMission
 
 
 class NuSTARPointed(BaseMission):
     """
-    
+    spacecraft mode inertial only
     """
 
     def __init__(self):
@@ -142,17 +144,47 @@ class NuSTARPointed(BaseMission):
                     full_nustar[col] = full_nustar[col].apply(lambda x: x.strip())
 
         # Important first step, select only 'science mode' observations, slew observations will be dealt with in
-        #  another class - also select only those observations which have actually been taken (this table contains
+        #  another class - this includes excluding observations with 'STELLAR' spacecraft mode, as they are likely
+        #  rotating. Also select only those observations which have actually been taken (this table contains
         #  planned observations as well).
         rel_nustar = full_nustar[(full_nustar['OBSERVATION_MODE'] == 'SCIENCE') &
+                                 (full_nustar['SPACECRAFT_MODE'] == 'INERTIAL') &
                                  (full_nustar['STATUS'].isin(['processed', 'archived']))]
 
-        # Lower-casing all of the column names (personal preference largely).
+        # Lower-casing all the column names (personal preference largely).
         rel_nustar = rel_nustar.rename(columns=str.lower)
         # Changing a few column names to match what BaseMission expects
-        rel_nustar = rel_nustar.rename(columns={'obsid': 'ObsID', 'time': 'start'})
+        rel_nustar = rel_nustar.rename(columns={'obsid': 'ObsID', 'time': 'start',
+                                                'public_date': 'proprietary_end_date'})
 
-        # rel_nustar['start']
+        # print(rel_nustar[rel_nustar['proprietary_end_date'] == 0])
+        # stop
+
+        # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
+        #  BaseMission time selection methods expect
+        rel_nustar['start'] = pd.to_datetime(Time(rel_nustar['start'].values, format='mjd', scale='utc').to_datetime())
+        # Slightly more complicated with the public release dates, as some of them are set to 0 MJD, which makes the
+        #  conversion routine quite upset (0 is not valid) - as such I convert only those which aren't 0, then
+        #  replace the 0 valued ones with Pandas' Not a Time (NaT) value
+        val_end_dates = rel_nustar['proprietary_end_date'] != 0
+        rel_nustar.loc[val_end_dates, 'proprietary_end_date'] = pd.to_datetime(
+            Time(rel_nustar.loc[val_end_dates, 'proprietary_end_date'].values, format='mjd', scale='utc').to_datetime())
+        rel_nustar.loc[~val_end_dates, 'proprietary_end_date'] = pd.NaT
+        # Grab the current date and time
+        today = datetime.today()
+        # Create a boolean column that describes whether the data are out of their proprietary period yet
+        rel_nustar['usable_proprietary'] = rel_nustar['proprietary_end_date'].apply(lambda x:
+                                                                                    ((x <= today) &
+                                                                                     (pd.notnull(x)))).astype(bool)
+
+        # I was going to use the 'issue_flag' column as a way of deciding scientific viability, but over 1500
+        #  observations are marked '1' (for an issue) and I don't really want to exclude that many out of hand so
+        #  I will just make anything public usable for now.
+        rel_nustar['usable'] = rel_nustar['usable_proprietary']
+        # Use the setter for all_obs_info to actually add this information to the instance
+        self.all_obs_info = rel_nustar
+
+        # OBVIOUSLY REMOVE
         return rel_nustar
 
     @staticmethod
