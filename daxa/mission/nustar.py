@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 17:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 18:01. Copyright (c) The Contributors
 import io
 from datetime import datetime
 from typing import List
@@ -193,9 +193,13 @@ class NuSTARPointed(BaseMission):
         rel_nustar['usable'] = rel_nustar['usable_proprietary']
 
         # Re-ordering the table, and not including certain columns which have served their purpose
-        rel_nustar = rel_nustar[['ObsID', 'ra', 'dec', 'usable', 'start', 'end', 'duration',
+        rel_nustar = rel_nustar[['ra', 'dec', 'ObsID', 'usable', 'start', 'end', 'duration',
                                  'proprietary_end_date', 'exposure_a', 'exposure_b', 'ontime_a', 'ontime_b',
                                  'nupsdout', 'issue_flag']]
+
+        # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
+        #  the user would expect from  a fresh dataframe
+        rel_nustar = rel_nustar.reset_index(drop=True)
 
         # Use the setter for all_obs_info to actually add this information to the instance
         self.all_obs_info = rel_nustar
