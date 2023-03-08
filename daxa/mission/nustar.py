@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 21:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 21:49. Copyright (c) The Contributors
 import io
 import os
 from datetime import datetime
@@ -13,11 +13,12 @@ from astropy.coordinates import BaseRADecFrame, FK5
 from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time
+from lxml import etree
 from tqdm import tqdm
 
 from daxa import NUM_CORES
+from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
-from ..exceptions import DAXADownloadError
 
 
 class NuSTARPointed(BaseMission):
@@ -263,7 +264,15 @@ class NuSTARPointed(BaseMission):
         # This identifies the type of source that was being observed, useful here to get to the right directory
         src_cat = observation_id[0]
 
-
+        top_url = "https://heasarc.gsfc.nasa.gov/FTP/nustar/data/obs/{pid}/{sc}/{oid}/".format(pid=prog_id, sc=src_cat,
+                                                                                               oid=observation_id)
+        session = requests.Session()
+        page = session.get(top_url)
+        html = page.content.decode("utf-8")
+        tree = etree.parse(io.StringIO(html), parser=etree.HTMLParser())
+        print(tree)
+        # Credit to https://www.matecdev.com/posts/login-download-files-python.html for pointing me in the direction
+        #  of modules to
 
 
         # https://heasarc.gsfc.nasa.gov/FTP/nustar/data/obs/
