@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 23:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 23:14. Copyright (c) The Contributors
 import io
 import os
 from datetime import datetime
@@ -305,7 +305,7 @@ class NuSTARPointed(BaseMission):
             # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
             #  are the files we shall be downloading
             to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
-                       if '?' not in en['href'] and en['href'] != obs_dir]
+                       if '?' not in en['href'] and obs_dir not in en['href']]
 
             # As we allow the user to select a single instrument, if they don't want both (though goodness knows why
             #  on earth anyone would do that), the event_uf directory gets an extra check. The last character of
