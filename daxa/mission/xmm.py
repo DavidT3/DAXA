@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 21:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 22:50. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -43,9 +43,12 @@ class XMMPointed(BaseMission):
         # Sets the default instruments - #TODO Perhaps update these to include RGS and OM, once they're supported
         if insts is None:
             insts = ['M1', 'M2', 'PN']
-        else:
-            # Makes sure everything is uppercase
-            insts = [i.upper() for i in insts]
+        elif isinstance(insts, str):
+            # Makes sure that, if a single instrument is passed as a string, the insts variable is a list for the
+            #  rest of the work done using it
+            insts = [insts]
+        # Makes sure everything is uppercase
+        insts = [i.upper() for i in insts]
 
         self._miss_poss_insts = ['M1', 'M2', 'PN', 'OM', 'R1', 'R2']
         # The chosen_instruments property setter (see below) will use these to convert possible contractions
