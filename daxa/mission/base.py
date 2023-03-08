@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 17:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 00:53. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -15,7 +15,7 @@ from astropy.coordinates import SkyCoord, BaseRADecFrame
 from astropy.units import Quantity
 
 from daxa import OUTPUT
-from daxa.exceptions import MissionLockedError
+from daxa.exceptions import MissionLockedError, NoObsAfterFilterError
 
 REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration', 'end']
 
@@ -664,6 +664,11 @@ class BaseMission(metaclass=ABCMeta):
 
         # Runs the 'catalogue matching' between all available observations and the input positions.
         which_pos, which_obs, d2d, d3d = self.ra_decs.search_around_sky(positions, search_distance)
+
+        # Have to check whether any observations have actually been found, if not then we throw an error
+        if len(which_obs) == 0:
+            raise NoObsAfterFilterError("The positional search has returned no {} "
+                                        "observations.".format(self.pretty_name))
 
         # Sets up a filter array that consists entirely of zeros initially (i.e. it would not let
         #  any observations through).
