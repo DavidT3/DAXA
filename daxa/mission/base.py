@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 10:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 11:04. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -13,11 +13,16 @@ import pandas as pd
 from astropy import units as u
 from astropy.coordinates import SkyCoord, BaseRADecFrame
 from astropy.units import Quantity
+from tabulate import tabulate
 
 from daxa import OUTPUT
 from daxa.exceptions import MissionLockedError, NoObsAfterFilterError
 
+# These are the columns which MUST be present in the all_obs_info dataframes of any sub-class of BaseMission. This
+#  is mainly implemented to make sure developers who aren't me provide the right data formats
 REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration', 'end']
+# This defines the DAXA source category system, which can be employed by users to narrow down observations which
+#  target specific types of source (if that data is available for a specific mission).
 SRC_TYPE_TAXONOMY = {'AGN': 'Active Galaxies and Quasars', 'BLZ': 'Blazars', 'CAL': 'Calibration Observation',
                      'EGS': 'Extragalactic Surveys', 'GLS': 'Galaxy Clusters', 'GS': 'Galactic Survey',
                      'MAG': 'Magnetars and Rotation-Powered Pulsars', 'NGS': 'Normal and Starburst Galaxies',
@@ -753,6 +758,24 @@ class BaseMission(metaclass=ABCMeta):
         must be overwritten in each subclass.
         """
         pass
+
+    @staticmethod
+    def show_allowed_target_types(table_format: str = 'fancy_grid'):
+        """
+        This simple method just displays the DAXA source type taxonomy (the target source types you can filter by)
+        in a nice table, with descriptions of what each source type means. Filtering on target source type is not
+        guaranteed to work with every mission, as target type information is not necessarily available, but this
+        filtering is used through the filter_on_target_type method.
+
+        :param str table_format: The style format for the table to be displayed (should be one of the 'tabulate'
+            module formats). The default is 'fancy_grid'.
+        """
+        # Reads out the keys (i.e. what the user can filter with), and their descriptions
+        data = [[k, v] for k, v in SRC_TYPE_TAXONOMY.items()]
+        # Create the two column titles
+        cols = ['Target Type', 'Description']
+        # Now simply print them in a nice table
+        print(tabulate(data, cols, tablefmt=table_format))
 
     def __len__(self):
         """
