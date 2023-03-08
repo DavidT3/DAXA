@@ -1,9 +1,10 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 23:28. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 23:46. Copyright (c) The Contributors
 import io
 import os
 from datetime import datetime
 from multiprocessing import Pool
+from shutil import copyfileobj
 from typing import List, Union, Any
 from warnings import warn
 
@@ -317,7 +318,7 @@ class NuSTARPointed(BaseMission):
                 down_url = rel_url + down_file
                 with session.get(down_url, stream=True) as acquiro:
                     with open(local_dir + down_file, 'wb') as writo:
-                        writo.write(acquiro.content)
+                        copyfileobj(acquiro.raw, writo)
 
         return None
 
