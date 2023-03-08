@@ -21,6 +21,7 @@ limited. Support for more telescopes is either currently under development or be
 
     * XMM-Newton Pointed
     * [Under Development] eROSITA Commissioning
+    * [Under Development - data acquisition implemented] NuSTAR
 
 *Chandra support is being planned as a priority - if you would like to help with this, please get in contact!*
 
