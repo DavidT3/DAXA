@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 00:52. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 14:56. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -139,6 +139,7 @@ class XMMPointed(BaseMission):
         """
         self._obs_info_checks(new_info)
         self._obs_info = new_info
+        self.reset_filter()
 
     # Then define user-facing methods
     def fetch_obs_info(self):
