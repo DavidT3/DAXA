@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 11:28. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 13:37. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -63,6 +63,7 @@ class BaseMission(metaclass=ABCMeta):
     prepared and reduced in various ways. The mission classes will also be responsible for providing a consistent
     user experience of downloading data and generating processed archives.
     """
+
     def __init__(self):
         """
         The __init__ of the superclass for all missions defined in this module. Mission classes will be for storing
@@ -479,7 +480,16 @@ class BaseMission(metaclass=ABCMeta):
         if not isinstance(new_info, pd.DataFrame) or not all([col in new_info.columns for col in
                                                               REQUIRED_COLS + self._required_mission_specific_cols]):
             raise ValueError("New all_obs_info values for this mission must be a Pandas dataframe with the following "
-                             "columns; {}".format(', '.join(REQUIRED_COLS+self._required_mission_specific_cols)))
+                             "columns; {}".format(', '.join(REQUIRED_COLS + self._required_mission_specific_cols)))
+
+        # Checking for target types in the obsinfo dataframe that are not in the DAXA taxonomy
+        tt_check = [tt for tt in new_info['target_category'].value_counts().index.values
+                    if tt not in SRC_TYPE_TAXONOMY]
+        if len(tt_check) != 0:
+            # Throw a hopefully useful error if the user has passed illegal values
+            raise IllegalSourceType("Unsupported target type(s) ({it}) are present in the new observation info "
+                                    "dataframe, use one of the following; "
+                                    "{at}".format(it=', '.join(tt_check), at=', '.join(list(SRC_TYPE_TAXONOMY.keys()))))
 
     def _check_chos_insts(self, insts: Union[List[str], str]):
         """
@@ -589,7 +599,7 @@ class BaseMission(metaclass=ABCMeta):
         sel_obs_mask = self._obs_info['ObsID'].isin(allowed_obs_ids)
         # Said boolean array can be multiplied with the existing filter array (by default all ones, which means
         #  all observations are let through) to produce an updated filter.
-        new_filter = self.filter_array*sel_obs_mask
+        new_filter = self.filter_array * sel_obs_mask
         # Then we set the filter array property with that updated mask
         self.filter_array = new_filter
 
@@ -634,7 +644,7 @@ class BaseMission(metaclass=ABCMeta):
             raise NoObsAfterFilterError("The box search has returned no {} observations.".format(self.pretty_name))
 
         # Updates the filter array
-        new_filter = self.filter_array*box_filter
+        new_filter = self.filter_array * box_filter
         self.filter_array = new_filter
 
     @_lock_check
@@ -697,7 +707,7 @@ class BaseMission(metaclass=ABCMeta):
         # Convert the array of ones and zeros to boolean, which is what the filter_array property setter wants
         pos_filter = pos_filter.astype(bool)
         # Create the combination of the existing filter array and the new position filter
-        new_filter = self.filter_array*pos_filter
+        new_filter = self.filter_array * pos_filter
         # And update the filter array
         self.filter_array = new_filter
 
@@ -831,8 +841,3 @@ class BaseMission(metaclass=ABCMeta):
         :rtype: int
         """
         return len(self.filtered_obs_info)
-
-
-
-
-
