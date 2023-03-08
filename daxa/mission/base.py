@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 13:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 13:42. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -782,7 +782,7 @@ class BaseMission(metaclass=ABCMeta):
                                          "for {}".format(self.pretty_name))
 
         # This creates a boolean array of dataframe entries that match the selected target type(s)
-        sel_obs_mask = self._obs_info['ObsID'].isin(target_type)
+        sel_obs_mask = self._obs_info['target_category'].isin(target_type)
         # Check that we actually selected some observations
         if sel_obs_mask.sum() == 0:
             raise NoObsAfterFilterError("The target type search has returned no {} "
