@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 13:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 14:37. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from astropy import units as u
 from astropy.coordinates import SkyCoord, BaseRADecFrame
+from astropy.coordinates.name_resolve import NameResolveError
 from astropy.units import Quantity
 from tabulate import tabulate
 
@@ -712,6 +713,60 @@ class BaseMission(metaclass=ABCMeta):
         new_filter = self.filter_array * pos_filter
         # And update the filter array
         self.filter_array = new_filter
+
+    @_lock_check
+    def filter_on_name(self, object_name: Union[str, List[str]], search_distance: Union[Quantity, float, int],
+                       parse_name: bool = False):
+        """
+        This method wraps the 'filter_on_positions' method, and allows you to filter the mission's observations so
+        that it contains data on a single (or a list of) specific objects. The names are passed by the user, and
+        then parsed into coordinates using the Sesame resolver. Those coordinates and the search distance are
+        then used to find observations that might be relevant.
+
+        :param str/List[str] object_name: The name(s) of objects you would like to search for.
+        :param Quantity/float/int search_distance: The distance within which to search for observations by this
+            mission. Distance may be specified as an Astropy Quantity that can be converted to degrees, or as a
+            float/integer that will be assumed to be in units of degrees.
+        :param bool parse_name: Whether to attempt extracting the coordinates from the name by parsing with a regex.
+            For objects catalog names that have J-coordinates embedded in their names, e.g.,
+            'CRTS SSS100805 J194428-420209', this may be much faster than a Sesame query for the same object name.
+        """
+        # Turn a single name into a list with a single entry - normalises it for the rest of the method
+        if isinstance(object_name, str):
+            object_name = [object_name]
+
+        # This is the list where coordinates will be stored
+        coords = []
+        # Any failed lookups will be stored in here, and the user will be warned that they couldn't be resolved.
+        bad_names = []
+        # Cycling through the names
+        for n_ind, name in enumerate(object_name):
+            # Try except is necessary to deal with the possibility of the name not being resolved
+            try:
+                # We read the coordinates out into the frame of mission, and let the user decide whether
+                #  they want to use the parsing ability in from_name
+                coords.append(SkyCoord.from_name(name, frame=self.coord_frame, parse=parse_name))
+            except NameResolveError:
+                # If we could not resolve the name, we save said name for the warning later
+                bad_names.append(name)
+
+        # Have to check whether there are any coordinates that have been resolved, if not we throw an error
+        if len(coords) == 0:
+            raise NameResolveError("The name(s) could be resolved into coordinates.")
+
+        # Also, if this list has any entries, then some names failed to resolve (but if we're here then some of the
+        #  names WERE resolved)
+        if len(bad_names) != 0:
+            # Warn the user what happened, with the names, so they can do some diagnosis
+            warn('Some of the object names ({}) could not be resolved by Sesame'.format(', '.join(bad_names)),
+                 stacklevel=2)
+
+        # This combines the coordinate list into just one SkyCoord instance, with multiple coordinate entries. Now
+        #  we can use this with the ObsID filtering method
+        coords = SkyCoord(coords)
+
+        # Now we just call the 'filter_on_positions' method
+        self.filter_on_positions(coords, search_distance)
 
     @_lock_check
     def filter_on_time(self, start_datetime: datetime, end_datetime: datetime, over_run: bool = False):
