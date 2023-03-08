@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 13:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 00:44. Copyright (c) The Contributors
 
 
 class DAXAConfigError(Exception):
@@ -203,3 +203,24 @@ class NoDependencyProcessError(Exception):
             return '{0} '.format(self.message)
         else:
             return 'NoDependencyProcessError has been raised'
+
+
+class NoObsAfterFilterError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if a there are no valid observations left in a mission after filtering processes have been
+        applied.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'NoObsAfterFilterError has been raised'
