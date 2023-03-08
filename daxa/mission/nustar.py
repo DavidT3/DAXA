@@ -1,7 +1,8 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 23:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 23:59. Copyright (c) The Contributors
 import io
 import os
+import tarfile
 from datetime import datetime
 from multiprocessing import Pool
 from shutil import copyfileobj
@@ -320,6 +321,16 @@ class NuSTARPointed(BaseMission):
                     with open(local_dir + down_file, 'wb') as writo:
                         copyfileobj(acquiro.raw, writo)
 
+                # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
+                #  event lists, as they're more likely to be used
+                if 'evt.gz' in down_file:
+                    # Open and untar the file
+                    with tarfile.open(local_dir + down_file) as tarro:
+                        untar_path = local_dir + down_file.split('.gz')[0]
+                        tarro.extractall(untar_path)
+                    # Then remove the tarred file to minimise storage usage
+                    os.remove(local_dir + down_file)
+
         return None
 
     def download(self, num_cores: int = NUM_CORES):
@@ -359,7 +370,6 @@ class NuSTARPointed(BaseMission):
                         download_prog.update(1)
 
             elif num_cores > 1:
-                raise NotImplementedError('Getting there')
                 # List to store any errors raised during download tasks
                 raised_errors = []
 
