@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 00:52. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 13:29. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -76,7 +76,7 @@ class NuSTARPointed(BaseMission):
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
         self._required_mission_specific_cols = ['proprietary_end_date', 'exposure_a', 'exposure_b', 'ontime_a',
-                                                'ontime_b', 'nupsdout', 'issue_flag']
+                                                'ontime_b', 'nupsdout', 'issue_flag', 'target_category']
 
         # Runs the method which fetches information on all available pointed NuSTAR observations and stores that
         #  information in the all_obs_info property
@@ -184,7 +184,7 @@ class NuSTARPointed(BaseMission):
         # SPACECRAFT_MODE is acquired because the 'STELLAR' mode might not be suitable for science so may be excluded
         which_cols = ['RA', 'DEC', 'TIME', 'OBSID', 'STATUS', 'EXPOSURE_A', 'OBSERVATION_MODE', 'PUBLIC_DATE',
                       'ISSUE_FLAG', 'END_TIME', 'EXPOSURE_B', 'INSTRUMENT_MODE', 'NUPSDOUT', 'ONTIME_A', 'ONTIME_B',
-                      'SPACECRAFT_MODE']
+                      'SPACECRAFT_MODE', 'SUBJECT_CATEGORY', 'OBS_TYPE']
         # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
         #  but I curated it to only those I think might be useful for DAXA
         fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
@@ -217,10 +217,8 @@ class NuSTARPointed(BaseMission):
         rel_nustar = rel_nustar.rename(columns=str.lower)
         # Changing a few column names to match what BaseMission expects
         rel_nustar = rel_nustar.rename(columns={'obsid': 'ObsID', 'time': 'start', 'end_time': 'end',
-                                                'public_date': 'proprietary_end_date'})
-
-        # print(rel_nustar[rel_nustar['proprietary_end_date'] == 0])
-        # stop
+                                                'public_date': 'proprietary_end_date',
+                                                'subject_category': 'target_category'})
 
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
         #  BaseMission time selection methods expect
@@ -254,10 +252,28 @@ class NuSTARPointed(BaseMission):
         #  I will just make anything public usable for now.
         rel_nustar['usable'] = rel_nustar['usable_proprietary']
 
+        # Convert the categories of target that are present in the dataframe to the DAXA taxonomy
+        conv_dict = {'Active galaxies and Quasars': 'AGN', 'Non-Proposal ToOs': 'TOO',
+                     'Galactic Compact Sources': 'GS', 'Solar System Objects': 'SOL',
+                     'Proposed ToOs and Directors Discretionary Time': 'TOO', 'Calibration Observations': 'CAL',
+                     'Non-ToO Supernovae, Supernova Remnants, and Galactic diffuse': 'SNR', 'Normal galaxies': 'NGS',
+                     'Galaxy clusters and extragalactic diffuse objects': 'GCL', 'Non-Pointing data': 'MISC'}
+
+        # I don't want to assume that the descriptions I've seen looking at the whole NuSTAR master list as it is now
+        #  is how it will stay forever, as such I construct a mask that tells me which entries have a recognised
+        #  description - any that don't will be set to the 'MISC' code
+        type_recog = rel_nustar['target_category'].isin(list(conv_dict.keys()))
+        # The recognized target category descriptions are converted to DAXA taxonomy
+        rel_nustar.loc[type_recog, 'target_category'] = rel_nustar.loc[type_recog, 'target_category'].apply(
+            lambda x: conv_dict[x])
+        # Now I set any unrecognized target category descriptions to MISC - there are none at the time of writing,
+        #  but that could well change
+        rel_nustar.loc[~type_recog, 'target_category'] = 'MISC'
+
         # Re-ordering the table, and not including certain columns which have served their purpose
         rel_nustar = rel_nustar[['ra', 'dec', 'ObsID', 'usable', 'start', 'end', 'duration',
-                                 'proprietary_end_date', 'exposure_a', 'exposure_b', 'ontime_a', 'ontime_b',
-                                 'nupsdout', 'issue_flag']]
+                                 'proprietary_end_date', 'target_category', 'exposure_a', 'exposure_b', 'ontime_a',
+                                 'ontime_b', 'nupsdout', 'issue_flag']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
         #  the user would expect from  a fresh dataframe
