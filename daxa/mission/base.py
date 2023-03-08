@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 13:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 13:40. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -482,14 +482,16 @@ class BaseMission(metaclass=ABCMeta):
             raise ValueError("New all_obs_info values for this mission must be a Pandas dataframe with the following "
                              "columns; {}".format(', '.join(REQUIRED_COLS + self._required_mission_specific_cols)))
 
-        # Checking for target types in the obsinfo dataframe that are not in the DAXA taxonomy
-        tt_check = [tt for tt in new_info['target_category'].value_counts().index.values
-                    if tt not in SRC_TYPE_TAXONOMY]
-        if len(tt_check) != 0:
-            # Throw a hopefully useful error if the user has passed illegal values
-            raise IllegalSourceType("Unsupported target type(s) ({it}) are present in the new observation info "
-                                    "dataframe, use one of the following; "
-                                    "{at}".format(it=', '.join(tt_check), at=', '.join(list(SRC_TYPE_TAXONOMY.keys()))))
+        if 'target_category' in new_info.columns:
+            # Checking for target types in the obsinfo dataframe that are not in the DAXA taxonomy
+            tt_check = [tt for tt in new_info['target_category'].value_counts().index.values
+                        if tt not in SRC_TYPE_TAXONOMY]
+            if len(tt_check) != 0:
+                # Throw a hopefully useful error if the user has passed illegal values
+                raise IllegalSourceType("Unsupported target type(s) ({it}) are present in the new observation info "
+                                        "dataframe, use one of the following; "
+                                        "{at}".format(it=', '.join(tt_check),
+                                                      at=', '.join(list(SRC_TYPE_TAXONOMY.keys()))))
 
     def _check_chos_insts(self, insts: Union[List[str], str]):
         """
