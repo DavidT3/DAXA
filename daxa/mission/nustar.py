@@ -1,8 +1,8 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2023, 23:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 00:22. Copyright (c) The Contributors
+import gzip
 import io
 import os
-import tarfile
 from datetime import datetime
 from multiprocessing import Pool
 from shutil import copyfileobj
@@ -324,10 +324,11 @@ class NuSTARPointed(BaseMission):
                 # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
                 #  event lists, as they're more likely to be used
                 if 'evt.gz' in down_file:
-                    # Open and untar the file
-                    with tarfile.open(local_dir + down_file) as tarro:
-                        untar_path = local_dir + down_file.split('.gz')[0]
-                        tarro.extractall(untar_path)
+                    # Open and decompress the events file
+                    with gzip.open(local_dir + down_file, 'rb') as compresso:
+                        # Open a new file handler for the decompressed data, then funnel the decompressed events there
+                        with open(local_dir + down_file.split('.gz')[0], 'wb') as writo:
+                            copyfileobj(compresso, writo)
                     # Then remove the tarred file to minimise storage usage
                     os.remove(local_dir + down_file)
 
