@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 11:22. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 11:28. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -737,7 +737,17 @@ class BaseMission(metaclass=ABCMeta):
         new_filter = self.filter_array * time_filter
         self.filter_array = new_filter
 
+    @_lock_check
     def filter_on_target_type(self, target_type: Union[str, List[str]]):
+        """
+        This method allows the filtering of observations based on what type of object their target source was. It
+        is only supported for missions that have that data available, and will raise an exception for those
+        missions that don't support this filtering.
+
+        :param str/List[str] target_type: The types of target source you would like to find observations of. For
+            allowed types, please use the 'show_allowed_target_types' method. Can either be a single type, or
+            a list of types.
+        """
         # If only one target type is passed, we still make sure it's a list - normalises it for the rest
         #  of the method
         if isinstance(target_type, str):
@@ -758,6 +768,19 @@ class BaseMission(metaclass=ABCMeta):
         if 'target_category' not in self.all_obs_info.columns:
             raise NoTargetSourceTypeInfo("No target source type information is available "
                                          "for {}".format(self.pretty_name))
+
+        # This creates a boolean array of dataframe entries that match the selected target type(s)
+        sel_obs_mask = self._obs_info['ObsID'].isin(target_type)
+        # Check that we actually selected some observations
+        if sel_obs_mask.sum() == 0:
+            raise NoObsAfterFilterError("The target type search has returned no {} "
+                                        "observations.".format(self.pretty_name))
+
+        # The boolean array can be multiplied with the existing filter array (by default all ones, which means
+        #  all observations are let through) to produce an updated filter.
+        new_filter = self.filter_array * sel_obs_mask
+        # Then we set the filter array property with that updated mask
+        self.filter_array = new_filter
 
     def info(self):
         print("\n-----------------------------------------------------")
