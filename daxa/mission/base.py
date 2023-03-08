@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 00:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 10:39. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -18,6 +18,13 @@ from daxa import OUTPUT
 from daxa.exceptions import MissionLockedError, NoObsAfterFilterError
 
 REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration', 'end']
+SRC_TYPE_TAXONOMY = {'AGN': 'Active Galaxies and Quasars', 'BLZ': 'Blazars', 'CAL': 'Calibration Observation',
+                     'EGS': 'Extragalactic Surveys', 'GLS': 'Galaxy Clusters', 'GS': 'Galactic Survey',
+                     'MAG': 'Magnetars and Rotation-Powered Pulsars', 'NGS': 'Normal and Starburst Galaxies',
+                     'OAGN': 'Obscured Active Galaxies and Quasars', 'SNE': 'Non-ToO Supernovae',
+                     'SNR': 'Supernova Remnants and Galactic diffuse', 'SOL': 'Solar System Observations',
+                     'ULX': 'Ultra-luminous X-ray Sources', 'XRB': 'X-ray Binaries', 'TOO': 'Targets of opportunity',
+                     'MISC': "Catch-all for other sources"}
 
 
 def _lock_check(change_func):
