@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 11:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 11:22. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -16,7 +16,7 @@ from astropy.units import Quantity
 from tabulate import tabulate
 
 from daxa import OUTPUT
-from daxa.exceptions import MissionLockedError, NoObsAfterFilterError
+from daxa.exceptions import MissionLockedError, NoObsAfterFilterError, IllegalSourceType, NoTargetSourceTypeInfo
 
 # These are the columns which MUST be present in the all_obs_info dataframes of any sub-class of BaseMission. This
 #  is mainly implemented to make sure developers who aren't me provide the right data formats
@@ -24,11 +24,11 @@ REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration', 'end']
 # This defines the DAXA source category system, which can be employed by users to narrow down observations which
 #  target specific types of source (if that data is available for a specific mission).
 SRC_TYPE_TAXONOMY = {'AGN': 'Active Galaxies and Quasars', 'BLZ': 'Blazars', 'CAL': 'Calibration Observation',
-                     'EGS': 'Extragalactic Surveys', 'GLS': 'Galaxy Clusters', 'GS': 'Galactic Survey',
+                     'EGS': 'Extragalactic Surveys', 'GCL': 'Galaxy Clusters', 'GS': 'Galactic Survey',
                      'MAG': 'Magnetars and Rotation-Powered Pulsars', 'NGS': 'Normal and Starburst Galaxies',
                      'OAGN': 'Obscured Active Galaxies and Quasars', 'SNE': 'Non-ToO Supernovae',
                      'SNR': 'Supernova Remnants and Galactic diffuse', 'SOL': 'Solar System Observations',
-                     'ULX': 'Ultra-luminous X-ray Sources', 'XRB': 'X-ray Binaries', 'TOO': 'Targets of opportunity',
+                     'ULX': 'Ultra-luminous X-ray Sources', 'XRB': 'X-ray Binaries', 'TOO': 'Targets of Opportunity',
                      'MISC': "Catch-all for other sources"}
 
 
@@ -736,6 +736,28 @@ class BaseMission(metaclass=ABCMeta):
         # Combines the time filter with the existing filter and updates the property.
         new_filter = self.filter_array * time_filter
         self.filter_array = new_filter
+
+    def filter_on_target_type(self, target_type: Union[str, List[str]]):
+        # If only one target type is passed, we still make sure it's a list - normalises it for the rest
+        #  of the method
+        if isinstance(target_type, str):
+            target_type = [target_type]
+        # Also make sure whatever the user has passed is set to all uppercase
+        target_type = [tt.upper() for tt in target_type]
+
+        # Look for passed target types that AREN'T in the DAXA taxonomy
+        tt_check = [tt for tt in target_type if tt not in SRC_TYPE_TAXONOMY]
+        if len(tt_check) != 0:
+            # Throw a hopefully useful error if the user has passed illegal values
+            raise IllegalSourceType("Unsupported target type(s) ({it}) have been passed to this method, use one of the "
+                                    "following; {at}".format(it=', '.join(tt_check),
+                                                             at=', '.join(list(SRC_TYPE_TAXONOMY.keys()))))
+
+        # If there is no information on target source types in the observation info dataframe, then unfortunately
+        #  this method can't be used.
+        if 'target_category' not in self.all_obs_info.columns:
+            raise NoTargetSourceTypeInfo("No target source type information is available "
+                                         "for {}".format(self.pretty_name))
 
     def info(self):
         print("\n-----------------------------------------------------")
