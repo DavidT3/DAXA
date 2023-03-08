@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 00:22. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 00:52. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -70,6 +70,9 @@ class NuSTARPointed(BaseMission):
         # Deliberately using the property setter, because it calls the internal _check_chos_insts function
         #  to make sure the input instruments are allowed
         self.chosen_instruments = insts
+
+        # Call the name property to set up the name and pretty name attributes
+        self.name
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
         self._required_mission_specific_cols = ['proprietary_end_date', 'exposure_a', 'exposure_b', 'ontime_a',
