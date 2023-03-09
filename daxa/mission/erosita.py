@@ -19,7 +19,6 @@ from .. import NUM_CORES
 from ..config import CalPV_info, obs_info
 from ..exceptions import DAXADownloadError
 
-# JESS_TODO deal with Puppis A sitch 700195
 class eROSITACalPV(BaseMission):
     """
     The mission class for the eROSITA early data release observations made during the Calibration and Performance 
@@ -235,7 +234,7 @@ class eROSITACalPV(BaseMission):
     # Then define user-facing methods
     def fetch_obs_info(self):
         """
-        This method uses the hard coded csv file in to pull information on all eROSITACalPV observations. 
+        This method uses the hard coded csv file to pull information on all eROSITACalPV observations. 
         The data are processed into a Pandas dataframe and stored.
         """
         # Hard coded this and saved it to the obs_info.csv in /files

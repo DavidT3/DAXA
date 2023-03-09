@@ -569,6 +569,15 @@ class BaseMission(metaclass=ABCMeta):
         # Makes sure that the allowed_obs_ids variable is iterable over ObsIDs, even if just a single ObsID was passed
         if not isinstance(allowed_obs_ids, list):
             allowed_obs_ids = [allowed_obs_ids]
+        
+        # Accounting for the wrong ObsID being written on the eROSITA website
+        if '700195' in allowed_obs_ids:
+            allowed_obs_ids.remove('700195')
+            allowed_obs_ids.append('700199')
+            allowed_obs_ids.append('700200')
+            warn("The ObsID '700195' is misstyped on the eROSITA early data release website. It has"
+            " been replaced with '700199', '700200' which are the true ObsIDs associated with the "
+            "Puppis A galactic field.")
 
         # Runs the ObsID pattern checks for all the passed ObsIDs
         oid_check = [oid for oid in allowed_obs_ids if not self.check_obsid_pattern(oid)]
