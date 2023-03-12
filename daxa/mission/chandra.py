@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 13:10. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 15:33. Copyright (c) The Contributors
 import io
 from datetime import datetime
 from typing import List, Union
@@ -31,6 +31,7 @@ class Chandra(BaseMission):
 
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
     """
+
     def __init__(self, insts: Union[List[str], str] = None):
         """
         The mission class for Chandra observations. The available observation information is fetched from the HEASArc
@@ -255,6 +256,11 @@ class Chandra(BaseMission):
         conv_dict = {'AGN UNCLASSIFIED': 'AGN', 'EXTENDED GALACTIC OR EXTRAGALACTIC': 'EGE', 'X-RAY BINARY': 'GS',
                      'CV': 'GS', 'Calibration Observations': 'CAL', 'SNR': 'SNR', 'NON-ACTIVE GALAXY': 'NGS',
                      'CLUSTER OF GALAXIES': 'GCL', 'Non-Pointing data': 'MISC'}
+        # Obviously some of these have the same key and value, just wanted to demonstrate what I was doing with them. I
+        #  am counting director's discretionary time as targets of opportunity for this
+        obs_type_dict = {'TOO': 'TOO', 'DDT': 'TOO', 'CAL': 'CAL'}
+        # I wanted to define the dictionaries separately, but then just add them together for neatness
+        conv_dict.update(obs_type_dict)
 
         # I don't want to assume that the types I've seen Chandra list will stay forever, as such I construct
         #  a mask that tells me which entries have a recognised description - any that don't will be set to
@@ -267,8 +273,17 @@ class Chandra(BaseMission):
         #  but that could well change
         rel_chandra.loc[~type_recog, 'target_category'] = 'MISC'
 
+        # Doing things slightly differently for Chandra - as it has a type of observation column and a lot of 'misc'
+        #  entries, I'm going to check to see if any of them can be labelled as calibration or Target of oppurtunity,
+        #  just to give the user more to work with.
+        misc_mask = rel_chandra['target_category'] == 'MISC'
+        # For context, GO means General Observer, GTO means Guaranteed Time Observation, and CCT means Chandra
+        #  Cool Target (meaning a science target that allows the observatory to cool off)
+        rel_chandra.loc[misc_mask, 'target_category'] = rel_chandra[misc_mask].apply(
+            lambda x: x.target_category if x.type in ['GO', 'GTO', 'CCT'] else conv_dict[x.type], axis=1)
+
         # Re-ordering the table, and not including certain columns which have served their purpose
-        rel_chandra = rel_chandra[['ra', 'dec', 'ObsID', 'usable', 'start', 'end', 'duration', 'thingo',
+        rel_chandra = rel_chandra[['ra', 'dec', 'ObsID', 'usable', 'start', 'end', 'duration',
                                    'proprietary_end_date', 'target_category', 'detector', 'grating', 'data_mode']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
