@@ -1,6 +1,8 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 21:20. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 21:31. Copyright (c) The Contributors
 from typing import Union, List
+
+from astropy.coordinates import BaseRADecFrame, ICRS
 
 from daxa import BaseMission
 
@@ -92,22 +94,24 @@ class Chandra(BaseMission):
         # The name is defined here because this is the pattern for this property defined in
         #  the BaseMission superclass. Suggest keeping this in a format that would be good for a unix
         #  directory name (i.e. lowercase + underscores), because it will be used as a directory name
-        self._miss_name = "nustar_pointed"
+        self._miss_name = "chandra"
         # This won't be used to name directories, but will be used for things like progress bar descriptions
-        self._pretty_miss_name = "NuSTAR Pointed"
+        self._pretty_miss_name = "Chandra"
         return self._miss_name
 
     @property
     def coord_frame(self) -> BaseRADecFrame:
         """
         Property getter for the coordinate frame of the RA-Decs of the observations of this mission.
+        Chandra is the only one so far to actually use ICRS! (or at least it does for its source lists and
+        image WCS headers).
 
         :return: The coordinate frame of the RA-Dec.
         :rtype: BaseRADecFrame
         """
         # The name is defined here because this is the pattern for this property defined in
         #  the BaseMission superclass
-        self._miss_coord_frame = FK5
+        self._miss_coord_frame = ICRS
         return self._miss_coord_frame
 
     @property
