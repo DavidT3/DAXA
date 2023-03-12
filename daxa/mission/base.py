@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 21:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 12:49. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -815,6 +815,10 @@ class BaseMission(metaclass=ABCMeta):
         This method allows the filtering of observations based on what type of object their target source was. It
         is only supported for missions that have that data available, and will raise an exception for those
         missions that don't support this filtering.
+
+        WARNING: You should not trust these target types without question, they are the result of crude mappings, and
+        some may be incorrect. They also don't take into account sources that might serendipitously appear in
+        a particular observation.
 
         :param str/List[str] target_type: The types of target source you would like to find observations of. For
             allowed types, please use the 'show_allowed_target_types' method. Can either be a single type, or
