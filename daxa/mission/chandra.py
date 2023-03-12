@@ -1,13 +1,13 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 21:58. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 22:00. Copyright (c) The Contributors
 import io
 from typing import Union, List
 
 import pandas as pd
 import requests
 from astropy.coordinates import BaseRADecFrame, ICRS
+from astropy.io import fits
 from astropy.table import Table
-from astropy.units.format import fits
 
 from daxa import NUM_CORES
 from daxa.mission.base import BaseMission
