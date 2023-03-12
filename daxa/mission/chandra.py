@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 22:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 22:41. Copyright (c) The Contributors
 import io
 from typing import Union, List
 
@@ -84,10 +84,12 @@ class Chandra(BaseMission):
         #
         # Runs the method which fetches information on all available pointed NuSTAR observations and stores that
         #  information in the all_obs_info property
-        self._fetch_obs_info()
+        # TODO RESTORE
+        # self._fetch_obs_info()
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
-        self.reset_filter()
+        # TODO RESTORE
+        # self.reset_filter()
 
     @property
     def name(self) -> str:
@@ -128,10 +130,9 @@ class Chandra(BaseMission):
         :return: The regex pattern for observation IDs.
         :rtype: str
         """
-        # The ObsID regular expression is defined here because this is the pattern for this property defined in
-        #  the BaseMission superclass - Chandra ObsIDs start at 1 and start incrementing - there isn't a
-        #  pre-defined length that XMM and NuSTAR have.
-        self._id_format = '^[0-9]{1-5}$'
+        # This implementation is slightly different from other mission classes. As Chandra doesn't used consistent
+        #  lengths for its ObsIDs, the max number of digits allowed is set dynamically from the table pulled
+        #  from HEASArc.
         return self._id_format
 
     @property
@@ -186,9 +187,8 @@ class Chandra(BaseMission):
 
         # The definition of all of these fields can be found here:
         #  (https://heasarc.gsfc.nasa.gov/W3Browse/all/chanmaster.html)
-        which_cols = ['RA', 'DEC', 'TIME', 'OBSID', 'STATUS',
-
-                      ]
+        which_cols = ['RA', 'DEC', 'TIME', 'OBSID', 'STATUS', 'DETECTOR', 'GRATING', 'EXPOSURE', 'TYPE', 'DATA_MODE',
+                      'CLASS']
         # This is what will be put into the URL to retrieve just those data fields - there are some more, but I
         #  curated it to only those I think might be useful for DAXA
         fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
@@ -209,85 +209,87 @@ class Chandra(BaseMission):
                 for col in full_chandra.select_dtypes(['object']).columns:
                     full_chandra[col] = full_chandra[col].apply(lambda x: x.strip())
 
-        import sys
-        sys.exit()
+            # The ObsID regular expression is defined here because this is the pattern for this property defined in
+            #  the BaseMission superclass - Chandra ObsIDs start at 1 and start incrementing - there isn't a
+            #  pre-defined length that XMM and NuSTAR have.
+            self._id_format = '^[0-9]{1,' + str(len(str(full_chandra['OBSID'].max()))) + '}$'
 
         # Important first step, select only 'science mode' observations, slew observations will be dealt with in
         #  another class - this includes excluding observations with 'STELLAR' spacecraft mode, as they are likely
         #  rotating. Also select only those observations which have actually been taken (this table contains
         #  planned observations as well).
-        rel_nustar = full_nustar[(full_nustar['OBSERVATION_MODE'] == 'SCIENCE') &
-                                 (full_nustar['SPACECRAFT_MODE'] == 'INERTIAL') &
-                                 (full_nustar['STATUS'].isin(['processed', 'archived']))]
-
-        # Lower-casing all the column names (personal preference largely).
-        rel_nustar = rel_nustar.rename(columns=str.lower)
-        # Changing a few column names to match what BaseMission expects
-        rel_nustar = rel_nustar.rename(columns={'obsid': 'ObsID', 'time': 'start', 'end_time': 'end',
-                                                'public_date': 'proprietary_end_date',
-                                                'subject_category': 'target_category'})
-
-        # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
-        #  BaseMission time selection methods expect
-        rel_nustar['start'] = pd.to_datetime(Time(rel_nustar['start'].values, format='mjd', scale='utc').to_datetime())
-        rel_nustar['end'] = pd.to_datetime(Time(rel_nustar['end'].values, format='mjd', scale='utc').to_datetime())
-        # Then make a duration column by subtracting one from t'other - there are also exposure and ontime columns
-        #  which I've acquired, but I think total duration is what I will go with here.
-        rel_nustar['duration'] = rel_nustar['end']-rel_nustar['start']
-
-        # Converting the exposure times and ontimes to Pandas time deltas
-        for col in rel_nustar.columns[(rel_nustar.columns.str.contains('exposure')) |
-                                      rel_nustar.columns.str.contains('ontime')]:
-            rel_nustar[col] = pd.to_timedelta(rel_nustar[col], 's')
-
-        # Slightly more complicated with the public release dates, as some of them are set to 0 MJD, which makes the
-        #  conversion routine quite upset (0 is not valid) - as such I convert only those which aren't 0, then
-        #  replace the 0 valued ones with Pandas' Not a Time (NaT) value
-        val_end_dates = rel_nustar['proprietary_end_date'] != 0
-        rel_nustar.loc[val_end_dates, 'proprietary_end_date'] = pd.to_datetime(
-            Time(rel_nustar.loc[val_end_dates, 'proprietary_end_date'].values, format='mjd', scale='utc').to_datetime())
-        rel_nustar.loc[~val_end_dates, 'proprietary_end_date'] = pd.NaT
-        # Grab the current date and time
-        today = datetime.today()
-        # Create a boolean column that describes whether the data are out of their proprietary period yet
-        rel_nustar['usable_proprietary'] = rel_nustar['proprietary_end_date'].apply(lambda x:
-                                                                                    ((x <= today) &
-                                                                                     (pd.notnull(x)))).astype(bool)
-
-        # I was going to use the 'issue_flag' column as a way of deciding scientific viability, but over 1500
-        #  observations are marked '1' (for an issue) and I don't really want to exclude that many out of hand so
-        #  I will just make anything public usable for now.
-        rel_nustar['usable'] = rel_nustar['usable_proprietary']
-
-        # Convert the categories of target that are present in the dataframe to the DAXA taxonomy
-        conv_dict = {'Active galaxies and Quasars': 'AGN', 'Non-Proposal ToOs': 'TOO',
-                     'Galactic Compact Sources': 'GS', 'Solar System Objects': 'SOL',
-                     'Proposed ToOs and Directors Discretionary Time': 'TOO', 'Calibration Observations': 'CAL',
-                     'Non-ToO Supernovae, Supernova Remnants, and Galactic diffuse': 'SNR', 'Normal galaxies': 'NGS',
-                     'Galaxy clusters and extragalactic diffuse objects': 'GCL', 'Non-Pointing data': 'MISC'}
-
-        # I don't want to assume that the descriptions I've seen looking at the whole NuSTAR master list as it is now
-        #  is how it will stay forever, as such I construct a mask that tells me which entries have a recognised
-        #  description - any that don't will be set to the 'MISC' code
-        type_recog = rel_nustar['target_category'].isin(list(conv_dict.keys()))
-        # The recognized target category descriptions are converted to DAXA taxonomy
-        rel_nustar.loc[type_recog, 'target_category'] = rel_nustar.loc[type_recog, 'target_category'].apply(
-            lambda x: conv_dict[x])
-        # Now I set any unrecognized target category descriptions to MISC - there are none at the time of writing,
-        #  but that could well change
-        rel_nustar.loc[~type_recog, 'target_category'] = 'MISC'
-
-        # Re-ordering the table, and not including certain columns which have served their purpose
-        rel_nustar = rel_nustar[['ra', 'dec', 'ObsID', 'usable', 'start', 'end', 'duration',
-                                 'proprietary_end_date', 'target_category', 'exposure_a', 'exposure_b', 'ontime_a',
-                                 'ontime_b', 'nupsdout', 'issue_flag']]
-
-        # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
-        #  the user would expect from  a fresh dataframe
-        rel_nustar = rel_nustar.reset_index(drop=True)
-
-        # Use the setter for all_obs_info to actually add this information to the instance
-        self.all_obs_info = rel_nustar
+        # rel_nustar = full_nustar[(full_nustar['OBSERVATION_MODE'] == 'SCIENCE') &
+        #                          (full_nustar['SPACECRAFT_MODE'] == 'INERTIAL') &
+        #                          (full_nustar['STATUS'].isin(['processed', 'archived']))]
+        #
+        # # Lower-casing all the column names (personal preference largely).
+        # rel_nustar = rel_nustar.rename(columns=str.lower)
+        # # Changing a few column names to match what BaseMission expects
+        # rel_nustar = rel_nustar.rename(columns={'obsid': 'ObsID', 'time': 'start', 'end_time': 'end',
+        #                                         'public_date': 'proprietary_end_date',
+        #                                         'subject_category': 'target_category'})
+        #
+        # # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
+        # #  BaseMission time selection methods expect
+        # rel_nustar['start'] = pd.to_datetime(Time(rel_nustar['start'].values, format='mjd', scale='utc').to_datetime())
+        # rel_nustar['end'] = pd.to_datetime(Time(rel_nustar['end'].values, format='mjd', scale='utc').to_datetime())
+        # # Then make a duration column by subtracting one from t'other - there are also exposure and ontime columns
+        # #  which I've acquired, but I think total duration is what I will go with here.
+        # rel_nustar['duration'] = rel_nustar['end']-rel_nustar['start']
+        #
+        # # Converting the exposure times and ontimes to Pandas time deltas
+        # for col in rel_nustar.columns[(rel_nustar.columns.str.contains('exposure')) |
+        #                               rel_nustar.columns.str.contains('ontime')]:
+        #     rel_nustar[col] = pd.to_timedelta(rel_nustar[col], 's')
+        #
+        # # Slightly more complicated with the public release dates, as some of them are set to 0 MJD, which makes the
+        # #  conversion routine quite upset (0 is not valid) - as such I convert only those which aren't 0, then
+        # #  replace the 0 valued ones with Pandas' Not a Time (NaT) value
+        # val_end_dates = rel_nustar['proprietary_end_date'] != 0
+        # rel_nustar.loc[val_end_dates, 'proprietary_end_date'] = pd.to_datetime(
+        #     Time(rel_nustar.loc[val_end_dates, 'proprietary_end_date'].values, format='mjd', scale='utc').to_datetime())
+        # rel_nustar.loc[~val_end_dates, 'proprietary_end_date'] = pd.NaT
+        # # Grab the current date and time
+        # today = datetime.today()
+        # # Create a boolean column that describes whether the data are out of their proprietary period yet
+        # rel_nustar['usable_proprietary'] = rel_nustar['proprietary_end_date'].apply(lambda x:
+        #                                                                             ((x <= today) &
+        #                                                                              (pd.notnull(x)))).astype(bool)
+        #
+        # # I was going to use the 'issue_flag' column as a way of deciding scientific viability, but over 1500
+        # #  observations are marked '1' (for an issue) and I don't really want to exclude that many out of hand so
+        # #  I will just make anything public usable for now.
+        # rel_nustar['usable'] = rel_nustar['usable_proprietary']
+        #
+        # # Convert the categories of target that are present in the dataframe to the DAXA taxonomy
+        # conv_dict = {'Active galaxies and Quasars': 'AGN', 'Non-Proposal ToOs': 'TOO',
+        #              'Galactic Compact Sources': 'GS', 'Solar System Objects': 'SOL',
+        #              'Proposed ToOs and Directors Discretionary Time': 'TOO', 'Calibration Observations': 'CAL',
+        #              'Non-ToO Supernovae, Supernova Remnants, and Galactic diffuse': 'SNR', 'Normal galaxies': 'NGS',
+        #              'Galaxy clusters and extragalactic diffuse objects': 'GCL', 'Non-Pointing data': 'MISC'}
+        #
+        # # I don't want to assume that the descriptions I've seen looking at the whole NuSTAR master list as it is now
+        # #  is how it will stay forever, as such I construct a mask that tells me which entries have a recognised
+        # #  description - any that don't will be set to the 'MISC' code
+        # type_recog = rel_nustar['target_category'].isin(list(conv_dict.keys()))
+        # # The recognized target category descriptions are converted to DAXA taxonomy
+        # rel_nustar.loc[type_recog, 'target_category'] = rel_nustar.loc[type_recog, 'target_category'].apply(
+        #     lambda x: conv_dict[x])
+        # # Now I set any unrecognized target category descriptions to MISC - there are none at the time of writing,
+        # #  but that could well change
+        # rel_nustar.loc[~type_recog, 'target_category'] = 'MISC'
+        #
+        # # Re-ordering the table, and not including certain columns which have served their purpose
+        # rel_nustar = rel_nustar[['ra', 'dec', 'ObsID', 'usable', 'start', 'end', 'duration',
+        #                          'proprietary_end_date', 'target_category', 'exposure_a', 'exposure_b', 'ontime_a',
+        #                          'ontime_b', 'nupsdout', 'issue_flag']]
+        #
+        # # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
+        # #  the user would expect from  a fresh dataframe
+        # rel_nustar = rel_nustar.reset_index(drop=True)
+        #
+        # # Use the setter for all_obs_info to actually add this information to the instance
+        # self.all_obs_info = rel_nustar
 
     # @staticmethod
     # def _download_call(observation_id: str, insts: List[str], raw_dir: str):
