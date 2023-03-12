@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 21:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 19:51. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -298,13 +298,12 @@ class NuSTARPointed(BaseMission):
         obs_dir = "/FTP/nustar/data/obs/{pid}/{sc}/{oid}/".format(pid=prog_id, sc=src_cat, oid=observation_id)
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
 
-        # Credit to https://www.matecdev.com/posts/login-download-files-python.html for this snippet to map the
-        #  tree structure of the ObsID directory - can't go down a level into the event_uf directory unfortunately, but
-        #  it can be run again
+        # This opens a session that will persist - then a lot of the next session is for checking that the expected
+        #  directories are present.
         session = requests.Session()
 
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
-        #  that the three directories that I need to download unprocessed NuSTAR data are present
+        #  that the three directories that I need to download unprocessed NuStar data are present
         top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
                     if en['href'] in REQUIRED_DIRS]
         # If the lengths of top_data and REQUIRED_DIRS are different, then one or more of the expected dirs
