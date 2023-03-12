@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 21:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 21:42. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -73,7 +73,7 @@ class XMMPointed(BaseMission):
 
         # Runs the method which fetches information on all available pointed XMM observations and stores that
         #  information in the all_obs_info property
-        self.fetch_obs_info()
+        self._fetch_obs_info()
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
@@ -146,7 +146,7 @@ class XMMPointed(BaseMission):
         self.reset_filter()
 
     # Then define user-facing methods
-    def fetch_obs_info(self):
+    def _fetch_obs_info(self):
         """
         This method uses the AstroQuery table access protocol implemented for the XMM Science Archive to pull
         down information on all of the pointed XMM observations which are stored in XSA. The data are processed

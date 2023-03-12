@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 20:53. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 21:42. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -547,7 +547,7 @@ class BaseMission(metaclass=ABCMeta):
 
     # Then define user-facing methods
     @abstractmethod
-    def fetch_obs_info(self):
+    def _fetch_obs_info(self):
         """
         The abstract method (i.e. will be overridden in every subclass of BaseMission) that pulls basic information
         on all observations for a given mission down from whatever server it lives on.

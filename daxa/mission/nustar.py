@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 14:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 21:42. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -80,7 +80,7 @@ class NuSTARPointed(BaseMission):
 
         # Runs the method which fetches information on all available pointed NuSTAR observations and stores that
         #  information in the all_obs_info property
-        self.fetch_obs_info()
+        self._fetch_obs_info()
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
@@ -156,7 +156,7 @@ class NuSTARPointed(BaseMission):
         self._obs_info = new_info
         self.reset_filter()
 
-    def fetch_obs_info(self):
+    def _fetch_obs_info(self):
         """
         This method adapts the 'browse_extract.pl' script (a copy of which can be found in daxa/files for the proper
         credit) to acquire the 'numaster' table from HEASArc - this method is much simpler, as it doesn't need to be
