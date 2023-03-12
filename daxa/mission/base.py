@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 12:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 13:07. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -30,7 +30,7 @@ SRC_TYPE_TAXONOMY = {'AGN': 'Active Galaxies and Quasars', 'BLZ': 'Blazars', 'CA
                      'OAGN': 'Obscured Active Galaxies and Quasars', 'SNE': 'Non-ToO Supernovae',
                      'SNR': 'Supernova Remnants and Galactic diffuse', 'SOL': 'Solar System Observations',
                      'ULX': 'Ultra-luminous X-ray Sources', 'XRB': 'X-ray Binaries', 'TOO': 'Targets of Opportunity',
-                     'MISC': "Catch-all for other sources"}
+                     'EGE': 'Extended galactic or extragalactic', 'MISC': "Catch-all for other sources"}
 
 
 def _lock_check(change_func):
