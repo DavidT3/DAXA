@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 23:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 13:10. Copyright (c) The Contributors
 import io
 from datetime import datetime
 from typing import List, Union
@@ -252,14 +252,9 @@ class Chandra(BaseMission):
         rel_chandra['usable'] = rel_chandra['usable_proprietary']
 
         # Convert the categories of target that are present in the dataframe to the DAXA taxonomy
-        # conv_dict = {'Active galaxies and Quasars': 'AGN', 'Non-Proposal ToOs': 'TOO',
-        #              'Galactic Compact Sources': 'GS', 'Solar System Objects': 'SOL',
-        #              'Proposed ToOs and Directors Discretionary Time': 'TOO', 'Calibration Observations': 'CAL',
-        #              'Non-ToO Supernovae, Supernova Remnants, and Galactic diffuse': 'SNR', 'Normal galaxies': 'NGS',
-        #              'Galaxy clusters and extragalactic diffuse objects': 'GCL', 'Non-Pointing data': 'MISC'}
-        # TODO SORT THIS OUT BOI
-        # AGN UNCLASSIFIED, UNIDENTIFIED, CLUSTER OF GALAXIES, X-RAY BINARY, NON-ACTIVE GALAXY, EXTENDED GALACTIC OR EXTRAGALACTIC, CV
-        conv_dict = {}
+        conv_dict = {'AGN UNCLASSIFIED': 'AGN', 'EXTENDED GALACTIC OR EXTRAGALACTIC': 'EGE', 'X-RAY BINARY': 'GS',
+                     'CV': 'GS', 'Calibration Observations': 'CAL', 'SNR': 'SNR', 'NON-ACTIVE GALAXY': 'NGS',
+                     'CLUSTER OF GALAXIES': 'GCL', 'Non-Pointing data': 'MISC'}
 
         # I don't want to assume that the types I've seen Chandra list will stay forever, as such I construct
         #  a mask that tells me which entries have a recognised description - any that don't will be set to
@@ -273,7 +268,7 @@ class Chandra(BaseMission):
         rel_chandra.loc[~type_recog, 'target_category'] = 'MISC'
 
         # Re-ordering the table, and not including certain columns which have served their purpose
-        rel_chandra = rel_chandra[['ra', 'dec', 'ObsID', 'usable', 'start', 'end', 'duration',
+        rel_chandra = rel_chandra[['ra', 'dec', 'ObsID', 'usable', 'start', 'end', 'duration', 'thingo',
                                    'proprietary_end_date', 'target_category', 'detector', 'grating', 'data_mode']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
