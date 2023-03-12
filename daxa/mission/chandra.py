@@ -1,11 +1,15 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 21:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 21:55. Copyright (c) The Contributors
+import io
 from typing import Union, List
 
 import pandas as pd
+import requests
 from astropy.coordinates import BaseRADecFrame, ICRS
+from astropy.table import Table
+from astropy.units.format import fits
 
-from daxa import BaseMission
+from daxa.mission.base import BaseMission
 
 
 class Chandra(BaseMission):
@@ -176,19 +180,16 @@ class Chandra(BaseMission):
         result_max = "&ResultMax=0"
         # This just tells the interface it's a query (I think?)
         action = "&Action=Query"
-        # Tells the interface that I want to retrieve from the numaster (NuSTAR Master) catalogue
-        table_head = "tablehead=name=BATCHRETRIEVALCATALOG_2.0%20numaster"
+        # Tells the interface that I want to retrieve from the CHANMASTER (Chandra Master) observation catalogue
+        table_head = "tablehead=name=BATCHRETRIEVALCATALOG_2.0%20chanmaster"
 
         # The definition of all of these fields can be found here:
-        #  (https://heasarc.gsfc.nasa.gov/W3Browse/nustar/numaster.html)
-        # The INSTRUMENT_MODE is acquired here even though they say that it is unlikely any observations will be made
-        #  in 'normal' mode, just so I can exclude those observations because frankly I don't know the difference
-        # SPACECRAFT_MODE is acquired because the 'STELLAR' mode might not be suitable for science so may be excluded
-        which_cols = ['RA', 'DEC', 'TIME', 'OBSID', 'STATUS', 'EXPOSURE_A', 'OBSERVATION_MODE', 'PUBLIC_DATE',
-                      'ISSUE_FLAG', 'END_TIME', 'EXPOSURE_B', 'INSTRUMENT_MODE', 'NUPSDOUT', 'ONTIME_A', 'ONTIME_B',
-                      'SPACECRAFT_MODE', 'SUBJECT_CATEGORY', 'OBS_TYPE']
-        # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
-        #  but I curated it to only those I think might be useful for DAXA
+        #  (https://heasarc.gsfc.nasa.gov/W3Browse/all/chanmaster.html)
+        which_cols = ['RA', 'DEC', 'TIME', 'OBSID', 'STATUS',
+
+                      ]
+        # This is what will be put into the URL to retrieve just those data fields - there are some more, but I
+        #  curated it to only those I think might be useful for DAXA
         fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
 
         # The full URL that we will pull the data from, with all the components we have previously defined
@@ -200,12 +201,15 @@ class Chandra(BaseMission):
             #  first so that fits.open can access it as an already opened file handler).
             with fits.open(io.BytesIO(urlo.content)) as full_fits:
                 # Then convert the data in that fits file just into an astropy table object, and from there to a DF
-                full_nustar = Table(full_fits[1].data).to_pandas()
+                full_chandra = Table(full_fits[1].data).to_pandas()
                 # This cycles through any column with the 'object' data type (string in this instance), and
                 #  strips it of white space (I noticed there was extra whitespace on the end of a lot of the
                 #  string data).
-                for col in full_nustar.select_dtypes(['object']).columns:
-                    full_nustar[col] = full_nustar[col].apply(lambda x: x.strip())
+                for col in full_chandra.select_dtypes(['object']).columns:
+                    full_chandra[col] = full_chandra[col].apply(lambda x: x.strip())
+
+        import sys
+        sys.exit()
 
         # Important first step, select only 'science mode' observations, slew observations will be dealt with in
         #  another class - this includes excluding observations with 'STELLAR' spacecraft mode, as they are likely
