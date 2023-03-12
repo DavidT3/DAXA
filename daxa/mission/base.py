@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 13:07. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 13:12. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -24,8 +24,9 @@ from daxa.exceptions import MissionLockedError, NoObsAfterFilterError, IllegalSo
 REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration', 'end']
 # This defines the DAXA source category system, which can be employed by users to narrow down observations which
 #  target specific types of source (if that data is available for a specific mission).
-SRC_TYPE_TAXONOMY = {'AGN': 'Active Galaxies and Quasars', 'BLZ': 'Blazars', 'CAL': 'Calibration Observation',
-                     'EGS': 'Extragalactic Surveys', 'GCL': 'Galaxy Clusters', 'GS': 'Galactic Survey',
+SRC_TYPE_TAXONOMY = {'AGN': 'Active Galaxies and Quasars', 'BLZ': 'Blazars',
+                     'CAL': 'Calibration Observation (possibly of objects)', 'EGS': 'Extragalactic Surveys',
+                     'GCL': 'Galaxy Clusters', 'GS': 'Galactic Survey',
                      'MAG': 'Magnetars and Rotation-Powered Pulsars', 'NGS': 'Normal and Starburst Galaxies',
                      'OAGN': 'Obscured Active Galaxies and Quasars', 'SNE': 'Non-ToO Supernovae',
                      'SNR': 'Supernova Remnants and Galactic diffuse', 'SOL': 'Solar System Observations',
