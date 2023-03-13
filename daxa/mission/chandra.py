@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 20:22. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 21:17. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -23,7 +23,8 @@ from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
 
 # Unlike NuSTAR, we should only need one directory to be present to download the unprocessed Chandra observations
-REQUIRED_DIRS = ['secondar/']
+REQUIRED_DIRS = ['secondary/']
+GOOD_FILE_PATTERNS = ['evt1.fits', 'mtl1.fits', 'bias0.fits', 'pbk0.fits', 'flt1.fits', 'bpix1.fits', 'msk1.fits']
 
 
 class Chandra(BaseMission):
@@ -328,7 +329,6 @@ class Chandra(BaseMission):
         # The 'secondary' data products are the L1 unprocessed products that we want
         top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
                     if en['href'] in REQUIRED_DIRS]
-        print(top_data)
         # If the lengths of top_data and REQUIRED_DIRS are different, then one or more of the expected dirs
         #  is not present
         if len(top_data) != len(REQUIRED_DIRS):
@@ -337,44 +337,44 @@ class Chandra(BaseMission):
             raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
                                     "directories; {rq}".format(o=observation_id, rq=", ".join(missing)))
 
-        for dat_dir in top_data:
-            # The lower level URL of the directory we're currently looking at
-            rel_url = top_url + dat_dir + '/'
-            # This is the directory to which we will be saving this archive directories files
-            local_dir = raw_dir + '/' + dat_dir + '/'
-            # Make sure that the local directory is created
-            if not os.path.exists(local_dir):
-                os.makedirs(local_dir)
+        # The lower level URL of the directory we're currently looking at
+        rel_url = top_url + 'secondary/'
+        # This is the directory to which we will be saving this archive directories files
+        local_dir = raw_dir + '/secondary/'
+        # Make sure that the local directory is created
+        if not os.path.exists(local_dir):
+            os.makedirs(local_dir)
 
-            # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
-            #  are the files we shall be downloading
-            to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
-                       if '?' not in en['href'] and obs_dir not in en['href']]
+        # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
+        #  are the files we shall be downloading
+        to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
+                   if '?' not in en['href'] and obs_dir not in en['href']]
 
-            # As we allow the user to select a single instrument, if they don't want both (though goodness knows why
-            #  on earth anyone would do that), the event_uf directory gets an extra check. The last character of
-            #  the instrument is either A or B, and that is what I am using to identify the relevant event lists.
-            if dat_dir == 'event_uf/':
-                to_down = [td for td in to_down for inst in insts if observation_id+inst[-1]+"_uf" in td]
+        # This cleans the list of files further, down to only files matching the patterns defined in the constant
+        #  Those patterns are designed to grab the files that this page
+        #  (https://cxc.cfa.harvard.edu/ciao/data_products_guide/) claims we need for re-processing
+        to_down = [f for f in to_down for fp in GOOD_FILE_PATTERNS if fp in f]
 
-            for down_file in to_down:
-                down_url = rel_url + down_file
-                with session.get(down_url, stream=True) as acquiro:
-                    with open(local_dir + down_file, 'wb') as writo:
-                        copyfileobj(acquiro.raw, writo)
+        # Every file will need to be unzipped, as they all appear to be gunzipped when I've looked in
+        #  the HEASARC directories
 
-                # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
-                #  event lists, as they're more likely to be used
-                if 'evt.gz' in down_file:
-                    # Open and decompress the events file
-                    with gzip.open(local_dir + down_file, 'rb') as compresso:
-                        # Open a new file handler for the decompressed data, then funnel the decompressed events there
-                        with open(local_dir + down_file.split('.gz')[0], 'wb') as writo:
-                            copyfileobj(compresso, writo)
-                    # Then remove the tarred file to minimise storage usage
-                    os.remove(local_dir + down_file)
+        for down_file in to_down:
+            down_url = rel_url + down_file
+            with session.get(down_url, stream=True) as acquiro:
+                with open(local_dir + down_file, 'wb') as writo:
+                    copyfileobj(acquiro.raw, writo)
 
-    #     return None
+            # There are a few compressed fits files in each archive
+            if '.gz' in down_file:
+                # Open and decompress the events file
+                with gzip.open(local_dir + down_file, 'rb') as compresso:
+                    # Open a new file handler for the decompressed data, then funnel the decompressed events there
+                    with open(local_dir + down_file.split('.gz')[0], 'wb') as writo:
+                        copyfileobj(compresso, writo)
+                # Then remove the tarred file to minimise storage usage
+                os.remove(local_dir + down_file)
+
+        return None
 
     def download(self, num_cores: int = NUM_CORES):
         """
