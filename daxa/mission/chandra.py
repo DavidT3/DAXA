@@ -1,8 +1,13 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 15:33. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 20:22. Copyright (c) The Contributors
+import gzip
 import io
+import os
 from datetime import datetime
-from typing import List, Union
+from multiprocessing import Pool
+from shutil import copyfileobj
+from typing import List, Union, Any
+from warnings import warn
 
 import pandas as pd
 import requests
@@ -10,9 +15,15 @@ from astropy.coordinates import BaseRADecFrame, ICRS
 from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time
+from bs4 import BeautifulSoup
+from tqdm import tqdm
 
 from daxa import NUM_CORES
+from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
+
+# Unlike NuSTAR, we should only need one directory to be present to download the unprocessed Chandra observations
+REQUIRED_DIRS = ['secondar/']
 
 
 class Chandra(BaseMission):
@@ -213,6 +224,10 @@ class Chandra(BaseMission):
             #  pre-defined length that XMM and NuSTAR have.
             self._id_format = '^[0-9]{1,' + str(len(str(full_chandra['OBSID'].max()))) + '}$'
 
+        # I want the ObsID column to be a string (even though Pandas hates strings) because thats what it is in
+        #  other mission classes and being consistent makes everything easier.
+        full_chandra['OBSID'] = full_chandra['OBSID'].astype(str)
+
         # Important first step, select only those observations which have actually been observed (the CHANMASTER
         #  descriptor website defines all the possible status values, but I shall select archived and observed, even
         #  though observed aren't public yet).
@@ -293,77 +308,74 @@ class Chandra(BaseMission):
         # Use the setter for all_obs_info to actually add this information to the instance
         self.all_obs_info = rel_chandra
 
-    # @staticmethod
-    # def _download_call(observation_id: str, insts: List[str], raw_dir: str):
-    #
-    #     # This two digit code identifies the program type (00 assigned to the first 2-year primary mission, and
-    #     #  then 01, 02, 03 ... increment for each additional year of observations. Useful here to get to the
-    #     #  correct directory to find our ObsID
-    #     prog_id = observation_id[1:3]
-    #
-    #     # This identifies the type of source that was being observed, useful here to get to the right directory
-    #     src_cat = observation_id[0]
-    #
-    #     # This is the path to the HEASArc data directory for this ObsID
-    #     obs_dir = "/FTP/nustar/data/obs/{pid}/{sc}/{oid}/".format(pid=prog_id, sc=src_cat, oid=observation_id)
-    #     top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
-    #
-    #     # Credit to https://www.matecdev.com/posts/login-download-files-python.html for this snippet to map the
-    #     #  tree structure of the ObsID directory - can't go down a level into the event_uf directory unfortunately, but
-    #     #  it can be run again
-    #     session = requests.Session()
-    #
-    #     # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
-    #     #  that the three directories that I need to download unprocessed NuSTAR data are present
-    #     top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
-    #                 if en['href'] in REQUIRED_DIRS]
-    #     # If the lengths of top_data and REQUIRED_DIRS are different, then one or more of the expected dirs
-    #     #  is not present
-    #     if len(top_data) != len(REQUIRED_DIRS):
-    #         # This list comprehension figures out what directory is missing and reports it
-    #         missing = [rd for rd in REQUIRED_DIRS if rd not in top_data]
-    #         raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
-    #                                 "directories; {rq}".format(o=observation_id, rq=", ".join(missing)))
-    #
-    #     for dat_dir in top_data:
-    #         # The lower level URL of the directory we're currently looking at
-    #         rel_url = top_url + dat_dir + '/'
-    #         # This is the directory to which we will be saving this archive directories files
-    #         local_dir = raw_dir + '/' + dat_dir + '/'
-    #         # Make sure that the local directory is created
-    #         if not os.path.exists(local_dir):
-    #             os.makedirs(local_dir)
-    #
-    #         # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
-    #         #  are the files we shall be downloading
-    #         to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
-    #                    if '?' not in en['href'] and obs_dir not in en['href']]
-    #
-    #         # As we allow the user to select a single instrument, if they don't want both (though goodness knows why
-    #         #  on earth anyone would do that), the event_uf directory gets an extra check. The last character of
-    #         #  the instrument is either A or B, and that is what I am using to identify the relevant event lists.
-    #         if dat_dir == 'event_uf/':
-    #             to_down = [td for td in to_down for inst in insts if observation_id+inst[-1]+"_uf" in td]
-    #
-    #         for down_file in to_down:
-    #             down_url = rel_url + down_file
-    #             with session.get(down_url, stream=True) as acquiro:
-    #                 with open(local_dir + down_file, 'wb') as writo:
-    #                     copyfileobj(acquiro.raw, writo)
-    #
-    #             # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
-    #             #  event lists, as they're more likely to be used
-    #             if 'evt.gz' in down_file:
-    #                 # Open and decompress the events file
-    #                 with gzip.open(local_dir + down_file, 'rb') as compresso:
-    #                     # Open a new file handler for the decompressed data, then funnel the decompressed events there
-    #                     with open(local_dir + down_file.split('.gz')[0], 'wb') as writo:
-    #                         copyfileobj(compresso, writo)
-    #                 # Then remove the tarred file to minimise storage usage
-    #                 os.remove(local_dir + down_file)
-    #
+    @staticmethod
+    def _download_call(observation_id: str, insts: List[str], raw_dir: str):
+
+        # The Chandra data are stored in observatories that are named to correspond with the last digit of
+        #  the particular observation's ObsID, so we shall extract that for later
+        init_id = observation_id[-1]
+
+        # This is the path to the HEASArc data directory for this ObsID
+        obs_dir = "/FTP/chandra/data/byobsid/{ii}/{oid}/".format(ii=init_id, oid=observation_id)
+        top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
+
+        # This opens a session that will persist - then a lot of the next session is for checking that the expected
+        #  directories are present.
+        session = requests.Session()
+
+        # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
+        #  that the three directories that I need to download unprocessed Chandra data are present
+        # The 'secondary' data products are the L1 unprocessed products that we want
+        top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
+                    if en['href'] in REQUIRED_DIRS]
+        print(top_data)
+        # If the lengths of top_data and REQUIRED_DIRS are different, then one or more of the expected dirs
+        #  is not present
+        if len(top_data) != len(REQUIRED_DIRS):
+            # This list comprehension figures out what directory is missing and reports it
+            missing = [rd for rd in REQUIRED_DIRS if rd not in top_data]
+            raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
+                                    "directories; {rq}".format(o=observation_id, rq=", ".join(missing)))
+
+        for dat_dir in top_data:
+            # The lower level URL of the directory we're currently looking at
+            rel_url = top_url + dat_dir + '/'
+            # This is the directory to which we will be saving this archive directories files
+            local_dir = raw_dir + '/' + dat_dir + '/'
+            # Make sure that the local directory is created
+            if not os.path.exists(local_dir):
+                os.makedirs(local_dir)
+
+            # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
+            #  are the files we shall be downloading
+            to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
+                       if '?' not in en['href'] and obs_dir not in en['href']]
+
+            # As we allow the user to select a single instrument, if they don't want both (though goodness knows why
+            #  on earth anyone would do that), the event_uf directory gets an extra check. The last character of
+            #  the instrument is either A or B, and that is what I am using to identify the relevant event lists.
+            if dat_dir == 'event_uf/':
+                to_down = [td for td in to_down for inst in insts if observation_id+inst[-1]+"_uf" in td]
+
+            for down_file in to_down:
+                down_url = rel_url + down_file
+                with session.get(down_url, stream=True) as acquiro:
+                    with open(local_dir + down_file, 'wb') as writo:
+                        copyfileobj(acquiro.raw, writo)
+
+                # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
+                #  event lists, as they're more likely to be used
+                if 'evt.gz' in down_file:
+                    # Open and decompress the events file
+                    with gzip.open(local_dir + down_file, 'rb') as compresso:
+                        # Open a new file handler for the decompressed data, then funnel the decompressed events there
+                        with open(local_dir + down_file.split('.gz')[0], 'wb') as writo:
+                            copyfileobj(compresso, writo)
+                    # Then remove the tarred file to minimise storage usage
+                    os.remove(local_dir + down_file)
+
     #     return None
-    #
+
     def download(self, num_cores: int = NUM_CORES):
         """
         A method to acquire and download the pointed Chandra data that have not been filtered out (if a filter
@@ -375,85 +387,84 @@ class Chandra(BaseMission):
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
         """
-        raise NotImplementedError("This mission can't download anything yet")
-        # # Ensures that a directory to store the 'raw' pointed NuSTAR data in exists - once downloaded and unpacked
-        # #  this data will be processed into a DAXA 'archive' and stored elsewhere.
-        # if not os.path.exists(self.top_level_path + self.name + '_raw'):
-        #     os.makedirs(self.top_level_path + self.name + '_raw')
-        # # Grabs the raw data storage path
-        # stor_dir = self.raw_data_path
-        #
-        # # A very unsophisticated way of checking whether raw data have been downloaded before (see issue #30)
-        # #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
-        # #  the _download_call method
-        # if all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in self.filtered_obs_ids]):
-        #     self._download_done = True
-        #
-        # if not self._download_done:
-        #     # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
-        #     if num_cores == 1:
-        #         with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
-        #             for obs_id in self.filtered_obs_ids:
-        #                 # Use the internal static method I set up which both downloads and unpacks the XMM data
-        #                 self._download_call(obs_id, insts=self.chosen_instruments,
-        #                                     raw_dir=stor_dir + '{o}'.format(o=obs_id))
-        #                 # Update the progress bar
-        #                 download_prog.update(1)
-        #
-        #     elif num_cores > 1:
-        #         # List to store any errors raised during download tasks
-        #         raised_errors = []
-        #
-        #         # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
-        #         with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) \
-        #                 as download_prog, Pool(num_cores) as pool:
-        #
-        #             # The callback function is what is called on the successful completion of a _download_call
-        #             def callback(download_conf: Any):
-        #                 """
-        #                 Callback function for the apply_async pool method, gets called when a download task finishes
-        #                 without error.
-        #
-        #                 :param Any download_conf: The Null value confirming the operation is over.
-        #                 """
-        #                 nonlocal download_prog  # The progress bar will need updating
-        #                 download_prog.update(1)
-        #
-        #             # The error callback function is what happens when an exception is thrown during a _download_call
-        #             def err_callback(err):
-        #                 """
-        #                 The callback function for errors that occur inside a download task running in the pool.
-        #
-        #                 :param err: An error that occurred inside a task.
-        #                 """
-        #                 nonlocal raised_errors
-        #                 nonlocal download_prog
-        #
-        #                 if err is not None:
-        #                     # Rather than throwing an error straight away I append them all to a list for later.
-        #                     raised_errors.append(err)
-        #                 download_prog.update(1)
-        #
-        #             # Again nested for loop through ObsIDs and instruments
-        #             for obs_id in self.filtered_obs_ids:
-        #                 # Add each download task to the pool
-        #                 pool.apply_async(self._download_call,
-        #                                  kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
-        #                                        'raw_dir': stor_dir + '{o}'.format(o=obs_id)},
-        #                                  error_callback=err_callback, callback=callback)
-        #             pool.close()  # No more tasks can be added to the pool
-        #             pool.join()  # Joins the pool, the code will only move on once the pool is empty.
-        #
-        #         # Raise all the download errors at once, if there are any
-        #         if len(raised_errors) != 0:
-        #             raise DAXADownloadError(str(raised_errors))
-        #
-        #     else:
-        #         raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
-        #
-        #     # This is set to True once the download is done, and is used by archives to tell if data have been
-        #     #  downloaded for a particular mission or not
-        #     self._download_done = True
-        #
-        # else:
-        #     warn("The raw data for this mission have already been downloaded.")
+        # Ensures that a directory to store the 'raw' Chandra data in exists - once downloaded and unpacked
+        #  this data will be processed into a DAXA 'archive' and stored elsewhere.
+        if not os.path.exists(self.top_level_path + self.name + '_raw'):
+            os.makedirs(self.top_level_path + self.name + '_raw')
+        # Grabs the raw data storage path
+        stor_dir = self.raw_data_path
+
+        # A very unsophisticated way of checking whether raw data have been downloaded before
+        #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
+        #  the _download_call method
+        if all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in self.filtered_obs_ids]):
+            self._download_done = True
+
+        if not self._download_done:
+            # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
+            if num_cores == 1:
+                with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
+                    for obs_id in self.filtered_obs_ids:
+                        # Use the internal static method I set up which both downloads and unpacks the XMM data
+                        self._download_call(obs_id, insts=self.chosen_instruments,
+                                            raw_dir=stor_dir + '{o}'.format(o=obs_id))
+                        # Update the progress bar
+                        download_prog.update(1)
+
+            elif num_cores > 1:
+                # List to store any errors raised during download tasks
+                raised_errors = []
+
+                # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
+                with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) \
+                        as download_prog, Pool(num_cores) as pool:
+
+                    # The callback function is what is called on the successful completion of a _download_call
+                    def callback(download_conf: Any):
+                        """
+                        Callback function for the apply_async pool method, gets called when a download task finishes
+                        without error.
+
+                        :param Any download_conf: The Null value confirming the operation is over.
+                        """
+                        nonlocal download_prog  # The progress bar will need updating
+                        download_prog.update(1)
+
+                    # The error callback function is what happens when an exception is thrown during a _download_call
+                    def err_callback(err):
+                        """
+                        The callback function for errors that occur inside a download task running in the pool.
+
+                        :param err: An error that occurred inside a task.
+                        """
+                        nonlocal raised_errors
+                        nonlocal download_prog
+
+                        if err is not None:
+                            # Rather than throwing an error straight away I append them all to a list for later.
+                            raised_errors.append(err)
+                        download_prog.update(1)
+
+                    # Again nested for loop through ObsIDs and instruments
+                    for obs_id in self.filtered_obs_ids:
+                        # Add each download task to the pool
+                        pool.apply_async(self._download_call,
+                                         kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
+                                               'raw_dir': stor_dir + '{o}'.format(o=obs_id)},
+                                         error_callback=err_callback, callback=callback)
+                    pool.close()  # No more tasks can be added to the pool
+                    pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+
+                # Raise all the download errors at once, if there are any
+                if len(raised_errors) != 0:
+                    raise DAXADownloadError(str(raised_errors))
+
+            else:
+                raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
+
+            # This is set to True once the download is done, and is used by archives to tell if data have been
+            #  downloaded for a particular mission or not
+            self._download_done = True
+
+        else:
+            warn("The raw data for this mission have already been downloaded.")
