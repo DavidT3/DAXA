@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 22:32. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 22:46. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -227,16 +227,14 @@ class Chandra(BaseMission):
         all_gratings = ['HETG', 'LETG']
         val_gratings = [ag for ag in all_gratings if ag in insts]
         if len(val_gratings) == 0:
-            # If no grating was used, the entry in the grating column will be 'None' - and as I'm using isin I
+            # If no grating was used, the entry in the grating column will be 'NONE' - and as I'm using isin I
             #  want it to be in a list
-            val_gratings = ['None']
-
-        print(val_gratings)
+            val_gratings = ['NONE']
 
         # I considered removing any gratings entries from inst, but it doesn't matter because I will just check
         #  which rows in the obs info table have detector entries in the insts list, doesn't matter that gratings
         #  might be in there.
-        sel_inst_mask = (self._obs_info['detector'].isin(insts)) | (self._obs_info['detector'].isin(val_gratings))
+        sel_inst_mask = (self._obs_info['detector'].isin(insts)) & (self._obs_info['grating'].isin(val_gratings))
 
         # I can't think of a way this would happen, but I will just quickly ensure that this filtering didn't
         #  return zero results
