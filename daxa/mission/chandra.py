@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 21:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 22:32. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -19,8 +19,8 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 from daxa import NUM_CORES
-from daxa.exceptions import DAXADownloadError
-from daxa.mission.base import BaseMission
+from daxa.exceptions import DAXADownloadError, NoObsAfterFilterError
+from daxa.mission.base import BaseMission, _lock_check
 
 # Unlike NuSTAR, we should only need one directory to be present to download the unprocessed Chandra observations
 REQUIRED_DIRS = ['secondary/']
@@ -83,13 +83,8 @@ class Chandra(BaseMission):
         # These are the allowed instruments for this mission - Chandra has two sets of instruments (HRC and
         #  ACIS), each with two sets of detectors (one for imaging one for grating spectroscopy). It also has
         #  two choices of grating spectroscopy (HETG and LETG).
-        # TODO FIGURE IT OUT - DON'T KNOW THAT THE DETECTOR SKEWS COME IN DIFFERENT EVENT LISTS (PRESUMABLY DO THOUGH)
         self._miss_poss_insts = ['ACIS-I', 'ACIS-S', 'HRC-I', 'HRC-S', 'HETG', 'LETG']
         self._alt_miss_inst_names = {}
-
-        # Deliberately using the property setter, because it calls the internal _check_chos_insts function
-        #  to make sure the input instruments are allowed
-        self.chosen_instruments = insts
 
         # Call the name property to set up the name and pretty name attributes
         self.name
@@ -104,6 +99,13 @@ class Chandra(BaseMission):
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
+
+        # Deliberately using the property setter, because it calls the internal _check_chos_insts function
+        #  to make sure the input instruments are allowed
+        # This instrument stuff is down here because for Chandra I want it to happen AFTER the Observation info
+        #  table has been fetched. As Chandra uses one instrument per observation, this will effectively be another
+        #  filtering operation rather than the download-time operation is has been for NuSTAR for instance
+        self.chosen_instruments = insts
 
     @property
     def name(self) -> str:
@@ -120,6 +122,31 @@ class Chandra(BaseMission):
         # This won't be used to name directories, but will be used for things like progress bar descriptions
         self._pretty_miss_name = "Chandra"
         return self._miss_name
+
+    @property
+    def chosen_instruments(self) -> List[str]:
+        """
+        Property getter for the names of the currently selected instruments associated with this mission which
+        will be processed into an archive by DAXA functions. Overwritten here because I want to use a custom
+        version of _check_chos_insts for Chandra.
+
+        :return: A list of instrument names
+        :rtype: List[str]
+        """
+        return self._chos_insts
+
+    @chosen_instruments.setter
+    @_lock_check
+    def chosen_instruments(self, new_insts: List[str]):
+        """
+        Property setter for the instruments associated with this mission that should be processed. This property
+        may only be set to a list that is a subset of the existing property value. Overwritten here because I want
+        to use a custom version of _check_chos_insts for Chandra.
+
+        :param List[str] new_insts: The new list of instruments associated with this mission which should
+            be processed into the archive.
+        """
+        self._chos_insts = self._check_chos_insts(new_insts)
 
     @property
     def coord_frame(self) -> BaseRADecFrame:
@@ -176,6 +203,51 @@ class Chandra(BaseMission):
         self._obs_info_checks(new_info)
         self._obs_info = new_info
         self.reset_filter()
+
+    def _check_chos_insts(self, insts: Union[List[str], str]):
+        """
+        An internal function to perform some checks on the validity of chosen instrument names for a Chandra. This
+        overwrites the version of this method declared in BaseMission, though it does call the super method. This
+        sub-class of BaseMission re-implements this method so that setting chosen instruments becomes another
+        filtering action, as Chandra has only one instrument per observation.
+
+        :param List[str]/str insts:
+        :return: The list of instruments (possibly altered to match formats expected by this module).
+        :rtype: List
+        """
+        # As a part of this, I will reset the filter array - in case the user used the chosen_instruments (property
+        #  setter that calls this function) after the initial declaration phase.
+        self.reset_filter()
+
+        insts = super()._check_chos_insts(insts)
+        # If we've gotten through the super call then the instruments are acceptable, so now we filter the
+        #  observation info table using them. This is complicated slightly by the fact that the gratings are
+        #  considered separately from the detectors by the table (they have their own column).
+
+        all_gratings = ['HETG', 'LETG']
+        val_gratings = [ag for ag in all_gratings if ag in insts]
+        if len(val_gratings) == 0:
+            # If no grating was used, the entry in the grating column will be 'None' - and as I'm using isin I
+            #  want it to be in a list
+            val_gratings = ['None']
+
+        print(val_gratings)
+
+        # I considered removing any gratings entries from inst, but it doesn't matter because I will just check
+        #  which rows in the obs info table have detector entries in the insts list, doesn't matter that gratings
+        #  might be in there.
+        sel_inst_mask = (self._obs_info['detector'].isin(insts)) | (self._obs_info['detector'].isin(val_gratings))
+
+        # I can't think of a way this would happen, but I will just quickly ensure that this filtering didn't
+        #  return zero results
+        if sel_inst_mask.sum() == 0:
+            raise NoObsAfterFilterError("No Chandra observations are left after instrument filtering.")
+
+        # The boolean mask can be multiplied with the existing filter array (by default all ones, which means
+        #  all observations are let through) to produce an updated filter.
+        new_filter = self.filter_array * sel_inst_mask
+        # Then we set the filter array property with that updated mask
+        self.filter_array = new_filter
 
     def _fetch_obs_info(self):
         """
