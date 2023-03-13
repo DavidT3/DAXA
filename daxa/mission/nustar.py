@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 19:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 21:26. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -285,7 +285,15 @@ class NuSTARPointed(BaseMission):
 
     @staticmethod
     def _download_call(observation_id: str, insts: List[str], raw_dir: str):
+        """
+        The internal method called (in a couple of different possible ways) by the download method. This will check
+        the availability of, acquire, and decompress the specified observation.
 
+        :param str observation_id: The ObsID of the observation to be downloaded.
+        :param List[str] insts: The instruments which the user wishes to acquire data for.
+        :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
+        :return:
+        """
         # This two digit code identifies the program type (00 assigned to the first 2-year primary mission, and
         #  then 01, 02, 03 ... increment for each additional year of observations. Useful here to get to the
         #  correct directory to find our ObsID
