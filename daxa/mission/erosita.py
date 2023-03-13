@@ -288,7 +288,6 @@ class eROSITACalPV(BaseMission):
             else:
                 bad_fields = [f for f in fields if f not in poss_alt_field_names and f not in self._miss_poss_fields and f not in self._miss_poss_field_types]
                 if len(bad_fields) != 0:
-                    # JESS_TODO write something to make this look neater 
                     raise ValueError("Some field names or field types {bf} are not associated with this mission, please"
                             " choose from the following fields; {gf} or field types; {gft}".format(
                             bf=",".join(bad_fields), gf=",".join(self._miss_poss_fields), gft=",".join(self._miss_poss_field_types)))
@@ -378,8 +377,6 @@ class eROSITACalPV(BaseMission):
         :return: A None value.
         :rtype: Any
         """
-         # JESS_TODO i think somewhere i need a check that I haven't done the download before
-
         # Since you can't download a single observation for a field, you have to download them all in one tar file,
         #  I am making a temporary directory to download the tar file and unpack it in, then move the observations 
         #  to their own directory afterwards in the _directory_formatting function
