@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 21:33. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 21:49. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -41,7 +41,8 @@ class Chandra(BaseMission):
 
     Functionally, this class is very similar to NuSTARPointed.
 
-    :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
+    :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
+            pass either a single string value or a list of strings. They may include ACIS-I, ACIS-S, HRC-I, and HRC-S.
     """
 
     def __init__(self, insts: Union[List[str], str] = None):
@@ -58,13 +59,15 @@ class Chandra(BaseMission):
 
         Functionally, this class is very similar to NuSTARPointed.
 
-        :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
+        :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
+            pass either a single string value or a list of strings. They may include ACIS-I, ACIS-S, HRC-I, and HRC-S.
         """
         super().__init__()
 
-        # Sets the default instruments - both instruments that are on NuSTAR
+        # Sets the default instruments - This is slightly complicated by the fact that the gratings (HETG and LETG)
+        #  are configurable too but don't count as an instrument in the CHANMASTER table. They are in a separate
+        #  grating column
         if insts is None:
-            # TODO FIGURE OUT WHETHER THE -S SKEWS ARE ANY USE WITHOUT THE GRATINGS
             insts = ['ACIS-I', 'ACIS-S', 'HRC-I', 'HRC-S']
         elif isinstance(insts, str):
             # Makes sure that, if a single instrument is passed as a string, the insts variable is a list for the

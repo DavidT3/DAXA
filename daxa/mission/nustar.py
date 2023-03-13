@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 21:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 21:49. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -34,7 +34,9 @@ class NuSTARPointed(BaseMission):
     The available observation information is fetched from the HEASArc NuMASTER table, and data are downloaded from
     the HEASArc https access to their FTP server. Proprietary data are not currently supported by this class.
 
-    :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
+    :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
+            pass either a single string value or a list of strings. They may include FPMA and FPMB (the default
+            is both).
     """
 
     def __init__(self, insts: Union[List[str], str] = None):
@@ -45,7 +47,9 @@ class NuSTARPointed(BaseMission):
         downloaded from the HEASArc https access to their FTP server. Proprietary data are not currently supported
         by this class.
 
-        :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
+        :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
+            pass either a single string value or a list of strings. They may include FPMA and FPMB (the default
+            is both).
         """
         super().__init__()
 
