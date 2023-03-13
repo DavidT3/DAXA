@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 21:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 21:33. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -346,7 +346,7 @@ class Chandra(BaseMission):
         # The lower level URL of the directory we're currently looking at
         rel_url = top_url + 'secondary/'
         # This is the directory to which we will be saving this archive directories files
-        local_dir = raw_dir
+        local_dir = raw_dir + '/'
         # Make sure that the local directory is created
         if not os.path.exists(local_dir):
             os.makedirs(local_dir)
