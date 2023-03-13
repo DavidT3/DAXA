@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 21:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 21:30. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -310,8 +310,14 @@ class Chandra(BaseMission):
         self.all_obs_info = rel_chandra
 
     @staticmethod
-    def _download_call(observation_id: str, insts: List[str], raw_dir: str):
+    def _download_call(observation_id: str, raw_dir: str):
+        """
+        The internal method called (in a couple of different possible ways) by the download method. This will check
+        the availability of, acquire, and decompress the specified observation.
 
+        :param str observation_id: The ObsID of the observation to be downloaded.
+        :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
+        """
         # The Chandra data are stored in observatories that are named to correspond with the last digit of
         #  the particular observation's ObsID, so we shall extract that for later
         init_id = observation_id[-1]
@@ -340,7 +346,7 @@ class Chandra(BaseMission):
         # The lower level URL of the directory we're currently looking at
         rel_url = top_url + 'secondary/'
         # This is the directory to which we will be saving this archive directories files
-        local_dir = raw_dir + '/secondary/'
+        local_dir = raw_dir
         # Make sure that the local directory is created
         if not os.path.exists(local_dir):
             os.makedirs(local_dir)
@@ -406,8 +412,7 @@ class Chandra(BaseMission):
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
                     for obs_id in self.filtered_obs_ids:
                         # Use the internal static method I set up which both downloads and unpacks the XMM data
-                        self._download_call(obs_id, insts=self.chosen_instruments,
-                                            raw_dir=stor_dir + '{o}'.format(o=obs_id))
+                        self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id))
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -449,8 +454,7 @@ class Chandra(BaseMission):
                     for obs_id in self.filtered_obs_ids:
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
-                                         kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
-                                               'raw_dir': stor_dir + '{o}'.format(o=obs_id)},
+                                         kwds={'observation_id': obs_id, 'raw_dir': stor_dir + '{o}'.format(o=obs_id)},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
