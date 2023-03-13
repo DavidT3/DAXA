@@ -332,32 +332,40 @@ class eROSITACalPV(BaseMission):
         
         :param Union[List[str], str] gd_tscopes: The names of telescopes from which the user wishes to INCLUDE data from.
         """
-        # Reading in the file
-        hdul = fits.open(evlist_path)
 
-        # Selecting the telescope module number column
-        data = hdul[1].data
-        t_col = data["TM_NR"]
-    
         insts = self.chosen_instruments
-        # Just makes sure we can iterate across inst(s), regardless of how many there are
-        if not isinstance(insts, list):
-            insts = [insts]
-        # Putting inst names into correct format to search in t_col for 
-        gd_insts = [int(re.sub('[^0-9]','', tscope)) for tscope in insts]
-        
-        # Getting the indexes of events with the chosen insts
-        gd_insts_indx = np.hstack([(t_col==i).nonzero()[0] for i in gd_insts])
-        
-        # Filtering the data on those tscopes
-        filtered_data = data[gd_insts_indx]
+        # Getting a string of the numbers of the telescope modules to add to the file name
+        insts_str = ''.join(sorted(re.findall(r'\d+', ''.join(insts))))
 
-        # Replacing unfiltered eventlist in the fits file with the new ones
-        hdul[1].data = filtered_data
+        # Only filtering the eventlist if this combination of instruments hasn't been filtered for yet
+        if os.path.exists(evlist_path[:-5] + '_if_{}.fits'.format(insts_str)):
+            pass
+        else:
+            # Reading in the file
+            hdul = fits.open(evlist_path)
 
-        # Writing this to a new file (the if is for instrument filtered)
-        hdul.writeto(evlist_path[:-5] + '_if.fits')
-        hdul.close()
+            # Selecting the telescope module number column
+            data = hdul[1].data
+            t_col = data["TM_NR"]
+        
+            # Just makes sure we can iterate across inst(s), regardless of how many there are
+            if not isinstance(insts, list):
+                insts = [insts]
+            # Putting inst names into correct format to search in t_col for 
+            gd_insts = [int(re.sub('[^0-9]','', tscope)) for tscope in insts]
+            
+            # Getting the indexes of events with the chosen insts
+            gd_insts_indx = np.hstack([(t_col==i).nonzero()[0] for i in gd_insts])
+            
+            # Filtering the data on those tscopes
+            filtered_data = data[gd_insts_indx]
+
+            # Replacing unfiltered eventlist in the fits file with the new ones
+            hdul[1].data = filtered_data
+
+            # Writing this to a new file (the if is for instrument filtered)
+            hdul.writeto(evlist_path[:-5] + '_if_{}.fits'.format(insts_str))
+            hdul.close()
         
     @staticmethod
     def _download_call(self, field: str):
@@ -446,7 +454,12 @@ class eROSITACalPV(BaseMission):
         :return: The path of the event list.
         :rtype: str
         '''
-        file_name = os.listdir(os.path.join(self.raw_data_path + '{o}'.format(o=obs)))[0]
+        all_files = os.listdir(os.path.join(self.raw_data_path + '{o}'.format(o=obs)))
+
+         # This directory could have instrument filtered files in as well as the eventlist
+         #  so selecting the eventlist by chosing the one with 4 hyphens in
+        file_name = [file for file in all_files if len(re.findall('_', file)) == 4][0]
+
         ev_list_path = os.path.join(self.raw_data_path + '{o}'.format(o=obs), file_name)
 
         return ev_list_path
@@ -612,6 +625,68 @@ class eROSITACalPV(BaseMission):
             self._download_done = True
         
         else:
+            
+            # Need to include the instrument filtering even if the download is done, incase a different selection of
+            #  instruments is chosen for already downloaded data 
+            # Only doing the instrument filtering step if not all the instruments have been chosen
+            if len(self.chosen_instruments) != 7:
+                # Getting all the path for each eventlist corresponding to an obs_id for the _inst_filtering function later
+                fits_paths = [self._get_evlist_path_from_obs(obs=o) for o in self.filtered_obs_ids]
+
+                # Filtering out any events from the raw data that arent from the selected instruments
+                if num_cores == 1:
+                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) as download_prog:
+                        for path in fits_paths:
+                            self._inst_filtering(evlist_path=path)
+                            # Update the progress bar
+                            download_prog.update(1)
+
+                elif num_cores > 1:
+                    # List to store any errors raised during download tasks
+                    raised_errors = []
+
+                    # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
+                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) \
+                            as download_prog, Pool(num_cores) as pool:
+
+                        # The callback function is what is called on the successful completion of a _download_call
+                        def callback(download_conf: Any):
+                            """
+                            Callback function for the apply_async pool method, gets called when a download task finishes
+                            without error.
+
+                            :param Any download_conf: The Null value confirming the operation is over.
+                            """
+                            nonlocal download_prog  # The progress bar will need updating
+                            download_prog.update(1)
+
+                        # The error callback function is what happens when an exception is thrown during a _download_call
+                        def err_callback(err):
+                            """
+                            The callback function for errors that occur inside a download task running in the pool.
+
+                            :param err: An error that occurred inside a task.
+                            """
+                            nonlocal raised_errors
+                            nonlocal download_prog
+
+                            if err is not None:
+                                # Rather than throwing an error straight away I append them all to a list for later.
+                                raised_errors.append(err)
+                            download_prog.update(1)
+
+                        # Again nested for loop through each Obs_ID
+                        for path in fits_paths:
+                            # Add each download task to the pool
+                            pool.apply_async(self._inst_filtering, kwds={'evlist_path': path}, 
+                                            error_callback=err_callback, callback=callback)
+                        pool.close()  # No more tasks can be added to the pool
+                        pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+
+                    # Raise all the download errors at once, if there are any
+                    if len(raised_errors) != 0:
+                        raise DAXADownloadError(str(raised_errors))
+
             warn("The raw data for this mission have already been downloaded.")
 
 
