@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 14:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 21:49. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -34,7 +34,9 @@ class NuSTARPointed(BaseMission):
     The available observation information is fetched from the HEASArc NuMASTER table, and data are downloaded from
     the HEASArc https access to their FTP server. Proprietary data are not currently supported by this class.
 
-    :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
+    :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
+            pass either a single string value or a list of strings. They may include FPMA and FPMB (the default
+            is both).
     """
 
     def __init__(self, insts: Union[List[str], str] = None):
@@ -45,7 +47,9 @@ class NuSTARPointed(BaseMission):
         downloaded from the HEASArc https access to their FTP server. Proprietary data are not currently supported
         by this class.
 
-        :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
+        :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
+            pass either a single string value or a list of strings. They may include FPMA and FPMB (the default
+            is both).
         """
         super().__init__()
 
@@ -80,7 +84,7 @@ class NuSTARPointed(BaseMission):
 
         # Runs the method which fetches information on all available pointed NuSTAR observations and stores that
         #  information in the all_obs_info property
-        self.fetch_obs_info()
+        self._fetch_obs_info()
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
@@ -156,7 +160,7 @@ class NuSTARPointed(BaseMission):
         self._obs_info = new_info
         self.reset_filter()
 
-    def fetch_obs_info(self):
+    def _fetch_obs_info(self):
         """
         This method adapts the 'browse_extract.pl' script (a copy of which can be found in daxa/files for the proper
         credit) to acquire the 'numaster' table from HEASArc - this method is much simpler, as it doesn't need to be
@@ -285,7 +289,14 @@ class NuSTARPointed(BaseMission):
 
     @staticmethod
     def _download_call(observation_id: str, insts: List[str], raw_dir: str):
+        """
+        The internal method called (in a couple of different possible ways) by the download method. This will check
+        the availability of, acquire, and decompress the specified observation.
 
+        :param str observation_id: The ObsID of the observation to be downloaded.
+        :param List[str] insts: The instruments which the user wishes to acquire data for.
+        :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
+        """
         # This two digit code identifies the program type (00 assigned to the first 2-year primary mission, and
         #  then 01, 02, 03 ... increment for each additional year of observations. Useful here to get to the
         #  correct directory to find our ObsID
@@ -298,13 +309,12 @@ class NuSTARPointed(BaseMission):
         obs_dir = "/FTP/nustar/data/obs/{pid}/{sc}/{oid}/".format(pid=prog_id, sc=src_cat, oid=observation_id)
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
 
-        # Credit to https://www.matecdev.com/posts/login-download-files-python.html for this snippet to map the
-        #  tree structure of the ObsID directory - can't go down a level into the event_uf directory unfortunately, but
-        #  it can be run again
+        # This opens a session that will persist - then a lot of the next session is for checking that the expected
+        #  directories are present.
         session = requests.Session()
 
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
-        #  that the three directories that I need to download unprocessed NuSTAR data are present
+        #  that the three directories that I need to download unprocessed NuStar data are present
         top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
                     if en['href'] in REQUIRED_DIRS]
         # If the lengths of top_data and REQUIRED_DIRS are different, then one or more of the expected dirs

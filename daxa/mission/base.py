@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 14:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 13:12. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -24,13 +24,14 @@ from daxa.exceptions import MissionLockedError, NoObsAfterFilterError, IllegalSo
 REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration', 'end']
 # This defines the DAXA source category system, which can be employed by users to narrow down observations which
 #  target specific types of source (if that data is available for a specific mission).
-SRC_TYPE_TAXONOMY = {'AGN': 'Active Galaxies and Quasars', 'BLZ': 'Blazars', 'CAL': 'Calibration Observation',
-                     'EGS': 'Extragalactic Surveys', 'GCL': 'Galaxy Clusters', 'GS': 'Galactic Survey',
+SRC_TYPE_TAXONOMY = {'AGN': 'Active Galaxies and Quasars', 'BLZ': 'Blazars',
+                     'CAL': 'Calibration Observation (possibly of objects)', 'EGS': 'Extragalactic Surveys',
+                     'GCL': 'Galaxy Clusters', 'GS': 'Galactic Survey',
                      'MAG': 'Magnetars and Rotation-Powered Pulsars', 'NGS': 'Normal and Starburst Galaxies',
                      'OAGN': 'Obscured Active Galaxies and Quasars', 'SNE': 'Non-ToO Supernovae',
                      'SNR': 'Supernova Remnants and Galactic diffuse', 'SOL': 'Solar System Observations',
                      'ULX': 'Ultra-luminous X-ray Sources', 'XRB': 'X-ray Binaries', 'TOO': 'Targets of Opportunity',
-                     'MISC': "Catch-all for other sources"}
+                     'EGE': 'Extended galactic or extragalactic', 'MISC': "Catch-all for other sources"}
 
 
 def _lock_check(change_func):
@@ -506,6 +507,11 @@ class BaseMission(metaclass=ABCMeta):
         if not isinstance(insts, list):
             insts = [insts]
 
+        # I just check that there are actually entries in this list of instruments, because it would be silly if
+        #  there weren't
+        if len(insts) == 0:
+            raise ValueError("No instruments have been selected, please pass at least one.")
+
         # This is clunky and inefficient but should be fine for these very limited purposes. It just checks whether
         #  this module has a preferred name for a particular instrument. We can also make sure that there are no
         #  duplicate instrument names here
@@ -542,7 +548,7 @@ class BaseMission(metaclass=ABCMeta):
 
     # Then define user-facing methods
     @abstractmethod
-    def fetch_obs_info(self):
+    def _fetch_obs_info(self):
         """
         The abstract method (i.e. will be overridden in every subclass of BaseMission) that pulls basic information
         on all observations for a given mission down from whatever server it lives on.
@@ -810,6 +816,10 @@ class BaseMission(metaclass=ABCMeta):
         This method allows the filtering of observations based on what type of object their target source was. It
         is only supported for missions that have that data available, and will raise an exception for those
         missions that don't support this filtering.
+
+        WARNING: You should not trust these target types without question, they are the result of crude mappings, and
+        some may be incorrect. They also don't take into account sources that might serendipitously appear in
+        a particular observation.
 
         :param str/List[str] target_type: The types of target source you would like to find observations of. For
             allowed types, please use the 'show_allowed_target_types' method. Can either be a single type, or
