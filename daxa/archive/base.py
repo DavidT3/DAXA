@@ -39,11 +39,11 @@ class Archive:
         """
         # First ensure that the missions variable is iterable even if there's only one mission that has
         #  been passed, makes it easier to generalise things.
-        if isinstance(missions, list):
+        if isinstance(missions, BaseMission):
             missions = [missions]
         
         # Then checking that every element in the list is a BaseMission
-        if not all (isinstance(mission, BaseMission) for mission in missions):
+        if not all(isinstance(mission, BaseMission) for mission in missions):
             raise TypeError("Please pass either a single missions class instance, or a list of missions class "
                             "instances to the 'missions' argument.")
 
