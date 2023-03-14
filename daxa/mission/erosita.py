@@ -239,6 +239,11 @@ class eROSITACalPV(BaseMission):
         """
         # Hard coded this and saved it to the obs_info.csv in /files
         obs_info['ObsID'] = [str(obs) for obs in obs_info['ObsID']]
+        obs_info['start'] = [time.split('.', 1)[0] for time in obs_info['start']]
+        obs_info['end'] = [time.split('.', 1)[0] for time in obs_info['end']]
+        obs_info['start'] = pd.to_datetime(obs_info['start'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
+        obs_info['end'] = pd.to_datetime(obs_info['end'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
+
         self.all_obs_info = obs_info
 
     def _check_chos_fields(self, fields: Union[List[str], str]):
