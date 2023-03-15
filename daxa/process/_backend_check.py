@@ -5,8 +5,10 @@ import os
 from subprocess import Popen, PIPE
 
 from packaging.version import Version
+from shutil import which
+from typing import Bool 
 
-from ..exceptions import SASNotFoundError, SASVersionError
+from ..exceptions import SASNotFoundError, SASVersionError, eSASSNotFoundError
 
 
 def find_sas() -> Version:
@@ -42,3 +44,63 @@ def find_sas() -> Version:
                               "later.".format(v=sas_version))
 
     return sas_version
+
+def find_esass() -> Bool:
+    """
+     This function checks to ensure the presence of either eSASS on the host system, or for an installation of Docker with a running Docker daemon. 
+     It will be called before performing any data processing/reduction of eROSITA data. 
+     An error will be thrown if eSASS (or Docker with a running Docker daemon) cannot be identified on the system.
+
+    :return: A bool indicating whether or not eSASS is being used via Docker or not, set to True if Docker is being used. 
+    :rtype: Bool
+    """
+    # DAVID_QUESTION no clue about the version --> probably dont need it at this stage?
+    # JESS_TODO set a variable indicating whether or not esass is being used via docker which
+    # JESS_TODO can effect things in the execute_cmd() function for eROSITA 
+
+    # Defining the Booleans to check whether eSASS can be used
+    docker_installed = False
+    docker_daemon_running = False
+    esass_outside_docker = False
+
+    # Performing the Docker checks
+    # Firstly checking whether it is installed by seeing if 'docker' is on PATH and is marked as executable
+    if which('docker') is not None:
+        docker_installed = True
+    # Then seeing if a Docker daemon is running, aka can a container be run
+    cmd = 'docker run hello-world'
+    # Running this command in the terminal to see if it is possible to run a container
+    out, err = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
+    # Decodes the stdout and stderr from the binary encoding it currently exists in. The errors='ignore' flag
+    #  means that it doesn't throw errors if there is a character it doesn't recognize
+    err = err.decode("UTF-8", errors='ignore')
+    # If this doesnt raise an error, then the eSASS env. is enabled and working
+    if len(err) == 0:
+        docker_daemon_running = True
+    
+    # Performing eSASS installation checks for eSASS outside of Docker
+    cmd = 'evtool'
+    out, err = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
+    err = err.decode("UTF-8", errors='ignore')
+    # If this doesnt raise an error, then the eSASS env. is enabled and working
+    if len(err) == 0:
+        esass_outside_docker = True
+
+    # Raising errors 
+    if not (docker_installed or esass_outside_docker):
+        raise eSASSNotFoundError("No version of eSASS has been detected on this system.")
+
+    if docker_installed and not docker_daemon_running and not esass_outside_docker:
+        raise eSASSNotFoundError("Please start the Docker daemon so that the eSASS container may be run."
+                                " If you are using the desktop application of Docker, this error may arise"
+                                " if the application is installed, but not open.") 
+    
+    # Doing the returns
+    if docker_daemon_running and not esass_outside_docker:
+        return True
+    if not docker_daemon_running and esass_outside_docker:
+        return False
+    if docker_daemon_running and esass_outside_docker:
+        # If docker and esass are both present, use esass outside of docker 
+        return False
+    
