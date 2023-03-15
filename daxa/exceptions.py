@@ -183,6 +183,25 @@ class NoXMMMissionsError(Exception):
         else:
             return 'NoXMMMissionsError has been raised'
 
+class NoEROSITAMissionsError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if an archive containing no eROSITA missions is passed to an eROSITA specific processing function.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'NoEROSITAMissionsError has been raised'
+
 
 class NoProcessingError(Exception):
     def __init__(self, *args):
