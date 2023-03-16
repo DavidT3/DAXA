@@ -242,7 +242,7 @@ class eROSITACalPV(BaseMission):
             fields = [fields]
 
         # Making sure all the items in the list are strings
-        if not all(isinstance(field, str) for field in fields):
+        if not all([isinstance(field, str) for field in fields]):
             raise ValueError("The fields input must be entered as a string, or a list of strings.")
 
         # Converting to upper case and replacing special characters and whitespaces
