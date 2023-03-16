@@ -577,7 +577,7 @@ class BaseMission(metaclass=ABCMeta):
             allowed_obs_ids.append('700200')
             warn("The ObsID '700195' is misstyped on the eROSITA early data release website. It has"
             " been replaced with '700199', '700200' which are the true ObsIDs associated with the "
-            "Puppis A galactic field.")
+            "Puppis A galactic field.", stacklevel=2)
 
         # Runs the ObsID pattern checks for all the passed ObsIDs
         oid_check = [oid for oid in allowed_obs_ids if not self.check_obsid_pattern(oid)]
