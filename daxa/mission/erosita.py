@@ -45,7 +45,7 @@ class eROSITACalPV(BaseMission):
 
         # Runs the method which fetches information on all available eROSITACalPV observations and stores that
         #  information in the all_obs_info property
-        self.fetch_obs_info()
+        self._fetch_obs_info()
 
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
@@ -205,7 +205,7 @@ class eROSITACalPV(BaseMission):
         self.filter_array = new_filter
     
     # Then define user-facing methods
-    def fetch_obs_info(self):
+    def _fetch_obs_info(self):
         """
         This method uses the hard coded csv file to pull information on all eROSITACalPV observations. 
         The data are processed into a Pandas dataframe and stored.
