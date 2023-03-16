@@ -313,10 +313,7 @@ class eROSITACalPV(BaseMission):
                 # Selecting the telescope module number column
                 data = fits_file[1].data
                 t_col = data["TM_NR"]
-            
-                # Just makes sure we can iterate across inst(s), regardless of how many there are
-                if not isinstance(insts, list):
-                    insts = [insts]
+                
                 # Putting inst names into correct format to search in t_col for 
                 gd_insts = [int(re.sub('[^0-9]','', tscope)) for tscope in insts]
                 
