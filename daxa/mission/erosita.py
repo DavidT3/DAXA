@@ -245,9 +245,6 @@ class eROSITACalPV(BaseMission):
         if not all(isinstance(field, str) for field in fields):
             raise ValueError("The fields input must be entered as a string, or a list of strings.")
 
-        # Storing the input fields original format so that the ValueError later will clearer for the user
-        input_fields = fields
-
         # Converting to upper case and replacing special characters and whitespaces
         #  with underscores to match the entries in CALPV_INFO 
         fields = [re.sub("[-()+/. ]", "_", field.upper()) for field in fields]
@@ -256,55 +253,35 @@ class eROSITACalPV(BaseMission):
         # Lovely and hard coded but not sure if there is any better way to do this
         poss_alt_field_names = {"IGR_J13020_6359": "IGR_J13020_6359__2RXP_J130159_635806_", 
                                 "HR_3165": "HR_3165__ZET_PUP_", "CRAB_I": "CRAB_1", "CRAB_II": "CRAB_2",
-                                "CRAB_III": "CRAB_3", "CRAB_IV": "CRAB_4", "CRAB": "", 
+                                "CRAB_III": "CRAB_3", "CRAB_IV": "CRAB_4", 
                                 "47_TUC": "47_TUC__NGC_04_", "TGUH2213P1": "TGUH2213P1__DARK_CLOUD_",
                                 "A3391": "A3391_A3395", "A3395": "A3391_A3395"}
         
-        # Replacing the possible alternative names people could have inputted with the equivalent DAXA friendly formatted one
-        for alt_field in poss_alt_field_names:
-            # In case they just put in crab, again sorry this is so digustingly hard coded
-            if alt_field == "CRAB" and alt_field in fields:
-                # Replacing "CRAB" in the list with the way the links are written in the CALPV_INFO DataFrame
-                i = fields.index("CRAB")
-                fields[i:i+2] = "CRAB_1", "CRAB_2", "CRAB_3", "CRAB_4"
-            elif alt_field in fields:
-                # Doing this for all the other alternative field name
-                i = fields.index(alt_field)
-                fields[i] = poss_alt_field_names[alt_field]
-            else:
-                bad_fields = [f for f in fields if f not in poss_alt_field_names and f not in self._miss_poss_fields and f not in self._miss_poss_field_types]
-                if len(bad_fields) != 0:
-                    raise ValueError("Some field names or field types {bf} are not associated with this mission, please"
+        # Finding if any of the fields entries are not valid CalPV field names or types
+        bad_fields = [f for f in fields if f not in poss_alt_field_names and f not in self._miss_poss_fields and f not in self._miss_poss_field_types and not 'CRAB']
+        if len(bad_fields) != 0:
+            raise ValueError("Some field names or field types {bf} are not associated with this mission, please"
                             " choose from the following fields; {gf} or field types; {gft}".format(
                             bf=",".join(bad_fields), gf=",".join(self._miss_poss_fields), gft=",".join(self._miss_poss_field_types)))
         
-        if all(field in self._miss_poss_field_types for field in fields):
-            # Checking if the fields were given as a field type 
-            # Then collecting all the fields associated with that field type/s
-            updated_fields = CALPV_INFO.loc[CALPV_INFO["Field_Type"].isin(fields), "Field_Name"].tolist()
-        elif all(field in self._miss_poss_fields for field in fields):
-            # Checking if the field names are valid
-            updated_fields = fields
+        # Extracting the alt_fields from fields
+        alt_fields = [field for field in fields if field in poss_alt_field_names]
+        # Making a list of the alt_fields DAXA compatible name
+        alt_fields_proper_name = [poss_alt_field_names[field] for field in alt_fields]
+        # Seeing if someone just input 'crab' into the fields argument
+        if 'CRAB' in fields:
+            crab = ['CRAB_1', 'CRAB_2', 'CRAB_3', 'CRAB_4']
         else:
-            # Checking if any of the fields entered are not valid field names or types
-            field_test = [field in self._miss_poss_field_types or self._miss_poss_fields for field in fields]
-            if not all(field_test):
-                bad_fields = np.array(input_fields)[~np.array(field_test)]
-                raise ValueError("Some field names or field types {bf} are not associated with this mission, please"
-                        "choose from the following fields; {gf} or field types; {gft}".format(
-                        bf=",".join(bad_fields), gf=",".join(self._miss_poss_fields), gft=",".join(self._miss_poss_field_types)))
-            
-            else:
-                # If its got to this stage that means the field where input as a mix of field types and field names
-                # I did this when i was tired so sorry it looks a but weird?? i think it might look weird
-                # Selecting the field types from the input
-                field_types = [ft for ft in fields if ft in self._miss_poss_field_types]
-                # Turning them into their field names
-                fields_in_types = CALPV_INFO.loc[CALPV_INFO["Field_Type"].isin(field_types), "Field_Name"].tolist()
-                # Selecting the field names from the input
-                field_names = [ft for ft in fields if ft in self._miss_poss_fields]
-                updated_fields = fields_in_types + field_names
-        
+            crab = []
+        # Then the extracting the field_types
+        field_types = [field for field in fields if field in self._miss_poss_field_types]
+        # Turning the field_types into field_names
+        field_types_proper_name = CALPV_INFO.loc[CALPV_INFO["Field_Type"].isin(field_types), "Field_Name"].tolist()
+        # Then extracting the field names from fields
+        field_names = [field for field in fields if field in self._miss_poss_fields]
+    
+        # Adding all these together to make the final fields list
+        updated_fields = alt_fields_proper_name + crab + field_types_proper_name + field_names
         # Removing the duplicates from updated_fields
         updated_fields = list(set(updated_fields))
 
