@@ -44,7 +44,7 @@ class Archive:
         
         # Then checking that every element in the list is a BaseMission
         if not all(isinstance(mission, BaseMission) for mission in missions):
-            raise TypeError("Please pass either a single missions class instance, or a list of missions class "
+            raise TypeError("Please pass either a single mission class instance, or a list of missions class "
                             "instances to the 'missions' argument.")
 
         # Here we ensure that there are no duplicate mission instances, each mission should be filtered in such
