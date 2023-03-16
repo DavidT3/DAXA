@@ -309,30 +309,28 @@ class eROSITACalPV(BaseMission):
             pass
         else:
             # Reading in the file
-            hdul = fits.open(evlist_path)
-
-            # Selecting the telescope module number column
-            data = hdul[1].data
-            t_col = data["TM_NR"]
-        
-            # Just makes sure we can iterate across inst(s), regardless of how many there are
-            if not isinstance(insts, list):
-                insts = [insts]
-            # Putting inst names into correct format to search in t_col for 
-            gd_insts = [int(re.sub('[^0-9]','', tscope)) for tscope in insts]
+            with fits.open(evlist_path) as fits_file:
+                # Selecting the telescope module number column
+                data = fits_file[1].data
+                t_col = data["TM_NR"]
             
-            # Getting the indexes of events with the chosen insts
-            gd_insts_indx = np.hstack([(t_col==i).nonzero()[0] for i in gd_insts])
-            
-            # Filtering the data on those tscopes
-            filtered_data = data[gd_insts_indx]
+                # Just makes sure we can iterate across inst(s), regardless of how many there are
+                if not isinstance(insts, list):
+                    insts = [insts]
+                # Putting inst names into correct format to search in t_col for 
+                gd_insts = [int(re.sub('[^0-9]','', tscope)) for tscope in insts]
+                
+                # Getting the indexes of events with the chosen insts
+                gd_insts_indx = np.hstack([(t_col==i).nonzero()[0] for i in gd_insts])
+                
+                # Filtering the data on those tscopes
+                filtered_data = data[gd_insts_indx]
 
-            # Replacing unfiltered eventlist in the fits file with the new ones
-            hdul[1].data = filtered_data
+                # Replacing unfiltered eventlist in the fits file with the new ones
+                fits_file[1].data = filtered_data
 
-            # Writing this to a new file (the if is for instrument filtered)
-            hdul.writeto(evlist_path[:-5] + '_if_{}.fits'.format(insts_str))
-            hdul.close()
+                # Writing this to a new file (the if is for instrument filtered)
+                fits_file.writeto(evlist_path[:-5] + '_if_{}.fits'.format(insts_str))
         
     @staticmethod
     def _download_call(self, link: str):
