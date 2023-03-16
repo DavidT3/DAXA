@@ -292,14 +292,19 @@ class eROSITACalPV(BaseMission):
         """
         Method to filter event lists for eROSITACalPV data based on instrument choice.
         
-        :param Union[List[str], str] gd_tscopes: The names of telescopes from which the user wishes to INCLUDE data from.
+        :param str evlist_path: This is the file path to the raw eventlist for a certain ObsID
+         that has NOT been filtered for the users instrument choice yet.
         """
 
         insts = self.chosen_instruments
-        # Getting a string of the numbers of the telescope modules to add to the file name
+
+        # Getting a string of TM numbers to add to the end of the file name
         insts_str = ''.join(sorted(re.findall(r'\d+', ''.join(insts))))
 
-        # Only filtering the eventlist if this combination of instruments hasn't been filtered for yet
+        # Checking that this combination of instruments has not been filtered for before for this Obsid
+        #  this is done by checking that there is no file with the _if_{}.fits ending where {} is the 
+        #  number(s) of the TM(s) that the user has specified when declaring the mission.
+        # Indexing the string at [:-5] removes the .fits part of the file path
         if os.path.exists(evlist_path[:-5] + '_if_{}.fits'.format(insts_str)):
             pass
         else:
