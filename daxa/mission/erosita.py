@@ -65,7 +65,9 @@ class eROSITACalPV(BaseMission):
         if insts is None:
             insts = ['TM1', 'TM2', 'TM3', 'TM4', 'TM5', 'TM6', 'TM7']
         
+        # Setting all the possible instruments that can be associated with eROSITA data
         self._miss_poss_insts = ['TM1', 'TM2', 'TM3', 'TM4', 'TM5', 'TM6', 'TM7']
+        # Setting the user specified instruments
         self.chosen_instruments = insts
 
 
