@@ -523,7 +523,7 @@ class BaseMission(metaclass=ABCMeta):
 
     # Then define user-facing methods
     @abstractmethod
-    def fetch_obs_info(self):
+    def _fetch_obs_info(self):
         """
         The abstract method (i.e. will be overridden in every subclass of BaseMission) that pulls basic information
         on all observations for a given mission down from whatever server it lives on.
