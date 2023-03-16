@@ -72,4 +72,4 @@ SASERROR_LIST = errors["ErrName"].values
 SASWARNING_LIST = warnings["WarnName"].values
 
 # Reading in the data available in the Cal-PV release
-CALPV_INFO = pd.read_csv(pkg_resources.resource_filename(__name__, "files/CALPV_INFO.csv"), header="infer")
+CALPV_INFO = pd.read_csv(pkg_resources.resource_filename(__name__, "files/CALPV_INFO.csv"), header="infer",  dtype={'ObsID': str})
