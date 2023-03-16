@@ -24,7 +24,7 @@ class eROSITACalPV(BaseMission):
     The mission class for the eROSITA early data release observations made during the Calibration and Performance 
     Verification program. 
 
-    :param List[str]/str fields: The fields or field type that the user is choosing to download/process data from.
+    :param List[str]/str fields: The eROSITA calibration field name(s) or type to download/process data from. 
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
     """
     def __init__(self, insts: Union[List[str], str] = None, fields: Union[List[str], str] = None):
