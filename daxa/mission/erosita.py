@@ -69,7 +69,8 @@ class eROSITACalPV(BaseMission):
         self._miss_poss_insts = ['TM1', 'TM2', 'TM3', 'TM4', 'TM5', 'TM6', 'TM7']
         # Setting the user specified instruments
         self.chosen_instruments = insts
-
+        # Call the name property to set up the name and pretty name attributes
+        self.name
 
     # Defining properties first
     @property
