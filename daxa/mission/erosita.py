@@ -176,31 +176,7 @@ class eROSITACalPV(BaseMission):
             be processed into the archive.
         """
         self._chos_fields = self._check_chos_fields(new_fields)
-    
-    def _field_dict_generator(self): 
-        """
-        Returns a dictionary with all eROSITACalPV Obs_IDs as keys and their field as the value.
 
-        :param str/List[str] allowed_fields: The fields or field types (or list of fields or field types) 
-            that you wish to be let through the filter.
-        :return: The field dictionary.
-        :rtype: dict
-        """
-        # Creating a dictionary to store obs_ids as keys and their field name as values
-        field_dict = {}
-        for field in self._miss_poss_fields:
-            obs = CALPV_INFO["Obs_ID"].loc[CALPV_INFO["Field_Name"] == field].values[0]
-            if "," in obs:
-                # This checks if multiple observations are associated with one field
-                indv_obs = obs.split(", ")
-                for ind_ob in indv_obs:
-                    field_dict[ind_ob] = field
-            else:
-                field_dict[obs] = field
-        
-        return field_dict
-
-    
     @_lock_check
     def filter_on_fields(self, fields: Union[str, List[str]]):
         """
@@ -216,11 +192,8 @@ class eROSITACalPV(BaseMission):
         # Updating the chosen_field attribute
         self.chosen_fields = fields
 
-        # Creating a dictionary that store obs_ids as keys and their field name as values
-        field_dict = self._field_dict_generator()
-        
         # Selecting all Obs_IDs from each field
-        field_obs_ids = [obs for field in fields for obs in field_dict if field_dict[obs] == field]
+        field_obs_ids = CALPV_INFO.loc[CALPV_INFO["Field_Name"].isin(fields), "ObsID"].tolist()
 
         # Uses the Pandas isin functionality to find the rows of the overall observation table that match the input
         #  ObsIDs. This outputs a boolean array.
@@ -237,14 +210,19 @@ class eROSITACalPV(BaseMission):
         This method uses the hard coded csv file to pull information on all eROSITACalPV observations. 
         The data are processed into a Pandas dataframe and stored.
         """
-        # Hard coded this and saved it to the obs_info.csv in /files
-        obs_info['ObsID'] = [str(obs) for obs in obs_info['ObsID']]
-        obs_info['start'] = [time.split('.', 1)[0] for time in obs_info['start']]
-        obs_info['end'] = [time.split('.', 1)[0] for time in obs_info['end']]
-        obs_info['start'] = pd.to_datetime(obs_info['start'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
-        obs_info['end'] = pd.to_datetime(obs_info['end'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
+        # Hard coded this and saved it to the CALPV_INFO.csv in /files
+        # Need to split the times since they go to milisecond precision, 
+        #  which is a pain to translate to a datetime object, and is superfluous information anyway
+        CALPV_INFO['start'] = [time.split('.', 1)[0] for time in CALPV_INFO['start']]
+        CALPV_INFO['end'] = [time.split('.', 1)[0] for time in CALPV_INFO['end']]
+        CALPV_INFO['start'] = pd.to_datetime(CALPV_INFO['start'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
+        CALPV_INFO['end'] = pd.to_datetime(CALPV_INFO['end'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
 
-        self.all_obs_info = obs_info
+        obs_info_series = [CALPV_INFO['ra'], CALPV_INFO['dec'], CALPV_INFO['ObsID'], CALPV_INFO['usable'],
+                           CALPV_INFO['start'], CALPV_INFO['end'], CALPV_INFO['duration']]
+        obs_info_pd = pd.concat(obs_info_series, axis=1)
+
+        self.all_obs_info = obs_info_pd
 
     def _check_chos_fields(self, fields: Union[List[str], str]):
         """
@@ -372,13 +350,12 @@ class eROSITACalPV(BaseMission):
             hdul.close()
         
     @staticmethod
-    def _download_call(self, field: str):
+    def _download_call(self, link: str):
         """
         This internal static method is purely to enable parallelised downloads of data, as defining
         an internal function within download causes issues with pickling for multiprocessing.
 
-        :param str field: The field name of the particular field to be downloaded.
-        :param str filename: The directory under which to save the downloaded tar.gz.
+        :param str link: The download_link of the particular field to be downloaded.
         :return: A None value.
         :rtype: Any
         """
@@ -389,8 +366,10 @@ class eROSITACalPV(BaseMission):
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir)
 
+        # Getting the field name associated with the download link for directory naming purposes
+        field = CALPV_INFO.loc[CALPV_INFO['download'].isin(link), 'Field_Name'].tolist()[0]
         # Download the requested data
-        r = requests.get(CALPV_INFO["download"].loc[CALPV_INFO["Field_Name"] == field].values[0])
+        r = requests.get(link)
         field_dir = os.path.join(temp_dir, "{f}".format(f=field))
         os.makedirs(field_dir)
         open(field_dir + "{f}.tar.gz".format(f=field), "wb").write(r.content)
@@ -411,8 +390,6 @@ class eROSITACalPV(BaseMission):
         """
         # Only executing the method if new data has been downloaded
         if os.path.exists(os.path.join(self.raw_data_path, "temp_download")):
-            # Creating a dictionary that stores obs_ids as keys and their field name as values
-            field_dict = self._field_dict_generator()
 
             # Moving the eventlist for each obs_id from its downloaded path to the path DAXA expects
             for o in self.filtered_obs_ids:
@@ -421,7 +398,7 @@ class eROSITACalPV(BaseMission):
                     # The path to the obs_id directory
                     obs_dir = os.path.join(self.raw_data_path, '{o}'.format(o=o))
                     # The field the obs_id was downloaded with
-                    field_name = field_dict[o]
+                    field_name = CALPV_INFO["Field_Name"].loc[CALPV_INFO["ObsID"] ==  o].values[0]
                     # The path to where the obs_id was initially downloaded
                     field_dir = os.path.join(self.raw_data_path, "temp_download", field_name)
                     # Not including hidden files in this list
@@ -484,28 +461,19 @@ class eROSITACalPV(BaseMission):
         #  the _download_call method
         if all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in self.filtered_obs_ids]):
             self._download_done = True
-        
-        # Since multiple Obs_IDs are downloaded with one field, we are first downloading all fields needed.
-        # This dictionary contains which obs_ids are associated with which field
-        field_dict = self._field_dict_generator()
-        # A list of fields needed to get the required obs_ids (with no duplicate fields)
-        required_fields = list(set([field_dict[o] for o in self.filtered_obs_ids]))
 
-        # Dictionary containing all the possible obs_ids associated with one field (field keys, obs_ids values as a list)
-        obs_dict = {}
-        for field in required_fields:
-            obs_dict[field] = [obs for obs in field_dict if field_dict[obs] == field]
-        
-        # Collect all the fields who have got an obs_id/ obs_ids that aren't already downloaded 
-        fields_to_be_downloaded = [field for field in required_fields if not all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in obs_dict[field]])]
-        
+        # Getting all the obs_ids that havent already been downloaded
+        obs_to_download = list(set(self.filter_on_obs_ids) - set(os.listdir(stor_dir)))
+        # Getting all the unique download links (since the CalPV data is downloaded in whole fields, rather than individual obs_ids)
+        download_links = list(set(CALPV_INFO.loc[CALPV_INFO['ObsID'].isin(obs_to_download), 'download']))
+    
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
             if num_cores == 1:
-                with tqdm(total=len(fields_to_be_downloaded), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
-                    for field in fields_to_be_downloaded:
+                with tqdm(total=len(download_links), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
+                    for link in download_links:
                         # Use the internal static method I set up which both downloads and unpacks the eROSITACalPV data
-                        self._download_call(self, field=field)
+                        self._download_call(self, link=link)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -514,7 +482,7 @@ class eROSITACalPV(BaseMission):
                 raised_errors = []
 
                 # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
-                with tqdm(total=len(fields_to_be_downloaded ), desc="Downloading {} data".format(self._pretty_miss_name)) \
+                with tqdm(total=len(download_links), desc="Downloading {} data".format(self._pretty_miss_name)) \
                         as download_prog, Pool(num_cores) as pool:
 
                     # The callback function is what is called on the successful completion of a _download_call
@@ -544,10 +512,10 @@ class eROSITACalPV(BaseMission):
                         download_prog.update(1)
 
                     # Again nested for loop through ObsIDs and instruments
-                    for field in fields_to_be_downloaded:
+                    for link in download_links:
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
-                                            kwds={'field': field},
+                                            kwds={'link': link},
                                             error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
