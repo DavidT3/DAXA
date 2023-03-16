@@ -16,7 +16,7 @@ from tqdm import tqdm
 from .base import BaseMission
 from .base import _lock_check
 from .. import NUM_CORES
-from ..config import CalPV_info, obs_info
+from ..config import CALPV_INFO
 from ..exceptions import DAXADownloadError
 
 class eROSITACalPV(BaseMission):
@@ -39,9 +39,9 @@ class eROSITACalPV(BaseMission):
         super().__init__() 
 
         # All the allowed names of fields 
-        self._miss_poss_fields = CalPV_info["Field_Name"].tolist()
+        self._miss_poss_fields = CALPV_INFO["Field_Name"].tolist()
         # All the allowed types of field, ie. survey, magellanic cloud, galactic field, extragalactic field
-        self._miss_poss_field_types = CalPV_info["Field_Type"].unique().tolist()
+        self._miss_poss_field_types = CALPV_INFO["Field_Type"].unique().tolist()
 
         # Runs the method which fetches information on all available eROSITACalPV observations and stores that
         #  information in the all_obs_info property
@@ -189,7 +189,7 @@ class eROSITACalPV(BaseMission):
         # Creating a dictionary to store obs_ids as keys and their field name as values
         field_dict = {}
         for field in self._miss_poss_fields:
-            obs = CalPV_info["Obs_ID"].loc[CalPV_info["Field_Name"] == field].values[0]
+            obs = CALPV_INFO["Obs_ID"].loc[CALPV_INFO["Field_Name"] == field].values[0]
             if "," in obs:
                 # This checks if multiple observations are associated with one field
                 indv_obs = obs.split(", ")
@@ -268,7 +268,7 @@ class eROSITACalPV(BaseMission):
         input_fields = fields
 
         # Converting to upper case and replacing special characters and whitespaces
-        #  with underscores to match the entries in CalPV_info 
+        #  with underscores to match the entries in CALPV_INFO 
         fields = [re.sub("[-()+/. ]", "_", field.upper()) for field in fields]
 
         # In case people use roman numerals or dont include the brackets in their input
@@ -283,7 +283,7 @@ class eROSITACalPV(BaseMission):
         for alt_field in poss_alt_field_names:
             # In case they just put in crab, again sorry this is so digustingly hard coded
             if alt_field == "CRAB" and alt_field in fields:
-                # Replacing "CRAB" in the list with the way the links are written in the CalPV_info DataFrame
+                # Replacing "CRAB" in the list with the way the links are written in the CALPV_INFO DataFrame
                 i = fields.index("CRAB")
                 fields[i:i+2] = "CRAB_1", "CRAB_2", "CRAB_3", "CRAB_4"
             elif alt_field in fields:
@@ -300,7 +300,7 @@ class eROSITACalPV(BaseMission):
         if all(field in self._miss_poss_field_types for field in fields):
             # Checking if the fields were given as a field type 
             # Then collecting all the fields associated with that field type/s
-            updated_fields = CalPV_info.loc[CalPV_info["Field_Type"].isin(fields), "Field_Name"].tolist()
+            updated_fields = CALPV_INFO.loc[CALPV_INFO["Field_Type"].isin(fields), "Field_Name"].tolist()
         elif all(field in self._miss_poss_fields for field in fields):
             # Checking if the field names are valid
             updated_fields = fields
@@ -319,7 +319,7 @@ class eROSITACalPV(BaseMission):
                 # Selecting the field types from the input
                 field_types = [ft for ft in fields if ft in self._miss_poss_field_types]
                 # Turning them into their field names
-                fields_in_types = CalPV_info.loc[CalPV_info["Field_Type"].isin(field_types), "Field_Name"].tolist()
+                fields_in_types = CALPV_INFO.loc[CALPV_INFO["Field_Type"].isin(field_types), "Field_Name"].tolist()
                 # Selecting the field names from the input
                 field_names = [ft for ft in fields if ft in self._miss_poss_fields]
                 updated_fields = fields_in_types + field_names
@@ -390,7 +390,7 @@ class eROSITACalPV(BaseMission):
             os.makedirs(temp_dir)
 
         # Download the requested data
-        r = requests.get(CalPV_info["download"].loc[CalPV_info["Field_Name"] == field].values[0])
+        r = requests.get(CALPV_INFO["download"].loc[CALPV_INFO["Field_Name"] == field].values[0])
         field_dir = os.path.join(temp_dir, "{f}".format(f=field))
         os.makedirs(field_dir)
         open(field_dir + "{f}.tar.gz".format(f=field), "wb").write(r.content)
