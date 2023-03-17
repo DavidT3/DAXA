@@ -356,7 +356,7 @@ class eROSITACalPV(BaseMission):
             os.makedirs(temp_dir)
         # Download the requested data
         with requests.get(link, stream=True) as r:
-            field_dir = os.path.join(temp_dir, "{f}".format(f=field_name))
+            field_dir = os.path.join(temp_dir, field_name)
             os.makedirs(field_dir)
             with open(field_dir + "{f}.tar.gz".format(f=field_name), "wb") as writo:
                 copyfileobj(r.raw, writo)
@@ -425,13 +425,13 @@ class eROSITACalPV(BaseMission):
         :return: The path of the event list.
         :rtype: str
         '''
-        all_files = os.listdir(os.path.join(self.raw_data_path + '{o}'.format(o=obs)))
+        all_files = os.listdir(os.path.join(self.raw_data_path + obs))
 
          # This directory could have instrument filtered files in as well as the eventlist
          #  so selecting the eventlist by chosing the one with 4 hyphens in
         file_name = [file for file in all_files if len(re.findall('_', file)) == 4][0]
 
-        ev_list_path = os.path.join(self.raw_data_path + '{o}'.format(o=obs), file_name)
+        ev_list_path = os.path.join(self.raw_data_path + obs, file_name)
 
         return ev_list_path
     
@@ -451,7 +451,7 @@ class eROSITACalPV(BaseMission):
         # A very unsophisticated way of checking whether raw data have been downloaded before (see issue #30)
         #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
         #  the _download_call method
-        if all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in self.filtered_obs_ids]):
+        if all([os.path.exists(stor_dir + o) for o in self.filtered_obs_ids]):
             self._download_done = True
 
         # Getting all the obs_ids that havent already been downloaded
