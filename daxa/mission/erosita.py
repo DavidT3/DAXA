@@ -437,9 +437,16 @@ class eROSITACalPV(BaseMission):
     
     def download(self, num_cores: int = NUM_CORES):
         """
-        A method to acquire and download the eROSITA CalPV data that have not been filtered out (if a filter
-        has been applied, otherwise all data will be downloaded). Fields (or field types), which is set either 
-        on declaration of the class instance or by passing a new value to the chosen_instruments property.
+        A method to acquire and download the eROSITA Calibration and Performance Validation data that 
+        have not been filtered out (if a filter has been applied, otherwise all data will be downloaded). 
+        Fields (or field types) specified by the chosen_fields property will be downloaded, which is set 
+        either on declaration of the class instance or by passing a new value to the chosen_fields property. 
+        Donwloaded data is then filtered according to Instruments specified by the chosen_instruments property 
+        (set in the same manner as chosen_fields).
+
+        :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
+            the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
+            of the cores available on the current machine.
         """
         # Ensures that a directory to store the 'raw' pointed XMM data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
