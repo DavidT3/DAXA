@@ -216,8 +216,8 @@ class eROSITACalPV(BaseMission):
         # Hard coded this and saved it to the CALPV_INFO.csv in /files
         # Need to split the times since they go to milisecond precision, 
         #  which is a pain to translate to a datetime object, and is superfluous information anyway
-        CALPV_INFO['start'] = [time.split('.', 1)[0] for time in CALPV_INFO['start']]
-        CALPV_INFO['end'] = [time.split('.', 1)[0] for time in CALPV_INFO['end']]
+        CALPV_INFO['start'] = [str(time).split('.', 1)[0] for time in CALPV_INFO['start']]
+        CALPV_INFO['end'] = [str(time).split('.', 1)[0] for time in CALPV_INFO['end']]
         CALPV_INFO['start'] = pd.to_datetime(CALPV_INFO['start'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
         CALPV_INFO['end'] = pd.to_datetime(CALPV_INFO['end'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
 
@@ -258,7 +258,10 @@ class eROSITACalPV(BaseMission):
                                 "A3391": "A3391_A3395", "A3395": "A3391_A3395"}
         
         # Finding if any of the fields entries are not valid CalPV field names or types
-        bad_fields = [f for f in fields if f not in poss_alt_field_names and f not in self._miss_poss_fields and f not in self._miss_poss_field_types and not 'CRAB']
+        # Just adding a case for people who want all the CRAB observations in one
+        crab_list = ['CRAB']
+        bad_fields = [f for f in fields if f not in poss_alt_field_names and f not in self._miss_poss_fields
+                     and f not in self._miss_poss_field_types and f not in crab_list]
         if len(bad_fields) != 0:
             raise ValueError("Some field names or field types {bf} are not associated with this mission, please"
                             " choose from the following fields; {gf} or field types; {gft}".format(
@@ -313,7 +316,7 @@ class eROSITACalPV(BaseMission):
                 # Selecting the telescope module number column
                 data = fits_file[1].data
                 t_col = data["TM_NR"]
-                
+
                 # Putting inst names into correct format to search in t_col for 
                 gd_insts = [int(re.sub('[^0-9]','', tscope)) for tscope in insts]
                 
@@ -330,31 +333,33 @@ class eROSITACalPV(BaseMission):
                 fits_file.writeto(evlist_path[:-5] + '_if_{}.fits'.format(insts_str))
         
     @staticmethod
-    def _download_call(self, link: str):
+    def _download_call(raw_data_path: str, link: str):
         """
         This internal static method is purely to enable parallelised downloads of data, as defining
         an internal function within download causes issues with pickling for multiprocessing.
 
+        :param str raw_data_path: This is the self.raw_data_path attribute.
         :param str link: The download_link of the particular field to be downloaded.
         :return: A None value.
         :rtype: Any
         """
         # Since you can't download a single observation for a field, you have to download them all in one tar file,
-        #  I am making a temporary directory to download the tar file and unpack it in, then move the observations 
+        #  I am making a temporary directories to download the tar file and unpack it in, then move the observations 
         #  to their own directory afterwards in the _directory_formatting function
-        temp_dir = os.path.join(self.raw_data_path, "temp_download")
-        if not os.path.exists(temp_dir):
-            os.makedirs(temp_dir)
 
         # Getting the field name associated with the download link for directory naming purposes
-        field = CALPV_INFO.loc[CALPV_INFO['download'].isin(link), 'Field_Name'].tolist()[0]
+        field_name = CALPV_INFO.loc[CALPV_INFO['download'].isin([link]), 'Field_Name'].tolist()[0]
+        # The temporary 
+        temp_dir = os.path.join(raw_data_path, "temp_download", field_name)
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
         # Download the requested data
         r = requests.get(link)
-        field_dir = os.path.join(temp_dir, "{f}".format(f=field))
+        field_dir = os.path.join(temp_dir, "{f}".format(f=field_name))
         os.makedirs(field_dir)
-        open(field_dir + "{f}.tar.gz".format(f=field), "wb").write(r.content)
+        open(field_dir + "{f}.tar.gz".format(f=field_name), "wb").write(r.content)
         # unzipping the tar file
-        tarname = field_dir + "{f}.tar.gz".format(f=field)
+        tarname = field_dir + "{f}.tar.gz".format(f=field_name)
         tar = tarfile.open(tarname, "r:gz")
         tar.extractall(field_dir)
         tar.close()
@@ -368,19 +373,21 @@ class eROSITACalPV(BaseMission):
         directory structure for consistency with other missions in DAXA. To be called after the initial 
         download of the fields has been completed.
         """
-        # Only executing the method if new data has been downloaded
-        if os.path.exists(os.path.join(self.raw_data_path, "temp_download")):
 
-            # Moving the eventlist for each obs_id from its downloaded path to the path DAXA expects
-            for o in self.filtered_obs_ids:
-                if not os.path.exists(self.raw_data_path + '{o}'.format(o=o)):
-                    os.makedirs(self.raw_data_path + '{o}'.format(o=o))
-                    # The path to the obs_id directory
-                    obs_dir = os.path.join(self.raw_data_path, '{o}'.format(o=o))
-                    # The field the obs_id was downloaded with
-                    field_name = CALPV_INFO["Field_Name"].loc[CALPV_INFO["ObsID"] ==  o].values[0]
-                    # The path to where the obs_id was initially downloaded
-                    field_dir = os.path.join(self.raw_data_path, "temp_download", field_name)
+        # Moving the eventlist for each obs_id from its downloaded path to the path DAXA expects
+        for o in self.filtered_obs_ids:
+            # The field the obs_id was downloaded with
+            field_name = CALPV_INFO["Field_Name"].loc[CALPV_INFO["ObsID"] ==  o].values[0]
+            # The path to where the obs_id was initially downloaded
+            field_dir = os.path.join(self.raw_data_path, "temp_download", field_name)
+            # Only executing the method if new data has been downloaded, 
+            #  can check if new data is there if there is a temp_download_{fieldname} directory
+            if os.path.exists(field_dir):
+                # The path to the obs_id directory (ie. the final DAXA constistent format)
+                obs_dir = os.path.join(self.raw_data_path, '{o}'.format(o=o))
+                # Making the new ObsID directory
+                if not os.path.exists(obs_dir):
+                    os.makedirs(obs_dir)
                     # Not including hidden files in this list
                     all_files = [f for f in os.listdir(field_dir) if not f.startswith('.')]
                     # Some fields are in a folder, some are just the files not in a folder
@@ -397,13 +404,17 @@ class eROSITACalPV(BaseMission):
                     source = os.path.join(field_dir, obs_file_name)
                     dest = os.path.join(obs_dir, obs_file_name)
                     shutil.move(source, dest)
+            
+            else:
+                pass
 
-            # Deleting temp_download directory containing the extra files that were not the obs_id eventlists
-            shutil.rmtree(os.path.join(self.raw_data_path, "temp_download"))
+        # Deleting temp_download directory containing the field_name directories that contained
+        #  extra files that were not the obs_id eventlists
+        temp_dir = os.path.join(self.raw_data_path, "temp_download")
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
         
-        else:
-            pass
-    
+
     def _get_evlist_path_from_obs(self, obs: str):
         '''
         Internal method to get the unfiltered, downloaded event list path for a given
@@ -443,7 +454,7 @@ class eROSITACalPV(BaseMission):
             self._download_done = True
 
         # Getting all the obs_ids that havent already been downloaded
-        obs_to_download = list(set(self.filter_on_obs_ids) - set(os.listdir(stor_dir)))
+        obs_to_download = list(set(self.filtered_obs_ids) - set(os.listdir(stor_dir)))
         # Getting all the unique download links (since the CalPV data is downloaded in whole fields, rather than individual obs_ids)
         download_links = list(set(CALPV_INFO.loc[CALPV_INFO['ObsID'].isin(obs_to_download), 'download']))
     
@@ -453,7 +464,7 @@ class eROSITACalPV(BaseMission):
                 with tqdm(total=len(download_links), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
                     for link in download_links:
                         # Use the internal static method I set up which both downloads and unpacks the eROSITACalPV data
-                        self._download_call(self, link=link)
+                        self._download_call(raw_data_path=self.raw_data_path, link=link)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -495,7 +506,7 @@ class eROSITACalPV(BaseMission):
                     for link in download_links:
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
-                                            kwds={'link': link},
+                                            kwds={'raw_data_path': self.raw_data_path, 'link': link},
                                             error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
