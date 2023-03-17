@@ -376,16 +376,16 @@ class eROSITACalPV(BaseMission):
         """
 
         # Moving the eventlist for each obs_id from its downloaded path to the path DAXA expects
-        for o in self.filtered_obs_ids:
+        for obs_id in self.filtered_obs_ids:
             # The field the obs_id was downloaded with
-            field_name = CALPV_INFO["Field_Name"].loc[CALPV_INFO["ObsID"] ==  o].values[0]
+            field_name = CALPV_INFO["Field_Name"].loc[CALPV_INFO["ObsID"] ==  obs_id].values[0]
             # The path to where the obs_id was initially downloaded
             field_dir = os.path.join(self.raw_data_path, "temp_download", field_name)
             # Only executing the method if new data has been downloaded, 
             #  can check if new data is there if there is a temp_download_{fieldname} directory
             if os.path.exists(field_dir):
                 # The path to the obs_id directory (ie. the final DAXA constistent format)
-                obs_dir = os.path.join(self.raw_data_path, '{o}'.format(o=o))
+                obs_dir = os.path.join(self.raw_data_path, '{o}'.format(o=obs_id))
                 # Making the new ObsID directory
                 if not os.path.exists(obs_dir):
                     os.makedirs(obs_dir)
