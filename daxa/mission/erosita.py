@@ -448,7 +448,7 @@ class eROSITACalPV(BaseMission):
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
         """
-        # Ensures that a directory to store the 'raw' pointed XMM data in exists - once downloaded and unpacked
+        # Ensures that a directory to store the 'raw' eROSITACalPV data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
         if not os.path.exists(self.top_level_path + self.name + '_raw'):
             os.makedirs(self.top_level_path + self.name + '_raw')
