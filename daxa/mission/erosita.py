@@ -4,6 +4,7 @@ import tarfile
 import requests
 from typing import List, Union, Any
 from multiprocessing import Pool
+from shutil import copyfileobj
 from warnings import warn
 
 import numpy as np
@@ -354,16 +355,16 @@ class eROSITACalPV(BaseMission):
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir)
         # Download the requested data
-        r = requests.get(link)
-        field_dir = os.path.join(temp_dir, "{f}".format(f=field_name))
-        os.makedirs(field_dir)
-        open(field_dir + "{f}.tar.gz".format(f=field_name), "wb").write(r.content)
-        # unzipping the tar file
-        tarname = field_dir + "{f}.tar.gz".format(f=field_name)
-        tar = tarfile.open(tarname, "r:gz")
-        tar.extractall(field_dir)
-        tar.close()
-        os.remove(tarname)
+        with requests.get(link, stream=True) as r:
+            field_dir = os.path.join(temp_dir, "{f}".format(f=field_name))
+            os.makedirs(field_dir)
+            with open(field_dir + "{f}.tar.gz".format(f=field_name), "wb") as writo:
+                copyfileobj(r.raw, writo)
+                # unzipping the tar file
+                tarname = field_dir + "{f}.tar.gz".format(f=field_name)
+                with tarfile.open(tarname, "r:gz") as tar:
+                    tar.extractall(field_dir)
+                    os.remove(tarname)
 
         return None
     
