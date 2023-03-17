@@ -385,7 +385,7 @@ class eROSITACalPV(BaseMission):
             #  can check if new data is there if there is a temp_download_{fieldname} directory
             if os.path.exists(field_dir):
                 # The path to the obs_id directory (ie. the final DAXA constistent format)
-                obs_dir = os.path.join(self.raw_data_path, '{o}'.format(o=obs_id))
+                obs_dir = os.path.join(self.raw_data_path, obs_id)
                 # Making the new ObsID directory
                 if not os.path.exists(obs_dir):
                     os.makedirs(obs_dir)
