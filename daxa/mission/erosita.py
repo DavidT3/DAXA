@@ -401,7 +401,7 @@ class eROSITACalPV(BaseMission):
                         field_dir = os.path.join(field_dir, second_field_dir)
                         
                     # Selecting the eventlist for the obs_id
-                    obs_file_name =  [obs_file for obs_file in all_files if o in obs_file and "eRO" not in obs_file ][0]
+                    obs_file_name =  [obs_file for obs_file in all_files if obs_id in obs_file and "eRO" not in obs_file ][0]
                     source = os.path.join(field_dir, obs_file_name)
                     dest = os.path.join(obs_dir, obs_file_name)
                     shutil.move(source, dest)
@@ -536,11 +536,11 @@ class eROSITACalPV(BaseMission):
 
                 # Filtering out any events from the raw data that arent from the selected instruments
                 if num_cores == 1:
-                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) as download_prog:
+                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) as inst_filter_prog:
                         for path in fits_paths:
                             self._inst_filtering(evlist_path=path)
                             # Update the progress bar
-                            download_prog.update(1)
+                            inst_filter_prog.update(1)
 
                 elif num_cores > 1:
                     # List to store any errors raised during download tasks
@@ -548,7 +548,7 @@ class eROSITACalPV(BaseMission):
 
                     # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
                     with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) \
-                            as download_prog, Pool(num_cores) as pool:
+                            as inst_filter_prog, Pool(num_cores) as pool:
 
                         # The callback function is what is called on the successful completion of a _download_call
                         def callback(download_conf: Any):
@@ -558,8 +558,8 @@ class eROSITACalPV(BaseMission):
 
                             :param Any download_conf: The Null value confirming the operation is over.
                             """
-                            nonlocal download_prog  # The progress bar will need updating
-                            download_prog.update(1)
+                            nonlocal inst_filter_prog  # The progress bar will need updating
+                            inst_filter_prog.update(1)
 
                         # The error callback function is what happens when an exception is thrown during a _download_call
                         def err_callback(err):
@@ -569,12 +569,12 @@ class eROSITACalPV(BaseMission):
                             :param err: An error that occurred inside a task.
                             """
                             nonlocal raised_errors
-                            nonlocal download_prog
+                            nonlocal inst_filter_prog
 
                             if err is not None:
                                 # Rather than throwing an error straight away I append them all to a list for later.
                                 raised_errors.append(err)
-                            download_prog.update(1)
+                            inst_filter_prog.update(1)
 
                         # Again nested for loop through each Obs_ID
                         for path in fits_paths:
@@ -604,11 +604,11 @@ class eROSITACalPV(BaseMission):
 
                 # Filtering out any events from the raw data that arent from the selected instruments
                 if num_cores == 1:
-                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) as download_prog:
+                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) as inst_filter_prog:
                         for path in fits_paths:
                             self._inst_filtering(evlist_path=path)
                             # Update the progress bar
-                            download_prog.update(1)
+                            inst_filter_prog.update(1)
 
                 elif num_cores > 1:
                     # List to store any errors raised during download tasks
@@ -616,7 +616,7 @@ class eROSITACalPV(BaseMission):
 
                     # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
                     with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) \
-                            as download_prog, Pool(num_cores) as pool:
+                            as inst_filter_prog, Pool(num_cores) as pool:
 
                         # The callback function is what is called on the successful completion of a _download_call
                         def callback(download_conf: Any):
@@ -626,8 +626,8 @@ class eROSITACalPV(BaseMission):
 
                             :param Any download_conf: The Null value confirming the operation is over.
                             """
-                            nonlocal download_prog  # The progress bar will need updating
-                            download_prog.update(1)
+                            nonlocal inst_filter_prog  # The progress bar will need updating
+                            inst_filter_prog.update(1)
 
                         # The error callback function is what happens when an exception is thrown during a _download_call
                         def err_callback(err):
@@ -637,12 +637,12 @@ class eROSITACalPV(BaseMission):
                             :param err: An error that occurred inside a task.
                             """
                             nonlocal raised_errors
-                            nonlocal download_prog
+                            nonlocal inst_filter_prog
 
                             if err is not None:
                                 # Rather than throwing an error straight away I append them all to a list for later.
                                 raised_errors.append(err)
-                            download_prog.update(1)
+                            inst_filter_prog.update(1)
 
                         # Again nested for loop through each Obs_ID
                         for path in fits_paths:
