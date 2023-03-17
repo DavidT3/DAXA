@@ -450,8 +450,8 @@ class eROSITACalPV(BaseMission):
         """
         # Ensures that a directory to store the 'raw' eROSITACalPV data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
-        if not os.path.exists(self.top_level_path + self.name + '_raw'):
-            os.makedirs(self.top_level_path + self.name + '_raw')
+        if not os.path.exists(self.raw_data_path):
+            os.makedirs(self.raw_data_path)
         # Grabs the raw data storage path
         stor_dir = self.raw_data_path
 
