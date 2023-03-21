@@ -24,3 +24,12 @@ mission.erosita module
    :members:
    :undoc-members:
    :show-inheritance:
+
+mission.nustar module
+----------------------
+
+.. automodule:: daxa.mission.nustar
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
