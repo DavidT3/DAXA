@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/03/2023, 11:51. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -200,7 +200,7 @@ def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][obs_id] = cmd
             miss_final_paths[miss.name][obs_id] = final_path
-            miss_extras[miss.name][obs_id] = {}
+            miss_extras[miss.name][obs_id] = {'sum_path': final_path}
 
             # This is just used for populating a progress bar during generation
         process_message = 'Generating ODF summary files'
