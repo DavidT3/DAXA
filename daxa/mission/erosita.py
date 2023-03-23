@@ -396,10 +396,18 @@ class eROSITACalPV(BaseMission):
                     if len(all_files) == 1:
                         second_field_dir = all_files[0]
                         # redefining all_files so it lists the files in the folder
-                        all_files = os.listdir(os.path.join(field_dir, second_field_dir))
+                        all_files = [f for f in os.listdir(os.path.join(field_dir, second_field_dir)) if not f.startswith('.')]
                         # redefining field_dir so in the later block, the source is correct
                         field_dir = os.path.join(field_dir, second_field_dir)
-                        
+
+                        # Some of the fields are in another folder, so need to perform the same check again
+                        if len(all_files) == 1:
+                            third_field_dir = all_files[0]
+                            # redefining all_files so it lists the files in the folder
+                            all_files = os.listdir(os.path.join(field_dir, third_field_dir))
+                            # redefining field_dir so in the later block, the source is correct
+                            field_dir = os.path.join(field_dir, third_field_dir)
+
                     # Selecting the eventlist for the obs_id
                     obs_file_name =  [obs_file for obs_file in all_files if obs_id in obs_file and "eRO" not in obs_file ][0]
                     source = os.path.join(field_dir, obs_file_name)
