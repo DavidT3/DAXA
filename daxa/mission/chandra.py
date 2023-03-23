@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 22:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/03/2023, 13:18. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -204,7 +204,7 @@ class Chandra(BaseMission):
         self._obs_info = new_info
         self.reset_filter()
 
-    def _check_chos_insts(self, insts: Union[List[str], str]):
+    def _check_chos_insts(self, insts: Union[List[str], str]) -> List[str]:
         """
         An internal function to perform some checks on the validity of chosen instrument names for a Chandra. This
         overwrites the version of this method declared in BaseMission, though it does call the super method. This
@@ -246,6 +246,8 @@ class Chandra(BaseMission):
         new_filter = self.filter_array * sel_inst_mask
         # Then we set the filter array property with that updated mask
         self.filter_array = new_filter
+
+        return insts
 
     def _fetch_obs_info(self):
         """
