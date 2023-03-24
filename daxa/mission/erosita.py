@@ -285,10 +285,8 @@ class eROSITACalPV(BaseMission):
                                 "A3391": "A3391_A3395", "A3395": "A3391_A3395"}
         
         # Finding if any of the fields entries are not valid CalPV field names or types
-        # Just adding a case for people who want all the CRAB observations in one
-        crab_list = ['CRAB']
         bad_fields = [f for f in fields if f not in poss_alt_field_names and f not in self._miss_poss_fields
-                     and f not in self._miss_poss_field_types and f not in crab_list]
+                     and f not in self._miss_poss_field_types and f != 'CRAB']
         if len(bad_fields) != 0:
             raise ValueError("Some field names or field types {bf} are not associated with this mission, please"
                             " choose from the following fields; {gf} or field types; {gft}".format(
