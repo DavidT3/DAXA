@@ -44,6 +44,9 @@ class eROSITACalPV(BaseMission):
         # All the allowed types of field, ie. survey, magellanic cloud, galactic field, extragalactic field
         self._miss_poss_field_types = CALPV_INFO["Field_Type"].unique().tolist()
 
+        # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
+        self._required_mission_specific_cols = ['Field_Name', 'Field_Type']
+        
         # Runs the method which fetches information on all available eROSITACalPV observations and stores that
         #  information in the all_obs_info property
         self._fetch_obs_info()
