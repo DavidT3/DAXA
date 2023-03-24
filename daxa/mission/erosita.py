@@ -240,17 +240,19 @@ class eROSITACalPV(BaseMission):
         This method uses the hard coded csv file to pull information on all eROSITACalPV observations. 
         The data are processed into a Pandas dataframe and stored.
         """
-        # Hard coded this and saved it to the CALPV_INFO.csv in /files
+        # Hard coded this information and saved it to the CALPV_INFO.csv in /files
+        # Making a copy so that CALPV_INFO remains unchanged
+        calpv_copy = CALPV_INFO
+
         # Need to split the times since they go to milisecond precision, 
         #  which is a pain to translate to a datetime object, and is superfluous information anyway
-        CALPV_INFO['start'] = [str(time).split('.', 1)[0] for time in CALPV_INFO['start']]
-        CALPV_INFO['end'] = [str(time).split('.', 1)[0] for time in CALPV_INFO['end']]
-        CALPV_INFO['start'] = pd.to_datetime(CALPV_INFO['start'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
-        CALPV_INFO['end'] = pd.to_datetime(CALPV_INFO['end'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
+        calpv_copy['start'] = [str(time).split('.', 1)[0] for time in calpv_copy['start']]
+        calpv_copy['end'] = [str(time).split('.', 1)[0] for time in calpv_copy['end']]
+        calpv_copy['start'] = pd.to_datetime(calpv_copy['start'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
+        calpv_copy['end'] = pd.to_datetime(calpv_copy['end'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
 
-        obs_info_series = [CALPV_INFO['ra'], CALPV_INFO['dec'], CALPV_INFO['ObsID'], CALPV_INFO['usable'],
-                           CALPV_INFO['start'], CALPV_INFO['end'], CALPV_INFO['duration']]
-        obs_info_pd = pd.concat(obs_info_series, axis=1)
+        # Including the relevant information for the final all_obs_info DataFrame
+        obs_info_pd = calpv_copy[['ra', 'dec', 'ObsID', 'usable', 'start', 'end', 'duration', 'Field_Name', 'Field_Type']]
 
         self.all_obs_info = obs_info_pd
 
