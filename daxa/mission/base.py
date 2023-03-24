@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/03/2023, 09:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/03/2023, 09:51. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
