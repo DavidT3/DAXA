@@ -95,6 +95,31 @@ class eROSITACalPV(BaseMission):
         # Used for things like progress bar descriptions
         self._pretty_miss_name = "eROSITA Calibration and Performance Verification"
         return self._miss_name
+    
+    @property
+    def chosen_instruments(self) -> List[str]:
+        """
+        Property getter for the names of the currently selected instruments associated with this mission which
+        will be processed into an archive by DAXA functions. Overwritten here because I want to use a custom
+        version of _check_chos_insts for eROSITA.
+
+        :return: A list of instrument names
+        :rtype: List[str]
+        """
+        return self._chos_insts
+
+    @chosen_instruments.setter
+    @_lock_check
+    def chosen_instruments(self, new_insts: List[str]):
+        """
+        Property setter for the instruments associated with this mission that should be processed. This property
+        may only be set to a list that is a subset of the existing property value. Overwritten here because I want
+        to use a custom version of _check_chos_insts for eROSITA.
+
+        :param List[str] new_insts: The new list of instruments associated with this mission which should
+            be processed into the archive.
+        """
+        self._chos_insts = self._check_chos_insts(new_insts)
         
     @property
     def coord_frame(self) -> BaseRADecFrame:
@@ -170,6 +195,85 @@ class eROSITACalPV(BaseMission):
             "Puppis A galactic field.", stacklevel=2)
         
         super().filter_on_obs_ids(allowed_obs_ids)
+    
+
+    def _check_chos_insts(self, insts: Union[List[str], str]):
+        """
+        An internal function to check and peform event list filtering for instruments for eROSITA. This
+        overwrites the version of this method declared in BaseMission, though it does call the super method.
+        This sub-class of BaseMission re-implements this method so that setting chosen instruments also 
+        filters event lists for user specified instruments, as eROSITA observations contain all instruments.
+
+        :param List[str]/str insts:
+        :return: The list of instruments (possibly altered to match formats expected by this module).
+        :rtype: List
+        """
+        insts = super()._check_chos_insts(insts)
+
+        # Checking if the data has already been downloaded:
+        if all([os.path.exists(self.raw_data_path + '{o}'.format(o=obs)) for obs in self.filtered_obs_ids]):
+            # Only doing the instrument filtering if not all the instruments have been chosen
+            if len(insts) != 7:
+                # Getting all the path for each eventlist corresponding to an obs_id for the _inst_filtering function later
+                fits_paths = [self._get_evlist_path_from_obs(obs=o) for o in self.filtered_obs_ids]
+
+                # Filtering out any events from the raw data that arent from the selected instruments
+                if NUM_CORES == 1:
+                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(insts)) as inst_filter_prog:
+                        for path in fits_paths:
+                            self._inst_filtering(insts=insts, evlist_path=path)
+                            # Update the progress bar
+                            inst_filter_prog.update(1)
+
+                elif NUM_CORES > 1:
+                    # List to store any errors raised during download tasks
+                    raised_errors = []
+
+                    # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
+                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(insts)) \
+                            as inst_filter_prog, Pool(NUM_CORES) as pool:
+
+                        # The callback function is what is called on the successful completion of a _download_call
+                        def callback(download_conf: Any):
+                            """
+                            Callback function for the apply_async pool method, gets called when a download task finishes
+                            without error.
+
+                            :param Any download_conf: The Null value confirming the operation is over.
+                            """
+                            nonlocal inst_filter_prog  # The progress bar will need updating
+                            inst_filter_prog.update(1)
+
+                        # The error callback function is what happens when an exception is thrown during a _download_call
+                        def err_callback(err):
+                            """
+                            The callback function for errors that occur inside a download task running in the pool.
+
+                            :param err: An error that occurred inside a task.
+                            """
+                            nonlocal raised_errors
+                            nonlocal inst_filter_prog
+
+                            if err is not None:
+                                # Rather than throwing an error straight away I append them all to a list for later.
+                                raised_errors.append(err)
+                            inst_filter_prog.update(1)
+
+                        # Again nested for loop through each Obs_ID
+                        for path in fits_paths:
+                            # Add each download task to the pool
+                            pool.apply_async(self._inst_filtering, kwds={'insts': insts, 
+                                            'evlist_path': path}, 
+                                            error_callback=err_callback, callback=callback)
+                        pool.close()  # No more tasks can be added to the pool
+                        pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+
+                    # Raise all the download errors at once, if there are any
+                    if len(raised_errors) != 0:
+                        raise DAXADownloadError(str(raised_errors))
+
+                else:
+                    raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
     
     @property
     def all_mission_fields(self) -> List[str]:
@@ -636,68 +740,6 @@ class eROSITACalPV(BaseMission):
             self._download_done = True
         
         else:
-            # Need to include the instrument filtering even if the download is done, incase a different selection of
-            #  instruments is chosen for already downloaded data 
-            # Only doing the instrument filtering step if not all the instruments have been chosen
-            if len(self.chosen_instruments) != 7:
-                # Getting all the path for each eventlist corresponding to an obs_id for the _inst_filtering function later
-                fits_paths = [self._get_evlist_path_from_obs(obs=o) for o in self.filtered_obs_ids]
-
-                # Filtering out any events from the raw data that arent from the selected instruments
-                if num_cores == 1:
-                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) as inst_filter_prog:
-                        for path in fits_paths:
-                            self._inst_filtering(insts=self.chosen_instruments, evlist_path=path)
-                            # Update the progress bar
-                            inst_filter_prog.update(1)
-
-                elif num_cores > 1:
-                    # List to store any errors raised during download tasks
-                    raised_errors = []
-
-                    # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
-                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) \
-                            as inst_filter_prog, Pool(num_cores) as pool:
-
-                        # The callback function is what is called on the successful completion of a _download_call
-                        def callback(download_conf: Any):
-                            """
-                            Callback function for the apply_async pool method, gets called when a download task finishes
-                            without error.
-
-                            :param Any download_conf: The Null value confirming the operation is over.
-                            """
-                            nonlocal inst_filter_prog  # The progress bar will need updating
-                            inst_filter_prog.update(1)
-
-                        # The error callback function is what happens when an exception is thrown during a _download_call
-                        def err_callback(err):
-                            """
-                            The callback function for errors that occur inside a download task running in the pool.
-
-                            :param err: An error that occurred inside a task.
-                            """
-                            nonlocal raised_errors
-                            nonlocal inst_filter_prog
-
-                            if err is not None:
-                                # Rather than throwing an error straight away I append them all to a list for later.
-                                raised_errors.append(err)
-                            inst_filter_prog.update(1)
-
-                        # Again nested for loop through each Obs_ID
-                        for path in fits_paths:
-                            # Add each download task to the pool
-                            pool.apply_async(self._inst_filtering, kwds={'insts': self.chosen_instruments,
-                                             'evlist_path': path}, 
-                                            error_callback=err_callback, callback=callback)
-                        pool.close()  # No more tasks can be added to the pool
-                        pool.join()  # Joins the pool, the code will only move on once the pool is empty.
-
-                    # Raise all the download errors at once, if there are any
-                    if len(raised_errors) != 0:
-                        raise DAXADownloadError(str(raised_errors))
-
             warn("The raw data for this mission have already been downloaded.")
 
 
