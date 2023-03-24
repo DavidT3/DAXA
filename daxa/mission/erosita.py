@@ -400,7 +400,7 @@ class eROSITACalPV(BaseMission):
                         # redefining field_dir so in the later block, the source is correct
                         field_dir = os.path.join(field_dir, second_field_dir)
 
-                        # Some of the fields are in another folder, so need to perform the same check again (pretty sure this only applies to efeds and eta cha)
+                        # Some of the fields are in another folder, so need to perform the same check again 
                         if len(all_files) == 1:
                             third_field_dir = all_files[0]
                             # redefining all_files so it lists the files in the folder
