@@ -326,7 +326,7 @@ class eROSITACalPV(BaseMission):
                 gd_insts = [int(re.sub('[^0-9]','', tscope)) for tscope in insts]
                 
                 # Getting the indexes of events with the chosen insts
-                gd_insts_indx = np.hstack([(t_col==i).nonzero()[0] for i in gd_insts])
+                gd_insts_indx = np.where(np.isin(t_col, gd_insts))[0]
                 
                 # Filtering the data on those tscopes
                 filtered_data = data[gd_insts_indx]
