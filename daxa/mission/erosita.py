@@ -324,16 +324,16 @@ class eROSITACalPV(BaseMission):
 
         # Return the chosen fields 
         return updated_fields
-    
-    def _inst_filtering(self, evlist_path: str):
+
+    @staticmethod
+    def _inst_filtering(insts: List[str], evlist_path: str):
         """
         Method to filter event lists for eROSITACalPV data based on instrument choice.
         
+        :param List[str] insts: The self.chosen_instruments attribute.
         :param str evlist_path: This is the file path to the raw eventlist for a certain ObsID
          that has NOT been filtered for the users instrument choice yet.
         """
-
-        insts = self.chosen_instruments
 
         # Getting a string of TM numbers to add to the end of the file name
         insts_str = ''.join(sorted(re.findall(r'\d+', ''.join(insts))))
@@ -579,7 +579,7 @@ class eROSITACalPV(BaseMission):
                 if num_cores == 1:
                     with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) as inst_filter_prog:
                         for path in fits_paths:
-                            self._inst_filtering(evlist_path=path)
+                            self._inst_filtering(insts=self.chosen_instruments, evlist_path=path)
                             # Update the progress bar
                             inst_filter_prog.update(1)
 
@@ -620,7 +620,8 @@ class eROSITACalPV(BaseMission):
                         # Again nested for loop through each Obs_ID
                         for path in fits_paths:
                             # Add each download task to the pool
-                            pool.apply_async(self._inst_filtering, kwds={'evlist_path': path}, 
+                            pool.apply_async(self._inst_filtering, kwds={'insts': self.chosen_instruments, 
+                                            'evlist_path': path}, 
                                             error_callback=err_callback, callback=callback)
                         pool.close()  # No more tasks can be added to the pool
                         pool.join()  # Joins the pool, the code will only move on once the pool is empty.
@@ -635,7 +636,6 @@ class eROSITACalPV(BaseMission):
             self._download_done = True
         
         else:
-            
             # Need to include the instrument filtering even if the download is done, incase a different selection of
             #  instruments is chosen for already downloaded data 
             # Only doing the instrument filtering step if not all the instruments have been chosen
@@ -647,7 +647,7 @@ class eROSITACalPV(BaseMission):
                 if num_cores == 1:
                     with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) as inst_filter_prog:
                         for path in fits_paths:
-                            self._inst_filtering(evlist_path=path)
+                            self._inst_filtering(insts=self.chosen_instruments, evlist_path=path)
                             # Update the progress bar
                             inst_filter_prog.update(1)
 
@@ -688,7 +688,8 @@ class eROSITACalPV(BaseMission):
                         # Again nested for loop through each Obs_ID
                         for path in fits_paths:
                             # Add each download task to the pool
-                            pool.apply_async(self._inst_filtering, kwds={'evlist_path': path}, 
+                            pool.apply_async(self._inst_filtering, kwds={'insts': self.chosen_instruments,
+                                             'evlist_path': path}, 
                                             error_callback=err_callback, callback=callback)
                         pool.close()  # No more tasks can be added to the pool
                         pool.join()  # Joins the pool, the code will only move on once the pool is empty.
