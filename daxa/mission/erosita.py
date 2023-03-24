@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/03/2023, 16:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/03/2023, 16:20. Copyright (c) The Contributors
 
 import os
 import re
@@ -92,7 +92,7 @@ class eROSITACalPV(BaseMission):
         # Used for things like progress bar descriptions
         self._pretty_miss_name = "eROSITA Calibration and Performance Verification"
         return self._miss_name
-    
+        
     @property
     def coord_frame(self) -> BaseRADecFrame:
         """
@@ -141,6 +141,32 @@ class eROSITACalPV(BaseMission):
         """
         self._obs_info_checks(new_info)
         self._obs_info = new_info
+
+    @_lock_check
+    def filter_on_obs_ids(self, allowed_obs_ids: Union[str, List[str]]):
+        """
+        This filtering method will select only observations with IDs specified by the allowed_obs_ids argument.
+
+        Please be aware that filtering methods are cumulative, so running another method will not remove the
+        filtering that has already been applied, you can use the reset_filter method for that.
+
+        :param str/List[str] allowed_obs_ids: The ObsID (or list of ObsIDs) that you wish to be let
+            through the filter.
+        """
+        # Had to overwrite this function from BaseMission since there is an issue with an eROSITA obs_id
+        if not isinstance(allowed_obs_ids, list):
+            allowed_obs_ids = [allowed_obs_ids]
+
+        # Accounting for the wrong ObsID being written on the eROSITA website
+        if '700195' in allowed_obs_ids:
+            allowed_obs_ids.remove('700195')
+            allowed_obs_ids.append('700199')
+            allowed_obs_ids.append('700200')
+            warn("The ObsID '700195' is misstyped on the eROSITA early data release website. It has"
+            " been replaced with '700199', '700200' which are the true ObsIDs associated with the "
+            "Puppis A galactic field.", stacklevel=2)
+        
+        super().filter_on_obs_ids(allowed_obs_ids)
     
     @property
     def all_mission_fields(self) -> List[str]:
