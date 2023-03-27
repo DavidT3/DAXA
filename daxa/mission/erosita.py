@@ -270,6 +270,8 @@ class eROSITACalPV(BaseMission):
 
                 else:
                     raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
+        
+        return insts
     
     @property
     def all_mission_fields(self) -> List[str]:
