@@ -519,6 +519,11 @@ class BaseMission(metaclass=ABCMeta):
         if len(insts) == 0:
             raise ValueError("No instruments have been selected, please pass at least one.")
 
+        # I just check that there are actually entries in this list of instruments, because it would be silly if
+        #  there weren't
+        if len(insts) == 0:
+            raise ValueError("No instruments have been selected, please pass at least one.")
+
         # This is clunky and inefficient but should be fine for these very limited purposes. It just checks whether
         #  this module has a preferred name for a particular instrument. We can also make sure that there are no
         #  duplicate instrument names here

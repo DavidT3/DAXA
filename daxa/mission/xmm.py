@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 17:25. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 21:42. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -14,9 +14,9 @@ from astroquery import log
 from astroquery.esa.xmm_newton import XMMNewton as AQXMMNewton
 from tqdm import tqdm
 
-from .base import BaseMission
-from .. import NUM_CORES
-from ..exceptions import DAXADownloadError
+from daxa import NUM_CORES
+from daxa.exceptions import DAXADownloadError
+from daxa.mission.base import BaseMission
 
 log.setLevel(0)
 
@@ -43,9 +43,16 @@ class XMMPointed(BaseMission):
         # Sets the default instruments - #TODO Perhaps update these to include RGS and OM, once they're supported
         if insts is None:
             insts = ['M1', 'M2', 'PN']
-        else:
-            # Makes sure everything is uppercase
-            insts = [i.upper() for i in insts]
+        elif isinstance(insts, str):
+            # Makes sure that, if a single instrument is passed as a string, the insts variable is a list for the
+            #  rest of the work done using it
+            insts = [insts]
+        # Makes sure everything is uppercase
+        insts = [i.upper() for i in insts]
+
+        # TODO Remove this once RGS is supported, not sure OM should even be here tbh
+        if 'R1' in insts or 'R2' in insts or 'OM' in insts:
+            raise NotImplementedError("The RGS and OM instruments are not currently supported by this class.")
 
         self._miss_poss_insts = ['M1', 'M2', 'PN', 'OM', 'R1', 'R2']
         # The chosen_instruments property setter (see below) will use these to convert possible contractions
@@ -57,13 +64,16 @@ class XMMPointed(BaseMission):
         #  to make sure the input instruments are allowed
         self.chosen_instruments = insts
 
+        # Call the name property to set up the name and pretty name attributes
+        self.name
+
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
         self._required_mission_specific_cols = ['proprietary_end_date', 'usable_proprietary', 'usable_science',
                                                 'revolution']
 
         # Runs the method which fetches information on all available pointed XMM observations and stores that
         #  information in the all_obs_info property
-        self.fetch_obs_info()
+        self._fetch_obs_info()
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
@@ -133,9 +143,10 @@ class XMMPointed(BaseMission):
         """
         self._obs_info_checks(new_info)
         self._obs_info = new_info
+        self.reset_filter()
 
     # Then define user-facing methods
-    def fetch_obs_info(self):
+    def _fetch_obs_info(self):
         """
         This method uses the AstroQuery table access protocol implemented for the XMM Science Archive to pull
         down information on all of the pointed XMM observations which are stored in XSA. The data are processed
@@ -204,6 +215,9 @@ class XMMPointed(BaseMission):
         obs_info_pd['usable'] = obs_info_pd['usable_science'] * obs_info_pd['usable_proprietary']
         # Don't really care about this column now so remove.
         del obs_info_pd['radec_good']
+
+        # This just resets the index, as some of the rows may have been removed
+        obs_info_pd = obs_info_pd.reset_index(drop=True)
 
         self.all_obs_info = obs_info_pd
 

@@ -1,9 +1,12 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/01/2023, 21:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/02/2023, 13:46. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, List
 from warnings import warn
+
+from astropy.units import Quantity
+from packaging.version import Version
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
@@ -12,7 +15,7 @@ from daxa.process.xmm._common import ALLOWED_XMM_MISSIONS, _sas_process_setup, s
 
 
 @sas_call
-def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False):
+def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
     """
     This function runs the SAS emanom function, which attempts to identify when MOS CCDs are have operated in an
     'anomalous' state, where the  background at E < 1 keV is strongly enhanced. Data above 2 keV are unaffected, so
@@ -22,20 +25,33 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
     whether a chip is in an anomalous state. However, it should be noted that the "anonymous" anomalous state of
     MOS1 CCD#4 is not always detectable from the unexposed corner data.
 
+    This functionality is only usable if you have SAS v19.0.0 or higher - a version check will be performed and
+    a warning raised (though no error will be raised) if you use this function with an earlier SAS version.
+
     :param Archive obs_archive: An Archive instance containing XMM mission instances with MOS observations for
         which emchain should be run. This function will fail if no XMM missions are present in the archive.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire emanom process, but a timeout for individual
+        ObsID-subexposure processes.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
         internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
     sas_version = _sas_process_setup(obs_archive)
+
+    # As it turns out, emanom was only introduced in v19.0.0. Thankfully emanom is optional in processing XMM, so
+    #  I don't have to change the required SAS version - I'll just put a version check here
+    if sas_version < Version('19.0.0'):
+        warn("The emanom task was introduced in SAS v19.0.0, you have SAS {} - skipping "
+             "emanom.".format(str(sas_version)), stacklevel=2)
+        return {}, {}, {}, '', num_cores, disable_progress, timeout
 
     # Define the form of the emchain command that must be run to check for anomalous states in MOS CCDs
     emanom_cmd = "cd {d}; export SAS_CCF={ccf}; emanom eventfile={ef} keepcorner=no; mv {of} ../; cd ..; rm -r {d}"
@@ -128,7 +144,7 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
     # This is just used for populating a progress bar during the process run
     process_message = 'Checking for MOS CCD anomalous states'
 
-    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
 def parse_emanom_out(log_file_path: str, acceptable_states: Union[List[str], str] = ('G', 'I', 'U')) -> List[int]:
