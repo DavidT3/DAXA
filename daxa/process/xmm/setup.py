@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/03/2023, 11:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/03/2023, 12:16. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -9,6 +9,7 @@ from datetime import datetime
 from random import randint
 from typing import Union, Tuple
 
+import numpy as np
 from astropy.units import Quantity
 
 from daxa import NUM_CORES
@@ -206,3 +207,33 @@ def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
         process_message = 'Generating ODF summary files'
 
         return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
+
+
+def parse_odf_sum(sum_path: str):
+    with open(sum_path, 'r') as reado:
+        sum_lines = np.array([line for line in reado.readlines() if line[:3] != '// '])
+
+    sec_div_ind = np.where(sum_lines == '//\n')[0]
+    start_ind = np.where(sum_lines == 'FILES\n')[0][0]-1
+    sec_div_ind = sec_div_ind[sec_div_ind > start_ind]
+    sec_div_ind = np.concatenate(([start_ind], sec_div_ind))
+    ind_diff = np.ediff1d(sec_div_ind, len(sum_lines)-sec_div_ind[-1])
+    sec_div_ind = sec_div_ind[np.where(ind_diff != 1)[0]]
+
+    inst_head = sec_div_ind[np.where(sum_lines[sec_div_ind+1] == 'INSTRUMENT\n')[0]]
+    print(inst_head)
+
+    # sec_div_ind = np.where()
+    # import sys
+    # sys.exit()
+
+    print('')
+    for i in range(0, len(sec_div_ind) - 1):
+        cur_ind = sec_div_ind[i]
+        nex_ind = sec_div_ind[i + 1]
+        # if sum_lines[cur_ind + 1] == 'EXPOSURE\n':
+        if True:
+            for sub_l in sum_lines[cur_ind + 1: nex_ind-1]:
+                print(sub_l.strip('\n'))
+        # print('-----------------------------')
+        print('\n\n\n')

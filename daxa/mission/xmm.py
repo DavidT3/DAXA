@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/03/2023, 21:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/03/2023, 12:16. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -51,8 +51,8 @@ class XMMPointed(BaseMission):
         insts = [i.upper() for i in insts]
 
         # TODO Remove this once RGS is supported, not sure OM should even be here tbh
-        if 'R1' in insts or 'R2' in insts or 'OM' in insts:
-            raise NotImplementedError("The RGS and OM instruments are not currently supported by this class.")
+        # if 'R1' in insts or 'R2' in insts or 'OM' in insts:
+        #     raise NotImplementedError("The RGS and OM instruments are not currently supported by this class.")
 
         self._miss_poss_insts = ['M1', 'M2', 'PN', 'OM', 'R1', 'R2']
         # The chosen_instruments property setter (see below) will use these to convert possible contractions
