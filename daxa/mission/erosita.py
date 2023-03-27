@@ -1,17 +1,20 @@
+#  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
+#  Last modified by David J Turner (turne540@msu.edu) 27/03/2023, 16:16. Copyright (c) The Contributors
+
 import os
+import re
 import shutil
 import tarfile
-import requests
-from typing import List, Union, Any
 from multiprocessing import Pool
 from shutil import copyfileobj
+from typing import List, Union, Any
 from warnings import warn
 
 import numpy as np
 import pandas as pd
-import re
-from astropy.io import fits
+import requests
 from astropy.coordinates import BaseRADecFrame, FK5
+from astropy.io import fits
 from tqdm import tqdm
 
 from .base import BaseMission
@@ -19,6 +22,7 @@ from .base import _lock_check
 from .. import NUM_CORES
 from ..config import CALPV_INFO
 from ..exceptions import DAXADownloadError
+
 
 class eROSITACalPV(BaseMission):
     """
@@ -44,6 +48,9 @@ class eROSITACalPV(BaseMission):
         # All the allowed types of field, ie. survey, magellanic cloud, galactic field, extragalactic field
         self._miss_poss_field_types = CALPV_INFO["Field_Type"].unique().tolist()
 
+        # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
+        self._required_mission_specific_cols = ['Field_Name', 'Field_Type']
+        
         # Runs the method which fetches information on all available eROSITACalPV observations and stores that
         #  information in the all_obs_info property
         self._fetch_obs_info()
@@ -89,6 +96,31 @@ class eROSITACalPV(BaseMission):
         self._pretty_miss_name = "eROSITA Calibration and Performance Verification"
         return self._miss_name
     
+    @property
+    def chosen_instruments(self) -> List[str]:
+        """
+        Property getter for the names of the currently selected instruments associated with this mission which
+        will be processed into an archive by DAXA functions. Overwritten here because I want to use a custom
+        version of _check_chos_insts for eROSITA.
+
+        :return: A list of instrument names
+        :rtype: List[str]
+        """
+        return self._chos_insts
+
+    @chosen_instruments.setter
+    @_lock_check
+    def chosen_instruments(self, new_insts: List[str]):
+        """
+        Property setter for the instruments associated with this mission that should be processed. This property
+        may only be set to a list that is a subset of the existing property value. Overwritten here because I want
+        to use a custom version of _check_chos_insts for eROSITA.
+
+        :param List[str] new_insts: The new list of instruments associated with this mission which should
+            be processed into the archive.
+        """
+        self._chos_insts = self._check_chos_insts(new_insts)
+        
     @property
     def coord_frame(self) -> BaseRADecFrame:
         """
@@ -137,6 +169,113 @@ class eROSITACalPV(BaseMission):
         """
         self._obs_info_checks(new_info)
         self._obs_info = new_info
+
+    @_lock_check
+    def filter_on_obs_ids(self, allowed_obs_ids: Union[str, List[str]]):
+        """
+        This filtering method will select only observations with IDs specified by the allowed_obs_ids argument.
+
+        Please be aware that filtering methods are cumulative, so running another method will not remove the
+        filtering that has already been applied, you can use the reset_filter method for that.
+
+        :param str/List[str] allowed_obs_ids: The ObsID (or list of ObsIDs) that you wish to be let
+            through the filter.
+        """
+        # Had to overwrite this function from BaseMission since there is an issue with an eROSITA obs_id
+        if not isinstance(allowed_obs_ids, list):
+            allowed_obs_ids = [allowed_obs_ids]
+
+        # Accounting for the wrong ObsID being written on the eROSITA website
+        if '700195' in allowed_obs_ids:
+            allowed_obs_ids.remove('700195')
+            allowed_obs_ids.append('700199')
+            allowed_obs_ids.append('700200')
+            warn("The ObsID '700195' is misstyped on the eROSITA early data release website. It has"
+            " been replaced with '700199', '700200' which are the true ObsIDs associated with the "
+            "Puppis A galactic field.", stacklevel=2)
+        
+        super().filter_on_obs_ids(allowed_obs_ids)
+    
+
+    def _check_chos_insts(self, insts: Union[List[str], str]):
+        """
+        An internal function to check and peform event list filtering for instruments for eROSITA. This
+        overwrites the version of this method declared in BaseMission, though it does call the super method.
+        This sub-class of BaseMission re-implements this method so that setting chosen instruments also 
+        filters event lists for user specified instruments, as eROSITA observations contain all instruments.
+
+        :param List[str]/str insts:
+        :return: The list of instruments (possibly altered to match formats expected by this module).
+        :rtype: List
+        """
+        insts = super()._check_chos_insts(insts)
+
+        # Checking if the data has already been downloaded:
+        if all([os.path.exists(self.raw_data_path + '{o}'.format(o=obs)) for obs in self.filtered_obs_ids]):
+            # Only doing the instrument filtering if not all the instruments have been chosen
+            if len(insts) != 7:
+                # Getting all the path for each eventlist corresponding to an obs_id for the _inst_filtering function later
+                fits_paths = [self._get_evlist_path_from_obs(obs=o) for o in self.filtered_obs_ids]
+
+                # Filtering out any events from the raw data that arent from the selected instruments
+                if NUM_CORES == 1:
+                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(insts)) as inst_filter_prog:
+                        for path in fits_paths:
+                            self._inst_filtering(insts=insts, evlist_path=path)
+                            # Update the progress bar
+                            inst_filter_prog.update(1)
+
+                elif NUM_CORES > 1:
+                    # List to store any errors raised during download tasks
+                    raised_errors = []
+
+                    # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
+                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(insts)) \
+                            as inst_filter_prog, Pool(NUM_CORES) as pool:
+
+                        # The callback function is what is called on the successful completion of a _download_call
+                        def callback(download_conf: Any):
+                            """
+                            Callback function for the apply_async pool method, gets called when a download task finishes
+                            without error.
+
+                            :param Any download_conf: The Null value confirming the operation is over.
+                            """
+                            nonlocal inst_filter_prog  # The progress bar will need updating
+                            inst_filter_prog.update(1)
+
+                        # The error callback function is what happens when an exception is thrown during a _download_call
+                        def err_callback(err):
+                            """
+                            The callback function for errors that occur inside a download task running in the pool.
+
+                            :param err: An error that occurred inside a task.
+                            """
+                            nonlocal raised_errors
+                            nonlocal inst_filter_prog
+
+                            if err is not None:
+                                # Rather than throwing an error straight away I append them all to a list for later.
+                                raised_errors.append(err)
+                            inst_filter_prog.update(1)
+
+                        # Again nested for loop through each Obs_ID
+                        for path in fits_paths:
+                            # Add each download task to the pool
+                            pool.apply_async(self._inst_filtering, kwds={'insts': insts, 
+                                            'evlist_path': path}, 
+                                            error_callback=err_callback, callback=callback)
+                        pool.close()  # No more tasks can be added to the pool
+                        pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+
+                    # Raise all the download errors at once, if there are any
+                    if len(raised_errors) != 0:
+                        raise DAXADownloadError(str(raised_errors))
+
+                else:
+                    raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
+        
+        return insts
     
     @property
     def all_mission_fields(self) -> List[str]:
@@ -214,17 +353,19 @@ class eROSITACalPV(BaseMission):
         This method uses the hard coded csv file to pull information on all eROSITACalPV observations. 
         The data are processed into a Pandas dataframe and stored.
         """
-        # Hard coded this and saved it to the CALPV_INFO.csv in /files
+        # Hard coded this information and saved it to the CALPV_INFO.csv in /files
+        # Making a copy so that CALPV_INFO remains unchanged
+        calpv_copy = CALPV_INFO
+
         # Need to split the times since they go to milisecond precision, 
         #  which is a pain to translate to a datetime object, and is superfluous information anyway
-        CALPV_INFO['start'] = [str(time).split('.', 1)[0] for time in CALPV_INFO['start']]
-        CALPV_INFO['end'] = [str(time).split('.', 1)[0] for time in CALPV_INFO['end']]
-        CALPV_INFO['start'] = pd.to_datetime(CALPV_INFO['start'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
-        CALPV_INFO['end'] = pd.to_datetime(CALPV_INFO['end'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
+        calpv_copy['start'] = [str(time).split('.', 1)[0] for time in calpv_copy['start']]
+        calpv_copy['end'] = [str(time).split('.', 1)[0] for time in calpv_copy['end']]
+        calpv_copy['start'] = pd.to_datetime(calpv_copy['start'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
+        calpv_copy['end'] = pd.to_datetime(calpv_copy['end'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
 
-        obs_info_series = [CALPV_INFO['ra'], CALPV_INFO['dec'], CALPV_INFO['ObsID'], CALPV_INFO['usable'],
-                           CALPV_INFO['start'], CALPV_INFO['end'], CALPV_INFO['duration']]
-        obs_info_pd = pd.concat(obs_info_series, axis=1)
+        # Including the relevant information for the final all_obs_info DataFrame
+        obs_info_pd = calpv_copy[['ra', 'dec', 'ObsID', 'usable', 'start', 'end', 'duration', 'Field_Name', 'Field_Type']]
 
         self.all_obs_info = obs_info_pd
 
@@ -259,10 +400,8 @@ class eROSITACalPV(BaseMission):
                                 "A3391": "A3391_A3395", "A3395": "A3391_A3395"}
         
         # Finding if any of the fields entries are not valid CalPV field names or types
-        # Just adding a case for people who want all the CRAB observations in one
-        crab_list = ['CRAB']
         bad_fields = [f for f in fields if f not in poss_alt_field_names and f not in self._miss_poss_fields
-                     and f not in self._miss_poss_field_types and f not in crab_list]
+                     and f not in self._miss_poss_field_types and f != 'CRAB']
         if len(bad_fields) != 0:
             raise ValueError("Some field names or field types {bf} are not associated with this mission, please"
                             " choose from the following fields; {gf} or field types; {gft}".format(
@@ -291,16 +430,16 @@ class eROSITACalPV(BaseMission):
 
         # Return the chosen fields 
         return updated_fields
-    
-    def _inst_filtering(self, evlist_path: str):
+
+    @staticmethod
+    def _inst_filtering(insts: List[str], evlist_path: str):
         """
         Method to filter event lists for eROSITACalPV data based on instrument choice.
         
+        :param List[str] insts: The self.chosen_instruments attribute.
         :param str evlist_path: This is the file path to the raw eventlist for a certain ObsID
          that has NOT been filtered for the users instrument choice yet.
         """
-
-        insts = self.chosen_instruments
 
         # Getting a string of TM numbers to add to the end of the file name
         insts_str = ''.join(sorted(re.findall(r'\d+', ''.join(insts))))
@@ -322,7 +461,7 @@ class eROSITACalPV(BaseMission):
                 gd_insts = [int(re.sub('[^0-9]','', tscope)) for tscope in insts]
                 
                 # Getting the indexes of events with the chosen insts
-                gd_insts_indx = np.hstack([(t_col==i).nonzero()[0] for i in gd_insts])
+                gd_insts_indx = np.where(np.isin(t_col, gd_insts))[0]
                 
                 # Filtering the data on those tscopes
                 filtered_data = data[gd_insts_indx]
@@ -396,10 +535,18 @@ class eROSITACalPV(BaseMission):
                     if len(all_files) == 1:
                         second_field_dir = all_files[0]
                         # redefining all_files so it lists the files in the folder
-                        all_files = os.listdir(os.path.join(field_dir, second_field_dir))
+                        all_files = [f for f in os.listdir(os.path.join(field_dir, second_field_dir)) if not f.startswith('.')]
                         # redefining field_dir so in the later block, the source is correct
                         field_dir = os.path.join(field_dir, second_field_dir)
-                        
+
+                        # Some of the fields are in another folder, so need to perform the same check again 
+                        if len(all_files) == 1:
+                            third_field_dir = all_files[0]
+                            # redefining all_files so it lists the files in the folder
+                            all_files = os.listdir(os.path.join(field_dir, third_field_dir))
+                            # redefining field_dir so in the later block, the source is correct
+                            field_dir = os.path.join(field_dir, third_field_dir)
+
                     # Selecting the eventlist for the obs_id
                     obs_file_name =  [obs_file for obs_file in all_files if obs_id in obs_file and "eRO" not in obs_file ][0]
                     source = os.path.join(field_dir, obs_file_name)
@@ -538,7 +685,7 @@ class eROSITACalPV(BaseMission):
                 if num_cores == 1:
                     with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) as inst_filter_prog:
                         for path in fits_paths:
-                            self._inst_filtering(evlist_path=path)
+                            self._inst_filtering(insts=self.chosen_instruments, evlist_path=path)
                             # Update the progress bar
                             inst_filter_prog.update(1)
 
@@ -579,7 +726,8 @@ class eROSITACalPV(BaseMission):
                         # Again nested for loop through each Obs_ID
                         for path in fits_paths:
                             # Add each download task to the pool
-                            pool.apply_async(self._inst_filtering, kwds={'evlist_path': path}, 
+                            pool.apply_async(self._inst_filtering, kwds={'insts': self.chosen_instruments, 
+                                            'evlist_path': path}, 
                                             error_callback=err_callback, callback=callback)
                         pool.close()  # No more tasks can be added to the pool
                         pool.join()  # Joins the pool, the code will only move on once the pool is empty.
@@ -594,68 +742,6 @@ class eROSITACalPV(BaseMission):
             self._download_done = True
         
         else:
-            
-            # Need to include the instrument filtering even if the download is done, incase a different selection of
-            #  instruments is chosen for already downloaded data 
-            # Only doing the instrument filtering step if not all the instruments have been chosen
-            if len(self.chosen_instruments) != 7:
-                # Getting all the path for each eventlist corresponding to an obs_id for the _inst_filtering function later
-                fits_paths = [self._get_evlist_path_from_obs(obs=o) for o in self.filtered_obs_ids]
-
-                # Filtering out any events from the raw data that arent from the selected instruments
-                if num_cores == 1:
-                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) as inst_filter_prog:
-                        for path in fits_paths:
-                            self._inst_filtering(evlist_path=path)
-                            # Update the progress bar
-                            inst_filter_prog.update(1)
-
-                elif num_cores > 1:
-                    # List to store any errors raised during download tasks
-                    raised_errors = []
-
-                    # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
-                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) \
-                            as inst_filter_prog, Pool(num_cores) as pool:
-
-                        # The callback function is what is called on the successful completion of a _download_call
-                        def callback(download_conf: Any):
-                            """
-                            Callback function for the apply_async pool method, gets called when a download task finishes
-                            without error.
-
-                            :param Any download_conf: The Null value confirming the operation is over.
-                            """
-                            nonlocal inst_filter_prog  # The progress bar will need updating
-                            inst_filter_prog.update(1)
-
-                        # The error callback function is what happens when an exception is thrown during a _download_call
-                        def err_callback(err):
-                            """
-                            The callback function for errors that occur inside a download task running in the pool.
-
-                            :param err: An error that occurred inside a task.
-                            """
-                            nonlocal raised_errors
-                            nonlocal inst_filter_prog
-
-                            if err is not None:
-                                # Rather than throwing an error straight away I append them all to a list for later.
-                                raised_errors.append(err)
-                            inst_filter_prog.update(1)
-
-                        # Again nested for loop through each Obs_ID
-                        for path in fits_paths:
-                            # Add each download task to the pool
-                            pool.apply_async(self._inst_filtering, kwds={'evlist_path': path}, 
-                                            error_callback=err_callback, callback=callback)
-                        pool.close()  # No more tasks can be added to the pool
-                        pool.join()  # Joins the pool, the code will only move on once the pool is empty.
-
-                    # Raise all the download errors at once, if there are any
-                    if len(raised_errors) != 0:
-                        raise DAXADownloadError(str(raised_errors))
-
             warn("The raw data for this mission have already been downloaded.")
 
 
