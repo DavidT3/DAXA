@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
 #  Last modified by David J Turner (turne540@msu.edu) 28/03/2023, 09:51. Copyright (c) The Contributors
+
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -513,6 +514,11 @@ class BaseMission(metaclass=ABCMeta):
         
         # Making sure the input is capitalised for compatibilty with the rest of the module
         insts = [i.upper() for i in insts]
+
+        # I just check that there are actually entries in this list of instruments, because it would be silly if
+        #  there weren't
+        if len(insts) == 0:
+            raise ValueError("No instruments have been selected, please pass at least one.")
 
         # I just check that there are actually entries in this list of instruments, because it would be silly if
         #  there weren't

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/12/2022, 16:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:42. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -9,6 +9,8 @@ from datetime import datetime
 from random import randint
 from typing import Union, Tuple
 
+from astropy.units import Quantity
+
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
 from daxa.process.xmm._common import _sas_process_setup, ALLOWED_XMM_MISSIONS, sas_call
@@ -16,7 +18,8 @@ from daxa.process.xmm._common import _sas_process_setup, ALLOWED_XMM_MISSIONS, s
 
 @sas_call
 def cif_build(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False,
-              analysis_date: Union[str, datetime] = 'now') -> Tuple[dict, dict, dict, str, int, bool]:
+              analysis_date: Union[str, datetime] = 'now', timeout: Quantity = None) \
+        -> Tuple[dict, dict, dict, str, int, bool, Quantity]:
     """
     A DAXA Python interface for the SAS cifbuild command, used to generate calibration files for XMM observations
     prior to processing. The observation date is supplied by the XMM mission instance(s), and is the date when the
@@ -28,12 +31,15 @@ def cif_build(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
     :param str/datetime analysis_date: The analysis date for which to generate calibration file. The default is
         'now', but this parameter can be used to create calibration files as they would have been on a past date.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire cif_build process, but a timeout for individual
+        ObsID processes.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
         internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
 
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
@@ -115,11 +121,12 @@ def cif_build(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress
     # This is just used for populating a progress bar during generation
     process_message = 'Generating calibration files'
 
-    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
 @sas_call
-def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False):
+def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False,
+               timeout: Quantity = None):
     """
     This function runs the SAS odfingest task, which creates a summary of the raw data available in the ODF
     directory, and is used by many SAS processing tasks.
@@ -128,12 +135,15 @@ def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
         files should be generated. This function will fail if no XMM missions are present in the archive.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire odf_ingest process, but a timeout for individual
+        ObsID processes.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
         internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
@@ -195,4 +205,4 @@ def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
             # This is just used for populating a progress bar during generation
         process_message = 'Generating ODF summary files'
 
-        return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+        return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
