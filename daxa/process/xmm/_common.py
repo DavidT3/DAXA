@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/02/2023, 12:07. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/03/2023, 18:10. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -355,12 +355,12 @@ def sas_call(sas_func):
             if len(python_errors) != 0:
                 raise ExceptionGroup("Python errors raised during SAS commands", python_errors)
 
-            obs_archive.process_success = (sas_func.__name__, success_flags)
-            obs_archive.process_errors = (sas_func.__name__, process_parsed_stderrs)
-            obs_archive.process_warnings = (sas_func.__name__, process_parsed_stderr_warns)
-            obs_archive.raw_process_errors = (sas_func.__name__, process_raw_stderrs)
-            obs_archive.process_logs = (sas_func.__name__, process_stdouts)
-            obs_archive.process_extra_info = (sas_func.__name__, process_einfo)
+        obs_archive.process_success = (sas_func.__name__, success_flags)
+        obs_archive.process_errors = (sas_func.__name__, process_parsed_stderrs)
+        obs_archive.process_warnings = (sas_func.__name__, process_parsed_stderr_warns)
+        obs_archive.raw_process_errors = (sas_func.__name__, process_raw_stderrs)
+        obs_archive.process_logs = (sas_func.__name__, process_stdouts)
+        obs_archive.process_extra_info = (sas_func.__name__, process_einfo)
 
     return wrapper
 
