@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/03/2023, 11:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/03/2023, 18:08. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -112,6 +112,12 @@ class Archive:
         # This attribute is used to store the 'extra info' that is sometimes passed out of processing functions (see
         # the DAXA cif_build, epchain, and emchain functions for examples).
         self._process_extra_info = {mn: {} for mn in self.mission_names}
+
+        # This attribute will contain information on mission's observations. That could include whether a particular
+        #  instrument was active for a particular observation, what sub-exposures there were (assuming there were
+        #  any, XMM will often have some), what filter was applied, things like that.
+        # I will attempt to normalise the information stored in here for each mission, as far as that is possible.
+        self._miss_obs_summ_info = {mn: {} for mn in self.mission_names}
 
     # Defining properties first
     @property
@@ -411,6 +417,25 @@ class Archive:
                      "made.".format(prn=pr_name, mn=mn))
             else:
                 self._process_extra_info[mn][pr_name] = einfo_info[mn]
+
+    @property
+    def observation_summaries(self) -> dict:
+        """
+        This property returns information on the different observations available to each mission. This information
+        will vary from mission to mission, and is primarily intended for use by DAXA processing methods, but could
+        include things such as whether an instrument was active for a particular observation, what sub-exposures
+        there were (relevant for XMM for instance), what filter was active, etc.
+
+        :return: A dictionary of information with missions as the top level keys, then ObsIDs, then instruments.
+            Keys on levels below that will be determined by the information available for specific instruments of
+            specific missions.
+        :rtype: bool
+        """
+        return self._miss_obs_summ_info
+
+    @observation_summaries.setter
+    def observation_summaries(self, new_val: Tuple[str, dict]):
+        pass
 
     # Then define internal methods
     def _check_process_inputs(self, process_vals: Tuple[str, dict]) -> Tuple[str, dict]:
