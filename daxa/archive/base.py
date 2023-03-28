@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/03/2023, 13:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/03/2023, 11:09. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -517,8 +517,9 @@ class Archive:
         print("Number of missions - {}".format(len(self)))
         print("Total number of observations - {}".format(sum([len(m) for m in self._missions.values()])))
         print("Beginning of earliest observation - {}".format(min([m.filtered_obs_info['start'].min()
-                                                                   for m in self.missions])))
-        print("End of latest observation - {}".format(max([m.filtered_obs_info['end'].max() for m in self.missions])))
+                                                                   for m in self._missions.values()])))
+        print("End of latest observation - {}".format(max([m.filtered_obs_info['end'].max()
+                                                           for m in self._missions.values()])))
         for m in self._missions.values():
             print('')
             print('-- ' + m.pretty_name + ' --')
