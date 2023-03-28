@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/03/2023, 12:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/03/2023, 15:23. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -7,9 +7,10 @@
 import os
 from datetime import datetime
 from random import randint
-from typing import Union, Tuple
+from typing import Union, Tuple, List
 
 import numpy as np
+import pandas as pd
 from astropy.units import Quantity
 
 from daxa import NUM_CORES
@@ -237,3 +238,89 @@ def parse_odf_sum(sum_path: str):
                 print(sub_l.strip('\n'))
         # print('-----------------------------')
         print('\n\n\n')
+
+
+def parse_odf_sum(sum_path: str):
+    def inst_sec_parser(sec_lines: List[str], inst: str):
+
+        # if inst in ['R1', 'R2']:
+            # raise NotImplementedError("Support for RGS 1 and RGS 2 has not yet been implemented.")
+
+        # This dictionary will store configuration and observation information about the instrument that has
+        #  been passed into this parsing function
+        info_dict = {}
+
+        # First of all we check that the instrument was actually active, no point proceeding further if that
+        #  isn't true - we do still return a dictionary with active False if it was turned off though
+        if sec_lines[0][0] == 'Y':
+            info_dict['active'] = True
+        else:
+            info_dict['active'] = False
+            return info_dict
+
+        sec_lines = pd.Series(sec_lines)
+        info_dict['num_exp'] = int(sec_lines[sec_lines.str.contains('Number of exposures for '
+                                                                    'this instrument')].iloc[0].split(' ')[0])
+
+        exp_sec_inds = np.where(sec_lines == 'EXPOSURE')[0]
+        if len(exp_sec_inds) != info_dict['num_exp']:
+            raise ValueError("{i} SAS summary file number of exposure headers ({eh}) is different from stated "
+                             "number of exposures ({ne}).".format(i=inst, eh=len(exp_sec_inds),
+                                                                  ne=info_dict['num_exp']))
+
+        exp_secs = {sec_lines[exp_sec_inds[esi]+1].split('[also ')[-1].split(']')[0]:
+                        sec_lines[exp_sec_inds[esi]+2: exp_sec_inds[esi+1]] for esi in range(0, len(exp_sec_inds)-1)}
+
+        info_dict['exposures'] = {}
+        for e_sec in exp_secs:
+            cur_s = exp_secs[e_sec]
+            exp_info = {'scheduled': e_sec[0] == 'S',
+                        'type': cur_s[cur_s.str.contains('/ Exposure Type')].iloc[0].split(' ')[0],
+                        'mode': cur_s[cur_s.str.contains('/ Instrument '
+                                                         'configuration')].iloc[0].split('= ')[-1].split(' ')[0]}
+            print()
+            print(exp_info)
+            print('\n\n')
+            info_dict['exposures'][e_sec] = exp_info
+
+
+        import sys
+        sys.exit()
+
+
+    with open(sum_path, 'r') as reado:
+        sum_lines = np.array([line for line in reado.readlines() if line[:3] != '// '])
+
+    sec_div_ind = np.where(sum_lines == '//\n')[0]
+    start_ind = np.where(sum_lines == 'FILES\n')[0][0]-1
+    sec_div_ind = sec_div_ind[sec_div_ind > start_ind]
+    sec_div_ind = np.concatenate(([start_ind], sec_div_ind))
+    ind_diff = np.ediff1d(sec_div_ind, len(sum_lines)-sec_div_ind[-1])
+    sec_div_ind = sec_div_ind[np.where(ind_diff != 1)[0]]
+
+    inst_head = sec_div_ind[np.where(sum_lines[sec_div_ind+1] == 'INSTRUMENT\n')[0]]
+
+    # Just stripping the end lines of off all the strings
+    sum_lines = np.array([sl.strip('\n') for sl in sum_lines])
+
+    inst_secs = {sum_lines[inst_head[i]+2]: sum_lines[inst_head[i]+3: inst_head[i + 1]]
+                 for i in range(0, len(inst_head) - 1)}
+
+    inst_sec_parser(inst_secs['PN'], 'PN')
+
+    # for iid in inst_secs:
+    #     print(iid)
+    #     print(len(inst_secs[iid]))
+    #     print(inst_secs[iid])
+    #     print('\n\n')
+    # print(inst_secs)
+    # print('\n\n\n')
+
+    # for i in range(0, len(inst_head) - 1):
+    #     cur_ind = inst_head[i]
+    #     nex_ind = inst_head[i + 1]
+    #     # if sum_lines[cur_ind + 1] == 'EXPOSURE\n':
+    #     for sub_l in sum_lines[cur_ind+1: nex_ind-1]:
+    #         print(sub_l.strip('\n'))
+    #     print('\n-----------------------------\n')
+        # print('\n\n\n')
