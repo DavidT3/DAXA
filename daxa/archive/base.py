@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 10:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 11:34. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -476,7 +476,15 @@ class Archive:
                         raise KeyError("Observation information instrument level dictionaries must contain an "
                                        "'active' entry, a boolean value to determine whether they were turned on "
                                        "or not.")
+                    # Make sure to actually store the observation info in our storage attribute
                     self._miss_obs_summ_info[mn][o_id] = rel_dat
+
+                    # Now we can use the mission-specific observation-assessor to determine whether these particular
+                    #  ObsID-Instrument(-subexposure) combinations should be processed for scientific use. The
+                    #  assessor is mission specific because the decision criteria will vary
+                    # That information is stored in another attribute, to be accessed by processing functions through
+                    #  an archive property
+                    self._use_this_obs = self._missions[mn].check_process_obs(rel_dat)
 
     # Then define internal methods
     def _check_process_inputs(self, process_vals: Tuple[str, dict]) -> Tuple[str, dict]:
