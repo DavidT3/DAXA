@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 11:25. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 11:35. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -458,7 +458,7 @@ class NuSTARPointed(BaseMission):
         else:
             warn("The raw data for this mission have already been downloaded.")
 
-    def check_process_obs(self, obs_info: dict):
+    def assess_process_obs(self, obs_info: dict):
         """
         A slightly unusual method which will allow the NuSTARPointed mission to assess the information on a particular
         observation that has been put together by an Archive (the archive assembles it because sometimes this

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/03/2023, 12:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 11:35. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -377,3 +377,21 @@ class XMMPointed(BaseMission):
         else:
             warn("The raw data for this mission have already been downloaded.")
 
+    def assess_process_obs(self, obs_info: dict) -> dict:
+        """
+        A slightly unusual method which will allow the XMMPointed mission to assess the information on a particular
+        observation that has been put together by an Archive (the archive assembles it because sometimes this
+        detailed information only becomes available at the first stages of processing), and make a decision on whether
+        that particular observation-instrument-subexposure should be processed further for scientific use.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param dict obs_info: The multi-level dictionary containing available observation information for an
+            observation.
+        :return:
+        :rtype:
+        """
+        print(self.filtered_obs_ids)
+
+        return {}

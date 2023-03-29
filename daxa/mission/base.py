@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 11:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 11:35. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -882,7 +882,7 @@ class BaseMission(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def check_process_obs(self, obs_info: dict):
+    def assess_process_obs(self, obs_info: dict):
         """
         A slightly unusual abstract method which will allow each mission to assess the information on a particular
         observation that has been put together by an Archive (the archive assembles it because sometimes this
