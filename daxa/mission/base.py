@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/03/2023, 13:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 11:17. Copyright (c) The Contributors
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -878,6 +878,26 @@ class BaseMission(metaclass=ABCMeta):
         a filter has been applied, otherwise all data will be downloaded). This must be overwritten by every subclass
         as each mission might need a different method of downloading the data, the same reason fetch_obs_info
         must be overwritten in each subclass.
+        """
+        pass
+
+    @abstractmethod
+    def check_process_obs(self, obs_info: dict):
+        """
+        A slightly unusual abstract method which will allow each mission to assess the information on a particular
+        observation that has been put together by an Archive (the archive assembles it because sometimes this
+        detailed information only becomes available at the first stages of processing), and make a decision on whether
+        that particular observation-instrument-subexposure (for missions like XMM) should be processed further for
+        scientific use.
+
+        Implemented as an abstract method because the information and decision-making process will likely be
+        different for every mission.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param dict obs_info: The multi-level dictionary containing available observation information for an
+            observation.
         """
         pass
 
