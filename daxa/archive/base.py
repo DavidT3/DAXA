@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 14:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 16:41. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -9,6 +9,7 @@ import numpy as np
 
 from daxa import BaseMission, OUTPUT
 from daxa.exceptions import DuplicateMissionError, ArchiveExistsError, NoProcessingError
+from daxa.misc import dict_search
 
 
 class Archive:
@@ -595,12 +596,69 @@ class Archive:
 
         return ret_str
 
-    # def get_obs_to_process(self, mission: Union[str, BaseMission], obs_id: str, inst: str):
-    #     print(se)
-    #     print(self._use_this_obs)
-    #     for res in dict_search('0201903501', self._use_this_obs['xmm_pointed']):
-    #         print(res)
-    #         print('')
+    def get_obs_to_process(self, mission_name: str, search_ident: str = None):
+
+        # This is the final output, and will be a list of lists of [ObsID, Instrument, SUBEXP DEPENDING ON MISSION]
+        all_res = []
+
+        # If the search identifier is none it behaves slightly differently
+        if search_ident is None:
+            # No specific search ident has been passed (i.e. an instrument or an ObsID), but I still want the
+            #  dictionary output to be in the same format as if there were, for re-formatting later. As such I
+            #  just search for our mission name.
+            search_ident = mission_name
+            rel_use_obs = self._use_this_obs
+
+        else:
+            # In the case where a search ident has been provided, I only search the information for my
+            # specific mission
+            rel_use_obs = self._use_this_obs[mission_name]
+
+            # I try to check that the search_ident value is legal - either an instrument for the selected mission, or
+            #  an ObsID
+            if search_ident not in self._missions[mission_name].filtered_obs_ids \
+                    and search_ident not in self._missions[mission_name].chosen_instruments:
+                raise ValueError("The passed search ident ({si}) should be either an ObsID associated with the "
+                                 "mission, or a mission instrument enabled for this archive; otherwise it must be"
+                                 "set to None.".format(si=search_ident))
+
+        # Using dict_search and iterating (as it as a generator) - I know this method isn't super well explained, but
+        #  in theory it should work for _use_this_obs which are upto four levels deep (mission-obsid-inst-subexp), and
+        #  support the other possible depth where there aren't subexposures. Its disgusting and janky but I can't be
+        #  bothered to improve it
+        # The goal of these different processing
+        #  steps is to construct a list of lists of [ObsID, Instrument, SubExp] that CAN be used, and the return
+        #  from this function can be iterated through.
+        for res in dict_search(search_ident, rel_use_obs):
+            # This will catch when the dictionary is two deep (ObsID-Instrument) and the search_ident was on the
+            #  second level
+            if isinstance(res, list):
+                proc_res = [[res[0], search_ident] for to_use in res[1:] if to_use]
+            # This will catch when the dictionary is three deep (ObsID-Instrument-SubExp) and the search_ident was
+            #  on the second level
+            elif isinstance(res, list) and isinstance(res[1], dict):
+                proc_res = [[res[0], search_ident, sp_id] for ll in res[1:] for sp_id, to_use in ll.items()
+                            if to_use]
+            # This case is generally when search_ident is None and the storage structure is mission-ObsID-Inst-SubExp
+            elif isinstance(res, dict) and isinstance(list(res.values())[0], dict)\
+                    and isinstance(list(list(res.values())[0].values()), dict):
+                proc_res = [[tl_key, ll_key, sp_id] for tl_key, tl_val in res.items() for ll_key, ll_val in
+                            tl_val.items()
+                            for sp_id, to_use in ll_val.items() if to_use]
+            #  This is when the dictionary is two deep and the search_ident is the top level
+            elif isinstance(res, dict) and isinstance(list(res.values())[0], dict):
+                proc_res = [[tl_key, ll_key] for tl_key, tl_val in res.items() for ll_key, to_use in
+                            tl_val.items() if to_use]
+            # This will catch when the dictionary is three deep (ObsID-Instrument-SubExp) and the search_ident is
+            #  on the top level
+            elif isinstance(res, dict):
+                proc_res = [[search_ident, ll_key, sp_id] for ll_key, ll_val in res.items()
+                            for sp_id, to_use in ll_val.items() if to_use]
+
+            # Add the current processed result into the overall results
+            all_res += proc_res
+
+        return all_res
 
     def info(self):
         """
