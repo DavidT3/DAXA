@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 11:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 13:04. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -389,9 +389,46 @@ class XMMPointed(BaseMission):
 
         :param dict obs_info: The multi-level dictionary containing available observation information for an
             observation.
-        :return:
-        :rtype:
+        :return: A two-level dictionary with instruments as the top level keys, and sub-exposure IDs as the low
+            level keys. The values associated with the sub-exposure keys are boolean, True for usable, False for not.
+        :rtype: dict
         """
-        print(self.filtered_obs_ids)
+        insts = list(obs_info.keys())
 
-        return {}
+        # This is the dictionary which we'll be sending back, with top level instrument keys and lower level sub
+        #  exposure keys. We start off by assuming all of the data should be used, leaving it to the rest of this
+        #  method to disable sub-exposures and set these booleans to False
+        to_return = {inst: {e_id: True for e_id in list(obs_info[inst]['exposures'].keys())} for inst in insts}
+
+        for inst in insts:
+            # One check later on needs to know whether the current instrument is an RGS
+            rgs = inst == 'R1' or inst == 'R2'
+
+            for e_id in to_return[inst]:
+                rel_info = obs_info[inst]['exposures'][e_id]
+
+                # Observation type check, we want to ensure that the type for the observation is 'SCIENCE'
+                if rel_info['type'] != 'SCIENCE':
+                    to_return[inst][e_id] = False
+
+                # Filter check - we want to exclude observations where the filter is in CalClosed (or Closed, as I
+                #  saw it called in one observation), or where the filter is None (apart from RGS, no filters there).
+                #  The Blocked filter that I'm excluding should only ever belong to the optical monitor, and
+                #  though I haven't decided if DAXA will ever reduce OM data, I'm including it here for future proofing.
+                if not rgs and (rel_info['filter'] is None or rel_info['filter']
+                                in ['CalClosed', 'Closed', 'Blocked', 'Unknown']):
+                    to_return[inst][e_id] = False
+
+                # Now we check the observing mode, there are quite a few that are non-science modes which don't
+                #  need to be reduced for scientific purporses. The list I'm using for this is on this website:
+                #  https://xmm-tools.cosmos.esa.int/external/xmm_user_support/documentation/dfhb/node72.html
+                # CentroidingConfirmation and subsequent modes are all for OM, again not sure if I'll ever implement
+                #  OM but trying to be thorough
+                bad_modes = ['Diagnostic3x3', 'Diagnostic1x1', 'CcdDiagnostic', 'Diagnostic1x1ResetPerPixel',
+                             'Diagnostic', 'Noise', 'Offset', 'HighTimeResolutionSingleCcd', 'CentroidingConfirmation',
+                             'CentroidingData', 'DarkHigh', 'DarkLow', 'FlatFieldHigh', 'FlatFieldLow']
+                # Performs the actual mode check
+                if rel_info['mode'] in bad_modes:
+                    to_return[inst][e_id] = False
+
+        return to_return
