@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 13:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 18:25. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -420,13 +420,14 @@ class XMMPointed(BaseMission):
                     to_return[inst][e_id] = False
 
                 # Now we check the observing mode, there are quite a few that are non-science modes which don't
-                #  need to be reduced for scientific purporses. The list I'm using for this is on this website:
+                #  need to be reduced for scientific purposes. The list I'm using for this is on this website:
                 #  https://xmm-tools.cosmos.esa.int/external/xmm_user_support/documentation/dfhb/node72.html
                 # CentroidingConfirmation and subsequent modes are all for OM, again not sure if I'll ever implement
                 #  OM but trying to be thorough
                 bad_modes = ['Diagnostic3x3', 'Diagnostic1x1', 'CcdDiagnostic', 'Diagnostic1x1ResetPerPixel',
-                             'Diagnostic', 'Noise', 'Offset', 'HighTimeResolutionSingleCcd', 'CentroidingConfirmation',
-                             'CentroidingData', 'DarkHigh', 'DarkLow', 'FlatFieldHigh', 'FlatFieldLow']
+                             'Diagnostic', 'Noise', 'Offset', 'HighTimeResolutionSingleCcd', 'OffsetVariance',
+                             'CentroidingConfirmation', 'CentroidingData', 'DarkHigh', 'DarkLow', 'FlatFieldHigh',
+                             'FlatFieldLow']
                 # Performs the actual mode check
                 if rel_info['mode'] in bad_modes:
                     to_return[inst][e_id] = False
