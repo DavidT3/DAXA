@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/02/2023, 14:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 18:01. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -77,85 +77,68 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
-        # Now we're iterating through the ObsIDs that have been selected for the current mission
-        for obs_id in miss.filtered_obs_ids:
-            for inst in miss.chosen_instruments:
-                if inst == 'PN':
-                    # The location of the raw data
-                    odf_dir = miss.raw_data_path + obs_id + '/'
+        # This method will fetch the valid data (ObsID, Instrument, and sub-exposure) that we need to process. When
+        #  given PN as a search term (as this is epchain, we don't need to include MOS) only PN identifiers will be
+        #  returned.
+        # I prefer this to how I originally wrote this, as it saves multiple layers of for loops/if statements, which
+        #  can be a little tricky to decipher
+        rel_obs_info = obs_archive.get_obs_to_process(miss.name, 'PN')
 
-                    # TODO Update this when I have built a SAS summary file parser (see issue #34)
-                    # Try to figure out how many PN exposures there were, as epchain will not automatically
-                    #  loop through them, it has to be run separately for each I think (unlike emchain)
-                    pn_exp = list(set([f.split(obs_id)[1].split('PN')[1][:4] for f in os.listdir(odf_dir)
-                                  if 'PNS' in f or 'PNU' in f]))
+        # Don't just launch straight into the loop however, as the user can choose NOT to process unscheduled
+        #  observations. In that case we clean that rel_obs_info list.
+        if not process_unscheduled:
+            # Select only those sub exposures that have an ident that doesn't start with a U
+            rel_obs_info = [roi for roi in rel_obs_info if roi[2][0] != 'U']
 
-                    # Clean out the list of exposures here rather than add another layer of nesting to the
-                    #  for loop below - this removes unscheduled exposures if the user has decided that they don't
-                    #  want to process them.
-                    if not process_unscheduled:
-                        pn_exp = [pe for pe in pn_exp if 'U' not in pe]
+        # Now we start to cycle through the relevant data
+        for obs_info in rel_obs_info:
+            # Unpack the observation information provided by the
+            obs_id, inst, exp_id = obs_info
 
-                    for exp_id in pn_exp:
-                        # TODO Again update this after SAS summary parser (issue 34), because we currently try to
-                        #  process everything as imaging mode (see issue #40)
+            # The location of the raw data
+            odf_dir = miss.raw_data_path + obs_id + '/'
 
-                        # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
-                        #  files will be written to.
-                        dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
-                        ccf_path = dest_dir + 'ccf.cif'
+            # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
+            #  files will be written to.
+            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            ccf_path = dest_dir + 'ccf.cif'
 
-                        # The idea here is to figure out which CCDs where active for a particular observation - this
-                        #  is to avoid errors thrown by epchain about missing CCD data. Those errors are non-fatal,
-                        #  but they contaminate the stderr output which is parsed by DAXA, and cause us to consider
-                        #  processing small-window mode data a failure when it isn't, as only one CCD is turned on
-                        search_term = '{o}_{i}{e}'.format(o=obs_id, i=inst, e=exp_id)
-                        # TODO Again update this after SAS summary parser (issue 34) is implemented
-                        # Lists the ODFs which match the search term above, finding separate imaging mode files
-                        #  for each CCD of the current sub-exposure
-                        ccd_files = [f for f in os.listdir(odf_dir) if search_term in f and 'IME' in f]
+            # Want to identify which CCDs can be processed, i.e. were turned on and were in imaging mode rather
+            #  than timing mode - perhaps timing mode will be supported by DAXA later on.
+            ccd_modes = obs_archive.observation_summaries[miss.name][obs_id][inst]['exposures'][exp_id]['ccd_modes']
+            ccd_ids = [ccd_id for ccd_id, ccd_mode in ccd_modes.items() if ccd_mode.upper() == 'IMAGING']
 
-                        # As an aside, at this point we can check to see if there are any files in this list, as
-                        #  if there are none then we can decide that this sub-exposure is not in an imaging data mode
-                        #  and as such we won't process it
-                        # TODO This will have to change when I start processing non-imaging data modes
-                        if len(ccd_files) == 0:
-                            continue
+            # Then turn into a string so as they can be passed to the epchain command we're constructing
+            ccd_str = ",".join([str(c_id) for c_id in sorted(ccd_ids)])
 
-                        # Now the files are processed to just retrieve the list of CCDs active for this sub-exposure
-                        #  of the current observation
-                        ccd_ids = sorted([int(f.split(search_term)[-1].split('IME')[0]) for f in ccd_files])
-                        # The stupid conversion from str to int to str again is an inelegant way of removing leading
-                        #  zeros from the CCD ID numbers in their string form - also need to sort whilst they
-                        #  are in integer form
-                        ccd_ids = [str(c_id) for c_id in ccd_ids]
-                        ccd_str = ",".join(ccd_ids)
+            # Set up a temporary directory to work in
+            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_dir = dest_dir + temp_name + "/"
+            # This is where the final output event list file will be stored
+            final_path = dest_dir + evt_list_name.format(o=obs_id, eid=exp_id)
+            oot_final_path = dest_dir + oot_evt_list_name.format(o=obs_id, eid=exp_id)
 
-                        # Set up a temporary directory to work in
-                        temp_name = "tempdir_{}".format(randint(0, 1e+8))
-                        temp_dir = dest_dir + temp_name + "/"
-                        # This is where the final output event list file will be stored
-                        final_path = dest_dir + evt_list_name.format(o=obs_id, eid=exp_id)
-                        oot_final_path = dest_dir + oot_evt_list_name.format(o=obs_id, eid=exp_id)
+            # If it doesn't already exist then we will create commands to generate it - there are no options for
+            #  epchain that could be changed between runs (other than processing unscheduled, but we're looping
+            #  through those commands separately), so it's safe to take what has already been generated.
+            # Though actually the raw data could have changed, I shall have to reconsider this in the context of
+            #  updating an existing archive
+            if not os.path.exists(final_path):
+                # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
 
-                        # If it doesn't already exist then we will create commands to generate it
-                        # TODO Decide whether this is the route I really want to follow for this (see issue #28)
-                        if not os.path.exists(final_path):
-                            # Make the temporary directory (it shouldn't already exist but doing this to be safe)
-                            if not os.path.exists(temp_dir):
-                                os.makedirs(temp_dir)
+                # Format the blank command string defined near the top of this function with information
+                #  particular to the current mission and ObsID
+                cmd = ep_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, e=exp_id[1:], s=exp_id[0],
+                                    c=ccd_str)
 
-                            # Format the blank command string defined near the top of this function with information
-                            #  particular to the current mission and ObsID
-                            cmd = ep_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, e=exp_id[1:], s=exp_id[0],
-                                                c=ccd_str)
-
-                            # Now store the bash command, the path, and extra info in the dictionaries
-                            miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
-                            # The SAS wrapping functionality can check that multiple final files exist
-                            miss_final_paths[miss.name][obs_id + inst + exp_id] = [final_path, oot_final_path]
-                            miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_list': final_path,
-                                                                              'oot_evt_list': oot_final_path}
+                # Now store the bash command, the path, and extra info in the dictionaries
+                miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
+                # The SAS wrapping functionality can check that multiple final files exist
+                miss_final_paths[miss.name][obs_id + inst + exp_id] = [final_path, oot_final_path]
+                miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_list': final_path,
+                                                                  'oot_evt_list': oot_final_path}
 
     # This is just used for populating a progress bar during generation
     process_message = 'Assembling PN and PN-OOT event lists'
