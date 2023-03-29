@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 10:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 10:59. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -118,6 +118,10 @@ class Archive:
         #  any, XMM will often have some), what filter was applied, things like that.
         # I will attempt to normalise the information stored in here for each mission, as far as that is possible.
         self._miss_obs_summ_info = {mn: {} for mn in self.mission_names}
+        # This dictionary will mimic the structure of the _miss_obs_summ_info dictionary, but will contain simple
+        #  boolean information on whether the particular ObsID-instrument-sub exposure (or more likely
+        #  ObsID-Instrument for most missions) should be reduced and processed for science
+        self._use_this_obs = {mn: {} for mn in self.mission_names}
 
     # Defining properties first
     @property
@@ -444,6 +448,11 @@ class Archive:
         The observation_summaries property shouldn't need to be set by the user, as ideally DAXA processes will
         acquire and provide that information.
 
+        Using this setter will also trigger a process where each observation added will be assessed to determine
+        whether it should be processed for scientific purposes. The factors that go into this decision will depend
+        heavily on the telescope, but to give an example; an XMM observation that has been acquired would not
+        be processed if the filter were found to be CalClosed - there are no data on astrophysical objects there.
+
         :param dict new_val: A dictionary of information, with mission as the top level key, next level down
             the ObsID, next level down the instruments. Beyond that the information can vary on a mission by
             mission basis.
@@ -565,6 +574,9 @@ class Archive:
             ret_str = base_path
 
         return ret_str
+
+    # def get_processing_decision(self, mission: Union[str, BaseMission], obs_id: str, inst: str, sub_exp: str):
+    #     pass
 
     def info(self):
         """
