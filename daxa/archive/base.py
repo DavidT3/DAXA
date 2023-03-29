@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 16:41. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 16:49. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -596,8 +596,24 @@ class Archive:
 
         return ret_str
 
-    def get_obs_to_process(self, mission_name: str, search_ident: str = None):
+    def get_obs_to_process(self, mission_name: str, search_ident: str = None) -> List[List[str]]:
+        """
+        This method will provide a list of lists of [ObsID, Instrument, SubExposure (depending on mission)] that
+        should be processed for scientific use for a specific mission. The idea is that this method can be
+        called, and just by iterating through the result you will get the identifiers of all valid data that
+        match your input.
 
+        It shouldn't really need to be used directly by users, but instead will be very useful for the processing
+        functions - it will tell them which data need to be processed.
+
+        :param str mission_name: The internal DAXA name of the mission to retrieve information for.
+        :param str search_ident: Either an ObsID or an instrument name to retrieve matching information for. An ObsID
+            will search through all the instruments/subexposures, an instrument will search all ObsIDs and
+            sub-exposures. The default is None, in which case all ObsIDs, instruments, and sub-exposures will
+            be searched.
+        :return: List of lists of [ObsID, Instrument, SubExposure (depending on mission)].
+        :rtype: List[List]
+        """
         # This is the final output, and will be a list of lists of [ObsID, Instrument, SUBEXP DEPENDING ON MISSION]
         all_res = []
 
