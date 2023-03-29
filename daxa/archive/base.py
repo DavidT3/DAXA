@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 17:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 18:01. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -624,7 +624,6 @@ class Archive:
             #  just search for our mission name.
             search_ident = mission_name
             rel_use_obs = self._use_this_obs
-
         else:
             # In the case where a search ident has been provided, I only search the information for my
             # specific mission
