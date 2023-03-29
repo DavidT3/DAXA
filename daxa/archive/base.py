@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/03/2023, 18:08. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 10:30. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -434,8 +434,40 @@ class Archive:
         return self._miss_obs_summ_info
 
     @observation_summaries.setter
-    def observation_summaries(self, new_val: Tuple[str, dict]):
-        pass
+    def observation_summaries(self, new_val: dict):
+        """
+        This is the property setter for information on observations available for each mission. This information
+        will vary from mission to mission, and is primarily intended for use by DAXA processing methods, but could
+        include things such as whether an instrument was active for a particular observation, what sub-exposures
+        there were (relevant for XMM for instance), what filter was active, etc.
+
+        The observation_summaries property shouldn't need to be set by the user, as ideally DAXA processes will
+        acquire and provide that information.
+
+        :param dict new_val: A dictionary of information, with mission as the top level key, next level down
+            the ObsID, next level down the instruments. Beyond that the information can vary on a mission by
+            mission basis.
+        """
+        for mn in new_val:
+            for o_id in new_val[mn]:
+                # If the particular observation does not have an entry for the particular mission then we add it to the
+                #  dictionary, but if it does then we warn the user and do nothing
+                if o_id in self._miss_obs_summ_info[mn]:
+                    warn("The observation_summaries property already has an entry for {o_id} under {mn}, no change "
+                         "will be made.".format(o_id=o_id, mn=mn))
+                else:
+                    # This just removes any entries that might exist for instruments that haven't been selected for
+                    #  use by the mission class. This was driven by the fact that parsing XMM SAS summary files will
+                    #  still include entries for instruments that don't have files (even if they're null).
+                    rel_dat = {inst: info for inst, info in new_val[mn][o_id].items()
+                               if inst in self._missions[mn].chosen_instruments}
+                    # This part allows us to put a hard requirement on having certain entries at the instrument
+                    #  level - initially I'm only including 'active' in that, but perhaps I shall add more
+                    if not all(['active' in info for info in rel_dat.values()]):
+                        raise KeyError("Observation information instrument level dictionaries must contain an "
+                                       "'active' entry, a boolean value to determine whether they were turned on "
+                                       "or not.")
+                    self._miss_obs_summ_info[mn][o_id] = rel_dat
 
     # Then define internal methods
     def _check_process_inputs(self, process_vals: Tuple[str, dict]) -> Tuple[str, dict]:
