@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 13:25. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 14:36. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -484,7 +484,7 @@ class Archive:
                     #  assessor is mission specific because the decision criteria will vary
                     # That information is stored in another attribute, to be accessed by processing functions through
                     #  an archive property
-                    self._use_this_obs = self._missions[mn].assess_process_obs(rel_dat)
+                    self._use_this_obs[mn][o_id] = self._missions[mn].assess_process_obs(rel_dat)
 
     @property
     def process_observation(self) -> dict:
@@ -595,8 +595,12 @@ class Archive:
 
         return ret_str
 
-    # def get_processing_decision(self, mission: Union[str, BaseMission], obs_id: str, inst: str, sub_exp: str):
-    #     pass
+    # def get_obs_to_process(self, mission: Union[str, BaseMission], obs_id: str, inst: str):
+    #     print(se)
+    #     print(self._use_this_obs)
+    #     for res in dict_search('0201903501', self._use_this_obs['xmm_pointed']):
+    #         print(res)
+    #         print('')
 
     def info(self):
         """
