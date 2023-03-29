@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 11:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 13:25. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -485,6 +485,18 @@ class Archive:
                     # That information is stored in another attribute, to be accessed by processing functions through
                     #  an archive property
                     self._use_this_obs = self._missions[mn].assess_process_obs(rel_dat)
+
+    @property
+    def process_observation(self) -> dict:
+        """
+        This property returns the dictionary of mission-ObsID-Instrument(-subexposure) boolean flags that indicate
+        whether the data for that observation-instrument(-subexposure) should be processed for science. There is a
+        companion get method that returns only the data identifiers that should be processed.
+
+        :return: The dictionary containing information on whether particular data should be processed.
+        :rtype: dict
+        """
+        return self._use_this_obs
 
     # Then define internal methods
     def _check_process_inputs(self, process_vals: Tuple[str, dict]) -> Tuple[str, dict]:
