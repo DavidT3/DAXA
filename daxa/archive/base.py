@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 17:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 17:17. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -741,6 +741,8 @@ class Archive:
         if run_success.sum() == 0:
             raise NoDependencyProcessError("The required process(es) {p} was run for {mn}, but was not "
                                            "successful for any data.".format(p=', '.join(dep_proc), mn=mission_name))
+
+        return run_success
 
     def info(self):
         """
