@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 17:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 17:27. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -681,8 +681,27 @@ class Archive:
         return all_res
 
     def check_dependence_success(self, mission_name: str, obs_ident: Union[str, List[str], List[List[str]]],
-                                 dep_proc: Union[str, List[str]]):
+                                 dep_proc: Union[str, List[str]]) -> np.ndarray:
+        """
+        This method should be used by processing functions, rather than the user, to determine whether previous
+        processing steps (specified in the input to this function) ran successfully for the specified data.
 
+        Each processing function should be setup to call this method with appropriate previous steps and
+        identifiers, and will know from its boolean array return which data can be processed safely. If no data
+        has successfully run through a previous step, or no attempt to run a previous step occurred, then an
+        error will be thrown.
+
+        :param str mission_name: The name of the mission for which we wish to check the success of
+            previous processing steps.
+        :param str/List[str], List[List[str]] obs_ident: A set (or individual) set of observation identifiers. This
+            should be in the style output by get_obs_to_process (i.e. [ObsID, Inst, SubExp (depending on mission)],
+            though does also support just an ObsID.
+        :param str/List[str] dep_proc: The name(s) of the process(es) that have to have been run for further
+            processing steps to be successful.
+        :return: A boolean array that defines whether the process(es) specified in the input were successful. Each
+            set of identifying information provided in obs_ident has a corresponding entry in the return.
+        :rtype: np.ndarray
+        """
         # Check to make sure that the mission name is valid for this archive
         if mission_name not in self.mission_names:
             raise ValueError("The mission {mn} is not associated with this archive. Available missions are "
