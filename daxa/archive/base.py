@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 18:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 13:00. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -8,7 +8,7 @@ from warnings import warn
 import numpy as np
 
 from daxa import BaseMission, OUTPUT
-from daxa.exceptions import DuplicateMissionError, ArchiveExistsError, NoProcessingError
+from daxa.exceptions import DuplicateMissionError, ArchiveExistsError, NoProcessingError, NoDependencyProcessError
 from daxa.misc import dict_search
 
 
@@ -614,6 +614,11 @@ class Archive:
         :return: List of lists of [ObsID, Instrument, SubExposure (depending on mission)].
         :rtype: List[List]
         """
+        # Check to make sure that the mission name is valid for this archive
+        if mission_name not in self.mission_names:
+            raise ValueError("The mission {mn} is not associated with this archive. Available missions are "
+                             "{am}".format(mn=mission_name, am=', '.join(self.mission_names)))
+
         # This is the final output, and will be a list of lists of [ObsID, Instrument, SUBEXP DEPENDING ON MISSION]
         all_res = []
 
@@ -674,6 +679,24 @@ class Archive:
             all_res += proc_res
 
         return all_res
+
+    def check_dependence_success(self, mission_name: str, obs_ident: List[str], dep_proc: Union[str, List[str]]):
+
+        # Check to make sure that the mission name is valid for this archive
+        if mission_name not in self.mission_names:
+            raise ValueError("The mission {mn} is not associated with this archive. Available missions are "
+                             "{am}".format(mn=mission_name, am=', '.join(self.mission_names)))
+
+        # Normalising the input so that dep_proc can always be iterated through. I imagine most of the time this
+        #  method is used it will be for individual process checking, but you never know.
+        if isinstance(dep_proc, str):
+            dep_proc = [dep_proc]
+
+        for dp in dep_proc:
+            if dp not in self.process_logs[mission_name]:
+                raise NoDependencyProcessError("The {p} process has not been run for "
+                                               "{mn}.".format(p=dp, mn=mission_name))
+
 
     def info(self):
         """
