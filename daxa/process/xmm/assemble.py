@@ -1,11 +1,12 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 11:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 17:41. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
 from typing import Union, List, Tuple
 from warnings import warn
 
+import numpy as np
 from astropy.io import fits
 from astropy.units import Quantity, UnitConversionError
 
@@ -90,8 +91,13 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
             # Select only those sub exposures that have an ident that doesn't start with a U
             rel_obs_info = [roi for roi in rel_obs_info if roi[2][0] != 'U']
 
+        # Here we check that the previous required processes ran, mainly to be consistent. I know that odf ingest
+        #  worked if we have rel_obs_info data, because odf_ingest is what populated the information get_obs_to_process
+        #  uses for XMM.
+        good_odf = obs_archive.check_dependence_success(miss.name, rel_obs_info, 'odf_ingest')
+
         # Now we start to cycle through the relevant data
-        for obs_info in rel_obs_info:
+        for obs_info in np.array(rel_obs_info)[good_odf]:
             # Unpack the observation information provided by the
             obs_id, inst, exp_id = obs_info
 
