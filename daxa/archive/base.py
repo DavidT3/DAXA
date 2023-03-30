@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 17:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 17:34. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -743,7 +743,7 @@ class Archive:
                     # As process functions will call this method rather than the user, I'm assuming that the
                     #  list of identifying information is everything required to specify entry in the 'success' logs
                     #  I'm looking for. As such they just get combined
-                    comb_id = ''.join(obs_ident)
+                    comb_id = ''.join(ident)
                     # Then I look in the process success logs, and multiply that bool by the (originally True) entry
                     #  in run_success. If my retrieved success flag is True nothing will happen, if its False then
                     #  the run_success entry will be set to False
