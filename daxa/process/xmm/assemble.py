@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 18:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 10:09. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -184,8 +184,8 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     #  argument will only ever be set with one exposure at a time. emchain does loop through sub-exposures
     #  automatically, but I'm attempting to normalise the behaviours between emchain and epchain in how DAXA calls
     #  them. Issue #42 discusses this.
-    em_cmd = "cd {d}; export SAS_CCF={ccf}; emchain odf={odf} instruments={i} exposures={ei}; mv *MIEVLI*.FIT ../; " \
-             "mv *ATTTSR*.FIT ../; cd ..; rm -r {d}"
+    em_cmd = "cd {d}; export SAS_CCF={ccf}; emchain odf={odf} instruments={i} exposures={ei} ccds={ci}; " \
+             "mv *MIEVLI*.FIT ../; mv *ATTTSR*.FIT ../; cd ..; rm -r {d}"
 
     # The event list name that we want to check for at the end of the process - the zeros at the end seem to always
     #  be there for emchain-ed event lists, which is why I'm doing it this way rather than with a wildcard * at the
@@ -208,55 +208,72 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
-        # Now we're iterating through the ObsIDs that have been selected for the current mission
-        for obs_id in miss.filtered_obs_ids:
-            for inst in miss.chosen_instruments:
-                if inst in ['M1', 'M2']:
-                    # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
-                    #  files will be written to.
-                    dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
-                    ccf_path = dest_dir + 'ccf.cif'
+        # This method will fetch the valid data (ObsID, Instrument, and sub-exposure) that we need to process. When
+        #  given M1 (for instance) as a search term only MOS1 identifiers will be returned. As emchain needs to
+        #  process MOS1 and MOS2 data, I just run it twice and add the results together
+        # I prefer this to how I originally wrote this, as it saves multiple layers of for loops/if statements, which
+        #  can be a little tricky to decipher
 
-                    # Grab the path to the ODF directory, we shall need it
-                    odf_dir = miss.raw_data_path + obs_id + '/'
+        rel_obs_info = obs_archive.get_obs_to_process(miss.name, 'M1') + obs_archive.get_obs_to_process(miss.name, 'M2')
 
-                    # List available sub-exposures for the current ObsID-instrument combo
-                    m_exp = list(set([f.split(obs_id)[1].split(inst)[1][:4] for f in os.listdir(odf_dir)
-                                      if '{i}S'.format(i=inst) in f or '{i}U'.format(i=inst) in f]))
+        # Don't just launch straight into the loop however, as the user can choose NOT to process unscheduled
+        #  observations. In that case we clean that rel_obs_info list.
+        if not process_unscheduled:
+            # Select only those sub exposures that have an ident that doesn't start with a U
+            rel_obs_info = [roi for roi in rel_obs_info if roi[2][0] != 'U']
 
-                    # Clean out the list of exposures here rather than add another layer of nesting to the
-                    #  for loop below - this removes unscheduled exposures if the user has decided that they don't
-                    #  want to process them.
-                    if not process_unscheduled:
-                        m_exp = [me for me in m_exp if 'U' not in me]
+        # Now we start to cycle through the relevant data
+        for obs_info in rel_obs_info:
+            # Unpack the observation information provided by the
+            obs_id, inst, exp_id = obs_info
 
-                    for exp_id in m_exp:
-                        # Set up a temporary directory to work in
-                        temp_name = "tempdir_{}".format(randint(0, 1e+8))
-                        temp_dir = dest_dir + temp_name + "/"
+            # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
+            #  files will be written to.
+            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            ccf_path = dest_dir + 'ccf.cif'
 
-                        # This is where the final output event list file will be stored
-                        final_path = dest_dir + evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
+            # Grab the path to the ODF directory, we shall need it
+            odf_dir = miss.raw_data_path + obs_id + '/'
 
-                        # If it doesn't already exist then we will create commands to generate it
-                        # TODO Decide whether this is the route I really want to follow for this (see issue #28)
-                        if not os.path.exists(final_path):
-                            # Make the temporary directory (it shouldn't already exist but doing this to be safe)
-                            if not os.path.exists(temp_dir):
-                                os.makedirs(temp_dir)
+            # Want to identify which CCDs can be processed, i.e. were turned on and were in imaging mode rather
+            #  than timing mode - perhaps timing mode will be supported by DAXA later on. This same check
+            #  happens exactly the same way in epchain
+            ccd_modes = obs_archive.observation_summaries[miss.name][obs_id][inst]['exposures'][exp_id]['ccd_modes']
+            ccd_ids = [ccd_id for ccd_id, ccd_mode in ccd_modes.items() if ccd_mode.upper() == 'IMAGING']
 
-                            # Format the blank command string defined near the top of this function with information
-                            #  particular to the current mission and ObsID
-                            cmd = em_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=exp_id)
+            # Then turn into a string so as they can be passed to the epchain command we're constructing - the
+            #  construction of this CCD list is NOT the same as in epchain, because the two tasks require different
+            #  formats for lists... (and they don't seem to define them anywhere!!)
+            ccd_str = "'" + " ".join([str(c_id) for c_id in sorted(ccd_ids)]) + "'"
 
-                            # Now store the bash command, the path, and extra info in the dictionaries
-                            miss_cmds[miss.name][obs_id+inst+exp_id] = cmd
-                            miss_final_paths[miss.name][obs_id+inst+exp_id] = final_path
-                            miss_extras[miss.name][obs_id+inst+exp_id] = {'evt_list': final_path}
+            # Set up a temporary directory to work in
+            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_dir = dest_dir + temp_name + "/"
+
+            # This is where the final output event list file will be stored
+            final_path = dest_dir + evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
+
+            # If it doesn't already exist then we will create commands to generate it - there are no options for
+            #  emchain that could be changed between runs (other than processing unscheduled, but we're looping
+            #  through those commands separately), so it's safe to take what has already been generated.
+            # Though actually the raw data could have changed, I shall have to reconsider this in the context of
+            #  updating an existing archive
+            if not os.path.exists(final_path):
+                # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
+
+                # Format the blank command string defined near the top of this function with information
+                #  particular to the current mission and ObsID
+                cmd = em_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=exp_id, ci=ccd_str)
+
+                # Now store the bash command, the path, and extra info in the dictionaries
+                miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
+                miss_final_paths[miss.name][obs_id + inst + exp_id] = final_path
+                miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_list': final_path}
 
     # This is just used for populating a progress bar during generation
     process_message = 'Assembling MOS event lists'
-
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
