@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/03/2023, 17:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 17:31. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -175,8 +175,13 @@ def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
         #  anyway).
         filtered_obs_info = miss.filtered_obs_info.copy()
 
+        # This allows us to get a boolean array corresponding to the ObsIDs letting us know which cifbuilds
+        #  worked, though tbh they should all work or none of them in my experience.
+        cif_good = obs_archive.check_dependence_success(miss.name, [[o] for o in filtered_obs_info['ObsID'].values],
+                                                        'cif_build')
+
         # Now we're iterating through the ObsIDs that have been selected for the current mission
-        for obs_id in miss.filtered_obs_ids:
+        for obs_id in miss.filtered_obs_ids[cif_good]:
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
             #  files will be written to.
             # dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
