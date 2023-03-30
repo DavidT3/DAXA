@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 13:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 17:16. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -680,7 +680,8 @@ class Archive:
 
         return all_res
 
-    def check_dependence_success(self, mission_name: str, obs_ident: List[str], dep_proc: Union[str, List[str]]):
+    def check_dependence_success(self, mission_name: str, obs_ident: Union[str, List[str], List[List[str]]],
+                                 dep_proc: Union[str, List[str]]):
 
         # Check to make sure that the mission name is valid for this archive
         if mission_name not in self.mission_names:
@@ -692,11 +693,54 @@ class Archive:
         if isinstance(dep_proc, str):
             dep_proc = [dep_proc]
 
+        # I also want to normalise the obs_ident input as either a single set of identifying information, or
+        #  multiple sets, can be passed to this method. Thus everything must become a list of lists
+        if isinstance(obs_ident, list) and isinstance(obs_ident[0], str):
+            obs_ident = [obs_ident]
+        # If just a string is passed I will assume it is the overall ObsID and double wrap it in a list, one because
+        #  identifiers are expected to be in lists of [ObsID, Inst, SubExp (depending on mission)], and the second
+        #  to make it overall a list of lists
+        elif isinstance(obs_ident, str):
+            obs_ident = [[obs_ident]]
+
+        # Setting up an empty array of Trues, one for each observation identifier. This way we can just multiply
+        #  the boolean success value for each process for each obs by what's in the array - this works for
+        #  multiple processes
+        run_success = np.full(len(obs_ident), True)
+
+        # Cycling through the processes we have to check ran and succeeded
         for dp in dep_proc:
-            if dp not in self.process_logs[mission_name]:
-                raise NoDependencyProcessError("The {p} process has not been run for "
+            # If there has been no processing done, then when we try to access process_logs it will throw an error -
+            #  otherwise if a process has been run for a particular observation then that will be in the process logs.
+            try:
+                # If there is no entry for the process we're checking, then we know it hasn't run and we throw an
+                #  appropriately useful error
+                if dp not in self.process_logs[mission_name]:
+                    raise NoDependencyProcessError("The required process {p} has not been run for "
+                                                   "{mn}.".format(p=dp, mn=mission_name))
+
+                # If we got this far then the required task has been run, so now we see whether it succeeded
+                for ident_ind, ident in enumerate(obs_ident):
+                    # As process functions will call this method rather than the user, I'm assuming that the
+                    #  list of identifying information is everything required to specify entry in the 'success' logs
+                    #  I'm looking for. As such they just get combined
+                    comb_id = ''.join(obs_ident)
+                    # Then I look in the process success logs, and multiply that bool by the (originally True) entry
+                    #  in run_success. If my retrieved success flag is True nothing will happen, if its False then
+                    #  the run_success entry will be set to False
+                    run_success[ident_ind] *= self.process_success[mission_name][dp][comb_id]
+
+            # If we get the error thrown by process logs because nothing at all has been processed, we catch that
+            #  and turn it into an error more useful for this specific method
+            except NoProcessingError:
+                raise NoDependencyProcessError("The required process {p} has not been run for "
                                                "{mn}.".format(p=dp, mn=mission_name))
 
+        # If we sum the run success array and its 0, then that means nothing ran successfully so we actually throw
+        #  an exception
+        if run_success.sum() == 0:
+            raise NoDependencyProcessError("The required process(es) {p} was run for {mn}, but was not "
+                                           "successful for any data.".format(p=', '.join(dep_proc), mn=mission_name))
 
     def info(self):
         """
