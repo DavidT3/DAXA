@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 10:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 11:15. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -160,6 +160,11 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     parallelisation (if on a system with a significant core count), but also allows the same level of granularity
     in the logging of processing of different sub-exposures as in DAXA's epchain implementation.
 
+    The particular CCDs to be processed are not specified in emchain, unlike in epchain, because it can sometimes
+    have unintended consequences. For instance processing a MOS observation in FastUncompressed mode, with timing
+    on CCD 1 and imaging everywhere else, can cause emchain to fail (even though no actual failure occurs) because
+    the submode is set to Unknown, rather than FastUncompressed.
+
     :param Archive obs_archive: An Archive instance containing XMM mission instances with MOS observations for
         which emchain should be run. This function will fail if no XMM missions are present in the archive.
     :param bool process_unscheduled: Whether this function should also process sub-exposures marked 'U', for
@@ -184,7 +189,7 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     #  argument will only ever be set with one exposure at a time. emchain does loop through sub-exposures
     #  automatically, but I'm attempting to normalise the behaviours between emchain and epchain in how DAXA calls
     #  them. Issue #42 discusses this.
-    em_cmd = "cd {d}; export SAS_CCF={ccf}; emchain odf={odf} instruments={i} exposures={ei} ccds={ci}; " \
+    em_cmd = "cd {d}; export SAS_CCF={ccf}; emchain odf={odf} instruments={i} exposures={ei}; " \
              "mv *MIEVLI*.FIT ../; mv *ATTTSR*.FIT ../; cd ..; rm -r {d}"
 
     # The event list name that we want to check for at the end of the process - the zeros at the end seem to always
@@ -235,16 +240,20 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
             # Grab the path to the ODF directory, we shall need it
             odf_dir = miss.raw_data_path + obs_id + '/'
 
+            # ATTENTION - this was left here because it may be useful in the future, but specifying which CCDs to
+            #  process can have some unintended consequences in emchain that I do not care to fully explore right now
+            #  As such I'm going to allow emchain itself to figure out which CCDs are in timing mode etc.
+
             # Want to identify which CCDs can be processed, i.e. were turned on and were in imaging mode rather
             #  than timing mode - perhaps timing mode will be supported by DAXA later on. This same check
             #  happens exactly the same way in epchain
-            ccd_modes = obs_archive.observation_summaries[miss.name][obs_id][inst]['exposures'][exp_id]['ccd_modes']
-            ccd_ids = [ccd_id for ccd_id, ccd_mode in ccd_modes.items() if ccd_mode.upper() == 'IMAGING']
-
-            # Then turn into a string so as they can be passed to the epchain command we're constructing - the
-            #  construction of this CCD list is NOT the same as in epchain, because the two tasks require different
-            #  formats for lists... (and they don't seem to define them anywhere!!)
-            ccd_str = "'" + " ".join([str(c_id) for c_id in sorted(ccd_ids)]) + "'"
+            # ccd_modes = obs_archive.observation_summaries[miss.name][obs_id][inst]['exposures'][exp_id]['ccd_modes']
+            # ccd_ids = [ccd_id for ccd_id, ccd_mode in ccd_modes.items() if ccd_mode.upper() == 'IMAGING']
+            #
+            # # Then turn into a string so as they can be passed to the epchain command we're constructing - the
+            # #  construction of this CCD list is NOT the same as in epchain, because the two tasks require different
+            # #  formats for lists... (and they don't seem to define them anywhere!!)
+            # ccd_str = "'" + " ".join([str(c_id) for c_id in sorted(ccd_ids)]) + "'"
 
             # Set up a temporary directory to work in
             temp_name = "tempdir_{}".format(randint(0, 1e+8))
@@ -265,7 +274,7 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
 
                 # Format the blank command string defined near the top of this function with information
                 #  particular to the current mission and ObsID
-                cmd = em_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=exp_id, ci=ccd_str)
+                cmd = em_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=exp_id)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
