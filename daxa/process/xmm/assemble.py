@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 11:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 11:17. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -189,8 +189,9 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     #  argument will only ever be set with one exposure at a time. emchain does loop through sub-exposures
     #  automatically, but I'm attempting to normalise the behaviours between emchain and epchain in how DAXA calls
     #  them. Issue #42 discusses this.
-    em_cmd = "cd {d}; export SAS_CCF={ccf}; emchain odf={odf} instruments={i} exposures={ei}; " \
-             "mv *MIEVLI*.FIT ../; mv *ATTTSR*.FIT ../; cd ..; rm -r {d}"
+    # addtaglenoise and makeflaregti are disabled because DAXA already has equivalents, emanom and espfilt
+    em_cmd = "cd {d}; export SAS_CCF={ccf}; emchain odf={odf} instruments={i} exposures={ei} addtaglenoise=no " \
+             "makeflaregti=no; mv *MIEVLI*.FIT ../; mv *ATTTSR*.FIT ../; cd ..; rm -r {d}"
 
     # The event list name that we want to check for at the end of the process - the zeros at the end seem to always
     #  be there for emchain-ed event lists, which is why I'm doing it this way rather than with a wildcard * at the
