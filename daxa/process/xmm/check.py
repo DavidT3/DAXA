@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 11:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 11:34. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, List
@@ -88,6 +88,13 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
             # Split out the information in obs_info
             obs_id, inst, exp_id = obs_info
 
+            # emanom has a different instrument naming convention in its files (because of course it does), so we
+            #  need to be able to catch that.
+            if inst == 'M1':
+                alt_inst = 'mos1'
+            else:
+                alt_inst = 'mos2'
+
             # Grab the relevant event list from the extra information of the emchain (process that created the
             #  event list) process
             evt_list_file = obs_archive.process_extra_info[miss.name]['emchain'][val_id]['evt_list']
@@ -103,7 +110,7 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
             temp_dir = dest_dir + temp_name + "/"
 
             # Checking for the output anom file created by the process (unless turned off with an argument)
-            log_name = "{i}{eid}-anom.log".format(i=inst, eid=exp_id)
+            log_name = "{i}{eid}-anom.log".format(i=alt_inst, eid=exp_id)
             final_path = dest_dir + log_name
 
             # If it doesn't already exist then we will create commands to generate it
