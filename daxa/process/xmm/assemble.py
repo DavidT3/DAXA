@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 17:28. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 17:49. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -303,8 +303,8 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
 def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quantity = None,
                       pn_filt_expr: Union[str, List[str]] = ("#XMMEA_EP", "(PATTERN <= 4)", "(FLAG .eq. 0)"),
                       mos_filt_expr: Union[str, List[str]] = ("#XMMEA_EM", "(PATTERN <= 12)", "(FLAG .eq. 0)"),
-                      filt_mos_anom_state: Union[List[str], str, bool] = ('G', 'I', 'U'), num_cores: int = NUM_CORES,
-                      disable_progress: bool = False, timeout: Quantity = None):
+                      filt_mos_anom_state: bool = False, acc_mos_anom_states: Union[List[str], str] = ('G', 'I', 'U'),
+                      num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
     """
     This function is used to apply the soft-proton filtering (along with any other filtering you may desire, including
     the setting of energy limits) to XMM-Newton event lists, resulting in the creation of sets of cleaned event lists
@@ -328,11 +328,12 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         using '&&' logic before being used as the expression for evselect. Other expression components can be
         added during the process of the function, such as GTI filtering, energy filtering, and anomalous state CCD
         filtering..
-    :param List[str]/str/bool filt_mos_anom_state: Whether this function should use the results of an 'emanom' run
+    :param bool filt_mos_anom_state: Whether this function should use the results of an 'emanom' run
         to identify and remove MOS CCDs that are in anomolous states. If 'False' is passed then no such filtering
-        will be applied, with the same behaviour occuring if emanom has not been run on the passed archive. Otherwise
-        a list/tuple of acceptable status codes can be passed (status- G is good at all energies, I is intermediate
-        for E<1 keV, B is bad for E<1 keV, O is off, chip not in use, U is undetermined (low band counts <= 0)).
+        will be applied.
+    :param List[str]/str acc_mos_anom_states: A list/tuple of acceptable MOS CCD status codes found by emanom
+        (status- G is good at all energies, I is intermediate for E<1 keV, B is bad for E<1 keV, O is off, chip
+        not in use, U is undetermined (low band counts <= 0)).
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
     :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
@@ -417,8 +418,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
 
         # This is why we're treating PN and MOS separately here, if the user wants to exclude certain CCD states
         #  then we have to make sure that emanom was run (and run successfully) for the MOS data.
-        # We use 'is not' here because the argument can contain the allowed states, it isn't strictly boolean
-        if filt_mos_anom_state is not False:
+        if filt_mos_anom_state:
             ef_mos_good = obs_archive.check_dependence_success(miss.name, rel_m_obs, ['emanom', 'espfilt'])
         else:
             ef_mos_good = obs_archive.check_dependence_success(miss.name, rel_m_obs, 'espfilt')
@@ -462,7 +462,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             #  does want to filter out the anomalous states
             if inst in ['M1', 'M2'] and filt_mos_anom_state is not False:
                 log_path = obs_archive.process_extra_info[miss.name]['emanom'][val_id]['log_path']
-                allow_ccds = [str(c_id) for c_id in parse_emanom_out(log_path, acceptable_states=filt_mos_anom_state)]
+                allow_ccds = [str(c_id) for c_id in parse_emanom_out(log_path, acceptable_states=acc_mos_anom_states)]
                 ccd_expr = "CCDNR in {}".format(','.join(allow_ccds))
                 # We add it to the list of selection expression components that we have been constructing
                 cur_sel_expr.append(ccd_expr)
@@ -690,6 +690,6 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path}
 
     # This is just used for populating a progress bar during the process run
-    process_message = 'Generating final (possibly merged) PN/MOS event lists'
+    process_message = 'Generating final PN/MOS event lists'
 
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout

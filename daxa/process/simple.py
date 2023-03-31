@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/03/2023, 12:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 17:49. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
@@ -59,7 +59,8 @@ def full_process_xmm(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quanti
     espfilt(obs_archive, num_cores=num_cores, timeout=timeout)
     # Creates the cleaned event lists, with SP flaring removed and standard event filters (filtering on pattern etc.)
     #  applied to both EPIC-PN and EPIC-MOS data.
-    cleaned_evt_lists(obs_archive, lo_en, hi_en, num_cores=num_cores, timeout=timeout)
+    cleaned_evt_lists(obs_archive, lo_en, hi_en, filt_mos_anom_state=find_mos_anom_state, num_cores=num_cores,
+                      timeout=timeout)
     # Finally this function checks for cases where an ObsID-instrument combination has sub-exposures that should be
     #  merged into a single, final, event list.
     merge_subexposures(obs_archive, num_cores=num_cores, timeout=timeout)
