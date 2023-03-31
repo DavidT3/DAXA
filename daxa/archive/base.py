@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 15:11. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 15:26. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -751,7 +751,12 @@ class Archive:
                     # Then I look in the process success logs, and multiply that bool by the (originally True) entry
                     #  in run_success. If my retrieved success flag is True nothing will happen, if its False then
                     #  the run_success entry will be set to False
-                    run_success[ident_ind] *= self.process_success[mission_name][dp][comb_id]
+                    if comb_id in self.process_success[mission_name][dp]:
+                        run_success[ident_ind] *= self.process_success[mission_name][dp][comb_id]
+                    # If comb_id isn't in that dictionary then the process wasn't even run for that comb_id, likely
+                    #  meaning a previous step failed, so we just set to False
+                    else:
+                        run_success[ident_ind] = False
 
             # If we get the error thrown by process logs because nothing at all has been processed, we catch that
             #  and turn it into an error more useful for this specific method
