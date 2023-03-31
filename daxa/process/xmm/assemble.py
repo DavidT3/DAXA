@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 16:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 17:28. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -10,6 +10,7 @@ from astropy.units import Quantity, UnitConversionError
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
+from daxa.process._backend_check import find_lcurve
 from daxa.process.xmm._common import _sas_process_setup, sas_call, ALLOWED_XMM_MISSIONS
 from daxa.process.xmm.check import parse_emanom_out
 
@@ -187,6 +188,10 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
     sas_version = _sas_process_setup(obs_archive)
+
+    # We run a backend check for the lcurve tool, as emchain seems to require it to complete successfully. This will
+    #  throw an error if it does not find lcurve
+    heasoft_version = find_lcurve()
 
     # Define the form of the emchain command that must be run to create a combined MOS1/2 event list - the exposures
     #  argument will only ever be set with one exposure at a time. emchain does loop through sub-exposures
