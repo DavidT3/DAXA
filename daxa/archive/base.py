@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 17:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 15:04. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -650,25 +650,30 @@ class Archive:
         #  steps is to construct a list of lists of [ObsID, Instrument, SubExp] that CAN be used, and the return
         #  from this function can be iterated through.
         for res in dict_search(search_ident, rel_use_obs):
+            print(res)
             # This will catch when the dictionary is three deep (ObsID-Instrument-SubExp) and the search_ident was
             #  on the second level
             if isinstance(res, list) and isinstance(res[1], dict):
                 proc_res = [[res[0], search_ident, sp_id] for ll in res[1:] for sp_id, to_use in ll.items()
                             if to_use]
+
             # This will catch when the dictionary is two deep (ObsID-Instrument) and the search_ident was on the
             #  second level
             elif isinstance(res, list):
                 proc_res = [[res[0], search_ident] for to_use in res[1:] if to_use]
+
             # This case is generally when search_ident is None and the storage structure is mission-ObsID-Inst-SubExp
             elif isinstance(res, dict) and isinstance(list(res.values())[0], dict)\
-                    and isinstance(list(list(res.values())[0].values()), dict):
+                    and isinstance(list(list(res.values())[0].values())[0], dict):
                 proc_res = [[tl_key, ll_key, sp_id] for tl_key, tl_val in res.items() for ll_key, ll_val in
                             tl_val.items()
                             for sp_id, to_use in ll_val.items() if to_use]
+
             #  This is when the dictionary is two deep and the search_ident is the top level
             elif isinstance(res, dict) and isinstance(list(res.values())[0], dict):
                 proc_res = [[tl_key, ll_key] for tl_key, tl_val in res.items() for ll_key, to_use in
                             tl_val.items() if to_use]
+
             # This will catch when the dictionary is three deep (ObsID-Instrument-SubExp) and the search_ident is
             #  on the top level
             elif isinstance(res, dict):
