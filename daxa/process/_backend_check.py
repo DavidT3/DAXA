@@ -1,12 +1,13 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/12/2022, 14:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 17:22. Copyright (c) The Contributors
 
 import os
+from shutil import which
 from subprocess import Popen, PIPE
 
 from packaging.version import Version
 
-from ..exceptions import SASNotFoundError, SASVersionError
+from ..exceptions import SASNotFoundError, SASVersionError, BackendSoftwareError
 
 
 def find_sas() -> Version:
@@ -42,3 +43,27 @@ def find_sas() -> Version:
                               "later.".format(v=sas_version))
 
     return sas_version
+
+
+def find_lcurve() -> Version:
+    """
+    This function searches for the lcurve tool (makes light curves) and raises an exception of it cannot be found
+    on the system. lcurve is distributed as part of HEASoft but, as HEASoft can be downloaded in multiple
+    configurations, it is prudent to check for it.
+
+    :return: The version of HEASoft (lcurve does not have an individual verson).
+    :rtype: Version
+    """
+
+    # Use the shutil interface with the Unix 'which' command to check whether the lcurve binary is on the path
+    if which('lcurve') is not None:
+        # If it is then we can run a quick version check and parse the output
+        lc_out, lc_err = Popen("lcurve --version", stdout=PIPE, stderr=PIPE, shell=True).communicate()
+        lc_version = Version(lc_out.decode("UTF-8").split('Version ')[-1].split(' ')[0])
+    else:
+        # If we cannot find lcurve on the path then we raise a (hopefully useful) exception
+        raise BackendSoftwareError("The lcurve package (included in the XRONOS section of HEASoft) cannot be "
+                                   "found, you may not have installed HEASoft with the right software selections.")
+
+    return lc_version
+

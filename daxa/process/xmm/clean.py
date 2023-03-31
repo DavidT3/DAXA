@@ -1,15 +1,14 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/01/2023, 16:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 12:30. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
-from warnings import warn
 
+import numpy as np
 from astropy.units import Quantity, UnitConversionError
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
-from daxa.exceptions import NoDependencyProcessError
 from daxa.process.xmm._common import _sas_process_setup, ALLOWED_XMM_MISSIONS, sas_call
 
 
@@ -218,58 +217,51 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
-        # Need to check to see whether ANY of ObsID-instrument-subexposure combos have had emchain run for them, as
-        #  it is a requirement for this processing function. There will probably be a more elegant way of checking
-        #  at some point in the future, generalised across all SAS functions
-        if 'emchain' not in obs_archive.process_success[miss.name] \
-                and 'epchain' not in obs_archive.process_success[miss.name]:
-            raise NoDependencyProcessError("Neither the emchain (for MOS) nor the epchain (for PN) step has been run "
-                                           "for the {m} mission in the {a} archive. At least one of these must have "
-                                           "been run to use espfilt.".format(m=miss.name, a=obs_archive.archive_name))
-        # If every emchain run was a failure then we warn the user and move onto the next XMM mission (if there
-        #  is one).
-        elif ('emchain' in obs_archive.process_success[miss.name] and all(
-                [v is False for v in obs_archive.process_success[miss.name]['emchain'].values()])) and (
-                'epchain' in obs_archive.process_success[miss.name] and all(
-            [v is False for v in obs_archive.process_success[miss.name]['epchain'].values()])):
+        # This method will fetch the valid data M1/2 (ObsID, Instrument, and sub-exposure) that can be
+        #  processed - then we can narrow it down to only those observations that had emchain run successfully
+        rel_m_obs = obs_archive.get_obs_to_process(miss.name, 'M1') + obs_archive.get_obs_to_process(miss.name, 'M2')
 
-            warn("Every emchain and epchain run for the {m} mission in the {a} archive is reporting as a "
-                 "failure, skipping process.".format(m=miss.name, a=obs_archive.archive_name), stacklevel=2)
-            continue
-        else:
-            # This fetches those IDs for which emchain has reported success, and these are what we will iterate
-            #  through to ensure that we only act upon data that is in a final event list form.
-            valid_ids = [k for k, v in obs_archive.process_success[miss.name]['emchain'].items() if v] + \
-                        [k for k, v in obs_archive.process_success[miss.name]['epchain'].items() if v]
+        # PN valid data identifiers are fetched separately, as next we need to check that epchain ran rather
+        #  than emchain for these
+        rel_p_obs = obs_archive.get_obs_to_process(miss.name, 'PN')
 
-        # We iterate through the valid IDs rather than nest ObsID and instrument for loops
-        for val_id in valid_ids:
-            # TODO Review this if I change the IDing system as I was pondering in issue #44
-            if 'M1' in val_id:
-                obs_id, exp_id = val_id.split('M1')
-                inst = 'M1'
+        # Here we check that emchain ran - if it didn't then we won't be cleaning event lists for those observations
+        good_em = obs_archive.check_dependence_success(miss.name, rel_m_obs, 'emchain')
+        # Same deal for the PN data
+        good_ep = obs_archive.check_dependence_success(miss.name, rel_p_obs, 'epchain')
+
+        # We combine the obs information for PN and MOS, taking only those that we have confirmed have had successful
+        #  emchain or epchain runs
+        all_obs_info = np.vstack([np.array(rel_m_obs)[good_em], np.array(rel_p_obs)[good_ep]])
+
+        # We iterate through the valid identifying information
+        for obs_info in all_obs_info:
+            # This is the valid id that allows us to retrieve the specific event list for this ObsID-M1/2-SubExp
+            #  combination
+            val_id = ''.join(obs_info)
+            # Split out the information in obs_info
+            obs_id, inst, exp_id = obs_info
+
+            # We need slightly different behaviours for the different instruments, partially because espfilt has
+            #  different instrument naming conventions, and partially because event list files are stored under
+            #  different process names for M1/2 and PN
+            if inst == 'M1':
                 alt_inst = 'mos1'
                 evt_list_file = obs_archive.process_extra_info[miss.name]['emchain'][val_id]['evt_list']
+                # Of course MOS instruments have no OOT event lists, but I define this here because it does get
+                #  fed into the espfilt command later, even if it has no effect
                 oot_evt_list_file = 'dataset'
-            elif 'M2' in val_id:
-                obs_id, exp_id = val_id.split('M2')
-                # The form of this inst is different to the standard in DAXA/SAS (M2), because emanom log files
-                #  are named with mos1 and mos2 rather than M1 and M2
-                inst = 'M2'
+            elif inst == 'M2':
                 alt_inst = 'mos2'
                 evt_list_file = obs_archive.process_extra_info[miss.name]['emchain'][val_id]['evt_list']
+                # Of course MOS instruments have no OOT event lists, but I define this here because it does get
+                #  fed into the espfilt command later, even if it has no effect
                 oot_evt_list_file = 'dataset'
-            elif 'PN' in val_id:
-                obs_id, exp_id = val_id.split('PN')
-                # The form of this inst is different to the standard in DAXA/SAS (M2), because emanom log files
-                #  are named with mos1 and mos2 rather than M1 and M2
-                inst = 'PN'
+            else:
                 alt_inst = 'pn'
                 evt_list_file = obs_archive.process_extra_info[miss.name]['epchain'][val_id]['evt_list']
+                # PN actually does have out of time events, so we grab them from the epchain extra info section
                 oot_evt_list_file = obs_archive.process_extra_info[miss.name]['epchain'][val_id]['oot_evt_list']
-            else:
-                raise ValueError("Somehow there is no instance of M1, M2, or PN in that storage key, this should be "
-                                 "impossible!")
 
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
             #  files will be written to.

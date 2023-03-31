@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/03/2023, 11:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 17:18. Copyright (c) The Contributors
 
 
 class DAXAConfigError(Exception):
@@ -143,6 +143,26 @@ class SASVersionError(Exception):
             return '{0} '.format(self.message)
         else:
             return 'SASVersionError has been raised'
+
+
+class BackendSoftwareError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if a required piece of backend software has not been located.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'BackendSoftwareError has been raised'
 
 
 class NoXMMMissionsError(Exception):

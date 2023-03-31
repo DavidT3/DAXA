@@ -866,3 +866,5 @@ UnexpectedEOF,cifbuild
 UnknownAlgoId,rmfgen
 invalidOption,psfgen
 NoSummaryFile,cifbuild
+IllegalIdentifier,emtaglenoise
+noCounts,espfilt

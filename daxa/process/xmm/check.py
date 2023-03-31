@@ -1,16 +1,16 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/02/2023, 13:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 11:34. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, List
 from warnings import warn
 
+import numpy as np
 from astropy.units import Quantity
 from packaging.version import Version
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
-from daxa.exceptions import NoDependencyProcessError
 from daxa.process.xmm._common import ALLOWED_XMM_MISSIONS, _sas_process_setup, sas_call
 
 
@@ -72,42 +72,31 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
-        # Need to check to see whether ANY of ObsID-instrument-subexposure combos have had emchain run for them, as
-        #  it is a requirement for this processing function. There will probably be a more elegant way of checkinf
-        #  at some point in the future, generalised across all SAS functions
-        if 'emchain' not in obs_archive.process_success[miss.name]:
-            raise NoDependencyProcessError("The emchain step has not been run for the {m} mission in the {a} "
-                                           "archive, it is a requirement to use "
-                                           "emanom.".format(m=miss.name, a=obs_archive.archive_name))
-        # If every emchain run was a failure then we warn the user and move onto the next XMM mission (if there
-        #  is one).
-        elif all([v is False for v in obs_archive.process_success[miss.name]['emchain'].values()]):
-            warn("Every emchain run for the {m} mission in the {a} archive is reporting as a failure, skipping "
-                 "process.".format(m=miss.name, a=obs_archive.archive_name), stacklevel=2)
-            continue
-        else:
-            # This fetches those IDs for which emchain has reported success, and these are what we will iterate
-            #  through to ensure that we only act upon data that is in a final event list form.
-            valid_ids = [k for k, v in obs_archive.process_success[miss.name]['emchain'].items() if v]
+        # This method will fetch the valid data (ObsID, Instrument, and sub-exposure) that can be processed - then we
+        #  can narrow it down to only those observations that had emchain run successfully
+        rel_obs_info = obs_archive.get_obs_to_process(miss.name, 'M1') + obs_archive.get_obs_to_process(miss.name, 'M2')
 
-        # We iterate through the valid IDs rather than nest ObsID and instrument for loops - as we can use the emchain
-        #  success information to determine which can be processed further.
-        for val_id in valid_ids:
-            # TODO Review this if I change the IDing system as I was pondering in issue #44
-            if 'M1' in val_id:
-                obs_id, exp_id = val_id.split('M1')
-                # The form of this inst is different to the standard in DAXA/SAS (M1), because emanom log files
-                #  are named with mos1 and mos2 rather than M1 and M2
-                inst = 'mos1'
-            elif 'M2' in val_id:
-                obs_id, exp_id = val_id.split('M2')
-                # The form of this inst is different to the standard in DAXA/SAS (M2), because emanom log files
-                #  are named with mos1 and mos2 rather than M1 and M2
-                inst = 'mos2'
+        # Here we check that emchain ran - if it didn't then we can hardly search the MOS event lists for a badly
+        #  behaved CCD!
+        good_em = obs_archive.check_dependence_success(miss.name, rel_obs_info, 'emchain')
+
+        # Now we start to cycle through the relevant data
+        for obs_info in np.array(rel_obs_info)[good_em]:
+            # This is the valid id that allows us to retrieve the specific event list for this ObsID-M1/2-SubExp
+            #  combination
+            val_id = ''.join(obs_info)
+            # Split out the information in obs_info
+            obs_id, inst, exp_id = obs_info
+
+            # emanom has a different instrument naming convention in its files (because of course it does), so we
+            #  need to be able to catch that.
+            if inst == 'M1':
+                alt_inst = 'mos1'
             else:
-                raise ValueError("Somehow there is no instance of M1 or M2 in that storage key, this should be "
-                                 "impossible!")
+                alt_inst = 'mos2'
 
+            # Grab the relevant event list from the extra information of the emchain (process that created the
+            #  event list) process
             evt_list_file = obs_archive.process_extra_info[miss.name]['emchain'][val_id]['evt_list']
 
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
@@ -121,7 +110,7 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
             temp_dir = dest_dir + temp_name + "/"
 
             # Checking for the output anom file created by the process (unless turned off with an argument)
-            log_name = "{i}{eid}-anom.log".format(i=inst, eid=exp_id)
+            log_name = "{i}{eid}-anom.log".format(i=alt_inst, eid=exp_id)
             final_path = dest_dir + log_name
 
             # If it doesn't already exist then we will create commands to generate it
@@ -138,7 +127,7 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
                 miss_final_paths[miss.name][val_id] = final_path
-                # Make sure to store the log file path so it can be parsed later to see which CCDs to keep
+                # Make sure to store the log file path, so it can be parsed later to see which CCDs to keep
                 miss_extras[miss.name][val_id] = {'log_path': final_path}
 
     # This is just used for populating a progress bar during the process run
