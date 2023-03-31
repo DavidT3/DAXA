@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 15:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 15:11. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -650,7 +650,6 @@ class Archive:
         #  steps is to construct a list of lists of [ObsID, Instrument, SubExp] that CAN be used, and the return
         #  from this function can be iterated through.
         for res in dict_search(search_ident, rel_use_obs):
-            print(res)
             # This will catch when the dictionary is three deep (ObsID-Instrument-SubExp) and the search_ident was
             #  on the second level
             if isinstance(res, list) and isinstance(res[1], dict):
