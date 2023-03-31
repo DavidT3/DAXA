@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 12:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 13:31. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -400,14 +400,32 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
-        # This method will fetch the valid data (ObsID, Instrument, and sub-exposure) that can be
-        #  processed - then we can narrow it down to only those observations that had espfilt run successfully
-        rel_obs_info = obs_archive.get_obs_to_process(miss.name)
+        # This method will fetch the valid data M1/2 (ObsID, Instrument, and sub-exposure) that can be
+        #  processed - fetching instruments separately because the user might want to exclude MOS anom CCD
+        #  states, in which case I need to check for past processes separately (that doesn't run on PN).
+        rel_m_obs = obs_archive.get_obs_to_process(miss.name, 'M1') + obs_archive.get_obs_to_process(miss.name, 'M2')
 
-        ef_good = obs_archive.check_dependence_success(miss.name, rel_obs_info, 'espfilt')
+        # PN valid data identifiers are fetched separately, as I may need to check MOS for previous runs of emanom (if
+        #  the user wants that).
+        rel_p_obs = obs_archive.get_obs_to_process(miss.name, 'PN')
 
-        # We iterate through the valid identifying information which has had a successful espfilt run
-        for obs_info in np.array(rel_obs_info)[ef_good]:
+        # This checks that espfilt ran successfully for the PN data
+        ef_pn_good = obs_archive.check_dependence_success(miss.name, rel_p_obs, 'espfilt')
+
+        # This is why we're treating PN and MOS separately here, if the user wants to exclude certain CCD states
+        #  then we have to make sure that emanom was run (and run successfully) for the MOS data.
+        # We use 'is not' here because the argument can contain the allowed states, it isn't strictly boolean
+        if filt_mos_anom_state is not False:
+            ef_mos_good = obs_archive.check_dependence_success(miss.name, rel_m_obs, ['emanom', 'espfilt'])
+        else:
+            ef_mos_good = obs_archive.check_dependence_success(miss.name, rel_m_obs, 'espfilt')
+
+        # Now we construct the array of observation identifiers that should be cleaned
+        all_obs_info = np.vstack([np.array(rel_p_obs)[ef_pn_good], np.array(rel_m_obs)[ef_mos_good]])
+
+        # We iterate through the valid identifying information which has had a successful espfilt (and possibly
+        #  emanom, for MOS and if the user wants to exclude anomalous CCD states) run
+        for obs_info in all_obs_info:
             # This is the valid id that allows us to retrieve the specific event list for this ObsID-M1/2-SubExp
             #  combination
             val_id = ''.join(obs_info)
@@ -436,11 +454,10 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
                 raise ValueError("Somehow there is no instance of M1, M2, or PN in that storage key, this should be "
                                  "impossible!")
 
-            # This is only triggered if the user WANTS to filter out anomolous states, and has actually run
-            #  the emanom task (if they haven't there won't be an 'emanom' entry in the extra info dictionary
-            if inst in ['M1', 'M2'] and filt_mos_anom_state is not False \
-                    and 'emanom' in obs_archive.process_extra_info[miss.name]\
-                    and val_id in obs_archive.process_extra_info[miss.name]['emanom']:
+            # This is only triggered if the user WANTS to filter out anomalous states, and has actually run
+            #  the emanom task - only MOS data with a successful emanom would have got to this point if the user
+            #  does want to filter out the anomalous states
+            if inst in ['M1', 'M2'] and filt_mos_anom_state is not False:
                 log_path = obs_archive.process_extra_info[miss.name]['emanom'][val_id]['log_path']
                 allow_ccds = [str(c_id) for c_id in parse_emanom_out(log_path, acceptable_states=filt_mos_anom_state)]
                 ccd_expr = "CCDNR in {}".format(','.join(allow_ccds))
