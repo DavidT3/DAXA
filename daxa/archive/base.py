@@ -41,8 +41,10 @@ class Archive:
         #  been passed, makes it easier to generalise things.
         if isinstance(missions, BaseMission):
             missions = [missions]
-        elif not isinstance(missions, list):
-            raise TypeError("Please pass either a single missions class instance, or a list of missions class "
+        
+        # Then checking that every element in the list is a BaseMission
+        if not all(isinstance(mission, BaseMission) for mission in missions):
+            raise TypeError("Please pass either a single mission class instance, or a list of missions class "
                             "instances to the 'missions' argument.")
 
         # Here we ensure that there are no duplicate mission instances, each mission should be filtered in such
@@ -455,7 +457,7 @@ class Archive:
         return pr_name, process_info
 
     # Then define user-facing methods
-    def get_processed_data_path(self, mission: [BaseMission, str] = None, obs_id: str = None):
+    def get_processed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
         """
         This method is to construct paths to directories where processed data for a particular mission + observation
         ID combination will be stored. That functionality is added here so that any change to how those directories
