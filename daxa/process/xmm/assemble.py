@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/03/2023, 17:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 11:17. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -225,7 +225,6 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
         #  process MOS1 and MOS2 data, I just run it twice and add the results together
         # I prefer this to how I originally wrote this, as it saves multiple layers of for loops/if statements, which
         #  can be a little tricky to decipher
-
         rel_obs_info = obs_archive.get_obs_to_process(miss.name, 'M1') + obs_archive.get_obs_to_process(miss.name, 'M2')
 
         # Don't just launch straight into the loop however, as the user can choose NOT to process unscheduled
