@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 11:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 12:57. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -7,7 +7,6 @@ from typing import Union, List, Tuple
 from warnings import warn
 
 import numpy as np
-from astropy.io import fits
 from astropy.units import Quantity, UnitConversionError
 
 from daxa import NUM_CORES
@@ -401,67 +400,41 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
-        # TODO Generalise this for god's sake, it shouldn't need to be repeated in any form
-        # Need to check to see whether ANY of ObsID-instrument-subexposure combos have had emchain run for them, as
-        #  it is a requirement for this processing function. There will probably be a more elegant way of checking
-        #  at some point in the future, generalised across all SAS functions
-        if 'emchain' not in obs_archive.process_success[miss.name] \
-                and 'epchain' not in obs_archive.process_success[miss.name]:
-            raise NoDependencyProcessError("Neither the emchain (for MOS) nor the epchain (for PN) step has been run "
-                                           "for the {m} mission in the {a} archive. At least one of these must have "
-                                           "been run to use cleaned_evt_lists.".format(m=miss.name,
-                                                                                       a=obs_archive.archive_name))
-        # If every emchain run was a failure then we warn the user and move onto the next XMM mission (if there
-        #  is one).
-        elif ('emchain' in obs_archive.process_success[miss.name] and all(
-                [v is False for v in obs_archive.process_success[miss.name]['emchain'].values()])) and (
-                'epchain' in obs_archive.process_success[miss.name] and all(
-            [v is False for v in obs_archive.process_success[miss.name]['epchain'].values()])):
+        # This method will fetch the valid data (ObsID, Instrument, and sub-exposure) that can be
+        #  processed - then we can narrow it down to only those observations that had espfilt run successfully
+        rel_obs_info = obs_archive.get_obs_to_process(miss.name)
 
-            warn("Every emchain and epchain run for the {m} mission in the {a} archive is reporting as a "
-                 "failure, skipping process.".format(m=miss.name, a=obs_archive.archive_name), stacklevel=2)
-            continue
-        else:
-            # This fetches those IDs for which emchain has reported success, and these are what we will iterate
-            #  through to ensure that we only act upon data that is in a final event list form.
-            valid_ids = [k for k, v in obs_archive.process_success[miss.name]['emchain'].items() if v] + \
-                        [k for k, v in obs_archive.process_success[miss.name]['epchain'].items() if v]
+        ef_good = obs_archive.check_dependence_success(miss.name, rel_obs_info, 'espfilt')
 
-        # We iterate through the valid IDs rather than nest ObsID and instrument for loops
-        for val_id in valid_ids:
-            # TODO Review this if I change the IDing system as I was pondering in issue #44
-            if 'M1' in val_id:
-                obs_id, exp_id = val_id.split('M1')
-                inst = 'M1'
+        # We iterate through the valid identifying information which has had a successful espfilt run
+        for obs_info in np.array(rel_obs_info)[ef_good]:
+            # This is the valid id that allows us to retrieve the specific event list for this ObsID-M1/2-SubExp
+            #  combination
+            val_id = ''.join(obs_info)
+            # Split out the information in obs_info
+            obs_id, inst, exp_id = obs_info
+
+            # Default value of this is None, so I don't have to set it for the two MOS cameras, only overwrite for PN
+            oot_evt_list_file = None
+            if inst == 'M1':
                 evt_list_file = obs_archive.process_extra_info[miss.name]['emchain'][val_id]['evt_list']
-                oot_evt_list_file = None
                 # Makes a copy of the MOS selection expression, as we might be adding to it during this
                 #  part of the function
                 cur_sel_expr = deepcopy(mos_filt_expr)
-            elif 'M2' in val_id:
-                obs_id, exp_id = val_id.split('M2')
-                inst = 'M2'
+            elif inst == 'M2':
                 evt_list_file = obs_archive.process_extra_info[miss.name]['emchain'][val_id]['evt_list']
-                oot_evt_list_file = None
                 # Makes a copy of the MOS selection expression, as we might be adding to it during this
                 #  part of the function
                 cur_sel_expr = deepcopy(mos_filt_expr)
-            elif 'PN' in val_id:
-                obs_id, exp_id = val_id.split('PN')
-                inst = 'PN'
+            elif inst == 'PN':
                 evt_list_file = obs_archive.process_extra_info[miss.name]['epchain'][val_id]['evt_list']
+                # We do actually have an OOT file for PN, so we overwrite it
                 oot_evt_list_file = obs_archive.process_extra_info[miss.name]['epchain'][val_id]['oot_evt_list']
+                # Make a copy of the PN selection expression to add to throughout this function
                 cur_sel_expr = deepcopy(pn_filt_expr)
             else:
                 raise ValueError("Somehow there is no instance of M1, M2, or PN in that storage key, this should be "
                                  "impossible!")
-
-            # This should read in the header so that we can grab filter information from it
-            evt_hdr = fits.getheader(evt_list_file)
-            # If the filter is either CalClosed or Closed then we do not care to process it any further.
-            # TODO Consider changing this if I add the SAS summary file parser, and use it upstream
-            if evt_hdr['FILTER'] in ['CalClosed', 'Closed']:
-                continue
 
             # This is only triggered if the user WANTS to filter out anomolous states, and has actually run
             #  the emanom task (if they haven't there won't be an 'emanom' entry in the extra info dictionary
