@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 16:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 16:51. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -535,7 +535,7 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
     #  multiple times, so it is separate.
     setup_cmd = "cd {d}"
     merge_cmd = "merge set1={e_one} set2={e_two} outset={e_fin}"
-    cleanup_cmd = "mv {ft} ../{fe}; cd ../"  # ; rm -r {d}
+    cleanup_cmd = "mv {ft} ../{fe}; cd ../ ; rm -r {d}"
 
     # This command is for those observation-instrument combos which DON'T have multiple sub-exposures to be merged
     #  but instead will have their cleaned event list renamed to a filename consistent with the merged events.
@@ -685,6 +685,6 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path}
 
     # This is just used for populating a progress bar during the process run
-    process_message = 'Generating final PN/MOS event lists'
+    process_message = 'Generating final (possibly merged) PN/MOS event lists'
 
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
