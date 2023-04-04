@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 11:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/04/2023, 15:18. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -466,7 +466,7 @@ class BaseMission(metaclass=ABCMeta):
             raise TypeError("New values for 'processed' must be boolean.")
         elif self._processed:
             raise ValueError("The processed property has already been set to True, and is now immutable.")
-        elif new_val:
+        elif new_val and not self.locked:
             self.locked = True
         self._processed = new_val
 
