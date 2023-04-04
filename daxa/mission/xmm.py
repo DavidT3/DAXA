@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/04/2023, 17:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/04/2023, 13:59. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -396,10 +396,12 @@ class XMMPointed(BaseMission):
 
         # This is the dictionary which we'll be sending back, with top level instrument keys and lower level sub
         #  exposure keys. We start off by assuming all of the data should be used, leaving it to the rest of this
-        #  method to disable sub-exposures and set these booleans to False
-        to_return = {inst: {e_id: True for e_id in list(obs_info[inst]['exposures'].keys())} for inst in insts}
+        #  method to disable sub-exposures and set these booleans to False. This will only trigger for those
+        #  instruments which have an exposures entry, and thus are implicitly active
+        to_return = {inst: {e_id: True for e_id in list(obs_info[inst]['exposures'].keys())} for inst in insts
+                     if 'exposures' in obs_info[inst]}
 
-        for inst in insts:
+        for inst in to_return:
             # One check later on needs to know whether the current instrument is an RGS
             rgs = inst == 'R1' or inst == 'R2'
 
@@ -430,5 +432,8 @@ class XMMPointed(BaseMission):
                 # Performs the actual mode check
                 if rel_info['mode'] in bad_modes:
                     to_return[inst][e_id] = False
+
+        # I do want entries for the instruments which aren't active, even if they are just empty
+        to_return.update({inst: {} for inst in insts if 'exposures' not in obs_info[inst]})
 
         return to_return
