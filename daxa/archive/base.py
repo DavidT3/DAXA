@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2023, 11:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/04/2023, 11:52. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -541,7 +541,7 @@ class Archive:
             for o_id in new_val[mn]:
                 # If the particular observation does not have an entry for the particular mission then we add it to the
                 #  dictionary, but if it does then we warn the user and do nothing
-                if o_id in self._miss_obs_summ_info[mn]:
+                if o_id in self._final_obs_id_success[mn]:
                     warn("The final_process_success property already has an entry for {o_id} under {mn}, no change "
                          "will be made.".format(o_id=o_id, mn=mn))
                 else:
