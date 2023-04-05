@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2023, 11:26. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/04/2023, 11:40. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -624,6 +624,8 @@ class Archive:
         if obs_id is not None and not self[m_name].check_obsid_pattern(obs_id):
             raise ValueError("The passed ObsID ({oi}) does not match the pattern expected for {mn} "
                              "identifiers.".format(mn=m_name, oi=obs_id))
+
+        return m_name
 
     # Then define user-facing methods
     def get_processed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
