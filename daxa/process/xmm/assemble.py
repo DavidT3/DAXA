@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/04/2023, 22:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/04/2023, 10:47. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -508,7 +508,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
-@_last_process(ALLOWED_XMM_MISSIONS)
+@_last_process(ALLOWED_XMM_MISSIONS, 2)
 @sas_call
 def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False,
                        timeout: Quantity = None):
