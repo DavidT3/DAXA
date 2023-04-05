@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 15:26. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/04/2023, 11:26. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -125,6 +125,13 @@ class Archive:
         #  boolean information on whether the particular ObsID-instrument-sub exposure (or more likely
         #  ObsID-Instrument for most missions) should be reduced and processed for science
         self._use_this_obs = {mn: {} for mn in self.mission_names}
+
+        # This stores the final judgement pronounced by the _final_process wrapper that should be used to decorate
+        #  the last processing function for a particular mission. At the ObsID level it states whether there are
+        #  any useful data (True) or whether no aspect of that observation reached the end of the final step
+        #  successfully. The ObsIDs marked as False will be moved from the archive processed data directory to a
+        #  separate failed data directory.
+        self._final_obs_id_success = {mn: {} for mn in self.mission_names}
 
     # Defining properties first
     @property
@@ -501,6 +508,46 @@ class Archive:
         """
         return self._use_this_obs
 
+    @property
+    def final_process_success(self) -> dict:
+        """
+        This property returns the dictionary which stores the final judgement (at the ObsID level) of whether there
+        are any useful data (True) or whether no aspect of that observation reached the end of the final processing
+        step successfully. The ObsIDs marked as False will be moved from the archive processed data directory to a
+        separate failed data directory.
+
+        The flags are only added once the final processing step for a particular mission has been run.
+
+        :return: The dictionary of final processing success flags.
+        :rtype: dict
+        """
+        return self._final_obs_id_success
+
+    @final_process_success.setter
+    def final_process_success(self, new_val: dict):
+        """
+        Setter for the final_process_success property, where a final judgement on if an ObsID has any useful
+        data in it once processed can be passed. This setter should not be called manually by the user.
+
+        :param dict new_val: A dictionary of information, with missions as the top level keys, and ObsIDs as the
+            bottom level keys. The values attribute to ObsID keys should be True or False.
+        """
+        for mn in new_val:
+            if not all([isinstance(new_val[mn][o_id], bool) for o_id in new_val[mn]]):
+                # Just check that all the value entries are boolean.
+                raise TypeError("All values associated with ObsID keys passed to final_process_success "
+                                "must be boolean.")
+            # Now iterating through the ObsIDs to add the new information into the storage attribute
+            for o_id in new_val[mn]:
+                # If the particular observation does not have an entry for the particular mission then we add it to the
+                #  dictionary, but if it does then we warn the user and do nothing
+                if o_id in self._miss_obs_summ_info[mn]:
+                    warn("The final_process_success property already has an entry for {o_id} under {mn}, no change "
+                         "will be made.".format(o_id=o_id, mn=mn))
+                else:
+                    # Adding in the success flags
+                    self._final_obs_id_success[mn][o_id] = new_val[mn][o_id]
+
     # Then define internal methods
     def _check_process_inputs(self, process_vals: Tuple[str, dict]) -> Tuple[str, dict]:
         """
@@ -543,26 +590,17 @@ class Archive:
 
         return pr_name, process_info
 
-    # Then define user-facing methods
-    def get_processed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
+    def _data_path_construct_checks(self, mission: Union[BaseMission, str] = None, obs_id: str = None) -> str:
         """
-        This method is to construct paths to directories where processed data for a particular mission + observation
-        ID combination will be stored. That functionality is added here so that any change to how those directories
-        are named will take place in only one part of DAXA, and will propagate to other parts of the module. It is
-        unlikely that a user will need to directly use this method.
-
-        If no mission is passed, then no observation ID may be passed. In the case of 'mission' and 'obs_id' being
-        None, the returned string will be constructed ready to format; {mn} should be replaced by the DAXA mission
-        name, and {oi} by the relevant ObsID.
-
-        Retrieving a data path from this method DOES NOT guarantee that it has been created.
+        These check inputs to the methods which will construct paths to the process/failed data processed
+        from this archive.
 
         :param BaseMission/str mission: The mission for which to retrieve the processed data path. Default is None
             in which case a path ready to be formatted with a mission name will be provided.
         :param str obs_id: The ObsID for which to retrieve the processed data path, cannot be set if 'mission' is
             set to None. Default is None, in which case a path ready to be formatted with an observation ID will
             be provided.
-        :return: The requested path.
+        :return: The mission name.
         :rtype: str
         """
         # Make sure that mission is not Null whilst obs_id has been set
@@ -587,10 +625,79 @@ class Archive:
             raise ValueError("The passed ObsID ({oi}) does not match the pattern expected for {mn} "
                              "identifiers.".format(mn=m_name, oi=obs_id))
 
+    # Then define user-facing methods
+    def get_processed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
+        """
+        This method is to construct paths to directories where processed data for a particular mission + observation
+        ID combination will be stored. That functionality is added here so that any change to how those directories
+        are named will take place in only one part of DAXA, and will propagate to other parts of the module. It is
+        unlikely that a user will need to directly use this method.
+
+        If no mission is passed, then no observation ID may be passed. In the case of 'mission' and 'obs_id' being
+        None, the returned string will be constructed ready to format; {mn} should be replaced by the DAXA mission
+        name, and {oi} by the relevant ObsID.
+
+        Retrieving a data path from this method DOES NOT guarantee that it has been created.
+
+        :param BaseMission/str mission: The mission for which to retrieve the processed data path. Default is None
+            in which case a path ready to be formatted with a mission name will be provided.
+        :param str obs_id: The ObsID for which to retrieve the processed data path, cannot be set if 'mission' is
+            set to None. Default is None, in which case a path ready to be formatted with an observation ID will
+            be provided.
+        :return: The requested path.
+        :rtype: str
+        """
+        # This runs through a set of checks on the inputs to this method - those checks are in another method
+        #  because they are also used by get_failed_data_path
+        m_name = self._data_path_construct_checks(mission, obs_id)
+
         # Now we just run through the different possible combinations of circumstances.
         base_path = self.archive_path+'processed_data/{mn}/{oi}/'
         if mission is not None and obs_id is not None:
             ret_str = base_path.format(mn=m_name, oi=obs_id)
+        elif mission is not None and obs_id is None:
+            ret_str = base_path.format(mn=m_name, oi='{oi}')
+        else:
+            ret_str = base_path
+
+        return ret_str
+
+    def get_failed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
+        """
+        This method is to construct paths to directories where processed data for a particular mission + observation
+        ID combination will be stored. That functionality is added here so that any change to how those directories
+        are named will take place in only one part of DAXA, and will propagate to other parts of the module. It is
+        unlikely that a user will need to directly use this method.
+
+        If no mission is passed, then no observation ID may be passed. In the case of 'mission' and 'obs_id' being
+        None, the returned string will be constructed ready to format; {mn} should be replaced by the DAXA mission
+        name, and {oi} by the relevant ObsID.
+
+        Retrieving a data path from this method DOES NOT guarantee that it has been created.
+
+        :param BaseMission/str mission: The mission for which to retrieve the processed data path. Default is None
+            in which case a path ready to be formatted with a mission name will be provided.
+        :param str obs_id: The ObsID for which to retrieve the processed data path, cannot be set if 'mission' is
+            set to None. Default is None, in which case a path ready to be formatted with an observation ID will
+            be provided.
+        :return: The requested path.
+        :rtype: str
+        """
+
+        # This runs through a set of checks on the inputs to this method - those checks are in another method
+        #  because they are also used by get_failed_data_path
+        m_name = self._data_path_construct_checks(mission, obs_id)
+
+        # Want to know which ObsIDs have been marked as overall failures
+        failed_obsids = [obs_id for obs_id, success in self.final_process_success[m_name] if not success]
+
+        # Now we just run through the different possible combinations of circumstances.
+        base_path = self.archive_path+'failed_data/{mn}/{oi}/'
+        if mission is not None and obs_id is not None and obs_id in failed_obsids:
+            ret_str = base_path.format(mn=m_name, oi=obs_id)
+        elif mission is not None and obs_id is not None and obs_id not in failed_obsids:
+            raise ValueError("The observation ({oid}) has not been marked as an overall failure, no "
+                             "path can be retrieved".format(oid=obs_id))
         elif mission is not None and obs_id is None:
             ret_str = base_path.format(mn=m_name, oi='{oi}')
         else:
