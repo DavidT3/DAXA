@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2023, 11:52. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/04/2023, 12:09. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -691,7 +691,7 @@ class Archive:
         m_name = self._data_path_construct_checks(mission, obs_id)
 
         # Want to know which ObsIDs have been marked as overall failures
-        failed_obsids = [obs_id for obs_id, success in self.final_process_success[m_name] if not success]
+        failed_obsids = [obs_id for obs_id, success in self.final_process_success[m_name].items() if not success]
 
         # Now we just run through the different possible combinations of circumstances.
         base_path = self.archive_path+'failed_data/{mn}/{oi}/'
