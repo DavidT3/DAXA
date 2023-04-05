@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 17:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/04/2023, 22:13. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -11,6 +11,7 @@ from astropy.units import Quantity, UnitConversionError
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
 from daxa.process._backend_check import find_lcurve
+from daxa.process._cleanup import _last_process
 from daxa.process.xmm._common import _sas_process_setup, sas_call, ALLOWED_XMM_MISSIONS
 from daxa.process.xmm.check import parse_emanom_out
 
@@ -507,6 +508,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
+@_last_process(ALLOWED_XMM_MISSIONS)
 @sas_call
 def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False,
                        timeout: Quantity = None):
