@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2023, 11:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/04/2023, 11:46. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -64,8 +64,7 @@ def _sas_process_setup(obs_archive: Archive) -> Version:
         #  observation directories which have no useful data in (i.e. they do not have a successful final
         #  processing step) somewhere to be copied to (see daxa.process._cleanup._last_process).
         # This is the overall path, there might not ever be anything in it, so we don't pre-make ObsID sub-directories
-        fail_proc_dir = obs_archive.get_failed_data_path(miss, None).format(obs_id='')
-        print(fail_proc_dir)
+        fail_proc_dir = obs_archive.get_failed_data_path(miss, None).format(oi='')[:-1]
         if not os.path.exists(fail_proc_dir):
             os.makedirs(fail_proc_dir)
 
