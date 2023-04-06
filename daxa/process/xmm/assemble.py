@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 06/04/2023, 14:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 06/04/2023, 14:48. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -619,10 +619,12 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             filt_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['evt_clean_path']
             en_key = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['en_key']
 
-            # TODO COMPLETE WHEN ESPFILT CLEANS OOT EVENTS TOO
             # If the instrument is PN then we also need to know where the filtered out of time events live
-            # if inst == 'PN':
-                # filt_oot_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['oot_evt_list']
+            if inst == 'PN':
+                filt_oot_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['oot_evt_'
+                                                                                                      'clean_path']
+            else:
+                filt_oot_evt = None
 
             # Combines just the observation and instrument into a top-level key for the dictionary that is used
             #  to identify which event lists needed to be added together
@@ -630,10 +632,14 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             # If there isn't already an entry then we make a new list, storing both the path to the filtered
             #  even list, and its energy range key
             if oi_id not in to_combine:
-                to_combine[oi_id] = [[filt_evt, en_key]]
+                # The OOT event list comprehension is slightly cheeky, but basically if it is set to None (for MOS)
+                #  then we'll just be adding an empty list. It saves on more if statements with instrument checking
+                to_combine[oi_id] = [[en_key, filt_evt] + [el for el in [filt_oot_evt] if el is not None]]
             # If there IS an entry, then we append the filtered event list path + energy key information
             else:
-                to_combine[oi_id].append([filt_evt, en_key])
+                # The OOT event list comprehension is slightly cheeky, but basically if it is set to None (for MOS)
+                #  then we'll just be adding an empty list. It saves on more if statements with instrument checking
+                to_combine[oi_id].append([en_key, filt_evt] + [el for el in [filt_oot_evt] if el is not None])
 
         # We've gone through all the observation-instrument-exposures that we have for the current mission and now
         #  we cycle through the ObsID-instrument combinations and start adding event lists together
@@ -646,15 +652,14 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
 
             # Setting up the path to the final combined event file
-            final_evt_name = "{i}{en_id}_clean.fits".format(i=inst, en_id=to_combine[oi][0][1])
+            final_evt_name = "{i}{en_id}_clean.fits".format(i=inst, en_id=to_combine[oi][0][0])
             final_path = dest_dir + final_evt_name
 
             # If there is only one event list for a particular ObsID-instrument combination, then obviously merging
             #  is impossible/unnecessary, so in that case we just rename the file (which will have sub-exposure ID
             #  info in the name) to the same style of the merged files
             if len(to_combine[oi]) == 1:
-                # os.rename(to_combine[oi][0][0], final_path)
-                cmd = rename_cmd.format(cne=to_combine[oi][0][0], nne=final_path)
+                cmd = rename_cmd.format(cne=to_combine[oi][0][1], nne=final_path)
             elif os.path.exists(final_path):
                 continue
             else:
@@ -689,7 +694,7 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                     # If we haven't iterated yet then we use the currently access event list name as the
                     #  first event list.
                     if evt_ind == 0:
-                        first_evt = evt_path[0]
+                        first_evt = evt_path[1]
                     # However if we HAVE iterated before, then the first event list should actually be the output of the
                     #  last merging step, not the CURRENT value of evt_path (as that has already been added into the
                     #  merged list).
@@ -699,10 +704,10 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                         first_evt = cur_t_name
                     # The output of the merge has to be given a temporary name, as the merge command won't allow it to
                     #  have the same name as an existing file
-                    cur_t_name = temp_evt_name.format(i=inst, en_id=to_combine[oi][0][1], ind=evt_ind)
+                    cur_t_name = temp_evt_name.format(i=inst, en_id=to_combine[oi][0][0], ind=evt_ind)
                     # This populated the command with the event list paths and output path (note where we add 1 to the
                     #  evt_ind value).
-                    cur_cmd = merge_cmd.format(e_one=first_evt, e_two=to_combine[oi][evt_ind+1][0], e_fin=cur_t_name)
+                    cur_cmd = merge_cmd.format(e_one=first_evt, e_two=to_combine[oi][evt_ind+1][1], e_fin=cur_t_name)
                     # Then the command is added to the command list
                     cur_merge_cmds.append(cur_cmd)
 
