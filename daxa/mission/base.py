@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/04/2023, 15:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 06/04/2023, 14:13. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -552,7 +552,6 @@ class BaseMission(metaclass=ABCMeta):
         # If some aren't then we throw an error (hopefully quite an informative one).
         if not all(inst_test):
             bad_inst = np.array(updated_insts)[~np.array(inst_test)]
-            print(bad_inst)
             raise ValueError("Some instruments ({bi}) are not associated with this mission, please choose from "
                              "the following; {ai}".format(bi=", ".join(bad_inst), ai=", ".join(self._miss_poss_insts)))
 
