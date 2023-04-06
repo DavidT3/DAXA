@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2023, 10:47. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 06/04/2023, 14:12. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -386,8 +386,15 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         hi_en = ''
         en_ident = ''
 
-    ev_cmd = "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} " \
-             "updateexposure=yes; mv {fe} ../; cd ../; rm -r {d}"
+    # This command has two versions, one for M1 and M2, and another for PN which includes a second evselect command
+    #  for the OOT events. I could make the OOT events a separate command, but that doesn't really work given the
+    #  storage structure for recording processing success/logs. There is an echo in the PN command to give something
+    #  to search for in the logs to see where the OOT processing begins
+    ev_inst_cmd = {'mos': "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} "
+                          "updateexposure=yes; mv {fe} ../; cd ../; rm -r {d}",
+                   'pn': "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} "
+                         "updateexposure=yes; mv {fe} ../; echo OOT EVSELECT; evselect table={ootae} "
+                         "filteredset={ootfe} expression={expr} updateexposure=yes; mv {ootfe}; cd ../; rm -r {d}"}
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -443,17 +450,23 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
                 # Makes a copy of the MOS selection expression, as we might be adding to it during this
                 #  part of the function
                 cur_sel_expr = deepcopy(mos_filt_expr)
+                # This chooses the correct command template
+                ev_cmd = ev_inst_cmd['mos']
             elif inst == 'M2':
                 evt_list_file = obs_archive.process_extra_info[miss.name]['emchain'][val_id]['evt_list']
                 # Makes a copy of the MOS selection expression, as we might be adding to it during this
                 #  part of the function
                 cur_sel_expr = deepcopy(mos_filt_expr)
+                # This chooses the correct command template
+                ev_cmd = ev_inst_cmd['mos']
             elif inst == 'PN':
                 evt_list_file = obs_archive.process_extra_info[miss.name]['epchain'][val_id]['evt_list']
                 # We do actually have an OOT file for PN, so we overwrite it
                 oot_evt_list_file = obs_archive.process_extra_info[miss.name]['epchain'][val_id]['oot_evt_list']
                 # Make a copy of the PN selection expression to add to throughout this function
                 cur_sel_expr = deepcopy(pn_filt_expr)
+                # This chooses the correct command template, PN has an addition to process the OOT events as well
+                ev_cmd = ev_inst_cmd['pn']
             else:
                 raise ValueError("Somehow there is no instance of M1, M2, or PN in that storage key, this should be "
                                  "impossible!")
@@ -486,7 +499,20 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             # Setting up the path to the event file
             filt_evt_name = "{i}{exp_id}{en_id}_clean.fits".format(i=inst, exp_id=exp_id, en_id=en_ident)
             filt_evt_path = dest_dir + filt_evt_name
+            # And the same deal with the OOT event file, though of course that is only relevant to PN data
+            filt_oot_evt_name = "{i}{exp_id}{en_id}_oot_clean.fits".format(i=inst, exp_id=exp_id, en_id=en_ident)
+            filt_oot_evt_path = dest_dir + filt_oot_evt_name
+
+            # The default final_paths declaration
             final_paths = [filt_evt_path]
+            # The default extra information to store after the command has been construct
+            to_store = {'evt_clean_path': filt_evt_path, 'en_key': en_ident}
+
+            # As OOT events are only relevant to PN, we only add the variable to the paths-to-check if we're
+            #  processing some PN data right now. The OOT events path also gets added to the extra information
+            if inst == 'PN':
+                final_paths.append(filt_oot_evt_path)
+                to_store['oot_evt_clean_path'] = filt_oot_evt_path
 
             # If it doesn't already exist then we will create commands to generate it
             # TODO Need to decide which file to check for here to see whether the command has already been run
@@ -495,12 +521,13 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
                 os.makedirs(temp_dir)
 
             final_expression = "'" + " && ".join(cur_sel_expr) + "'"
-            cmd = ev_cmd.format(d=temp_dir, ccf=ccf_path, ae=evt_list_file, fe=filt_evt_path, expr=final_expression)
+            cmd = ev_cmd.format(d=temp_dir, ccf=ccf_path, ae=evt_list_file, fe=filt_evt_path, expr=final_expression,
+                                ootae=oot_evt_list_file, ootfe=filt_oot_evt_path)
 
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][val_id] = cmd
             miss_final_paths[miss.name][val_id] = final_paths
-            miss_extras[miss.name][val_id] = {'evt_clean_path': filt_evt_path, 'en_key': en_ident}
+            miss_extras[miss.name][val_id] = to_store
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Generating cleaned PN/MOS event lists'
