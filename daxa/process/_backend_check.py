@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 17:22. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/04/2023, 15:12. Copyright (c) The Contributors
 
 import os
 from shutil import which
@@ -37,6 +37,9 @@ def find_sas() -> Version:
     if sas_avail and "SAS_CCFPATH" not in os.environ:
         raise SASNotFoundError("SAS_CCFPATH environment variable is not set, this is required to generate "
                                "calibration files. As such XMM raw data (ODFs) cannot be processed.")
+    elif sas_avail and not os.path.exists(os.environ['SAS_CCFPATH']):
+        raise SASNotFoundError("Though the SAS_CCFPATH environment variable is set, the path ({p}) does not "
+                               "exist".format(p=os.environ['SAS_CCFPATH']))
 
     if sas_version < Version('14.0.0'):
         raise SASVersionError("The detected SAS installation is of too low a version ({v}), please use version 14 or "
