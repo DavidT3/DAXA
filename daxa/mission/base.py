@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 11:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 06/04/2023, 14:13. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -466,7 +466,7 @@ class BaseMission(metaclass=ABCMeta):
             raise TypeError("New values for 'processed' must be boolean.")
         elif self._processed:
             raise ValueError("The processed property has already been set to True, and is now immutable.")
-        elif new_val:
+        elif new_val and not self.locked:
             self.locked = True
         self._processed = new_val
 
@@ -552,7 +552,6 @@ class BaseMission(metaclass=ABCMeta):
         # If some aren't then we throw an error (hopefully quite an informative one).
         if not all(inst_test):
             bad_inst = np.array(updated_insts)[~np.array(inst_test)]
-            print(bad_inst)
             raise ValueError("Some instruments ({bi}) are not associated with this mission, please choose from "
                              "the following; {ai}".format(bi=", ".join(bad_inst), ai=", ".join(self._miss_poss_insts)))
 

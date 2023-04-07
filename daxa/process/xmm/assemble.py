@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 17:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 06/04/2023, 15:16. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -11,6 +11,7 @@ from astropy.units import Quantity, UnitConversionError
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
 from daxa.process._backend_check import find_lcurve
+from daxa.process._cleanup import _last_process
 from daxa.process.xmm._common import _sas_process_setup, sas_call, ALLOWED_XMM_MISSIONS
 from daxa.process.xmm.check import parse_emanom_out
 
@@ -385,8 +386,15 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         hi_en = ''
         en_ident = ''
 
-    ev_cmd = "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} " \
-             "updateexposure=yes; mv {fe} ../; cd ../; rm -r {d}"
+    # This command has two versions, one for M1 and M2, and another for PN which includes a second evselect command
+    #  for the OOT events. I could make the OOT events a separate command, but that doesn't really work given the
+    #  storage structure for recording processing success/logs. There is an echo in the PN command to give something
+    #  to search for in the logs to see where the OOT processing begins
+    ev_inst_cmd = {'mos': "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} "
+                          "updateexposure=yes; mv {fe} ../; cd ../; rm -r {d}",
+                   'pn': "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} "
+                         "updateexposure=yes; mv {fe} ../; echo OOT EVSELECT; evselect table={ootae} "
+                         "filteredset={ootfe} expression={expr} updateexposure=yes; mv {ootfe}; cd ../; rm -r {d}"}
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -442,17 +450,23 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
                 # Makes a copy of the MOS selection expression, as we might be adding to it during this
                 #  part of the function
                 cur_sel_expr = deepcopy(mos_filt_expr)
+                # This chooses the correct command template
+                ev_cmd = ev_inst_cmd['mos']
             elif inst == 'M2':
                 evt_list_file = obs_archive.process_extra_info[miss.name]['emchain'][val_id]['evt_list']
                 # Makes a copy of the MOS selection expression, as we might be adding to it during this
                 #  part of the function
                 cur_sel_expr = deepcopy(mos_filt_expr)
+                # This chooses the correct command template
+                ev_cmd = ev_inst_cmd['mos']
             elif inst == 'PN':
                 evt_list_file = obs_archive.process_extra_info[miss.name]['epchain'][val_id]['evt_list']
                 # We do actually have an OOT file for PN, so we overwrite it
                 oot_evt_list_file = obs_archive.process_extra_info[miss.name]['epchain'][val_id]['oot_evt_list']
                 # Make a copy of the PN selection expression to add to throughout this function
                 cur_sel_expr = deepcopy(pn_filt_expr)
+                # This chooses the correct command template, PN has an addition to process the OOT events as well
+                ev_cmd = ev_inst_cmd['pn']
             else:
                 raise ValueError("Somehow there is no instance of M1, M2, or PN in that storage key, this should be "
                                  "impossible!")
@@ -485,7 +499,20 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             # Setting up the path to the event file
             filt_evt_name = "{i}{exp_id}{en_id}_clean.fits".format(i=inst, exp_id=exp_id, en_id=en_ident)
             filt_evt_path = dest_dir + filt_evt_name
+            # And the same deal with the OOT event file, though of course that is only relevant to PN data
+            filt_oot_evt_name = "{i}{exp_id}{en_id}_oot_clean.fits".format(i=inst, exp_id=exp_id, en_id=en_ident)
+            filt_oot_evt_path = dest_dir + filt_oot_evt_name
+
+            # The default final_paths declaration
             final_paths = [filt_evt_path]
+            # The default extra information to store after the command has been construct
+            to_store = {'evt_clean_path': filt_evt_path, 'en_key': en_ident}
+
+            # As OOT events are only relevant to PN, we only add the variable to the paths-to-check if we're
+            #  processing some PN data right now. The OOT events path also gets added to the extra information
+            if inst == 'PN':
+                final_paths.append(filt_oot_evt_path)
+                to_store['oot_evt_clean_path'] = filt_oot_evt_path
 
             # If it doesn't already exist then we will create commands to generate it
             # TODO Need to decide which file to check for here to see whether the command has already been run
@@ -494,12 +521,13 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
                 os.makedirs(temp_dir)
 
             final_expression = "'" + " && ".join(cur_sel_expr) + "'"
-            cmd = ev_cmd.format(d=temp_dir, ccf=ccf_path, ae=evt_list_file, fe=filt_evt_path, expr=final_expression)
+            cmd = ev_cmd.format(d=temp_dir, ccf=ccf_path, ae=evt_list_file, fe=filt_evt_path, expr=final_expression,
+                                ootae=oot_evt_list_file, ootfe=filt_oot_evt_path)
 
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][val_id] = cmd
             miss_final_paths[miss.name][val_id] = final_paths
-            miss_extras[miss.name][val_id] = {'evt_clean_path': filt_evt_path, 'en_key': en_ident}
+            miss_extras[miss.name][val_id] = to_store
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Generating cleaned PN/MOS event lists'
@@ -507,6 +535,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
+@_last_process(ALLOWED_XMM_MISSIONS, 2)
 @sas_call
 def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False,
                        timeout: Quantity = None):
@@ -538,15 +567,19 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
     #  functions there is only one of these template commands, but as each observation-instrument combo can have a
     #  different number of sub-exposures, and you can only merge two at once, the 'merge_cmd' part could be repeated
     #  multiple times, so it is separate.
-    setup_cmd = "cd {d}"
-    merge_cmd = "merge set1={e_one} set2={e_two} outset={e_fin}"
-    cleanup_cmd = "mv {ft} ../{fe}; cd ../ ; rm -r {d}"
-
-    # This command is for those observation-instrument combos which DON'T have multiple sub-exposures to be merged
-    #  but instead will have their cleaned event list renamed to a filename consistent with the merged events.
+    # The rename command is for those observation-instrument combos which DON'T have multiple sub-exposures to be
+    #  merged  but instead will have their cleaned event list renamed to a filename consistent with the merged events.
     # I could have done this using a Python function (and did at first), but doing it this way means that there
     #  is an entry regarding this change in the log dictionaries.
-    rename_cmd = "mv {cne} {nne}"
+    # The different instruments need different commands to deal with the fact that PN has OOT event lists as well
+    inst_cmds = {'mos': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}",
+                         "clean": "mv {ft} ../{fe}; cd ../ ; rm -r {d}",
+                         "rename": "mv {cne} {nne}"},
+                 'pn': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}; echo OOT MERGE; merge set1={oote_one}"
+                                 " set2={oote_two} outset={oote_fin}",
+                        "clean": "mv {ft} ../{fe}; mv {ootft} ../{ootfe}; cd ../ ; rm -r {d}",
+                        "rename": "mv {cne} {nne}; mv {ootcne} {ootnne}"},
+                 'setup': "cd {d}"}
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -590,10 +623,12 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             filt_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['evt_clean_path']
             en_key = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['en_key']
 
-            # TODO COMPLETE WHEN ESPFILT CLEANS OOT EVENTS TOO
             # If the instrument is PN then we also need to know where the filtered out of time events live
-            # if inst == 'PN':
-                # filt_oot_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['oot_evt_list']
+            if inst == 'PN':
+                filt_oot_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['oot_evt_'
+                                                                                                      'clean_path']
+            else:
+                filt_oot_evt = None
 
             # Combines just the observation and instrument into a top-level key for the dictionary that is used
             #  to identify which event lists needed to be added together
@@ -601,10 +636,14 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             # If there isn't already an entry then we make a new list, storing both the path to the filtered
             #  even list, and its energy range key
             if oi_id not in to_combine:
-                to_combine[oi_id] = [[filt_evt, en_key]]
+                # The OOT event list comprehension is slightly cheeky, but basically if it is set to None (for MOS)
+                #  then we'll just be adding an empty list. It saves on more if statements with instrument checking
+                to_combine[oi_id] = [[en_key, filt_evt] + [el for el in [filt_oot_evt] if el is not None]]
             # If there IS an entry, then we append the filtered event list path + energy key information
             else:
-                to_combine[oi_id].append([filt_evt, en_key])
+                # The OOT event list comprehension is slightly cheeky, but basically if it is set to None (for MOS)
+                #  then we'll just be adding an empty list. It saves on more if statements with instrument checking
+                to_combine[oi_id].append([en_key, filt_evt] + [el for el in [filt_oot_evt] if el is not None])
 
         # We've gone through all the observation-instrument-exposures that we have for the current mission and now
         #  we cycle through the ObsID-instrument combinations and start adding event lists together
@@ -617,15 +656,23 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
 
             # Setting up the path to the final combined event file
-            final_evt_name = "{i}{en_id}_clean.fits".format(i=inst, en_id=to_combine[oi][0][1])
+            final_evt_name = "{i}{en_id}_clean.fits".format(i=inst, en_id=to_combine[oi][0][0])
             final_path = dest_dir + final_evt_name
+            # And a possible accompanying OOT combined events file, not used if the instrument isn't PN but
+            #  always defined because its easier
+            final_oot_evt_name = "{i}{en_id}_oot_clean.fits".format(i=inst, en_id=to_combine[oi][0][0])
+            final_oot_path = dest_dir + final_oot_evt_name
 
             # If there is only one event list for a particular ObsID-instrument combination, then obviously merging
             #  is impossible/unnecessary, so in that case we just rename the file (which will have sub-exposure ID
             #  info in the name) to the same style of the merged files
-            if len(to_combine[oi]) == 1:
-                # os.rename(to_combine[oi][0][0], final_path)
-                cmd = rename_cmd.format(cne=to_combine[oi][0][0], nne=final_path)
+            if len(to_combine[oi]) == 1 and inst == 'PN':
+                # In this case we make sure to move the OOT of time event list file as well, using the PN skew
+                #  of the rename command
+                cmd = inst_cmds['pn']['rename'].format(cne=to_combine[oi][0][1], nne=final_path,
+                                                       ootcne=to_combine[oi][0][2], ootnne=final_oot_path)
+            elif len(to_combine[oi]) == 1:
+                cmd = inst_cmds['mos']['rename'].format(cne=to_combine[oi][0][1], nne=final_path)
             elif os.path.exists(final_path):
                 continue
             else:
@@ -638,6 +685,8 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                 # As the merge command won't overwrite an existing file name, and we don't know how many times the loop
                 #  below will iterate, we create temporary file names based on the iteration number of the loop
                 temp_evt_name = "{i}{en_id}_clean_temp{ind}.fits"
+                # We also make one for OOT events, though it will only be used when merging PN events
+                temp_oot_evt_name = "{i}{en_id}_oot_clean_temp{ind}.fits"
 
                 # If it doesn't already exist then we will create commands to generate it
                 # TODO Need to decide which file to check for here to see whether the command has already been run
@@ -649,37 +698,69 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                 #  which just moves us to the working directory - its in a list because said list will contain all
                 #  the stages of this command, and will be joined at the end of this process into a single bash
                 #  command.
-                cur_merge_cmds = [setup_cmd.format(d=temp_dir)]
+                cur_merge_cmds = [inst_cmds['setup'].format(d=temp_dir)]
                 # Now we can iterate through the files for merging - using enumerate so we get an index for the current
                 #  event path, which we can add one to to retrieve the next event list along - i.e. what we will be
                 #  merging into. This is why we slice the event file list so that we only iterate up to the penultimate
                 #  file, because that file will be accessed by adding one to the last evt_ind.
                 # Frankly I probably should have used a while loop here, but ah well
                 for evt_ind, evt_path in enumerate(to_combine[oi][:-1]):
-
                     # If we haven't iterated yet then we use the currently access event list name as the
                     #  first event list.
-                    if evt_ind == 0:
-                        first_evt = evt_path[0]
+                    if evt_ind == 0 and len(evt_path) == 2:
+                        first_evt = evt_path[1]
+                    # There will be three entries in evt_path if the current instrument is PN, and I thought this
+                    #  was easier to read versus nesting another if statement in the one above
+                    elif evt_path == 0 and len(evt_path) == 3:
+                        first_evt = evt_path[1]
+                        first_oot_evt = evt_path[2]
+
                     # However if we HAVE iterated before, then the first event list should actually be the output of the
                     #  last merging step, not the CURRENT value of evt_path (as that has already been added into the
                     #  merged list).
-                    else:
+                    elif len(evt_path) == 2:
                         # This is a bit cheeky, but this will never be used before its defined - it will always use the
                         #  value defined in the last iteration around
                         first_evt = cur_t_name
+                    # This is the same as above, but again accounting for the fact that for PN we need to be merging
+                    #  OOT events as well
+                    else:
+                        first_evt = cur_t_name
+                        first_oot_evt = cur_oot_t_name
+
                     # The output of the merge has to be given a temporary name, as the merge command won't allow it to
                     #  have the same name as an existing file
-                    cur_t_name = temp_evt_name.format(i=inst, en_id=to_combine[oi][0][1], ind=evt_ind)
-                    # This populated the command with the event list paths and output path (note where we add 1 to the
-                    #  evt_ind value).
-                    cur_cmd = merge_cmd.format(e_one=first_evt, e_two=to_combine[oi][evt_ind+1][0], e_fin=cur_t_name)
+                    cur_t_name = temp_evt_name.format(i=inst, en_id=to_combine[oi][0][0], ind=evt_ind)
+                    if inst == 'PN':
+                        cur_oot_t_name = temp_oot_evt_name.format(i=inst, en_id=to_combine[oi][0][0], ind=evt_ind)
+                        # This populated the command with the event list paths and output path (note where we add
+                        #  1 to the evt_ind value). Also includes the OOT paths
+                        cur_cmd = inst_cmds['pn']['merge'].format(e_one=first_evt,
+                                                                  e_two=to_combine[oi][evt_ind + 1][1],
+                                                                  e_fin=cur_t_name,
+                                                                  oote_one=first_oot_evt,
+                                                                  oote_two=to_combine[oi][evt_ind + 1][2],
+                                                                  oote_fin=cur_oot_t_name)
+                    else:
+                        # This populated the command with the event list paths and output path (note where we add
+                        #  1 to the evt_ind value).
+                        cur_cmd = inst_cmds['mos']['merge'].format(e_one=first_evt,
+                                                                   e_two=to_combine[oi][evt_ind+1][1],
+                                                                   e_fin=cur_t_name)
                     # Then the command is added to the command list
                     cur_merge_cmds.append(cur_cmd)
 
                 # The final command added to the cmd list is a cleanup step, removing the temporary working directory
                 #  (and all the transient part merged event lists that might have been created along the way).
-                cur_merge_cmds.append(cleanup_cmd.format(ft=cur_t_name, fe=final_evt_name, d=temp_dir))
+                # Again have to account for PN having OOT event lists as well
+                if inst == 'PN':
+                    cur_merge_cmds.append(inst_cmds['pn']['clean'].format(ft=cur_t_name, fe=final_evt_name,
+                                                                          ootft=cur_oot_t_name,
+                                                                          ootfe=final_oot_evt_name,
+                                                                          d=temp_dir))
+                else:
+                    cur_merge_cmds.append(inst_cmds['mos']['clean'].format(ft=cur_t_name, fe=final_evt_name,
+                                                                           d=temp_dir))
                 # Finally the list of commands is all joined together so it is one, like the commands of the rest
                 #  of the SAS wrapper functions
                 cmd = '; '.join(cur_merge_cmds)
@@ -687,7 +768,11 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][obs_id+inst] = cmd
             miss_final_paths[miss.name][obs_id+inst] = final_path
-            miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path}
+            # Again accounting for whether a OOT merged event list has been produced here or not
+            if inst == 'PN':
+                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path, 'final_oot_evt': final_oot_path}
+            else:
+                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path}
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Generating final PN/MOS event lists'
