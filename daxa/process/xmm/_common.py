@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2023, 11:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/04/2023, 15:09. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -312,6 +312,7 @@ def sas_call(sas_func):
                         nonlocal process_einfo
                         nonlocal run_odf_sum_parse
                         nonlocal parsed_obs_info
+                        nonlocal python_errors
 
                         # Just unpack the results in for clarity's sake
                         relevant_id, mission_name, does_file_exist, proc_out, proc_err, proc_extra_info = results_in
@@ -344,10 +345,16 @@ def sas_call(sas_func):
                         if len(proc_extra_info) != 0:
                             process_einfo[mission_name][relevant_id] = proc_extra_info
 
-                        # # If the tested-for output file exists, and we know that the current task is odf_ingest
-                        # #  we're going to do an extra post-processing step and parse the output SAS summary file
+                        # If the tested-for output file exists, and we know that the current task is odf_ingest
+                        #  we're going to do an extra post-processing step and parse the output SAS summary file
                         if all(does_file_exist) and run_odf_sum_parse:
-                            parsed_obs_info[mission_name][relevant_id] = parse_odf_sum(proc_extra_info['sum_path'])
+                            try:
+                                parsed_obs_info[mission_name][relevant_id] = parse_odf_sum(proc_extra_info['sum_path'],
+                                                                                           relevant_id)
+                            # Possible that this parsing doesn't go our way however, so we have to be able to catch
+                            #  an exception.
+                            except ValueError as err:
+                                python_errors.append(err)
 
                         # Make sure to update the progress bar
                         gen.update(1)
