@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 06/04/2023, 15:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/04/2023, 10:59. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -711,10 +711,9 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                         first_evt = evt_path[1]
                     # There will be three entries in evt_path if the current instrument is PN, and I thought this
                     #  was easier to read versus nesting another if statement in the one above
-                    elif evt_path == 0 and len(evt_path) == 3:
+                    elif evt_ind == 0 and len(evt_path) == 3:
                         first_evt = evt_path[1]
                         first_oot_evt = evt_path[2]
-
                     # However if we HAVE iterated before, then the first event list should actually be the output of the
                     #  last merging step, not the CURRENT value of evt_path (as that has already been added into the
                     #  merged list).
