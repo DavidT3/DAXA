@@ -1,14 +1,18 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/04/2023, 10:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/04/2023, 15:00. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
 from warnings import warn
 
 import numpy as np
+from astropy import wcs
+from astropy.units import Quantity
+from regions import Region, read_ds9, PixelRegion, write_ds9
 
 from daxa import BaseMission, OUTPUT
-from daxa.exceptions import DuplicateMissionError, ArchiveExistsError, NoProcessingError, NoDependencyProcessError
+from daxa.exceptions import DuplicateMissionError, ArchiveExistsError, NoProcessingError, NoDependencyProcessError, \
+    ObsNotAssociatedError
 from daxa.misc import dict_search
 
 
@@ -133,6 +137,10 @@ class Archive:
         #  separate failed data directory.
         self._final_obs_id_success = {mn: {} for mn in self.mission_names}
 
+        # This attribute will store regions for the observations associated with different missions. By the time
+        #  they are stored in this attribute they SHOULD be in RA-Dec, not in pixel coords or anything like that
+        self._source_regions = {mn: {} for mn in self.mission_names}
+
     # Defining properties first
     @property
     def archive_name(self) -> str:
@@ -228,7 +236,7 @@ class Archive:
             #  dictionary, but if it does then we warn the user and do nothing
             if pr_name in self._process_success_flags[mn]:
                 warn("The process_success property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn))
+                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
                 self._process_success_flags[mn][pr_name] = success_flags[mn]
 
@@ -267,7 +275,7 @@ class Archive:
             #  dictionary, but if it does then we warn the user and do nothing
             if pr_name in self._process_errors[mn]:
                 warn("The process_errors property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn))
+                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
                 self._process_errors[mn][pr_name] = error_info[mn]
 
@@ -306,7 +314,7 @@ class Archive:
             #  dictionary, but if it does then we warn the user and do nothing
             if pr_name in self._process_warnings[mn]:
                 warn("The process_warnings property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn))
+                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
                 self._process_warnings[mn][pr_name] = warn_info[mn]
 
@@ -346,7 +354,7 @@ class Archive:
             #  dictionary, but if it does then we warn the user and do nothing
             if pr_name in self._process_raw_errors[mn]:
                 warn("The raw_process_errors property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn))
+                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
                 self._process_raw_errors[mn][pr_name] = error_info[mn]
 
@@ -388,7 +396,7 @@ class Archive:
             #  dictionary, but if it does then we warn the user and do nothing
             if pr_name in self._process_logs[mn]:
                 warn("The process_logs property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn))
+                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
                 self._process_logs[mn][pr_name] = log_info[mn]
 
@@ -428,7 +436,7 @@ class Archive:
             #  dictionary, but if it does then we warn the user and do nothing
             if pr_name in self._process_extra_info[mn]:
                 warn("The process_extra_info property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn))
+                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
                 self._process_extra_info[mn][pr_name] = einfo_info[mn]
 
@@ -473,7 +481,7 @@ class Archive:
                 #  dictionary, but if it does then we warn the user and do nothing
                 if o_id in self._miss_obs_summ_info[mn]:
                     warn("The observation_summaries property already has an entry for {o_id} under {mn}, no change "
-                         "will be made.".format(o_id=o_id, mn=mn))
+                         "will be made.".format(o_id=o_id, mn=mn), stacklevel=2)
                 else:
                     # This just removes any entries that might exist for instruments that haven't been selected for
                     #  use by the mission class. This was driven by the fact that parsing XMM SAS summary files will
@@ -543,10 +551,188 @@ class Archive:
                 #  dictionary, but if it does then we warn the user and do nothing
                 if o_id in self._final_obs_id_success[mn]:
                     warn("The final_process_success property already has an entry for {o_id} under {mn}, no change "
-                         "will be made.".format(o_id=o_id, mn=mn))
+                         "will be made.".format(o_id=o_id, mn=mn), stacklevel=2)
                 else:
                     # Adding in the success flags
                     self._final_obs_id_success[mn][o_id] = new_val[mn][o_id]
+
+    @property
+    def source_regions(self) -> dict:
+        """
+        This property returns all source regions which have been associated with missions in this archive. The top
+        level keys of the dictionary are mission names, the bottom level keys are observation identifiers, and the
+        values are lists of region objects.
+
+        If an observation in this archive has had regions added for it, then those regions will also have been
+        written to permanent storage in the archive directory structure. The path can be identified using the
+        get_region_file_path method of this archive.
+
+        :return: Dictionary containing regions on a mission-observation basis.
+        :rtype: dict
+        """
+        return self._source_regions
+
+    @source_regions.setter
+    def source_regions(self, new_val: dict):
+        """
+        The setter method for the source regions property. This takes source region information for observations of
+        missions associated with this archive, as well as (if necessary) the WCS information required to convert
+        the regions from pixel coordinates to RA-Dec coordinates.
+
+        The input dictionary should be formatted in one of the following ways:
+
+        {'mission_name': {'ObsID': 'path to regions'}}
+
+        OR
+
+        {'mission_name': {'ObsID': [list of region objects]}}
+
+        OR
+
+        {'mission_name': {'ObsID': {'region': 'path to regions'}}}
+
+        OR
+
+        {'mission_name': {'ObsID': {'region': [list of region objects]}}}
+
+        OR
+
+        {'mission_name': {'ObsID': {'region': ..., 'wcs_src': 'path to image'}}}
+
+        OR
+
+        {'mission_name': {'ObsID': {'region': ..., 'wcs_src': XGA Image}}}
+
+        OR
+
+        {'mission_name': {'ObsID': {'region': ..., 'wcs_src': Astropy WCS object}}}
+
+        :param dict new_val: A dictionary containing new region information, with top level keys being mission names,
+            the next level down's keys being ObsIDs, and the values being either a list of regions, a string path
+            to a region file, or a dictionary containing (at least) a 'region' key whose value is either a path to
+            a region file or a list of regions. If a dictionary is the value you may also supply WCS information
+            with the key 'wcs_src'. This information may either be an astropy WCS object, an XGA image, or a path
+            to an image.
+        """
+        # Going to kick up a fuss if the top level keys aren't the format we expect; i.e. they are mission names
+        #  actually associated with this archive
+        if any([key not in self.mission_names for key in new_val]):
+            raise KeyError("The top level keys of the dictionary passed to the source_regions property setter must "
+                           "be mission names associated with this archive; i.e. "
+                           "{}".format('. '.join(self.mission_names)))
+
+        # Now we start iterating through the new values, starting at the top level with mission keys
+        for mn in new_val:
+            for o_id in new_val[mn]:
+                cur_val = new_val[mn][o_id]
+                # If the particular observation does not have an entry for the particular mission then we add it to the
+                #  dictionary, but if it does then we warn the user and do nothing
+                if o_id in self._miss_obs_summ_info[mn]:
+                    warn("The source_regions property already had an entry for {o_id} under {mn}, this has been "
+                         "overwritten!".format(o_id=o_id, mn=mn), stacklevel=2)
+                # The observation level keys should just be ObsIDs (without any sub-exposure or instrument
+                #  identifiers), so I can check to see whether they are actually associated with the mission. The
+                #  extra checks here are also a good idea because it is conceivable that the user will be setting
+                #  this property themselves.
+                elif o_id not in self._missions[mn].filtered_obs_ids:
+                    raise ObsNotAssociatedError("The ObsID {oid} is not associated with the filtered dataset of "
+                                                "{mn}.".format(mn=mn, oid=o_id))
+                # If a dictionary is the value then regions must be one entry, which should either be a path to a
+                #  regions file or a list of regions
+                elif isinstance(cur_val, dict) and 'regions' not in cur_val:
+                    raise KeyError("The new regions entry for {mn}-{o} is a dictionary but does not contain a "
+                                   "'regions' key - this is mandatory.".format(mn=mn, o=o_id))
+                # Really if the value is a dictionary it should be because a source of WCS information required to
+                #  convert the regions to RA-Dec has also been provided, but I won't make that mandatory.
+                elif isinstance(cur_val, dict) and 'wcs_src' not in cur_val:
+                    cur_reg = cur_val['regions']
+                    cur_wcs_src = None
+                # In case the regions AND a source of WCS information has been passed - I will let that WCS source be
+                #  a couple of things, either a path to an image, a WCS object, or an XGA image that I can grab the
+                #  WCS from.
+                elif isinstance(cur_val, dict) and 'wcs_src' in cur_val:
+                    cur_reg = cur_val['regions']
+                    cur_wcs_src = cur_val['wcs_src']
+                # If the value isn't a dictionary then it's just the regions, either in path or list form
+                else:
+                    cur_reg = cur_val
+                    cur_wcs_src = None
+
+                # Now we've got set values for the current regions and the available WCS information, we need to check
+                #  to see what form they're in - damn me for making this so general. The goal for this is for cur_reg
+                #  to be (or become) a list of region objects.
+                if isinstance(cur_reg, list) and any(not isinstance(cr, Region) for cr in cur_reg):
+                    raise TypeError("If a list of regions is passed, all elements must be a region instance.")
+                # If the regions were passed as a string, we use that as a file path, but obviously have to check
+                #  that it exists first
+                elif isinstance(cur_reg, str) and not os.path.exists(cur_reg):
+                    raise FileNotFoundError("The region file ({cr}) for {mn}-{oi} does not "
+                                            "exist.".format(mn=mn, oi=o_id, cr=cur_reg))
+                # If the region is a string and we've got here, then that file must exist so we use the regions
+                #  module to read it in (assuming it is in a DS9 format).
+                elif isinstance(cur_reg, str):
+                    cur_reg = read_ds9(cur_reg)
+                # If none of the above were triggered then something weird has been passed and we throw a (hopefully)
+                #  useful diagnostic error
+                elif not isinstance(cur_reg, list):
+                    raise TypeError("Illegal new regions value ({cr}) for {mn}-{oi}; it must either be a list of "
+                                    "region objects or a string path to a region file.".format(mn=mn, oi=o_id,
+                                                                                               cr=cur_reg))
+
+                # Now have to do the same sort of normalisation to whatever was passed for WCS info (if indeed
+                #  anything was passed at all!) We'll check whether the passed regions actually need WCS information
+                #  later (they only need them if they're in pixel coordinates, as we wish to convert them).
+                if isinstance(cur_wcs_src, wcs.WCS):
+                    cur_wcs = cur_wcs_src
+                elif isinstance(cur_wcs_src, str) and not os.path.exists(cur_wcs_src):
+                    raise FileNotFoundError("The image file path ({cw}) passed to provide WCS info for {mn}-{oi} does "
+                                            "not exist!".format(cw=cur_wcs_src, mn=mn, oi=o_id))
+                # In the case that the input is a path to an image, and that file exists, we read it in with XGA
+                elif isinstance(cur_wcs_src, str):
+                    # This local import makes me sad, but currently released XGA has an issue where you need to
+                    #  fill out the configuration file even to use the products, and I want to avoid that error unless
+                    #  its absolutely necessary - this won't be necessary once I update XGA to not require a config
+                    #  file unless sources are being declared
+                    from xga.products import Image
+                    # Very cheesy image object declaration, only doing this to easily retrieve the WCS
+                    #  information, energy inputs don't matter and are complete nonsense here
+                    im = Image(cur_wcs_src, '', '', '', '', '', Quantity(0.01, 'keV'), Quantity(0.02, 'keV'))
+                    cur_wcs = im.radec_wcs
+                    del im
+                # This isn't the right way to do this (should be using isinstance as above), but as I said I currently
+                #  wish to avoid importing XGA unless completely necessary and to use isinstance here I'd have to
+                #  import XGA at the top of this file, or in this property setter.
+                elif str(type(cur_wcs_src)) == "<class 'xga.products.phot.Image'>":
+                    cur_wcs = cur_wcs_src.radec_wcs
+                else:
+                    cur_wcs = None
+
+                # At this point we've either raised an exception, or we have a list of region objects! We also have a
+                #  WCS object, or a None value. Now we have to see whether they are pixel regions or sky regions (we
+                #  want to end up with sky regions, as they are independent of a particular WCS)
+                if any([isinstance(cr, PixelRegion) for cr in cur_reg]) and cur_wcs is None:
+                    raise ValueError("{mn}-{oi} regions are in pixel coordinates and have no accompanying WCS "
+                                     "information; the WCS can be passed as an astropy WCS object, and XGA image, or "
+                                     "a path to a fits image.".format(mn=mn, oi=o_id))
+                elif any([isinstance(cr, PixelRegion) for cr in cur_reg]):
+                    # This accounts for the possibility that some psychopath has a list of regions that have
+                    #  entries both in pixel and sky coordinates (yaaay go ternary operators).
+                    fin_reg = [cr.to_sky(cur_wcs) if isinstance(cr, PixelRegion) else cr for cr in cur_reg]
+                else:
+                    fin_reg = cur_reg
+
+                # And finally we store our final set of sky regions in the region attribute!
+                self._source_regions[mn][o_id] = fin_reg
+
+                # Finally finally, we write these regions to a directory for safe-keeping - firstly have to make sure
+                #  that the directory we wish to store in has been created
+                stor_dir = self.top_level_path + 'archives/{an}/regions/{mn}/{oi}/'.format(mn=mn, oi=o_id,
+                                                                                           an=self.archive_name)
+                if not os.path.exists(stor_dir):
+                    os.makedirs(stor_dir)
+                # This will overwrite an existing file so no need to delete one that might already be there if the
+                #  ObsID has already had regions added to it
+                write_ds9(fin_reg, stor_dir + 'source_regions.reg')
 
     # Then define internal methods
     def _check_process_inputs(self, process_vals: Tuple[str, dict]) -> Tuple[str, dict]:
@@ -706,6 +892,9 @@ class Archive:
             ret_str = base_path
 
         return ret_str
+
+    # def get_region_file_path(self) -> str:
+    #     pass
 
     def get_obs_to_process(self, mission_name: str, search_ident: str = None) -> List[List[str]]:
         """
