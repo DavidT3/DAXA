@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/04/2023, 15:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/04/2023, 16:33. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -726,13 +726,12 @@ class Archive:
 
                 # Finally finally, we write these regions to a directory for safe-keeping - firstly have to make sure
                 #  that the directory we wish to store in has been created
-                stor_dir = self.top_level_path + 'archives/{an}/regions/{mn}/{oi}/'.format(mn=mn, oi=o_id,
-                                                                                           an=self.archive_name)
+                stor_dir = self.archive_path + 'regions/{mn}/{oi}/'.format(mn=mn, oi=o_id)
                 if not os.path.exists(stor_dir):
                     os.makedirs(stor_dir)
                 # This will overwrite an existing file so no need to delete one that might already be there if the
                 #  ObsID has already had regions added to it
-                write_ds9(fin_reg, stor_dir + 'source_regions.reg')
+                write_ds9(fin_reg, stor_dir + 'source_regions_radec.reg')
 
     # Then define internal methods
     def _check_process_inputs(self, process_vals: Tuple[str, dict]) -> Tuple[str, dict]:
@@ -841,9 +840,9 @@ class Archive:
 
         # Now we just run through the different possible combinations of circumstances.
         base_path = self.archive_path+'processed_data/{mn}/{oi}/'
-        if mission is not None and obs_id is not None:
+        if m_name is not None and obs_id is not None:
             ret_str = base_path.format(mn=m_name, oi=obs_id)
-        elif mission is not None and obs_id is None:
+        elif m_name is not None and obs_id is None:
             ret_str = base_path.format(mn=m_name, oi='{oi}')
         else:
             ret_str = base_path
@@ -852,10 +851,10 @@ class Archive:
 
     def get_failed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
         """
-        This method is to construct paths to directories where processed data for a particular mission + observation
-        ID combination will be stored. That functionality is added here so that any change to how those directories
-        are named will take place in only one part of DAXA, and will propagate to other parts of the module. It is
-        unlikely that a user will need to directly use this method.
+        This method is to construct paths to directories where data for a particular mission + observation
+        ID combination which failed to process will be stored. That functionality is added here so that any change
+        to how those directories are named will take place in only one part of DAXA, and will propagate to other
+        parts of the module. It is unlikely that a user will need to directly use this method.
 
         If no mission is passed, then no observation ID may be passed. In the case of 'mission' and 'obs_id' being
         None, the returned string will be constructed ready to format; {mn} should be replaced by the DAXA mission
@@ -863,9 +862,9 @@ class Archive:
 
         Retrieving a data path from this method DOES NOT guarantee that it has been created.
 
-        :param BaseMission/str mission: The mission for which to retrieve the processed data path. Default is None
+        :param BaseMission/str mission: The mission for which to retrieve the failed data path. Default is None
             in which case a path ready to be formatted with a mission name will be provided.
-        :param str obs_id: The ObsID for which to retrieve the processed data path, cannot be set if 'mission' is
+        :param str obs_id: The ObsID for which to retrieve the failed data path, cannot be set if 'mission' is
             set to None. Default is None, in which case a path ready to be formatted with an observation ID will
             be provided.
         :return: The requested path.
@@ -873,28 +872,71 @@ class Archive:
         """
 
         # This runs through a set of checks on the inputs to this method - those checks are in another method
-        #  because they are also used by get_failed_data_path
+        #  because they are also used by get_processed_data_path
         m_name = self._data_path_construct_checks(mission, obs_id)
 
-        # Want to know which ObsIDs have been marked as overall failures
-        failed_obsids = [obs_id for obs_id, success in self.final_process_success[m_name].items() if not success]
+        # The mission name might be None here, in which case using m_name as a key would break things!
+        if m_name is not None:
+            # Want to know which ObsIDs have been marked as overall failures
+            failed_obsids = [obs_id for obs_id, success in self.final_process_success[m_name].items() if not success]
+        else:
+            failed_obsids = None
 
         # Now we just run through the different possible combinations of circumstances.
         base_path = self.archive_path+'failed_data/{mn}/{oi}/'
-        if mission is not None and obs_id is not None and obs_id in failed_obsids:
+        if m_name is not None and obs_id is not None and obs_id in failed_obsids:
             ret_str = base_path.format(mn=m_name, oi=obs_id)
-        elif mission is not None and obs_id is not None and obs_id not in failed_obsids:
+        elif m_name is not None and obs_id is not None and obs_id not in failed_obsids:
             raise ValueError("The observation ({oid}) has not been marked as an overall failure, no "
                              "path can be retrieved".format(oid=obs_id))
-        elif mission is not None and obs_id is None:
+        elif m_name is not None and obs_id is None:
             ret_str = base_path.format(mn=m_name, oi='{oi}')
         else:
             ret_str = base_path
 
         return ret_str
 
-    # def get_region_file_path(self) -> str:
-    #     pass
+    def get_region_file_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None) -> str:
+        """
+        This method is to construct paths to files where the regions associated with a particular observation of a
+        particular mission are stored after being added to the archive. If a mission and ObsID are specified then
+        this method will check whether region information for that particular ObsID of that particular mission
+        exists in this archive, and raise an error if it does not.
+
+        If no mission is passed, then no observation ID may be passed. In the case of 'mission' and 'obs_id' being
+        None, the returned string will be constructed ready to format; {mn} should be replaced by the DAXA mission
+        name, and {oi} by the relevant ObsID.
+
+        Retrieving a region file path from this method without passing mission and ObsID DOES NOT guarantee that one
+        has been created for whatever mission and ObsID are added to the string later.
+
+        :param BaseMission/str mission: The mission for which to retrieve the region file path. Default is None
+            in which case a path ready to be formatted with a mission name will be provided.
+        :param str obs_id: The ObsID for which to retrieve the region file path, cannot be set if 'mission' is
+            set to None. Default is None, in which case a path ready to be formatted with an observation ID will
+            be provided.
+        :return: The requested path.
+        :rtype: str
+        """
+        # This runs through a set of checks on the inputs to this method - those checks are in another method
+        #  because they are also used by get_failed_data_path and get_processed_data_path
+        m_name = self._data_path_construct_checks(mission, obs_id)
+
+        # This is the file path of where region files are stored when information is added to a DAXA archive, but
+        #  it hasn't been filled in with mission and ObsID yet.
+        base_path = self.archive_path + 'regions/{mn}/{oi}/source_regions_radec.reg'
+        # Now we just run through the different possible combinations of circumstances.
+        if m_name is not None and obs_id is not None and obs_id not in self.source_regions[m_name]:
+            raise ValueError("The observation ({oid}) has no region information in this "
+                             "archive.".format(oid=obs_id))
+        elif m_name is not None and obs_id is not None:
+            ret_str = base_path.format(mn=m_name, oi=obs_id)
+        elif m_name is not None and obs_id is None:
+            ret_str = base_path.format(mn=m_name, oi='{oi}')
+        else:
+            ret_str = base_path
+
+        return ret_str
 
     def get_obs_to_process(self, mission_name: str, search_ident: str = None) -> List[List[str]]:
         """
