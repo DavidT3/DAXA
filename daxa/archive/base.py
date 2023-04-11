@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2023, 12:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/04/2023, 10:03. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -796,7 +796,7 @@ class Archive:
         return all_res
 
     def check_dependence_success(self, mission_name: str, obs_ident: Union[str, List[str], List[List[str]]],
-                                 dep_proc: Union[str, List[str]]) -> np.ndarray:
+                                 dep_proc: Union[str, List[str]], no_success_error: bool = True) -> np.ndarray:
         """
         This method should be used by processing functions, rather than the user, to determine whether previous
         processing steps (specified in the input to this function) ran successfully for the specified data.
@@ -813,6 +813,10 @@ class Archive:
             though does also support just an ObsID.
         :param str/List[str] dep_proc: The name(s) of the process(es) that have to have been run for further
             processing steps to be successful.
+        :param bool no_success_error: If none of the specified previous processing steps have been
+            successfully, should a NoDependencyProcessError be raised. Default is True, but if set to False the
+            error will not be raised and the return will be an all-False array. This will NOT override the
+            error raised if a previous process hasn't been run at all.
         :return: A boolean array that defines whether the process(es) specified in the input were successful. Each
             set of identifying information provided in obs_ident has a corresponding entry in the return.
         :rtype: np.ndarray
@@ -876,10 +880,13 @@ class Archive:
                                                "{mn}.".format(p=dp, mn=mission_name))
 
         # If we sum the run success array and its 0, then that means nothing ran successfully so we actually throw
-        #  an exception
-        if run_success.sum() == 0:
-            raise NoDependencyProcessError("The required process(es) {p} was run for {mn}, but was not "
-                                           "successful for any data.".format(p=', '.join(dep_proc), mn=mission_name))
+        #  an exception - though only if we haven't been told not too.
+        if run_success.sum() == 0 and no_success_error:
+            process_plural = '(es)' if len(dep_proc) > 1 else ''
+            raise NoDependencyProcessError("The required process{pp} {p} was run for {mn}, but was not "
+                                           "successful for any data.".format(p=', '.join(dep_proc),
+                                                                             mn=mission_name,
+                                                                             pp=process_plural))
 
         return run_success
 
