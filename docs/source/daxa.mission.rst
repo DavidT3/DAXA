@@ -25,6 +25,14 @@ mission.erosita module
    :undoc-members:
    :show-inheritance:
 
+mission.chandra module
+----------------------
+
+.. automodule:: daxa.mission.chandra
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mission.nustar module
 ----------------------
 

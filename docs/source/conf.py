@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/03/2023, 11:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/04/2023, 16:27. Copyright (c) The Contributors
 
 # Configuration file for the Sphinx documentation builder.
 #
@@ -85,6 +85,5 @@ html_theme_options = {
     'display_version': False,
 }
 
-
-# autodoc_mock_imports = ["fitsio", 'regions', 'corner', 'emcee', 'abel']
+autodoc_mock_imports = ['regions']
 
