@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/04/2023, 10:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/04/2023, 10:29. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -438,9 +438,9 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         all_obs_info = np.vstack([np.array(rel_p_obs)[ef_pn_good], np.array(rel_m_obs)[ef_mos_good]])
 
         # We check to see if any data remain in all_obs_info - normally check_dependence_success would raise an error
-        #  if there weren't any, but as we're checking PN and MOS separately (and I want espfilt to run even if all
-        #  data for PN or MOS hasn't made it this far) I passed no_success_error=False and instead check for absolute
-        #  failure here
+        #  if there weren't any, but as we're checking PN and MOS separately (and I want cleaned_evt_lists to run
+        #  even if all data for PN or MOS hasn't made it this far) I passed no_success_error=False and instead check
+        #  for absolute failure here
         if len(all_obs_info) == 0:
             raise NoDependencyProcessError("No observations have had successful espfilt runs, so cleaned_evt_lists "
                                            "cannot be run.")
