@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 17:25. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/04/2023, 13:59. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -14,9 +14,9 @@ from astroquery import log
 from astroquery.esa.xmm_newton import XMMNewton as AQXMMNewton
 from tqdm import tqdm
 
-from .base import BaseMission
-from .. import NUM_CORES
-from ..exceptions import DAXADownloadError
+from daxa import NUM_CORES
+from daxa.exceptions import DAXADownloadError
+from daxa.mission.base import BaseMission
 
 log.setLevel(0)
 
@@ -43,9 +43,15 @@ class XMMPointed(BaseMission):
         # Sets the default instruments - #TODO Perhaps update these to include RGS and OM, once they're supported
         if insts is None:
             insts = ['M1', 'M2', 'PN']
-        else:
-            # Makes sure everything is uppercase
-            insts = [i.upper() for i in insts]
+        elif isinstance(insts, str):
+            # Makes sure that, if a single instrument is passed as a string, the insts variable is a list for the
+            #  rest of the work done using it
+            insts = [insts]
+        # Makes sure everything is uppercase
+        insts = [i.upper() for i in insts]
+
+        if 'R1' in insts or 'R2' in insts or 'OM' in insts:
+            raise NotImplementedError("The RGS and OM instruments are not currently supported by this class.")
 
         self._miss_poss_insts = ['M1', 'M2', 'PN', 'OM', 'R1', 'R2']
         # The chosen_instruments property setter (see below) will use these to convert possible contractions
@@ -57,13 +63,16 @@ class XMMPointed(BaseMission):
         #  to make sure the input instruments are allowed
         self.chosen_instruments = insts
 
+        # Call the name property to set up the name and pretty name attributes
+        self.name
+
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
         self._required_mission_specific_cols = ['proprietary_end_date', 'usable_proprietary', 'usable_science',
                                                 'revolution']
 
         # Runs the method which fetches information on all available pointed XMM observations and stores that
         #  information in the all_obs_info property
-        self.fetch_obs_info()
+        self._fetch_obs_info()
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
@@ -133,9 +142,10 @@ class XMMPointed(BaseMission):
         """
         self._obs_info_checks(new_info)
         self._obs_info = new_info
+        self.reset_filter()
 
     # Then define user-facing methods
-    def fetch_obs_info(self):
+    def _fetch_obs_info(self):
         """
         This method uses the AstroQuery table access protocol implemented for the XMM Science Archive to pull
         down information on all of the pointed XMM observations which are stored in XSA. The data are processed
@@ -204,6 +214,9 @@ class XMMPointed(BaseMission):
         obs_info_pd['usable'] = obs_info_pd['usable_science'] * obs_info_pd['usable_proprietary']
         # Don't really care about this column now so remove.
         del obs_info_pd['radec_good']
+
+        # This just resets the index, as some of the rows may have been removed
+        obs_info_pd = obs_info_pd.reset_index(drop=True)
 
         self.all_obs_info = obs_info_pd
 
@@ -363,3 +376,64 @@ class XMMPointed(BaseMission):
         else:
             warn("The raw data for this mission have already been downloaded.")
 
+    def assess_process_obs(self, obs_info: dict) -> dict:
+        """
+        A slightly unusual method which will allow the XMMPointed mission to assess the information on a particular
+        observation that has been put together by an Archive (the archive assembles it because sometimes this
+        detailed information only becomes available at the first stages of processing), and make a decision on whether
+        that particular observation-instrument-subexposure should be processed further for scientific use.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param dict obs_info: The multi-level dictionary containing available observation information for an
+            observation.
+        :return: A two-level dictionary with instruments as the top level keys, and sub-exposure IDs as the low
+            level keys. The values associated with the sub-exposure keys are boolean, True for usable, False for not.
+        :rtype: dict
+        """
+        insts = list(obs_info.keys())
+
+        # This is the dictionary which we'll be sending back, with top level instrument keys and lower level sub
+        #  exposure keys. We start off by assuming all of the data should be used, leaving it to the rest of this
+        #  method to disable sub-exposures and set these booleans to False. This will only trigger for those
+        #  instruments which have an exposures entry, and thus are implicitly active
+        to_return = {inst: {e_id: True for e_id in list(obs_info[inst]['exposures'].keys())} for inst in insts
+                     if 'exposures' in obs_info[inst]}
+
+        for inst in to_return:
+            # One check later on needs to know whether the current instrument is an RGS
+            rgs = inst == 'R1' or inst == 'R2'
+
+            for e_id in to_return[inst]:
+                rel_info = obs_info[inst]['exposures'][e_id]
+
+                # Observation type check, we want to ensure that the type for the observation is 'SCIENCE'
+                if rel_info['type'] != 'SCIENCE':
+                    to_return[inst][e_id] = False
+
+                # Filter check - we want to exclude observations where the filter is in CalClosed (or Closed, as I
+                #  saw it called in one observation), or where the filter is None (apart from RGS, no filters there).
+                #  The Blocked filter that I'm excluding should only ever belong to the optical monitor, and
+                #  though I haven't decided if DAXA will ever reduce OM data, I'm including it here for future proofing.
+                if not rgs and (rel_info['filter'] is None or rel_info['filter']
+                                in ['CalClosed', 'Closed', 'Blocked', 'Unknown']):
+                    to_return[inst][e_id] = False
+
+                # Now we check the observing mode, there are quite a few that are non-science modes which don't
+                #  need to be reduced for scientific purposes. The list I'm using for this is on this website:
+                #  https://xmm-tools.cosmos.esa.int/external/xmm_user_support/documentation/dfhb/node72.html
+                # CentroidingConfirmation and subsequent modes are all for OM, again not sure if I'll ever implement
+                #  OM but trying to be thorough
+                bad_modes = ['Diagnostic3x3', 'Diagnostic1x1', 'CcdDiagnostic', 'Diagnostic1x1ResetPerPixel',
+                             'Diagnostic', 'Noise', 'Offset', 'HighTimeResolutionSingleCcd', 'OffsetVariance',
+                             'CentroidingConfirmation', 'CentroidingData', 'DarkHigh', 'DarkLow', 'FlatFieldHigh',
+                             'FlatFieldLow']
+                # Performs the actual mode check
+                if rel_info['mode'] in bad_modes:
+                    to_return[inst][e_id] = False
+
+        # I do want entries for the instruments which aren't active, even if they are just empty
+        to_return.update({inst: {} for inst in insts if 'exposures' not in obs_info[inst]})
+
+        return to_return

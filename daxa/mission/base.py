@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/12/2022, 17:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 06/04/2023, 14:13. Copyright (c) The Contributors
+
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -12,12 +13,26 @@ import numpy as np
 import pandas as pd
 from astropy import units as u
 from astropy.coordinates import SkyCoord, BaseRADecFrame
+from astropy.coordinates.name_resolve import NameResolveError
 from astropy.units import Quantity
+from tabulate import tabulate
 
 from daxa import OUTPUT
-from daxa.exceptions import MissionLockedError
+from daxa.exceptions import MissionLockedError, NoObsAfterFilterError, IllegalSourceType, NoTargetSourceTypeInfo
 
-REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration']
+# These are the columns which MUST be present in the all_obs_info dataframes of any sub-class of BaseMission. This
+#  is mainly implemented to make sure developers who aren't me provide the right data formats
+REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration', 'end']
+# This defines the DAXA source category system, which can be employed by users to narrow down observations which
+#  target specific types of source (if that data is available for a specific mission).
+SRC_TYPE_TAXONOMY = {'AGN': 'Active Galaxies and Quasars', 'BLZ': 'Blazars',
+                     'CAL': 'Calibration Observation (possibly of objects)', 'EGS': 'Extragalactic Surveys',
+                     'GCL': 'Galaxy Clusters', 'GS': 'Galactic Survey',
+                     'MAG': 'Magnetars and Rotation-Powered Pulsars', 'NGS': 'Normal and Starburst Galaxies',
+                     'OAGN': 'Obscured Active Galaxies and Quasars', 'SNE': 'Non-ToO Supernovae',
+                     'SNR': 'Supernova Remnants and Galactic diffuse', 'SOL': 'Solar System Observations',
+                     'ULX': 'Ultra-luminous X-ray Sources', 'XRB': 'X-ray Binaries', 'TOO': 'Targets of Opportunity',
+                     'EGE': 'Extended galactic or extragalactic', 'MISC': "Catch-all for other sources"}
 
 
 def _lock_check(change_func):
@@ -51,6 +66,7 @@ class BaseMission(metaclass=ABCMeta):
     prepared and reduced in various ways. The mission classes will also be responsible for providing a consistent
     user experience of downloading data and generating processed archives.
     """
+
     def __init__(self):
         """
         The __init__ of the superclass for all missions defined in this module. Mission classes will be for storing
@@ -281,8 +297,8 @@ class BaseMission(metaclass=ABCMeta):
                              " all observation information for this mission ({la}).".format(lf=len(new_filter_array),
                                                                                             la=len(self._obs_info)))
         elif new_filter_array.sum() == 0:
-            raise ValueError("Every value in the filter array is False, meaning that no observations remain. As "
-                             "such the new filter array has not been accepted")
+            raise NoObsAfterFilterError("Every value in the filter array is False, meaning that no observations "
+                                        "remain. As such the new filter array has not been accepted")
         else:
             self._filter_allowed = new_filter_array
             # If the filter changes then we make sure download done is set to False so that any changes
@@ -294,7 +310,8 @@ class BaseMission(metaclass=ABCMeta):
     def all_obs_info(self) -> pd.DataFrame:
         """
         A property getter that returns the base dataframe containing information about all the observations available
-        for an instance of a mission class.
+        for an instance of a mission class. This is an abstract method purely because its property setter is an
+        abstract method, one cannot be without the other.
 
         :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'usable_science',
             'start', 'duration'
@@ -449,7 +466,7 @@ class BaseMission(metaclass=ABCMeta):
             raise TypeError("New values for 'processed' must be boolean.")
         elif self._processed:
             raise ValueError("The processed property has already been set to True, and is now immutable.")
-        elif new_val:
+        elif new_val and not self.locked:
             self.locked = True
         self._processed = new_val
 
@@ -466,7 +483,18 @@ class BaseMission(metaclass=ABCMeta):
         if not isinstance(new_info, pd.DataFrame) or not all([col in new_info.columns for col in
                                                               REQUIRED_COLS + self._required_mission_specific_cols]):
             raise ValueError("New all_obs_info values for this mission must be a Pandas dataframe with the following "
-                             "columns; {}".format(', '.join(REQUIRED_COLS+self._required_mission_specific_cols)))
+                             "columns; {}".format(', '.join(REQUIRED_COLS + self._required_mission_specific_cols)))
+
+        if 'target_category' in new_info.columns:
+            # Checking for target types in the obsinfo dataframe that are not in the DAXA taxonomy
+            tt_check = [tt for tt in new_info['target_category'].value_counts().index.values
+                        if tt not in SRC_TYPE_TAXONOMY]
+            if len(tt_check) != 0:
+                # Throw a hopefully useful error if the user has passed illegal values
+                raise IllegalSourceType("Unsupported target type(s) ({it}) are present in the new observation info "
+                                        "dataframe, use one of the following; "
+                                        "{at}".format(it=', '.join(tt_check),
+                                                      at=', '.join(list(SRC_TYPE_TAXONOMY.keys()))))
 
     def _check_chos_insts(self, insts: Union[List[str], str]):
         """
@@ -479,6 +507,23 @@ class BaseMission(metaclass=ABCMeta):
         # Just makes sure we can iterate across instrument(s), regardless of how many there are
         if not isinstance(insts, list):
             insts = [insts]
+        
+        # Raising and error if the input is not Union[List[str], str]
+        if not all(isinstance(inst, str) for inst in insts):
+            raise TypeError("Instruments must be input as a string or a list of strings.")
+        
+        # Making sure the input is capitalised for compatibilty with the rest of the module
+        insts = [i.upper() for i in insts]
+
+        # I just check that there are actually entries in this list of instruments, because it would be silly if
+        #  there weren't
+        if len(insts) == 0:
+            raise ValueError("No instruments have been selected, please pass at least one.")
+
+        # I just check that there are actually entries in this list of instruments, because it would be silly if
+        #  there weren't
+        if len(insts) == 0:
+            raise ValueError("No instruments have been selected, please pass at least one.")
 
         # This is clunky and inefficient but should be fine for these very limited purposes. It just checks whether
         #  this module has a preferred name for a particular instrument. We can also make sure that there are no
@@ -507,7 +552,6 @@ class BaseMission(metaclass=ABCMeta):
         # If some aren't then we throw an error (hopefully quite an informative one).
         if not all(inst_test):
             bad_inst = np.array(updated_insts)[~np.array(inst_test)]
-            print(bad_inst)
             raise ValueError("Some instruments ({bi}) are not associated with this mission, please choose from "
                              "the following; {ai}".format(bi=", ".join(bad_inst), ai=", ".join(self._miss_poss_insts)))
 
@@ -516,7 +560,7 @@ class BaseMission(metaclass=ABCMeta):
 
     # Then define user-facing methods
     @abstractmethod
-    def fetch_obs_info(self):
+    def _fetch_obs_info(self):
         """
         The abstract method (i.e. will be overridden in every subclass of BaseMission) that pulls basic information
         on all observations for a given mission down from whatever server it lives on.
@@ -576,7 +620,7 @@ class BaseMission(metaclass=ABCMeta):
         sel_obs_mask = self._obs_info['ObsID'].isin(allowed_obs_ids)
         # Said boolean array can be multiplied with the existing filter array (by default all ones, which means
         #  all observations are let through) to produce an updated filter.
-        new_filter = self.filter_array*sel_obs_mask
+        new_filter = self.filter_array * sel_obs_mask
         # Then we set the filter array property with that updated mask
         self.filter_array = new_filter
 
@@ -615,8 +659,13 @@ class BaseMission(metaclass=ABCMeta):
         # Creates a filter based on a rectangular region defined by the input coordinates
         box_filter = (self.ra_decs.ra >= lower_left.ra) & (self.ra_decs.ra <= upper_right.ra) & \
                      (self.ra_decs.dec >= lower_left.dec) & (self.ra_decs.dec <= upper_right.dec)
+
+        # Have to check whether any observations have actually been found, if not then we throw an error
+        if box_filter.sum() == 0:
+            raise NoObsAfterFilterError("The box search has returned no {} observations.".format(self.pretty_name))
+
         # Updates the filter array
-        new_filter = self.filter_array*box_filter
+        new_filter = self.filter_array * box_filter
         self.filter_array = new_filter
 
     @_lock_check
@@ -664,6 +713,11 @@ class BaseMission(metaclass=ABCMeta):
         # Runs the 'catalogue matching' between all available observations and the input positions.
         which_pos, which_obs, d2d, d3d = self.ra_decs.search_around_sky(positions, search_distance)
 
+        # Have to check whether any observations have actually been found, if not then we throw an error
+        if len(which_obs) == 0:
+            raise NoObsAfterFilterError("The positional search has returned no {} "
+                                        "observations.".format(self.pretty_name))
+
         # Sets up a filter array that consists entirely of zeros initially (i.e. it would not let
         #  any observations through).
         pos_filter = np.zeros(self.filter_array.shape)
@@ -674,9 +728,63 @@ class BaseMission(metaclass=ABCMeta):
         # Convert the array of ones and zeros to boolean, which is what the filter_array property setter wants
         pos_filter = pos_filter.astype(bool)
         # Create the combination of the existing filter array and the new position filter
-        new_filter = self.filter_array*pos_filter
+        new_filter = self.filter_array * pos_filter
         # And update the filter array
         self.filter_array = new_filter
+
+    @_lock_check
+    def filter_on_name(self, object_name: Union[str, List[str]], search_distance: Union[Quantity, float, int],
+                       parse_name: bool = False):
+        """
+        This method wraps the 'filter_on_positions' method, and allows you to filter the mission's observations so
+        that it contains data on a single (or a list of) specific objects. The names are passed by the user, and
+        then parsed into coordinates using the Sesame resolver. Those coordinates and the search distance are
+        then used to find observations that might be relevant.
+
+        :param str/List[str] object_name: The name(s) of objects you would like to search for.
+        :param Quantity/float/int search_distance: The distance within which to search for observations by this
+            mission. Distance may be specified as an Astropy Quantity that can be converted to degrees, or as a
+            float/integer that will be assumed to be in units of degrees.
+        :param bool parse_name: Whether to attempt extracting the coordinates from the name by parsing with a regex.
+            For objects catalog names that have J-coordinates embedded in their names, e.g.,
+            'CRTS SSS100805 J194428-420209', this may be much faster than a Sesame query for the same object name.
+        """
+        # Turn a single name into a list with a single entry - normalises it for the rest of the method
+        if isinstance(object_name, str):
+            object_name = [object_name]
+
+        # This is the list where coordinates will be stored
+        coords = []
+        # Any failed lookups will be stored in here, and the user will be warned that they couldn't be resolved.
+        bad_names = []
+        # Cycling through the names
+        for n_ind, name in enumerate(object_name):
+            # Try except is necessary to deal with the possibility of the name not being resolved
+            try:
+                # We read the coordinates out into the frame of mission, and let the user decide whether
+                #  they want to use the parsing ability in from_name
+                coords.append(SkyCoord.from_name(name, frame=self.coord_frame, parse=parse_name))
+            except NameResolveError:
+                # If we could not resolve the name, we save said name for the warning later
+                bad_names.append(name)
+
+        # Have to check whether there are any coordinates that have been resolved, if not we throw an error
+        if len(coords) == 0:
+            raise NameResolveError("The name(s) could be resolved into coordinates.")
+
+        # Also, if this list has any entries, then some names failed to resolve (but if we're here then some of the
+        #  names WERE resolved)
+        if len(bad_names) != 0:
+            # Warn the user what happened, with the names, so they can do some diagnosis
+            warn('Some of the object names ({}) could not be resolved by Sesame'.format(', '.join(bad_names)),
+                 stacklevel=2)
+
+        # This combines the coordinate list into just one SkyCoord instance, with multiple coordinate entries. Now
+        #  we can use this with the ObsID filtering method
+        coords = SkyCoord(coords)
+
+        # Now we just call the 'filter_on_positions' method
+        self.filter_on_positions(coords, search_distance)
 
     @_lock_check
     def filter_on_time(self, start_datetime: datetime, end_datetime: datetime, over_run: bool = False):
@@ -705,8 +813,62 @@ class BaseMission(metaclass=ABCMeta):
                            (self.all_obs_info['start'] <= end_datetime)) | \
                           ((self.all_obs_info['end'] >= start_datetime) & (self.all_obs_info['end'] <= end_datetime))
 
+        # Have to check whether any observations have actually been found, if not then we throw an error
+        if time_filter.sum() == 0:
+            raise NoObsAfterFilterError("The temporal search has returned no {} "
+                                        "observations.".format(self.pretty_name))
+
         # Combines the time filter with the existing filter and updates the property.
         new_filter = self.filter_array * time_filter
+        self.filter_array = new_filter
+
+    @_lock_check
+    def filter_on_target_type(self, target_type: Union[str, List[str]]):
+        """
+        This method allows the filtering of observations based on what type of object their target source was. It
+        is only supported for missions that have that data available, and will raise an exception for those
+        missions that don't support this filtering.
+
+        WARNING: You should not trust these target types without question, they are the result of crude mappings, and
+        some may be incorrect. They also don't take into account sources that might serendipitously appear in
+        a particular observation.
+
+        :param str/List[str] target_type: The types of target source you would like to find observations of. For
+            allowed types, please use the 'show_allowed_target_types' method. Can either be a single type, or
+            a list of types.
+        """
+        # If only one target type is passed, we still make sure it's a list - normalises it for the rest
+        #  of the method
+        if isinstance(target_type, str):
+            target_type = [target_type]
+        # Also make sure whatever the user has passed is set to all uppercase
+        target_type = [tt.upper() for tt in target_type]
+
+        # Look for passed target types that AREN'T in the DAXA taxonomy
+        tt_check = [tt for tt in target_type if tt not in SRC_TYPE_TAXONOMY]
+        if len(tt_check) != 0:
+            # Throw a hopefully useful error if the user has passed illegal values
+            raise IllegalSourceType("Unsupported target type(s) ({it}) have been passed to this method, use one of the "
+                                    "following; {at}".format(it=', '.join(tt_check),
+                                                             at=', '.join(list(SRC_TYPE_TAXONOMY.keys()))))
+
+        # If there is no information on target source types in the observation info dataframe, then unfortunately
+        #  this method can't be used.
+        if 'target_category' not in self.all_obs_info.columns:
+            raise NoTargetSourceTypeInfo("No target source type information is available "
+                                         "for {}".format(self.pretty_name))
+
+        # This creates a boolean array of dataframe entries that match the selected target type(s)
+        sel_obs_mask = self._obs_info['target_category'].isin(target_type)
+        # Check that we actually selected some observations
+        if sel_obs_mask.sum() == 0:
+            raise NoObsAfterFilterError("The target type search has returned no {} "
+                                        "observations.".format(self.pretty_name))
+
+        # The boolean array can be multiplied with the existing filter array (by default all ones, which means
+        #  all observations are let through) to produce an updated filter.
+        new_filter = self.filter_array * sel_obs_mask
+        # Then we set the filter array property with that updated mask
         self.filter_array = new_filter
 
     def info(self):
@@ -731,6 +893,44 @@ class BaseMission(metaclass=ABCMeta):
         """
         pass
 
+    @abstractmethod
+    def assess_process_obs(self, obs_info: dict):
+        """
+        A slightly unusual abstract method which will allow each mission to assess the information on a particular
+        observation that has been put together by an Archive (the archive assembles it because sometimes this
+        detailed information only becomes available at the first stages of processing), and make a decision on whether
+        that particular observation-instrument-subexposure (for missions like XMM) should be processed further for
+        scientific use.
+
+        Implemented as an abstract method because the information and decision-making process will likely be
+        different for every mission.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param dict obs_info: The multi-level dictionary containing available observation information for an
+            observation.
+        """
+        pass
+
+    @staticmethod
+    def show_allowed_target_types(table_format: str = 'fancy_grid'):
+        """
+        This simple method just displays the DAXA source type taxonomy (the target source types you can filter by)
+        in a nice table, with descriptions of what each source type means. Filtering on target source type is not
+        guaranteed to work with every mission, as target type information is not necessarily available, but this
+        filtering is used through the filter_on_target_type method.
+
+        :param str table_format: The style format for the table to be displayed (should be one of the 'tabulate'
+            module formats). The default is 'fancy_grid'.
+        """
+        # Reads out the keys (i.e. what the user can filter with), and their descriptions
+        data = [[k, v] for k, v in SRC_TYPE_TAXONOMY.items()]
+        # Create the two column titles
+        cols = ['Target Type', 'Description']
+        # Now simply print them in a nice table
+        print(tabulate(data, cols, tablefmt=table_format))
+
     def __len__(self):
         """
         The method triggered by the len() operator, returns the number of observations in the filtered,
@@ -740,8 +940,3 @@ class BaseMission(metaclass=ABCMeta):
         :rtype: int
         """
         return len(self.filtered_obs_info)
-
-
-
-
-

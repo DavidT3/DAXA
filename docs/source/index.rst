@@ -11,6 +11,7 @@ Welcome to Democratising Archival X-ray Astronomy (DAXA)'s documentation!
 
    Introduction <intro.rst>
    Installation <install.rst>
+   Checking Data After Cleaning <cleaning.rst>
    DAXA Classes and Functions <daxa.rst>
    Planned Features <future.rst>
    Publications using DAXA <publications.rst>

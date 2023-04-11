@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/02/2023, 12:07. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/04/2023, 15:09. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -59,6 +59,14 @@ def _sas_process_setup(obs_archive: Archive) -> Version:
             stor_dir = obs_archive.get_processed_data_path(miss, obs_id)
             if not os.path.exists(stor_dir):
                 os.makedirs(stor_dir)
+
+        # We also ensure that an overall directory for failed processing observations exists - this will give
+        #  observation directories which have no useful data in (i.e. they do not have a successful final
+        #  processing step) somewhere to be copied to (see daxa.process._cleanup._last_process).
+        # This is the overall path, there might not ever be anything in it, so we don't pre-make ObsID sub-directories
+        fail_proc_dir = obs_archive.get_failed_data_path(miss, None).format(oi='')[:-1]
+        if not os.path.exists(fail_proc_dir):
+            os.makedirs(fail_proc_dir)
 
     return sas_vers
 
@@ -210,6 +218,8 @@ def sas_call(sas_func):
 
     @wraps(sas_func)
     def wrapper(*args, **kwargs):
+        # This is here to avoid a circular import issue
+        from daxa.process.xmm.setup import parse_odf_sum
 
         # The first argument of all the SAS processing functions will be an archive instance, and pulling
         #  that out of the arguments will be useful later
@@ -242,6 +252,16 @@ def sas_call(sas_func):
         # This is for the extra information which can be passed from processing functions
         process_einfo = {}
 
+        # Observation information, parsed from the output summary file created by ODF ingest, will be stored in
+        #  this dictionary and eventually passed into the archive. As such this dictionary will only be used
+        #  if the task sas_call is wrapping is odf_ingest
+        parsed_obs_info = {}
+        # In the same vein, I define a simple boolean to tell the callback function (where parsing will take place)
+        #  whether or not it needs to run the parsing function. I could do this by checking for the existence
+        #  of the 'sum_path' key in the extra information dictionary, but I think this way is safer. Just in case
+        # I accidentally re-use that key somewhere else
+        run_odf_sum_parse = sas_func.__name__ == 'odf_ingest'
+
         # I do not love this solution, but this will be what any python errors that are thrown during execute_cmd
         #  are stored in. In theory, because execute_cmd is so simple, there shouldn't be Python errors thrown.
         #  SAS errors will be stored in process_parsed_stderrs
@@ -257,6 +277,7 @@ def sas_call(sas_func):
             process_parsed_stderr_warns[miss_name] = {}
             process_stdouts[miss_name] = {}
             process_einfo[miss_name] = {}
+            parsed_obs_info[miss_name] = {}
 
             # There's no point setting up a Pool etc. if there are no tasks to run for the current mission, so
             #  we check how many there are
@@ -289,6 +310,9 @@ def sas_call(sas_func):
                         nonlocal process_parsed_stderr_warns
                         nonlocal process_stdouts
                         nonlocal process_einfo
+                        nonlocal run_odf_sum_parse
+                        nonlocal parsed_obs_info
+                        nonlocal python_errors
 
                         # Just unpack the results in for clarity's sake
                         relevant_id, mission_name, does_file_exist, proc_out, proc_err, proc_extra_info = results_in
@@ -320,6 +344,17 @@ def sas_call(sas_func):
                         #  eventually be fed to the archive
                         if len(proc_extra_info) != 0:
                             process_einfo[mission_name][relevant_id] = proc_extra_info
+
+                        # If the tested-for output file exists, and we know that the current task is odf_ingest
+                        #  we're going to do an extra post-processing step and parse the output SAS summary file
+                        if all(does_file_exist) and run_odf_sum_parse:
+                            try:
+                                parsed_obs_info[mission_name][relevant_id] = parse_odf_sum(proc_extra_info['sum_path'],
+                                                                                           relevant_id)
+                            # Possible that this parsing doesn't go our way however, so we have to be able to catch
+                            #  an exception.
+                            except ValueError as err:
+                                python_errors.append(err)
 
                         # Make sure to update the progress bar
                         gen.update(1)
@@ -355,12 +390,18 @@ def sas_call(sas_func):
             if len(python_errors) != 0:
                 raise ExceptionGroup("Python errors raised during SAS commands", python_errors)
 
-            obs_archive.process_success = (sas_func.__name__, success_flags)
-            obs_archive.process_errors = (sas_func.__name__, process_parsed_stderrs)
-            obs_archive.process_warnings = (sas_func.__name__, process_parsed_stderr_warns)
-            obs_archive.raw_process_errors = (sas_func.__name__, process_raw_stderrs)
-            obs_archive.process_logs = (sas_func.__name__, process_stdouts)
-            obs_archive.process_extra_info = (sas_func.__name__, process_einfo)
+        obs_archive.process_success = (sas_func.__name__, success_flags)
+        obs_archive.process_errors = (sas_func.__name__, process_parsed_stderrs)
+        obs_archive.process_warnings = (sas_func.__name__, process_parsed_stderr_warns)
+        obs_archive.raw_process_errors = (sas_func.__name__, process_raw_stderrs)
+        obs_archive.process_logs = (sas_func.__name__, process_stdouts)
+        obs_archive.process_extra_info = (sas_func.__name__, process_einfo)
+
+        # If the task we just ran is odf ingest, that means we've parsed the summary files to provide us with some
+        #  information on the data we have - that information is in the parsed_obs_info dictionary and needs to be
+        #  added to the observation_summaries property of the archive
+        if run_odf_sum_parse:
+            obs_archive.observation_summaries = parsed_obs_info
 
     return wrapper
 
