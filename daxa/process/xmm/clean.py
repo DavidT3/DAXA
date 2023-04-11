@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 12:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/04/2023, 10:14. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
@@ -9,6 +9,7 @@ from astropy.units import Quantity, UnitConversionError
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
+from daxa.exceptions import NoDependencyProcessError
 from daxa.process.xmm._common import _sas_process_setup, ALLOWED_XMM_MISSIONS, sas_call
 
 
@@ -226,13 +227,17 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
         rel_p_obs = obs_archive.get_obs_to_process(miss.name, 'PN')
 
         # Here we check that emchain ran - if it didn't then we won't be cleaning event lists for those observations
-        good_em = obs_archive.check_dependence_success(miss.name, rel_m_obs, 'emchain')
+        good_em = obs_archive.check_dependence_success(miss.name, rel_m_obs, 'emchain', no_success_error=False)
         # Same deal for the PN data
-        good_ep = obs_archive.check_dependence_success(miss.name, rel_p_obs, 'epchain')
+        good_ep = obs_archive.check_dependence_success(miss.name, rel_p_obs, 'epchain', no_success_error=False)
 
         # We combine the obs information for PN and MOS, taking only those that we have confirmed have had successful
         #  emchain or epchain runs
         all_obs_info = np.vstack([np.array(rel_m_obs)[good_em], np.array(rel_p_obs)[good_ep]])
+
+        if len(all_obs_info) == 0:
+            raise NoDependencyProcessError("No observations have had successful epchain/emchain runs, so espfilt "
+                                           "cannot be run.")
 
         # We iterate through the valid identifying information
         for obs_info in all_obs_info:
