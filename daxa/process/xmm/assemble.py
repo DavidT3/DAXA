@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/04/2023, 10:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/04/2023, 10:18. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -10,6 +10,7 @@ from astropy.units import Quantity, UnitConversionError
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
+from daxa.exceptions import NoDependencyProcessError
 from daxa.process._backend_check import find_lcurve
 from daxa.process._cleanup import _last_process
 from daxa.process.xmm._common import _sas_process_setup, sas_call, ALLOWED_XMM_MISSIONS
@@ -422,17 +423,27 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         rel_p_obs = obs_archive.get_obs_to_process(miss.name, 'PN')
 
         # This checks that espfilt ran successfully for the PN data
-        ef_pn_good = obs_archive.check_dependence_success(miss.name, rel_p_obs, 'espfilt')
+        ef_pn_good = obs_archive.check_dependence_success(miss.name, rel_p_obs, 'espfilt', no_success_error=False)
 
         # This is why we're treating PN and MOS separately here, if the user wants to exclude certain CCD states
         #  then we have to make sure that emanom was run (and run successfully) for the MOS data.
         if filt_mos_anom_state:
-            ef_mos_good = obs_archive.check_dependence_success(miss.name, rel_m_obs, ['emanom', 'espfilt'])
+            ef_mos_good = obs_archive.check_dependence_success(miss.name, rel_m_obs, ['emanom', 'espfilt'],
+                                                               no_success_error=False)
         else:
-            ef_mos_good = obs_archive.check_dependence_success(miss.name, rel_m_obs, 'espfilt')
+            ef_mos_good = obs_archive.check_dependence_success(miss.name, rel_m_obs, 'espfilt',
+                                                               no_success_error=False)
 
         # Now we construct the array of observation identifiers that should be cleaned
         all_obs_info = np.vstack([np.array(rel_p_obs)[ef_pn_good], np.array(rel_m_obs)[ef_mos_good]])
+
+        # We check to see if any data remain in all_obs_info - normally check_dependence_success would raise an error
+        #  if there weren't any, but as we're checking PN and MOS separately (and I want espfilt to run even if all
+        #  data for PN or MOS hasn't made it this far) I passed no_success_error=False and instead check for absolute
+        #  failure here
+        if len(all_obs_info) == 0:
+            raise NoDependencyProcessError("No observations have had successful espfilt runs, so cleaned_evt_lists "
+                                           "cannot be run.")
 
         # We iterate through the valid identifying information which has had a successful espfilt (and possibly
         #  emanom, for MOS and if the user wants to exclude anomalous CCD states) run
