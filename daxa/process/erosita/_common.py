@@ -1,3 +1,5 @@
+# This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
+# Last modified by David J Turner (turne540@msu.edu) Thu Apr 13 2023, 15:16. Copyright (c) The Contributors
 import glob
 from typing import Bool, Tuple, List
 from warnings import warn
