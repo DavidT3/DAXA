@@ -22,14 +22,15 @@ def _esass_process_setup(obs_archive: Archive) -> Bool:
     :rtype: Bool
     """
 
-    # This makes sure that SAS is installed on the host system, and also identifies the version
+    # This makes sure that eSASS is installed on the host system, and also idenitifies whether
+    # it is within a Docker container or just on the system.
     esass_in_docker = find_esass()
 
     if not isinstance(obs_archive, Archive):
         raise TypeError('The passed obs_archive must be an instance of the Archive class, which is made up of one '
                         'or more mission class instances.')
     
-    # Now we ensure that the passed observation archive actually contains XMM mission(s)
+    # Now we ensure that the passed observation archive actually contains eROSITA mission(s)
     erosita_miss = [mission for mission in obs_archive if mission.name in ALLOWED_EROSITA_MISSIONS]
     if len(erosita_miss) == 0:
         raise NoEROSITAMissionsError("None of the missions that make up the passed observation archive are "
@@ -46,6 +47,14 @@ def _esass_process_setup(obs_archive: Archive) -> Bool:
             stor_dir = obs_archive.get_processed_data_path(miss, obs_id)
             if not os.path.exists(stor_dir):
                 os.makedirs(stor_dir)
+    
+        # We also ensure that an overall directory for failed processing observations exists - this will give
+        #  observation directories which have no useful data in (i.e. they do not have a successful final
+        #  processing step) somewhere to be copied to (see daxa.process._cleanup._last_process).
+        # This is the overall path, there might not ever be anything in it, so we don't pre-make ObsID sub-directories
+        fail_proc_dir = obs_archive.get_failed_data_path(miss, None).format(oi='')[:-1]
+        if not os.path.exists(fail_proc_dir):
+            os.makedirs(fail_proc_dir)
 
     return esass_in_docker
 
