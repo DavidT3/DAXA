@@ -54,10 +54,6 @@ def find_esass() -> Bool:
     :return: A bool indicating whether or not eSASS is being used via Docker or not, set to True if Docker is being used. 
     :rtype: Bool
     """
-    # DAVID_QUESTION no clue about the version --> probably dont need it at this stage?
-    # JESS_TODO set a variable indicating whether or not esass is being used via docker which
-    # JESS_TODO can effect things in the execute_cmd() function for eROSITA 
-
     # Defining the Booleans to check whether eSASS can be used
     docker_installed = False
     docker_daemon_running = False
@@ -103,4 +99,3 @@ def find_esass() -> Bool:
     if docker_daemon_running and esass_outside_docker:
         # If docker and esass are both present, use esass outside of docker 
         return False
-    
