@@ -5,8 +5,7 @@ import os
 from subprocess import Popen, PIPE
 
 from packaging.version import Version
-from shutil import which
-from typing import Bool 
+from shutil import which 
 
 from ..exceptions import SASNotFoundError, SASVersionError, eSASSNotFoundError
 
@@ -45,7 +44,7 @@ def find_sas() -> Version:
 
     return sas_version
 
-def find_esass() -> Bool:
+def find_esass() -> bool:
     """
      This function checks to ensure the presence of either eSASS on the host system, or for an installation of Docker with a running Docker daemon. 
      It will be called before performing any data processing/reduction of eROSITA data. 
