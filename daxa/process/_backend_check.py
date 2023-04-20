@@ -9,7 +9,6 @@ from shutil import which
 
 from ..exceptions import SASNotFoundError, SASVersionError, eSASSNotFoundError
 
-
 def find_sas() -> Version:
     """
     This function checks to ensure the presence of SAS on the host system, and it will be called before performing
@@ -72,15 +71,11 @@ def find_esass() -> bool:
     # If this doesnt raise an error, then the eSASS env. is enabled and working
     if len(err) == 0:
         docker_daemon_running = True
-    
+        
     # Performing eSASS installation checks for eSASS outside of Docker
-    cmd = 'evtool'
-    out, err = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
-    err = err.decode("UTF-8", errors='ignore')
-    # If this doesnt raise an error, then the eSASS env. is enabled and working
-    if len(err) == 0:
+    if which('evtool') is not None:
         esass_outside_docker = True
-
+        
     # Raising errors 
     if not (docker_installed or esass_outside_docker):
         raise eSASSNotFoundError("No version of eSASS has been detected on this system.")
