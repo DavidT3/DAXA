@@ -1,24 +1,25 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 20/01/2023, 20:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/04/2023, 10:29. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
 from typing import Union, List, Tuple
-from warnings import warn
 
-from astropy.io import fits
+import numpy as np
 from astropy.units import Quantity, UnitConversionError
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
 from daxa.exceptions import NoDependencyProcessError
+from daxa.process._backend_check import find_lcurve
+from daxa.process._cleanup import _last_process
 from daxa.process.xmm._common import _sas_process_setup, sas_call, ALLOWED_XMM_MISSIONS
 from daxa.process.xmm.check import parse_emanom_out
 
 
 @sas_call
 def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: int = NUM_CORES,
-            disable_progress: bool = False):
+            disable_progress: bool = False, timeout: Quantity = None):
     """
     This function runs the epchain SAS process on XMM missions in the passed archive, which assembles the
     PN-specific ODFs into combined photon event lists - rather than the per CCD files that existed before. A run of
@@ -35,12 +36,15 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
         unscheduled. Default is True, in which case they will be processed.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire epchain process, but a timeout for individual
+        ObsID-subexposure processes.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
         internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
@@ -74,95 +78,83 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
-        # Now we're iterating through the ObsIDs that have been selected for the current mission
-        for obs_id in miss.filtered_obs_ids:
-            for inst in miss.chosen_instruments:
-                if inst == 'PN':
-                    # The location of the raw data
-                    odf_dir = miss.raw_data_path + obs_id + '/'
+        # This method will fetch the valid data (ObsID, Instrument, and sub-exposure) that we need to process. When
+        #  given PN as a search term (as this is epchain, we don't need to include MOS) only PN identifiers will be
+        #  returned.
+        # I prefer this to how I originally wrote this, as it saves multiple layers of for loops/if statements, which
+        #  can be a little tricky to decipher
+        rel_obs_info = obs_archive.get_obs_to_process(miss.name, 'PN')
 
-                    # TODO Update this when I have built a SAS summary file parser (see issue #34)
-                    # Try to figure out how many PN exposures there were, as epchain will not automatically
-                    #  loop through them, it has to be run separately for each I think (unlike emchain)
-                    pn_exp = list(set([f.split(obs_id)[1].split('PN')[1][:4] for f in os.listdir(odf_dir)
-                                  if 'PNS' in f or 'PNU' in f]))
+        # Don't just launch straight into the loop however, as the user can choose NOT to process unscheduled
+        #  observations. In that case we clean that rel_obs_info list.
+        if not process_unscheduled:
+            # Select only those sub exposures that have an ident that doesn't start with a U
+            rel_obs_info = [roi for roi in rel_obs_info if roi[2][0] != 'U']
 
-                    # Clean out the list of exposures here rather than add another layer of nesting to the
-                    #  for loop below - this removes unscheduled exposures if the user has decided that they don't
-                    #  want to process them.
-                    if not process_unscheduled:
-                        pn_exp = [pe for pe in pn_exp if 'U' not in pe]
+        # Here we check that the previous required processes ran, mainly to be consistent. I know that odf ingest
+        #  worked if we have rel_obs_info data, because odf_ingest is what populated the information get_obs_to_process
+        #  uses for XMM.
+        good_odf = obs_archive.check_dependence_success(miss.name, [[roi[0]] for roi in rel_obs_info], 'odf_ingest')
 
-                    for exp_id in pn_exp:
-                        # TODO Again update this after SAS summary parser (issue 34), because we currently try to
-                        #  process everything as imaging mode (see issue #40)
+        # Now we start to cycle through the relevant data
+        for obs_info in np.array(rel_obs_info)[good_odf]:
+            # Unpack the observation information provided by the
+            obs_id, inst, exp_id = obs_info
 
-                        # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
-                        #  files will be written to.
-                        dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
-                        ccf_path = dest_dir + 'ccf.cif'
+            # The location of the raw data
+            odf_dir = miss.raw_data_path + obs_id + '/'
 
-                        # The idea here is to figure out which CCDs where active for a particular observation - this
-                        #  is to avoid errors thrown by epchain about missing CCD data. Those errors are non-fatal,
-                        #  but they contaminate the stderr output which is parsed by DAXA, and cause us to consider
-                        #  processing small-window mode data a failure when it isn't, as only one CCD is turned on
-                        search_term = '{o}_{i}{e}'.format(o=obs_id, i=inst, e=exp_id)
-                        # TODO Again update this after SAS summary parser (issue 34) is implemented
-                        # Lists the ODFs which match the search term above, finding separate imaging mode files
-                        #  for each CCD of the current sub-exposure
-                        ccd_files = [f for f in os.listdir(odf_dir) if search_term in f and 'IME' in f]
+            # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
+            #  files will be written to.
+            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            ccf_path = dest_dir + 'ccf.cif'
 
-                        # As an aside, at this point we can check to see if there are any files in this list, as
-                        #  if there are none then we can decide that this sub-exposure is not in an imaging data mode
-                        #  and as such we won't process it
-                        # TODO This will have to change when I start processing non-imaging data modes
-                        if len(ccd_files) == 0:
-                            continue
+            # Want to identify which CCDs can be processed, i.e. were turned on and were in imaging mode rather
+            #  than timing mode - perhaps timing mode will be supported by DAXA later on.
+            ccd_modes = obs_archive.observation_summaries[miss.name][obs_id][inst]['exposures'][exp_id]['ccd_modes']
+            ccd_ids = [ccd_id for ccd_id, ccd_mode in ccd_modes.items() if ccd_mode.upper() == 'IMAGING']
 
-                        # Now the files are processed to just retrieve the list of CCDs active for this sub-exposure
-                        #  of the current observation
-                        ccd_ids = sorted([int(f.split(search_term)[-1].split('IME')[0]) for f in ccd_files])
-                        # The stupid conversion from str to int to str again is an inelegant way of removing leading
-                        #  zeros from the CCD ID numbers in their string form - also need to sort whilst they
-                        #  are in integer form
-                        ccd_ids = [str(c_id) for c_id in ccd_ids]
-                        ccd_str = ",".join(ccd_ids)
+            # Then turn into a string so as they can be passed to the epchain command we're constructing
+            ccd_str = ",".join([str(c_id) for c_id in sorted(ccd_ids)])
 
-                        # Set up a temporary directory to work in
-                        temp_name = "tempdir_{}".format(randint(0, 1e+8))
-                        temp_dir = dest_dir + temp_name + "/"
-                        # This is where the final output event list file will be stored
-                        final_path = dest_dir + evt_list_name.format(o=obs_id, eid=exp_id)
-                        oot_final_path = dest_dir + oot_evt_list_name.format(o=obs_id, eid=exp_id)
+            # Set up a temporary directory to work in
+            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_dir = dest_dir + temp_name + "/"
+            # This is where the final output event list file will be stored
+            final_path = dest_dir + evt_list_name.format(o=obs_id, eid=exp_id)
+            oot_final_path = dest_dir + oot_evt_list_name.format(o=obs_id, eid=exp_id)
 
-                        # If it doesn't already exist then we will create commands to generate it
-                        # TODO Decide whether this is the route I really want to follow for this (see issue #28)
-                        if not os.path.exists(final_path):
-                            # Make the temporary directory (it shouldn't already exist but doing this to be safe)
-                            if not os.path.exists(temp_dir):
-                                os.makedirs(temp_dir)
+            # If it doesn't already exist then we will create commands to generate it - there are no options for
+            #  epchain that could be changed between runs (other than processing unscheduled, but we're looping
+            #  through those commands separately), so it's safe to take what has already been generated.
+            # Though actually the raw data could have changed, I shall have to reconsider this in the context of
+            #  updating an existing archive
+            if not os.path.exists(final_path):
+                # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
 
-                            # Format the blank command string defined near the top of this function with information
-                            #  particular to the current mission and ObsID
-                            cmd = ep_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, e=exp_id[1:], s=exp_id[0],
-                                                c=ccd_str)
+                # Format the blank command string defined near the top of this function with information
+                #  particular to the current mission and ObsID
+                cmd = ep_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, e=exp_id[1:], s=exp_id[0],
+                                    c=ccd_str)
 
-                            # Now store the bash command, the path, and extra info in the dictionaries
-                            miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
-                            # The SAS wrapping functionality can check that multiple final files exist
-                            miss_final_paths[miss.name][obs_id + inst + exp_id] = [final_path, oot_final_path]
-                            miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_list': final_path,
-                                                                              'oot_evt_list': oot_final_path}
+                # Now store the bash command, the path, and extra info in the dictionaries
+                miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
+                # The SAS wrapping functionality can check that multiple final files exist
+                miss_final_paths[miss.name][obs_id + inst + exp_id] = [final_path, oot_final_path]
+                miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_list': final_path,
+                                                                  'oot_evt_list': oot_final_path}
 
     # This is just used for populating a progress bar during generation
     process_message = 'Assembling PN and PN-OOT event lists'
 
-    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
 @sas_call
 def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: int = NUM_CORES,
-            disable_progress: bool = False):
+            disable_progress: bool = False, timeout: Quantity = None):
     """
     This function runs the emchain SAS process on XMM missions in the passed archive, which assembles the
     MOS-specific ODFs into combined photon event lists - rather than the per CCD files that existed before. The
@@ -174,29 +166,42 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     parallelisation (if on a system with a significant core count), but also allows the same level of granularity
     in the logging of processing of different sub-exposures as in DAXA's epchain implementation.
 
+    The particular CCDs to be processed are not specified in emchain, unlike in epchain, because it can sometimes
+    have unintended consequences. For instance processing a MOS observation in FastUncompressed mode, with timing
+    on CCD 1 and imaging everywhere else, can cause emchain to fail (even though no actual failure occurs) because
+    the submode is set to Unknown, rather than FastUncompressed.
+
     :param Archive obs_archive: An Archive instance containing XMM mission instances with MOS observations for
         which emchain should be run. This function will fail if no XMM missions are present in the archive.
     :param bool process_unscheduled: Whether this function should also process sub-exposures marked 'U', for
         unscheduled. Default is True, in which case they will be processed.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire emchain process, but a timeout for individual
+        ObsID-subexposure processes.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
         internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
     sas_version = _sas_process_setup(obs_archive)
 
+    # We run a backend check for the lcurve tool, as emchain seems to require it to complete successfully. This will
+    #  throw an error if it does not find lcurve
+    heasoft_version = find_lcurve()
+
     # Define the form of the emchain command that must be run to create a combined MOS1/2 event list - the exposures
     #  argument will only ever be set with one exposure at a time. emchain does loop through sub-exposures
     #  automatically, but I'm attempting to normalise the behaviours between emchain and epchain in how DAXA calls
     #  them. Issue #42 discusses this.
-    em_cmd = "cd {d}; export SAS_CCF={ccf}; emchain odf={odf} instruments={i} exposures={ei}; mv *MIEVLI*.FIT ../; " \
-             "mv *ATTTSR*.FIT ../; cd ..; rm -r {d}"
+    # addtaglenoise and makeflaregti are disabled because DAXA already has equivalents, emanom and espfilt
+    em_cmd = "cd {d}; export SAS_CCF={ccf}; emchain odf={odf} instruments={i} exposures={ei} addtaglenoise=no " \
+             "makeflaregti=no; mv *MIEVLI*.FIT ../; mv *ATTTSR*.FIT ../; cd ..; rm -r {d}"
 
     # The event list name that we want to check for at the end of the process - the zeros at the end seem to always
     #  be there for emchain-ed event lists, which is why I'm doing it this way rather than with a wildcard * at the
@@ -219,64 +224,89 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
-        # Now we're iterating through the ObsIDs that have been selected for the current mission
-        for obs_id in miss.filtered_obs_ids:
-            for inst in miss.chosen_instruments:
-                if inst in ['M1', 'M2']:
-                    # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
-                    #  files will be written to.
-                    dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
-                    ccf_path = dest_dir + 'ccf.cif'
+        # This method will fetch the valid data (ObsID, Instrument, and sub-exposure) that we need to process. When
+        #  given M1 (for instance) as a search term only MOS1 identifiers will be returned. As emchain needs to
+        #  process MOS1 and MOS2 data, I just run it twice and add the results together
+        # I prefer this to how I originally wrote this, as it saves multiple layers of for loops/if statements, which
+        #  can be a little tricky to decipher
+        rel_obs_info = obs_archive.get_obs_to_process(miss.name, 'M1') + obs_archive.get_obs_to_process(miss.name, 'M2')
 
-                    # Grab the path to the ODF directory, we shall need it
-                    odf_dir = miss.raw_data_path + obs_id + '/'
+        # Don't just launch straight into the loop however, as the user can choose NOT to process unscheduled
+        #  observations. In that case we clean that rel_obs_info list.
+        if not process_unscheduled:
+            # Select only those sub exposures that have an ident that doesn't start with a U
+            rel_obs_info = [roi for roi in rel_obs_info if roi[2][0] != 'U']
 
-                    # List available sub-exposures for the current ObsID-instrument combo
-                    m_exp = list(set([f.split(obs_id)[1].split(inst)[1][:4] for f in os.listdir(odf_dir)
-                                      if '{i}S'.format(i=inst) in f or '{i}U'.format(i=inst) in f]))
+        # Here we check that the previous required processes ran, mainly to be consistent. I know that odf ingest
+        #  worked if we have rel_obs_info data, because odf_ingest is what populated the information get_obs_to_process
+        #  uses for XMM.
+        good_odf = obs_archive.check_dependence_success(miss.name, [[roi[0]] for roi in rel_obs_info], 'odf_ingest')
 
-                    # Clean out the list of exposures here rather than add another layer of nesting to the
-                    #  for loop below - this removes unscheduled exposures if the user has decided that they don't
-                    #  want to process them.
-                    if not process_unscheduled:
-                        m_exp = [me for me in m_exp if 'U' not in me]
+        # Now we start to cycle through the relevant data
+        for obs_info in np.array(rel_obs_info)[good_odf]:
+            # Unpack the observation information provided by the
+            obs_id, inst, exp_id = obs_info
 
-                    for exp_id in m_exp:
-                        # Set up a temporary directory to work in
-                        temp_name = "tempdir_{}".format(randint(0, 1e+8))
-                        temp_dir = dest_dir + temp_name + "/"
+            # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
+            #  files will be written to.
+            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            ccf_path = dest_dir + 'ccf.cif'
 
-                        # This is where the final output event list file will be stored
-                        final_path = dest_dir + evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
+            # Grab the path to the ODF directory, we shall need it
+            odf_dir = miss.raw_data_path + obs_id + '/'
 
-                        # If it doesn't already exist then we will create commands to generate it
-                        # TODO Decide whether this is the route I really want to follow for this (see issue #28)
-                        if not os.path.exists(final_path):
-                            # Make the temporary directory (it shouldn't already exist but doing this to be safe)
-                            if not os.path.exists(temp_dir):
-                                os.makedirs(temp_dir)
+            # ATTENTION - this was left here because it may be useful in the future, but specifying which CCDs to
+            #  process can have some unintended consequences in emchain that I do not care to fully explore right now
+            #  As such I'm going to allow emchain itself to figure out which CCDs are in timing mode etc.
 
-                            # Format the blank command string defined near the top of this function with information
-                            #  particular to the current mission and ObsID
-                            cmd = em_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=exp_id)
+            # Want to identify which CCDs can be processed, i.e. were turned on and were in imaging mode rather
+            #  than timing mode - perhaps timing mode will be supported by DAXA later on. This same check
+            #  happens exactly the same way in epchain
+            # ccd_modes = obs_archive.observation_summaries[miss.name][obs_id][inst]['exposures'][exp_id]['ccd_modes']
+            # ccd_ids = [ccd_id for ccd_id, ccd_mode in ccd_modes.items() if ccd_mode.upper() == 'IMAGING']
+            #
+            # # Then turn into a string so as they can be passed to the epchain command we're constructing - the
+            # #  construction of this CCD list is NOT the same as in epchain, because the two tasks require different
+            # #  formats for lists... (and they don't seem to define them anywhere!!)
+            # ccd_str = "'" + " ".join([str(c_id) for c_id in sorted(ccd_ids)]) + "'"
 
-                            # Now store the bash command, the path, and extra info in the dictionaries
-                            miss_cmds[miss.name][obs_id+inst+exp_id] = cmd
-                            miss_final_paths[miss.name][obs_id+inst+exp_id] = final_path
-                            miss_extras[miss.name][obs_id+inst+exp_id] = {'evt_list': final_path}
+            # Set up a temporary directory to work in
+            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_dir = dest_dir + temp_name + "/"
+
+            # This is where the final output event list file will be stored
+            final_path = dest_dir + evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
+
+            # If it doesn't already exist then we will create commands to generate it - there are no options for
+            #  emchain that could be changed between runs (other than processing unscheduled, but we're looping
+            #  through those commands separately), so it's safe to take what has already been generated.
+            # Though actually the raw data could have changed, I shall have to reconsider this in the context of
+            #  updating an existing archive
+            if not os.path.exists(final_path):
+                # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
+
+                # Format the blank command string defined near the top of this function with information
+                #  particular to the current mission and ObsID
+                cmd = em_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=exp_id)
+
+                # Now store the bash command, the path, and extra info in the dictionaries
+                miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
+                miss_final_paths[miss.name][obs_id + inst + exp_id] = final_path
+                miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_list': final_path}
 
     # This is just used for populating a progress bar during generation
     process_message = 'Assembling MOS event lists'
-
-    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
 @sas_call
 def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quantity = None,
                       pn_filt_expr: Union[str, List[str]] = ("#XMMEA_EP", "(PATTERN <= 4)", "(FLAG .eq. 0)"),
                       mos_filt_expr: Union[str, List[str]] = ("#XMMEA_EM", "(PATTERN <= 12)", "(FLAG .eq. 0)"),
-                      filt_mos_anom_state: Union[List[str], str, bool] = ('G', 'I', 'U'), num_cores: int = NUM_CORES,
-                      disable_progress: bool = False):
+                      filt_mos_anom_state: bool = False, acc_mos_anom_states: Union[List[str], str] = ('G', 'I', 'U'),
+                      num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
     """
     This function is used to apply the soft-proton filtering (along with any other filtering you may desire, including
     the setting of energy limits) to XMM-Newton event lists, resulting in the creation of sets of cleaned event lists
@@ -300,31 +330,39 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         using '&&' logic before being used as the expression for evselect. Other expression components can be
         added during the process of the function, such as GTI filtering, energy filtering, and anomalous state CCD
         filtering..
-    :param List[str]/str/bool filt_mos_anom_state: Whether this function should use the results of an 'emanom' run
+    :param bool filt_mos_anom_state: Whether this function should use the results of an 'emanom' run
         to identify and remove MOS CCDs that are in anomolous states. If 'False' is passed then no such filtering
-        will be applied, with the same behaviour occuring if emanom has not been run on the passed archive. Otherwise
-        a list/tuple of acceptable status codes can be passed (status- G is good at all energies, I is intermediate
-        for E<1 keV, B is bad for E<1 keV, O is off, chip not in use, U is undetermined (low band counts <= 0)).
+        will be applied.
+    :param List[str]/str acc_mos_anom_states: A list/tuple of acceptable MOS CCD status codes found by emanom
+        (status- G is good at all energies, I is intermediate for E<1 keV, B is bad for E<1 keV, O is off, chip
+        not in use, U is undetermined (low band counts <= 0)).
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire cleaned_evt_lists process, but a timeout for individual
+        ObsID-Inst-subexposure processes.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
         internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
-    #
+
+    # Have to make sure that the filter expressions are a list, as we want to append to them (if necessary), and then
+    #  join them into a final filter string
     if isinstance(pn_filt_expr, str):
         pn_filt_expr = [pn_filt_expr]
     elif isinstance(pn_filt_expr, tuple):
         pn_filt_expr = list(pn_filt_expr)
 
+    # Same deal here with the MOS filter expressions
     if isinstance(mos_filt_expr, str):
         mos_filt_expr = [mos_filt_expr]
     elif isinstance(mos_filt_expr, tuple):
         mos_filt_expr = list(mos_filt_expr)
 
+    # Here we are making sure that the input energy limits are legal and sensible
     en_check = [en is not None for en in [lo_en, hi_en]]
     if not all(en_check) and any(en_check):
         raise ValueError("If one energy limit is set (e.g. 'lo_en') then the other energy limit must also be set.")
@@ -349,8 +387,15 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         hi_en = ''
         en_ident = ''
 
-    ev_cmd = "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} " \
-             "updateexposure=yes; mv {fe} ../; cd ../; rm -r {d}"
+    # This command has two versions, one for M1 and M2, and another for PN which includes a second evselect command
+    #  for the OOT events. I could make the OOT events a separate command, but that doesn't really work given the
+    #  storage structure for recording processing success/logs. There is an echo in the PN command to give something
+    #  to search for in the logs to see where the OOT processing begins
+    ev_inst_cmd = {'mos': "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} "
+                          "updateexposure=yes; mv {fe} ../; cd ../; rm -r {d}",
+                   'pn': "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} "
+                         "updateexposure=yes; mv {fe} ../; echo OOT EVSELECT; evselect table={ootae} "
+                         "filteredset={ootfe} expression={expr} updateexposure=yes; mv {ootfe}; cd ../; rm -r {d}"}
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -368,72 +413,81 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
-        # TODO Generalise this for god's sake, it shouldn't need to be repeated in any form
-        # Need to check to see whether ANY of ObsID-instrument-subexposure combos have had emchain run for them, as
-        #  it is a requirement for this processing function. There will probably be a more elegant way of checking
-        #  at some point in the future, generalised across all SAS functions
-        if 'emchain' not in obs_archive.process_success[miss.name] \
-                and 'epchain' not in obs_archive.process_success[miss.name]:
-            raise NoDependencyProcessError("Neither the emchain (for MOS) nor the epchain (for PN) step has been run "
-                                           "for the {m} mission in the {a} archive. At least one of these must have "
-                                           "been run to use cleaned_evt_lists.".format(m=miss.name,
-                                                                                       a=obs_archive.archive_name))
-        # If every emchain run was a failure then we warn the user and move onto the next XMM mission (if there
-        #  is one).
-        elif ('emchain' in obs_archive.process_success[miss.name] and all(
-                [v is False for v in obs_archive.process_success[miss.name]['emchain'].values()])) and (
-                'epchain' in obs_archive.process_success[miss.name] and all(
-            [v is False for v in obs_archive.process_success[miss.name]['epchain'].values()])):
+        # This method will fetch the valid data M1/2 (ObsID, Instrument, and sub-exposure) that can be
+        #  processed - fetching instruments separately because the user might want to exclude MOS anom CCD
+        #  states, in which case I need to check for past processes separately (that doesn't run on PN).
+        rel_m_obs = obs_archive.get_obs_to_process(miss.name, 'M1') + obs_archive.get_obs_to_process(miss.name, 'M2')
 
-            warn("Every emchain and epchain run for the {m} mission in the {a} archive is reporting as a "
-                 "failure, skipping process.".format(m=miss.name, a=obs_archive.archive_name), stacklevel=2)
-            continue
+        # PN valid data identifiers are fetched separately, as I may need to check MOS for previous runs of emanom (if
+        #  the user wants that).
+        rel_p_obs = obs_archive.get_obs_to_process(miss.name, 'PN')
+
+        # This checks that espfilt ran successfully for the PN data
+        ef_pn_good = obs_archive.check_dependence_success(miss.name, rel_p_obs, 'espfilt', no_success_error=False)
+
+        # This is why we're treating PN and MOS separately here, if the user wants to exclude certain CCD states
+        #  then we have to make sure that emanom was run (and run successfully) for the MOS data.
+        if filt_mos_anom_state:
+            ef_mos_good = obs_archive.check_dependence_success(miss.name, rel_m_obs, ['emanom', 'espfilt'],
+                                                               no_success_error=False)
         else:
-            # This fetches those IDs for which emchain has reported success, and these are what we will iterate
-            #  through to ensure that we only act upon data that is in a final event list form.
-            valid_ids = [k for k, v in obs_archive.process_success[miss.name]['emchain'].items() if v] + \
-                        [k for k, v in obs_archive.process_success[miss.name]['epchain'].items() if v]
+            ef_mos_good = obs_archive.check_dependence_success(miss.name, rel_m_obs, 'espfilt',
+                                                               no_success_error=False)
 
-        # We iterate through the valid IDs rather than nest ObsID and instrument for loops
-        for val_id in valid_ids:
-            # TODO Review this if I change the IDing system as I was pondering in issue #44
-            if 'M1' in val_id:
-                obs_id, exp_id = val_id.split('M1')
-                inst = 'M1'
+        # Now we construct the array of observation identifiers that should be cleaned
+        all_obs_info = np.vstack([np.array(rel_p_obs)[ef_pn_good], np.array(rel_m_obs)[ef_mos_good]])
+
+        # We check to see if any data remain in all_obs_info - normally check_dependence_success would raise an error
+        #  if there weren't any, but as we're checking PN and MOS separately (and I want cleaned_evt_lists to run
+        #  even if all data for PN or MOS hasn't made it this far) I passed no_success_error=False and instead check
+        #  for absolute failure here
+        if len(all_obs_info) == 0:
+            raise NoDependencyProcessError("No observations have had successful espfilt runs, so cleaned_evt_lists "
+                                           "cannot be run.")
+
+        # We iterate through the valid identifying information which has had a successful espfilt (and possibly
+        #  emanom, for MOS and if the user wants to exclude anomalous CCD states) run
+        for obs_info in all_obs_info:
+            # This is the valid id that allows us to retrieve the specific event list for this ObsID-M1/2-SubExp
+            #  combination
+            val_id = ''.join(obs_info)
+            # Split out the information in obs_info
+            obs_id, inst, exp_id = obs_info
+
+            # Default value of this is None, so I don't have to set it for the two MOS cameras, only overwrite for PN
+            oot_evt_list_file = None
+            if inst == 'M1':
                 evt_list_file = obs_archive.process_extra_info[miss.name]['emchain'][val_id]['evt_list']
-                oot_evt_list_file = None
                 # Makes a copy of the MOS selection expression, as we might be adding to it during this
                 #  part of the function
                 cur_sel_expr = deepcopy(mos_filt_expr)
-            elif 'M2' in val_id:
-                obs_id, exp_id = val_id.split('M2')
-                inst = 'M2'
+                # This chooses the correct command template
+                ev_cmd = ev_inst_cmd['mos']
+            elif inst == 'M2':
                 evt_list_file = obs_archive.process_extra_info[miss.name]['emchain'][val_id]['evt_list']
-                oot_evt_list_file = None
                 # Makes a copy of the MOS selection expression, as we might be adding to it during this
                 #  part of the function
                 cur_sel_expr = deepcopy(mos_filt_expr)
-            elif 'PN' in val_id:
-                obs_id, exp_id = val_id.split('PN')
-                inst = 'PN'
+                # This chooses the correct command template
+                ev_cmd = ev_inst_cmd['mos']
+            elif inst == 'PN':
                 evt_list_file = obs_archive.process_extra_info[miss.name]['epchain'][val_id]['evt_list']
+                # We do actually have an OOT file for PN, so we overwrite it
                 oot_evt_list_file = obs_archive.process_extra_info[miss.name]['epchain'][val_id]['oot_evt_list']
+                # Make a copy of the PN selection expression to add to throughout this function
                 cur_sel_expr = deepcopy(pn_filt_expr)
+                # This chooses the correct command template, PN has an addition to process the OOT events as well
+                ev_cmd = ev_inst_cmd['pn']
             else:
                 raise ValueError("Somehow there is no instance of M1, M2, or PN in that storage key, this should be "
                                  "impossible!")
 
-            # This should read in the header so that we can grab filter information from it
-            evt_hdr = fits.getheader(evt_list_file)
-            # If the filter is either CalClosed or Closed then we do not care to process it any further.
-            # TODO Consider changing this if I add the SAS summary file parser, and use it upstream
-            if evt_hdr['FILTER'] in ['CalClosed', 'Closed']:
-                continue
-
-            if inst in ['M1', 'M2'] and val_id in obs_archive.process_extra_info[miss.name]['emanom'] \
-                    and filt_mos_anom_state is not False:
+            # This is only triggered if the user WANTS to filter out anomalous states, and has actually run
+            #  the emanom task - only MOS data with a successful emanom would have got to this point if the user
+            #  does want to filter out the anomalous states
+            if inst in ['M1', 'M2'] and filt_mos_anom_state is not False:
                 log_path = obs_archive.process_extra_info[miss.name]['emanom'][val_id]['log_path']
-                allow_ccds = [str(c_id) for c_id in parse_emanom_out(log_path, acceptable_states=filt_mos_anom_state)]
+                allow_ccds = [str(c_id) for c_id in parse_emanom_out(log_path, acceptable_states=acc_mos_anom_states)]
                 ccd_expr = "CCDNR in {}".format(','.join(allow_ccds))
                 # We add it to the list of selection expression components that we have been constructing
                 cur_sel_expr.append(ccd_expr)
@@ -456,7 +510,20 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             # Setting up the path to the event file
             filt_evt_name = "{i}{exp_id}{en_id}_clean.fits".format(i=inst, exp_id=exp_id, en_id=en_ident)
             filt_evt_path = dest_dir + filt_evt_name
+            # And the same deal with the OOT event file, though of course that is only relevant to PN data
+            filt_oot_evt_name = "{i}{exp_id}{en_id}_oot_clean.fits".format(i=inst, exp_id=exp_id, en_id=en_ident)
+            filt_oot_evt_path = dest_dir + filt_oot_evt_name
+
+            # The default final_paths declaration
             final_paths = [filt_evt_path]
+            # The default extra information to store after the command has been construct
+            to_store = {'evt_clean_path': filt_evt_path, 'en_key': en_ident}
+
+            # As OOT events are only relevant to PN, we only add the variable to the paths-to-check if we're
+            #  processing some PN data right now. The OOT events path also gets added to the extra information
+            if inst == 'PN':
+                final_paths.append(filt_oot_evt_path)
+                to_store['oot_evt_clean_path'] = filt_oot_evt_path
 
             # If it doesn't already exist then we will create commands to generate it
             # TODO Need to decide which file to check for here to see whether the command has already been run
@@ -465,25 +532,30 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
                 os.makedirs(temp_dir)
 
             final_expression = "'" + " && ".join(cur_sel_expr) + "'"
-            cmd = ev_cmd.format(d=temp_dir, ccf=ccf_path, ae=evt_list_file, fe=filt_evt_path, expr=final_expression)
+            cmd = ev_cmd.format(d=temp_dir, ccf=ccf_path, ae=evt_list_file, fe=filt_evt_path, expr=final_expression,
+                                ootae=oot_evt_list_file, ootfe=filt_oot_evt_path)
 
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][val_id] = cmd
             miss_final_paths[miss.name][val_id] = final_paths
-            miss_extras[miss.name][val_id] = {'evt_clean_path': filt_evt_path, 'en_key': en_ident}
+            miss_extras[miss.name][val_id] = to_store
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Generating cleaned PN/MOS event lists'
 
-    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
+@_last_process(ALLOWED_XMM_MISSIONS, 2)
 @sas_call
-def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False):
+def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False,
+                       timeout: Quantity = None):
     """
     A function to identify cases where an instrument for a particular XMM observation has multiple
     sub-exposures, for which the event lists can be merged. This produces a final event list, which is a
-    combination of the sub-exposures. For those observation-instrument combinations with only a single
+    combination of the sub-exposures.
+
+    For those observation-instrument combinations with only a single
     exposure, this function will rename the cleaned event list so that the naming convention is comparable
     to the merged event list naming convention (i.e. sub-exposure identifier will be removed).
 
@@ -491,21 +563,34 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
         should be created. This function will fail if no XMM missions are present in the archive.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire merge_subexposures process, but a timeout for individual
+        ObsID-Inst processes.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
         internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
 
     # These commands get filled in by various stages of this function - in most of the other reduction wrapper
     #  functions there is only one of these template commands, but as each observation-instrument combo can have a
     #  different number of sub-exposures, and you can only merge two at once, the 'merge_cmd' part could be repeated
     #  multiple times, so it is separate.
-    setup_cmd = "cd {d}"
-    merge_cmd = "merge set1={e_one} set2={e_two} outset={e_fin}"
-    cleanup_cmd = "mv {ft} ../{fe}; cd ../"  # ; rm -r {d}
+    # The rename command is for those observation-instrument combos which DON'T have multiple sub-exposures to be
+    #  merged  but instead will have their cleaned event list renamed to a filename consistent with the merged events.
+    # I could have done this using a Python function (and did at first), but doing it this way means that there
+    #  is an entry regarding this change in the log dictionaries.
+    # The different instruments need different commands to deal with the fact that PN has OOT event lists as well
+    inst_cmds = {'mos': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}",
+                         "clean": "mv {ft} ../{fe}; cd ../ ; rm -r {d}",
+                         "rename": "mv {cne} {nne}"},
+                 'pn': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}; echo OOT MERGE; merge set1={oote_one}"
+                                 " set2={oote_two} outset={oote_fin}",
+                        "clean": "mv {ft} ../{fe}; mv {ootft} ../{ootfe}; cd ../ ; rm -r {d}",
+                        "rename": "mv {cne} {nne}; mv {ootcne} {ootnne}"},
+                 'setup': "cd {d}"}
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -523,45 +608,24 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
-        # TODO Generalise this for god's sake, it shouldn't need to be repeated in any form
-        # Need to check to see whether ANY of ObsID-instrument-subexposure combos have had cleaned_evt_lists run for
-        #  them, as it is a requirement for this processing function.
-        if 'cleaned_evt_lists' not in obs_archive.process_success[miss.name]:
-            raise NoDependencyProcessError("The cleaned_evt_lists step has not been run for the {m} mission in the "
-                                           "{a} archive. Filtered event lists must be available for sub-exposures to "
-                                           "be merged.".format(m=miss.name, a=obs_archive.archive_name))
-        # If every cleaned_evt_lists run was a failure then we warn the user and move onto the next
-        #  XMM mission (if there is one).
-        elif 'cleaned_evt_lists' in obs_archive.process_success[miss.name] and \
-                all([v is False for v in obs_archive.process_success[miss.name]['cleaned_evt_lists'].values()]):
-            warn("Every cleaned_evt_lists run for the {m} mission in the {a} archive is reporting as a "
-                 "failure, skipping process.".format(m=miss.name, a=obs_archive.archive_name), stacklevel=2)
-            continue
-        else:
-            # This fetches those IDs for which cleaned_evt_lists has reported success, and these are what we will
-            #  iterate through to ensure that we only act upon data that is in a final event list form.
-            valid_ids = [k for k, v in obs_archive.process_success[miss.name]['cleaned_evt_lists'].items() if v]
+        # Identifiers for all the valid data are fetched, and will be narrowed down later so that only those which
+        #  had cleaned event lists generated successfully are selected
+        rel_obs_info = obs_archive.get_obs_to_process(miss.name)
+
+        # Here we check that cleaned_evt_lists ran - if it didn't then we aren't going to be merging anything
+        good_ce = obs_archive.check_dependence_success(miss.name, rel_obs_info, 'cleaned_evt_lists')
+        val_obs_info = np.array(rel_obs_info)[good_ce]
 
         # This dictionary will have top level keys of observation-instrument combinations, and with the values
         #  being lists of event lists that need to be combined
         to_combine = {}
-        # We iterate through the valid IDs rather than nest ObsID and instrument for loops
-        for val_id in valid_ids:
+        # We iterate through the valid observation info, so only data that has been processed all the way through
+        #  to this stage is considered
+        for obs_info in val_obs_info:
             # This sets up the observation ID, sub-exposure ID, and instrument
-            # TODO Review this if I change the IDing system as I was pondering in issue #44
-            if 'M1' in val_id:
-                obs_id, exp_id = val_id.split('M1')
-                inst = 'M1'
-            elif 'M2' in val_id:
-                obs_id, exp_id = val_id.split('M2')
-                inst = 'M2'
-            elif 'PN' in val_id:
-                obs_id, exp_id = val_id.split('PN')
-                inst = 'PN'
-                # filt_oot_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['oot_evt_list']
-            else:
-                raise ValueError("Somehow there is no instance of M1, M2, or PN in that storage key, this should be "
-                                 "impossible!")
+            obs_id, inst, exp_id = obs_info
+            # Combine all that info into a single valid ID
+            val_id = ''.join(obs_info)
 
             # The 'cleaned_evt_lists' function stores path info in the extra information dictionary, so we can
             #  just go there and grab the details about where the cleaned event list for this particular
@@ -570,16 +634,27 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             filt_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['evt_clean_path']
             en_key = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['en_key']
 
+            # If the instrument is PN then we also need to know where the filtered out of time events live
+            if inst == 'PN':
+                filt_oot_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['oot_evt_'
+                                                                                                      'clean_path']
+            else:
+                filt_oot_evt = None
+
             # Combines just the observation and instrument into a top-level key for the dictionary that is used
             #  to identify which event lists needed to be added together
             oi_id = obs_id + '_' + inst
             # If there isn't already an entry then we make a new list, storing both the path to the filtered
             #  even list, and its energy range key
             if oi_id not in to_combine:
-                to_combine[oi_id] = [[filt_evt, en_key]]
+                # The OOT event list comprehension is slightly cheeky, but basically if it is set to None (for MOS)
+                #  then we'll just be adding an empty list. It saves on more if statements with instrument checking
+                to_combine[oi_id] = [[en_key, filt_evt] + [el for el in [filt_oot_evt] if el is not None]]
             # If there IS an entry, then we append the filtered event list path + energy key information
             else:
-                to_combine[oi_id].append([filt_evt, en_key])
+                # The OOT event list comprehension is slightly cheeky, but basically if it is set to None (for MOS)
+                #  then we'll just be adding an empty list. It saves on more if statements with instrument checking
+                to_combine[oi_id].append([en_key, filt_evt] + [el for el in [filt_oot_evt] if el is not None])
 
         # We've gone through all the observation-instrument-exposures that we have for the current mission and now
         #  we cycle through the ObsID-instrument combinations and start adding event lists together
@@ -592,77 +667,124 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
 
             # Setting up the path to the final combined event file
-            final_evt_name = "{i}{en_id}_clean.fits".format(i=inst, en_id=to_combine[oi][0][1])
+            final_evt_name = "{i}{en_id}_clean.fits".format(i=inst, en_id=to_combine[oi][0][0])
             final_path = dest_dir + final_evt_name
+            # And a possible accompanying OOT combined events file, not used if the instrument isn't PN but
+            #  always defined because its easier
+            final_oot_evt_name = "{i}{en_id}_oot_clean.fits".format(i=inst, en_id=to_combine[oi][0][0])
+            final_oot_path = dest_dir + final_oot_evt_name
 
             # If there is only one event list for a particular ObsID-instrument combination, then obviously merging
             #  is impossible/unnecessary, so in that case we just rename the file (which will have sub-exposure ID
             #  info in the name) to the same style of the merged files
-            if len(to_combine[oi]) == 1:
-                os.rename(to_combine[oi], final_path)
+            if len(to_combine[oi]) == 1 and inst == 'PN':
+                # In this case we make sure to move the OOT of time event list file as well, using the PN skew
+                #  of the rename command
+                cmd = inst_cmds['pn']['rename'].format(cne=to_combine[oi][0][1], nne=final_path,
+                                                       ootcne=to_combine[oi][0][2], ootnne=final_oot_path)
+            elif len(to_combine[oi]) == 1:
+                cmd = inst_cmds['mos']['rename'].format(cne=to_combine[oi][0][1], nne=final_path)
+            elif os.path.exists(final_path):
                 continue
-            elif len(to_combine[oi]) == 1 or os.path.exists(final_path):
-                continue
+            else:
 
-            # Set up a temporary directory to work in (probably not really necessary in this case, but will be
-            #  in other processing functions).
-            temp_name = "tempdir_{}".format(randint(0, 1e+8))
-            temp_dir = dest_dir + temp_name + "/"
+                # Set up a temporary directory to work in (probably not really necessary in this case, but will be
+                #  in other processing functions).
+                temp_name = "tempdir_{}".format(randint(0, 1e+8))
+                temp_dir = dest_dir + temp_name + "/"
 
-            # As the merge command won't overwrite an existing file name, and we don't know how many times the loop
-            #  below will iterate, we create temporary file names based on the iteration number of the loop
-            temp_evt_name = "{i}{en_id}_clean_temp{ind}.fits"
+                # As the merge command won't overwrite an existing file name, and we don't know how many times the loop
+                #  below will iterate, we create temporary file names based on the iteration number of the loop
+                temp_evt_name = "{i}{en_id}_clean_temp{ind}.fits"
+                # We also make one for OOT events, though it will only be used when merging PN events
+                temp_oot_evt_name = "{i}{en_id}_oot_clean_temp{ind}.fits"
 
-            # If it doesn't already exist then we will create commands to generate it
-            # TODO Need to decide which file to check for here to see whether the command has already been run
-            # Make the temporary directory (it shouldn't already exist but doing this to be safe)
-            if not os.path.exists(temp_dir):
-                os.makedirs(temp_dir)
+                # If it doesn't already exist then we will create commands to generate it
+                # TODO Need to decide which file to check for here to see whether the command has already been run
+                # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
 
-            # If we've got to this point then merging will definitely occur, so we start with the setup command,
-            #  which just moves us to the working directory - its in a list because said list will contain all
-            #  the stages of this command, and will be joined at the end of this process into a single bash
-            #  command.
-            cur_merge_cmds = [setup_cmd.format(d=temp_dir)]
-            # Now we can iterate through the files for merging - using enumerate so we get an index for the current
-            #  event path, which we can add one to to retrieve the next event list along - i.e. what we will be
-            #  merging into. This is why we slice the event file list so that we only iterate up to the penultimate
-            #  file, because that file will be accessed by adding one to the last evt_ind.
-            # Frankly I probably should have used a while loop here, but ah well
-            for evt_ind, evt_path in enumerate(to_combine[oi][:-1]):
+                # If we've got to this point then merging will definitely occur, so we start with the setup command,
+                #  which just moves us to the working directory - its in a list because said list will contain all
+                #  the stages of this command, and will be joined at the end of this process into a single bash
+                #  command.
+                cur_merge_cmds = [inst_cmds['setup'].format(d=temp_dir)]
+                # Now we can iterate through the files for merging - using enumerate so we get an index for the current
+                #  event path, which we can add one to to retrieve the next event list along - i.e. what we will be
+                #  merging into. This is why we slice the event file list so that we only iterate up to the penultimate
+                #  file, because that file will be accessed by adding one to the last evt_ind.
+                # Frankly I probably should have used a while loop here, but ah well
+                for evt_ind, evt_path in enumerate(to_combine[oi][:-1]):
+                    # If we haven't iterated yet then we use the currently access event list name as the
+                    #  first event list.
+                    if evt_ind == 0 and len(evt_path) == 2:
+                        first_evt = evt_path[1]
+                    # There will be three entries in evt_path if the current instrument is PN, and I thought this
+                    #  was easier to read versus nesting another if statement in the one above
+                    elif evt_ind == 0 and len(evt_path) == 3:
+                        first_evt = evt_path[1]
+                        first_oot_evt = evt_path[2]
+                    # However if we HAVE iterated before, then the first event list should actually be the output of the
+                    #  last merging step, not the CURRENT value of evt_path (as that has already been added into the
+                    #  merged list).
+                    elif len(evt_path) == 2:
+                        # This is a bit cheeky, but this will never be used before its defined - it will always use the
+                        #  value defined in the last iteration around
+                        first_evt = cur_t_name
+                    # This is the same as above, but again accounting for the fact that for PN we need to be merging
+                    #  OOT events as well
+                    else:
+                        first_evt = cur_t_name
+                        first_oot_evt = cur_oot_t_name
 
-                # If we haven't iterated yet then we use the currently access event list name as the first event list.
-                if evt_ind == 0:
-                    first_evt = evt_path[0]
-                # However if we HAVE iterated before, then the first event list should actually be the output of the
-                #  last merging step, not the CURRENT value of evt_path (as that has already been added into the
-                #  merged list).
+                    # The output of the merge has to be given a temporary name, as the merge command won't allow it to
+                    #  have the same name as an existing file
+                    cur_t_name = temp_evt_name.format(i=inst, en_id=to_combine[oi][0][0], ind=evt_ind)
+                    if inst == 'PN':
+                        cur_oot_t_name = temp_oot_evt_name.format(i=inst, en_id=to_combine[oi][0][0], ind=evt_ind)
+                        # This populated the command with the event list paths and output path (note where we add
+                        #  1 to the evt_ind value). Also includes the OOT paths
+                        cur_cmd = inst_cmds['pn']['merge'].format(e_one=first_evt,
+                                                                  e_two=to_combine[oi][evt_ind + 1][1],
+                                                                  e_fin=cur_t_name,
+                                                                  oote_one=first_oot_evt,
+                                                                  oote_two=to_combine[oi][evt_ind + 1][2],
+                                                                  oote_fin=cur_oot_t_name)
+                    else:
+                        # This populated the command with the event list paths and output path (note where we add
+                        #  1 to the evt_ind value).
+                        cur_cmd = inst_cmds['mos']['merge'].format(e_one=first_evt,
+                                                                   e_two=to_combine[oi][evt_ind+1][1],
+                                                                   e_fin=cur_t_name)
+                    # Then the command is added to the command list
+                    cur_merge_cmds.append(cur_cmd)
+
+                # The final command added to the cmd list is a cleanup step, removing the temporary working directory
+                #  (and all the transient part merged event lists that might have been created along the way).
+                # Again have to account for PN having OOT event lists as well
+                if inst == 'PN':
+                    cur_merge_cmds.append(inst_cmds['pn']['clean'].format(ft=cur_t_name, fe=final_evt_name,
+                                                                          ootft=cur_oot_t_name,
+                                                                          ootfe=final_oot_evt_name,
+                                                                          d=temp_dir))
                 else:
-                    # This is a bit cheeky, but this will never be used before its defined - it will always use the
-                    #  value defined in the last iteration around
-                    first_evt = cur_t_name
-                # The output of the merge has to be given a temporary name, as the merge command won't allow it to
-                #  have the same name as an existing file
-                cur_t_name = temp_evt_name.format(i=inst, en_id=to_combine[oi][0][1], ind=evt_ind)
-                # This populated the command with the event list paths and output path (note where we add 1 to the
-                #  evt_ind value).
-                cur_cmd = merge_cmd.format(e_one=first_evt, e_two=to_combine[oi][evt_ind+1][0], e_fin=cur_t_name)
-                # Then the command is added to the command list
-                cur_merge_cmds.append(cur_cmd)
+                    cur_merge_cmds.append(inst_cmds['mos']['clean'].format(ft=cur_t_name, fe=final_evt_name,
+                                                                           d=temp_dir))
+                # Finally the list of commands is all joined together so it is one, like the commands of the rest
+                #  of the SAS wrapper functions
+                cmd = '; '.join(cur_merge_cmds)
 
-            # The final command added to the cmd list is a cleanup step, removing the temporary working directory
-            #  (and all the transient part merged event lists that might have been created along the way).
-            cur_merge_cmds.append(cleanup_cmd.format(ft=cur_t_name, fe=final_evt_name, d=temp_dir))
-            # Finally the list of commands is all joined together so it is one, like the commands of the rest of the
-            #  SAS wrapper functions
-            cmd = '; '.join(cur_merge_cmds)
-
-            # # Now store the bash command, the path, and extra info in the dictionaries
+            # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][obs_id+inst] = cmd
             miss_final_paths[miss.name][obs_id+inst] = final_path
-            miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path}
+            # Again accounting for whether a OOT merged event list has been produced here or not
+            if inst == 'PN':
+                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path, 'final_oot_evt': final_oot_path}
+            else:
+                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path}
 
-        # This is just used for populating a progress bar during the process run
-        process_message = 'Generating final PN/MOS event lists'
+    # This is just used for populating a progress bar during the process run
+    process_message = 'Generating final PN/MOS event lists'
 
-        return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout

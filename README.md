@@ -29,6 +29,7 @@ limited. Support for more telescopes is either currently under development or be
 
 * XMM-Newton Pointed
 * **_[Under Development]_** eROSITA Commissioning
+* **_[Under Development - data acquisition implemented]_** NuSTAR
 
 **_Chandra support is being planned as a priority_** - if you would like to help with this, please get in contact!
 
@@ -57,7 +58,8 @@ XGA is also completely open source, and is a generalised tool for the analysis o
 sources. The software operates on a 'source based' paradigm, where the user declares sources or samples of objects
 which are analogous to astrophysical sources in the sky, with XGA determining which data (if any) are relevant to a 
 particular source, and providing a powerful (but easy to use) interface for the generation and analysis of data 
-products. The module is fully documented, with tutorials and API documentation available.
+products. The module is fully documented, with tutorials and API documentation available (**support for telescopes 
+other than XMM is still under development**).
 
 # Problems and Questions
 If you encounter a bug, or would like to make a feature request, please use the GitHub

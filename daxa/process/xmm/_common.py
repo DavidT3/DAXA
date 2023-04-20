@@ -1,13 +1,14 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/12/2022, 13:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/04/2023, 15:09. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
 from multiprocessing.dummy import Pool
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, TimeoutExpired
 from typing import Tuple, List, Dict
 from warnings import warn
 
+from astropy.units import UnitConversionError
 from exceptiongroup import ExceptionGroup
 from packaging.version import Version
 from tqdm import tqdm
@@ -44,7 +45,7 @@ def _sas_process_setup(obs_archive: Archive) -> Version:
     else:
         processed = [xm.processed for xm in xmm_miss]
         if any(processed):
-            warn("One or more XMM missions have already been fully processed")
+            warn("One or more XMM missions have already been fully processed", stacklevel=2)
 
     # TODO Remove this when XMM slew is implemented and SAS procedures have been verified as working
     if any([m.name == 'xmm_slew' for m in xmm_miss]):
@@ -58,6 +59,14 @@ def _sas_process_setup(obs_archive: Archive) -> Version:
             stor_dir = obs_archive.get_processed_data_path(miss, obs_id)
             if not os.path.exists(stor_dir):
                 os.makedirs(stor_dir)
+
+        # We also ensure that an overall directory for failed processing observations exists - this will give
+        #  observation directories which have no useful data in (i.e. they do not have a successful final
+        #  processing step) somewhere to be copied to (see daxa.process._cleanup._last_process).
+        # This is the overall path, there might not ever be anything in it, so we don't pre-make ObsID sub-directories
+        fail_proc_dir = obs_archive.get_failed_data_path(miss, None).format(oi='')[:-1]
+        if not os.path.exists(fail_proc_dir):
+            os.makedirs(fail_proc_dir)
 
     return sas_vers
 
@@ -143,8 +152,8 @@ def parse_stderr(unprocessed_stderr: str) -> Tuple[List[str], List[Dict], List]:
     return sas_errs_msgs, parsed_sas_warns, other_err_lines
 
 
-def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str,
-                extra_info: dict) -> Tuple[str, str, List[bool], str, str, dict]:
+def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_info: dict,
+                timeout: float = None) -> Tuple[str, str, List[bool], str, str, dict]:
     """
     This is a simple function designed to execute cmd line SAS commands for the processing and reduction of
     XMM mission data. It will collect the stdout and stderr values for each command and return them too for the
@@ -159,6 +168,8 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str,
         for the purposes of checking that it (they) exists.
     :param dict extra_info: A dictionary which can contain extra information about the process or output that will
         eventually be stored in the Archive.
+    :param float timeout: The length of time (in seconds) which the process is allowed to run for before being
+        killed. Default is None, which is supported as an input by communicate().
     :return: The rel_id, a list of boolean flags indicating whether the final files exist, the std_out, and the
         std_err. The final dictionary can contain extra information recorded by the processing function.
     :rtype: Tuple[str, str, List[bool], str, str, dict]
@@ -168,9 +179,17 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str,
     if isinstance(check_path, str):
         check_path = [check_path]
 
-    # Starts the process running on a shell, connects to the process and waits for it to terminate, and collects
-    #  the stdout and stderr
-    out, err = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
+    # Starts the process running on a shell
+    cmd_proc = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
+
+    # This makes sure the process is killed if it does timeout
+    try:
+        out, err = cmd_proc.communicate(timeout=timeout)
+    except TimeoutExpired:
+        cmd_proc.kill()
+        out, err = cmd_proc.communicate()
+        warn("An XMM process for {} has timed out".format(rel_id), stacklevel=2)
+
     # Decodes the stdout and stderr from the binary encoding it currently exists in. The errors='ignore' flag
     #  means that it doesn't throw errors if there is a character it doesn't recognize
     out = out.decode("UTF-8", errors='ignore')
@@ -199,6 +218,8 @@ def sas_call(sas_func):
 
     @wraps(sas_func)
     def wrapper(*args, **kwargs):
+        # This is here to avoid a circular import issue
+        from daxa.process.xmm.setup import parse_odf_sum
 
         # The first argument of all the SAS processing functions will be an archive instance, and pulling
         #  that out of the arguments will be useful later
@@ -206,7 +227,14 @@ def sas_call(sas_func):
         obs_archive: Archive  # Just for autocomplete purposes in my IDE
 
         # This is the output from whatever function this is a decorator for
-        miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable = sas_func(*args, **kwargs)
+        miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout = sas_func(*args, **kwargs)
+
+        # Converting the timeout from whatever time units it is in, to seconds - but first checking that the user
+        #  hasn't been daft and passed a non-time quantity
+        if timeout is not None and not timeout.unit.is_equivalent('s'):
+            raise UnitConversionError("The value of timeout must be convertible to seconds.")
+        elif timeout is not None:
+            timeout = timeout.to('s').value
 
         # This just sets up a dictionary of how many tasks there are for each mission
         num_to_run = {mn: len(miss_cmds[mn]) for mn in miss_cmds}
@@ -224,6 +252,16 @@ def sas_call(sas_func):
         # This is for the extra information which can be passed from processing functions
         process_einfo = {}
 
+        # Observation information, parsed from the output summary file created by ODF ingest, will be stored in
+        #  this dictionary and eventually passed into the archive. As such this dictionary will only be used
+        #  if the task sas_call is wrapping is odf_ingest
+        parsed_obs_info = {}
+        # In the same vein, I define a simple boolean to tell the callback function (where parsing will take place)
+        #  whether or not it needs to run the parsing function. I could do this by checking for the existence
+        #  of the 'sum_path' key in the extra information dictionary, but I think this way is safer. Just in case
+        # I accidentally re-use that key somewhere else
+        run_odf_sum_parse = sas_func.__name__ == 'odf_ingest'
+
         # I do not love this solution, but this will be what any python errors that are thrown during execute_cmd
         #  are stored in. In theory, because execute_cmd is so simple, there shouldn't be Python errors thrown.
         #  SAS errors will be stored in process_parsed_stderrs
@@ -239,6 +277,7 @@ def sas_call(sas_func):
             process_parsed_stderr_warns[miss_name] = {}
             process_stdouts[miss_name] = {}
             process_einfo[miss_name] = {}
+            parsed_obs_info[miss_name] = {}
 
             # There's no point setting up a Pool etc. if there are no tasks to run for the current mission, so
             #  we check how many there are
@@ -271,6 +310,9 @@ def sas_call(sas_func):
                         nonlocal process_parsed_stderr_warns
                         nonlocal process_stdouts
                         nonlocal process_einfo
+                        nonlocal run_odf_sum_parse
+                        nonlocal parsed_obs_info
+                        nonlocal python_errors
 
                         # Just unpack the results in for clarity's sake
                         relevant_id, mission_name, does_file_exist, proc_out, proc_err, proc_extra_info = results_in
@@ -303,6 +345,17 @@ def sas_call(sas_func):
                         if len(proc_extra_info) != 0:
                             process_einfo[mission_name][relevant_id] = proc_extra_info
 
+                        # If the tested-for output file exists, and we know that the current task is odf_ingest
+                        #  we're going to do an extra post-processing step and parse the output SAS summary file
+                        if all(does_file_exist) and run_odf_sum_parse:
+                            try:
+                                parsed_obs_info[mission_name][relevant_id] = parse_odf_sum(proc_extra_info['sum_path'],
+                                                                                           relevant_id)
+                            # Possible that this parsing doesn't go our way however, so we have to be able to catch
+                            #  an exception.
+                            except ValueError as err:
+                                python_errors.append(err)
+
                         # Make sure to update the progress bar
                         gen.update(1)
 
@@ -327,7 +380,7 @@ def sas_call(sas_func):
                         rel_fin_path = miss_final_paths[miss_name][rel_id]
                         rel_einfo = miss_extras[miss_name][rel_id]
 
-                        pool.apply_async(execute_cmd, args=(cmd, rel_id, miss_name, rel_fin_path, rel_einfo),
+                        pool.apply_async(execute_cmd, args=(cmd, rel_id, miss_name, rel_fin_path, rel_einfo, timeout),
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
@@ -337,12 +390,18 @@ def sas_call(sas_func):
             if len(python_errors) != 0:
                 raise ExceptionGroup("Python errors raised during SAS commands", python_errors)
 
-            obs_archive.process_success = (sas_func.__name__, success_flags)
-            obs_archive.process_errors = (sas_func.__name__, process_parsed_stderrs)
-            obs_archive.process_warnings = (sas_func.__name__, process_parsed_stderr_warns)
-            obs_archive.raw_process_errors = (sas_func.__name__, process_raw_stderrs)
-            obs_archive.process_logs = (sas_func.__name__, process_stdouts)
-            obs_archive.process_extra_info = (sas_func.__name__, process_einfo)
+        obs_archive.process_success = (sas_func.__name__, success_flags)
+        obs_archive.process_errors = (sas_func.__name__, process_parsed_stderrs)
+        obs_archive.process_warnings = (sas_func.__name__, process_parsed_stderr_warns)
+        obs_archive.raw_process_errors = (sas_func.__name__, process_raw_stderrs)
+        obs_archive.process_logs = (sas_func.__name__, process_stdouts)
+        obs_archive.process_extra_info = (sas_func.__name__, process_einfo)
+
+        # If the task we just ran is odf ingest, that means we've parsed the summary files to provide us with some
+        #  information on the data we have - that information is in the parsed_obs_info dictionary and needs to be
+        #  added to the observation_summaries property of the archive
+        if run_odf_sum_parse:
+            obs_archive.observation_summaries = parsed_obs_info
 
     return wrapper
 

@@ -1,4 +1,5 @@
 # xga/_version.py export-subst
 #.ipynb linguist-detectable=false
 *.ipynb linguist-vendored
+*.pl linguist-vendored
 *.SAS linguist-vendored
