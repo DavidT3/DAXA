@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/04/2023, 13:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 18:02. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -67,7 +67,7 @@ class XMMPointed(BaseMission):
         self.name
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = ['proprietary_end_date', 'usable_proprietary', 'usable_science',
+        self._required_mission_specific_cols = ['proprietary_end_date', 'proprietary_usable', 'science_usable',
                                                 'revolution']
 
         # Runs the method which fetches information on all available pointed XMM observations and stores that
@@ -126,7 +126,7 @@ class XMMPointed(BaseMission):
         A property getter that returns the base dataframe containing information about all the observations available
         for an instance of a mission class.
 
-        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'usable_science',
+        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'science_usable',
             'start', 'duration'
         :rtype: pd.DataFrame
         """
@@ -184,11 +184,11 @@ class XMMPointed(BaseMission):
         # This adds a column that describes whether the data are out of their proprietary period, and thus
         #  usable by the general community. Can just use less than or equal to operator because everything involved
         #  is now a datetime object.
-        obs_info_pd['usable_proprietary'] = obs_info_pd['proprietary_end_date'].apply(
+        obs_info_pd['proprietary_usable'] = obs_info_pd['proprietary_end_date'].apply(
             lambda x: ((x <= today) & (pd.notnull(x)))).astype(bool)
 
         # Just renaming some of the columns
-        obs_info_pd = obs_info_pd.rename(columns={'observation_id': 'ObsID', 'with_science': 'usable_science',
+        obs_info_pd = obs_info_pd.rename(columns={'observation_id': 'ObsID', 'with_science': 'science_usable',
                                                   'start_utc': 'start'})
 
         # Converting the duration column to a timedelta object, which can then be directly added to the start column
@@ -208,10 +208,6 @@ class XMMPointed(BaseMission):
         #  than adding the radec_good column as another input to the usable column (see below) because having NaN
         #  positions really screws up the filter_on_positions method in BaseMission
         obs_info_pd = obs_info_pd[obs_info_pd['radec_good']]
-        # Create a combined usable column from usable_science and usable_proprietary - this overall usable column
-        #  is required by the BaseMission superclass and governs whether an observation will be considered from the
-        #  outset.
-        obs_info_pd['usable'] = obs_info_pd['usable_science'] * obs_info_pd['usable_proprietary']
         # Don't really care about this column now so remove.
         del obs_info_pd['radec_good']
 
