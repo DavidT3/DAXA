@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 18:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 18:37. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -278,7 +278,7 @@ class XMMPointed(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES):
+    def download(self, num_cores: int = NUM_CORES, credentials: Union[dict, str] = None):
         """
         A method to acquire and download the pointed XMM data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -288,7 +288,16 @@ class XMMPointed(BaseMission):
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
+        :param dict/str credentials:
         """
+
+        if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():
+            raise NotImplementedError("Support for credentials for proprietary data is not yet implemented.")
+        elif not self.filtered_obs_info['proprietary_usable'].all() and credentials is None:
+            warn("Proprietary data have been selected, but no credentials provided; as such the proprietary data have "
+                 "been excluded from download and further processing.", stacklevel=2)
+            new_filter = self.filter_array * self.all_obs_info['proprietary_usable'].values
+            self.filter_array = new_filter
 
         # Ensures that a directory to store the 'raw' pointed XMM data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
