@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2023, 12:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 18:10. Copyright (c) The Contributors
 
 import os
 import re
@@ -153,7 +153,7 @@ class eROSITACalPV(BaseMission):
         A property getter that returns the base dataframe containing information about all the observations available
         for an instance of a mission class.
 
-        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'usable_science',
+        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'science_usable',
             'start', 'duration'
         :rtype: pd.DataFrame
         """
@@ -365,7 +365,8 @@ class eROSITACalPV(BaseMission):
         calpv_copy['end'] = pd.to_datetime(calpv_copy['end'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
 
         # Including the relevant information for the final all_obs_info DataFrame
-        obs_info_pd = calpv_copy[['ra', 'dec', 'ObsID', 'usable', 'start', 'end', 'duration', 'Field_Name', 'Field_Type']]
+        obs_info_pd = calpv_copy[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'Field_Name',
+                                  'Field_Type']]
 
         self.all_obs_info = obs_info_pd
 
