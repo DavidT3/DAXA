@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 11:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 18:05. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -182,7 +182,7 @@ class Chandra(BaseMission):
         A property getter that returns the base dataframe containing information about all the observations available
         for an instance of a mission class.
 
-        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'usable_science',
+        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'science_usable',
             'start', 'duration'
         :rtype: pd.DataFrame
         """
@@ -337,11 +337,12 @@ class Chandra(BaseMission):
         # Grab the current date and time
         today = datetime.today()
         # Create a boolean column that describes whether the data are out of their proprietary period yet
-        rel_chandra['usable_proprietary'] = rel_chandra['proprietary_end_date'].apply(
+        rel_chandra['proprietary_usable'] = rel_chandra['proprietary_end_date'].apply(
             lambda x: ((x <= today) & (pd.notnull(x)))).astype(bool)
 
-        # Whether the data are public or not is the only criteria for acceptable Chandra data for DAXA at the moment
-        rel_chandra['usable'] = rel_chandra['usable_proprietary']
+        # Whether the data are public or not is the only criteria for acceptable Chandra data for DAXA at the
+        #  moment, so I will create the 'science_usable' column (required by BaseMission) and fill it with Trues
+        rel_chandra['science_usable'] = True
 
         # Convert the categories of target that are present in the dataframe to the DAXA taxonomy
         conv_dict = {'AGN UNCLASSIFIED': 'AGN', 'EXTENDED GALACTIC OR EXTRAGALACTIC': 'EGE', 'X-RAY BINARY': 'GS',
@@ -374,8 +375,9 @@ class Chandra(BaseMission):
             lambda x: x.target_category if x.type in ['GO', 'GTO', 'CCT'] else conv_dict[x.type], axis=1)
 
         # Re-ordering the table, and not including certain columns which have served their purpose
-        rel_chandra = rel_chandra[['ra', 'dec', 'ObsID', 'usable', 'start', 'end', 'duration',
-                                   'proprietary_end_date', 'target_category', 'detector', 'grating', 'data_mode']]
+        rel_chandra = rel_chandra[['ra', 'dec', 'ObsID', 'science_usable', 'proprietary_usable', 'start', 'end',
+                                   'duration', 'proprietary_end_date', 'target_category', 'detector', 'grating',
+                                   'data_mode']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
         #  the user would expect from  a fresh dataframe
