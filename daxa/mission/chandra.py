@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 18:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 18:08. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -91,7 +91,7 @@ class Chandra(BaseMission):
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
         self._required_mission_specific_cols = ['proprietary_end_date', 'target_category', 'detector', 'grating',
-                                                'data_mode']
+                                                'data_mode', 'proprietary_usable']
 
         # Runs the method which fetches information on all available pointed NuSTAR observations and stores that
         #  information in the all_obs_info property
