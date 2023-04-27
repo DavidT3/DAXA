@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 06/04/2023, 14:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 17:58. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -22,7 +22,7 @@ from daxa.exceptions import MissionLockedError, NoObsAfterFilterError, IllegalSo
 
 # These are the columns which MUST be present in the all_obs_info dataframes of any sub-class of BaseMission. This
 #  is mainly implemented to make sure developers who aren't me provide the right data formats
-REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'usable', 'start', 'duration', 'end']
+REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'science_usable', 'start', 'duration', 'end']
 # This defines the DAXA source category system, which can be employed by users to narrow down observations which
 #  target specific types of source (if that data is available for a specific mission).
 SRC_TYPE_TAXONOMY = {'AGN': 'Active Galaxies and Quasars', 'BLZ': 'Blazars',
@@ -313,7 +313,7 @@ class BaseMission(metaclass=ABCMeta):
         for an instance of a mission class. This is an abstract method purely because its property setter is an
         abstract method, one cannot be without the other.
 
-        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'usable_science',
+        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'science_usable',
             'start', 'duration'
         :rtype: pd.DataFrame
         """
@@ -343,18 +343,22 @@ class BaseMission(metaclass=ABCMeta):
         return self._obs_info[self.filter_array]
 
     @property
-    def usable(self) -> np.ndarray:
+    def science_usable(self) -> np.ndarray:
         """
-        Property getter for the usable column of the all observation information dataframe. This usable column
-        describes whether a particular observation is actually usable by this module; for instance that the data
-        are suitable for scientific use (so far as can be identified by querying the storage service) and are not
-        proprietary. This usable property is the basis for the filter array, resetting the filter array will return
+        Property getter for the 'science_usable' column of the all observation information dataframe. This
+        'science_usable' column describes whether a particular observation is usable by this module; i.e. that
+        the data are suitable for scientific use (so far as can be identified by querying the storage service).
+        This science_usable property is the basis for the filter array, resetting the filter array will return
         it to the values of this column.
 
-        :return:
+        Data that are marked as scientifically useful but are still in a proprietary period will return True here,
+        as the user may have been the one to take those data. If suitable credentials cannot be produced at download
+        time however, those proprietary data will be marked as unusable.
+
+        :return: A boolean array detailing whether an observation is scientifically useful or not.
         :rtype: np.ndarray
         """
-        return self.all_obs_info['usable'].values
+        return self.all_obs_info['science_usable'].values
 
     @property
     def ra_decs(self) -> SkyCoord:
@@ -574,7 +578,7 @@ class BaseMission(metaclass=ABCMeta):
         MARKED AS USABLE will now be downloaded and processed, and any filters applied to the current mission
         have been undone.
         """
-        self._filter_allowed = self.all_obs_info['usable'].values.copy()
+        self._filter_allowed = self.all_obs_info['science_usable'].values.copy()
         # If the filter changes then we make sure download done is set to False so that any changes
         #  in observation selection are reflected in the download call
         self._download_done = False
