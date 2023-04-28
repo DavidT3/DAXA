@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 20:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 20:16. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -287,7 +287,8 @@ class XMMPointed(BaseMission):
 
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
-            of the cores available on the current machine.
+            of the cores available on the current machine. The number of cores will be CAPPED AT 10 FOR XMM - we
+            have experienced reliably dropped connections when more than 10 download processes are created.
         :param dict/str credentials: The path to an ini file containing credentials, a dictionary containing 'user'
             and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
             for providing different credentials for different observations.
@@ -313,6 +314,11 @@ class XMMPointed(BaseMission):
         #  the _download_call method
         if all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in self.filtered_obs_ids]):
             self._download_done = True
+
+        # I have found that having more than 10 simultaneous XMM download processes tends to result in dropped
+        #  connections and having to re-run mission downloads, so I am going to enforce that on the num_cores
+        #  argument here for a better user experience
+        num_cores = min([num_cores, 10])
 
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
