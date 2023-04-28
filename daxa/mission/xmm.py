@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 20:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 20:19. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -318,7 +318,11 @@ class XMMPointed(BaseMission):
         # I have found that having more than 10 simultaneous XMM download processes tends to result in dropped
         #  connections and having to re-run mission downloads, so I am going to enforce that on the num_cores
         #  argument here for a better user experience
-        num_cores = min([num_cores, 10])
+        new_num_cores = min([num_cores, 10])
+        if new_num_cores != num_cores:
+            warn("The number of cores assigned to XMMPointed downloads has been capped at 10, this will minimise "
+                 "dropped connections.", stacklevel=2)
+            num_cores = new_num_cores
 
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
