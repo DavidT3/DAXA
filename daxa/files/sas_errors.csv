@@ -868,3 +868,4 @@ invalidOption,psfgen
 NoSummaryFile,cifbuild
 IllegalIdentifier,emtaglenoise
 noCounts,espfilt
+noPNSmallWindow,espfilt
