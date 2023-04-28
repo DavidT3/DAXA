@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 18:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 20:13. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -288,7 +288,9 @@ class XMMPointed(BaseMission):
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
-        :param dict/str credentials:
+        :param dict/str credentials: The path to an ini file containing credentials, a dictionary containing 'user'
+            and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
+            for providing different credentials for different observations.
         """
 
         if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():
@@ -379,7 +381,7 @@ class XMMPointed(BaseMission):
             self._download_done = True
 
         else:
-            warn("The raw data for this mission have already been downloaded.")
+            warn("The raw data for this mission have already been downloaded.", stacklevel=2)
 
     def assess_process_obs(self, obs_info: dict) -> dict:
         """
