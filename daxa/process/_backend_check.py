@@ -93,6 +93,9 @@ def find_esass() -> bool:
                                 " If you are using the desktop application of Docker, this error may arise"
                                 " if the application is installed, but not open.") 
     
+    if docker_daemon_running and not esass_outside_docker:
+        raise NotImplementedError("DAXA currently only supports eSASS via direct instalation, and not via Docker.")
+    
     # Doing the returns
     if docker_daemon_running and not esass_outside_docker:
         return True
