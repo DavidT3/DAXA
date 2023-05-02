@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/12/2022, 13:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/04/2023, 12:02. Copyright (c) The Contributors
 
 
 class DAXAConfigError(Exception):
@@ -164,6 +164,26 @@ class eSASSNotFoundError(Exception):
             return 'eSASSNotFoundError has been raised'
 
 
+class BackendSoftwareError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if a required piece of backend software has not been located.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'BackendSoftwareError has been raised'
+
+
 class NoXMMMissionsError(Exception):
     def __init__(self, *args):
         """
@@ -241,3 +261,108 @@ class NoDependencyProcessError(Exception):
             return '{0} '.format(self.message)
         else:
             return 'NoDependencyProcessError has been raised'
+
+
+class NoObsAfterFilterError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if a there are no valid observations left in a mission after filtering processes have been
+        applied.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'NoObsAfterFilterError has been raised'
+
+
+class IllegalSourceType(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if a source type that isn't in the DAXA source type taxonomy has been used.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'IllegalSourceType has been raised'
+
+
+class NoTargetSourceTypeInfo(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if a mission doesn't have any information on each observation's target source type.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'NoSourceTypeInfo has been raised'
+
+
+class ObsNotAssociatedError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if an observation is not associated with a particular mission's filtered dataset.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'ObsNotAssociatedError has been raised'
+
+
+class NoRegionsAssociatedError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if there are no source regions available for the user to retrieve.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'NoRegionsAssociatedError has been raised'
+
+
+
+

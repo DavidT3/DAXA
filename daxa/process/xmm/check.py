@@ -1,18 +1,21 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/01/2023, 21:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 11:34. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, List
 from warnings import warn
 
+import numpy as np
+from astropy.units import Quantity
+from packaging.version import Version
+
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
-from daxa.exceptions import NoDependencyProcessError
 from daxa.process.xmm._common import ALLOWED_XMM_MISSIONS, _sas_process_setup, sas_call
 
 
 @sas_call
-def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False):
+def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
     """
     This function runs the SAS emanom function, which attempts to identify when MOS CCDs are have operated in an
     'anomalous' state, where the  background at E < 1 keV is strongly enhanced. Data above 2 keV are unaffected, so
@@ -22,20 +25,33 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
     whether a chip is in an anomalous state. However, it should be noted that the "anonymous" anomalous state of
     MOS1 CCD#4 is not always detectable from the unexposed corner data.
 
+    This functionality is only usable if you have SAS v19.0.0 or higher - a version check will be performed and
+    a warning raised (though no error will be raised) if you use this function with an earlier SAS version.
+
     :param Archive obs_archive: An Archive instance containing XMM mission instances with MOS observations for
         which emchain should be run. This function will fail if no XMM missions are present in the archive.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire emanom process, but a timeout for individual
+        ObsID-subexposure processes.
     :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
         internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
         bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
         obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
         f) whether the progress bar should be hidden or not.
-    :rtype: Tuple[dict, dict, dict, str, int, bool]
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
     sas_version = _sas_process_setup(obs_archive)
+
+    # As it turns out, emanom was only introduced in v19.0.0. Thankfully emanom is optional in processing XMM, so
+    #  I don't have to change the required SAS version - I'll just put a version check here
+    if sas_version < Version('19.0.0'):
+        warn("The emanom task was introduced in SAS v19.0.0, you have SAS {} - skipping "
+             "emanom.".format(str(sas_version)), stacklevel=2)
+        return {}, {}, {}, '', num_cores, disable_progress, timeout
 
     # Define the form of the emchain command that must be run to check for anomalous states in MOS CCDs
     emanom_cmd = "cd {d}; export SAS_CCF={ccf}; emanom eventfile={ef} keepcorner=no; mv {of} ../; cd ..; rm -r {d}"
@@ -56,42 +72,31 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
-        # Need to check to see whether ANY of ObsID-instrument-subexposure combos have had emchain run for them, as
-        #  it is a requirement for this processing function. There will probably be a more elegant way of checkinf
-        #  at some point in the future, generalised across all SAS functions
-        if 'emchain' not in obs_archive.process_success[miss.name]:
-            raise NoDependencyProcessError("The emchain step has not been run for the {m} mission in the {a} "
-                                           "archive, it is a requirement to use "
-                                           "emanom.".format(m=miss.name, a=obs_archive.archive_name))
-        # If every emchain run was a failure then we warn the user and move onto the next XMM mission (if there
-        #  is one).
-        elif all([v is False for v in obs_archive.process_success[miss.name]['emchain'].values()]):
-            warn("Every emchain run for the {m} mission in the {a} archive is reporting as a failure, skipping "
-                 "process.".format(m=miss.name, a=obs_archive.archive_name), stacklevel=2)
-            continue
-        else:
-            # This fetches those IDs for which emchain has reported success, and these are what we will iterate
-            #  through to ensure that we only act upon data that is in a final event list form.
-            valid_ids = [k for k, v in obs_archive.process_success[miss.name]['emchain'].items() if v]
+        # This method will fetch the valid data (ObsID, Instrument, and sub-exposure) that can be processed - then we
+        #  can narrow it down to only those observations that had emchain run successfully
+        rel_obs_info = obs_archive.get_obs_to_process(miss.name, 'M1') + obs_archive.get_obs_to_process(miss.name, 'M2')
 
-        # We iterate through the valid IDs rather than nest ObsID and instrument for loops - as we can use the emchain
-        #  success information to determine which can be processed further.
-        for val_id in valid_ids:
-            # TODO Review this if I change the IDing system as I was pondering in issue #44
-            if 'M1' in val_id:
-                obs_id, exp_id = val_id.split('M1')
-                # The form of this inst is different to the standard in DAXA/SAS (M1), because emanom log files
-                #  are named with mos1 and mos2 rather than M1 and M2
-                inst = 'mos1'
-            elif 'M2' in val_id:
-                obs_id, exp_id = val_id.split('M2')
-                # The form of this inst is different to the standard in DAXA/SAS (M2), because emanom log files
-                #  are named with mos1 and mos2 rather than M1 and M2
-                inst = 'mos2'
+        # Here we check that emchain ran - if it didn't then we can hardly search the MOS event lists for a badly
+        #  behaved CCD!
+        good_em = obs_archive.check_dependence_success(miss.name, rel_obs_info, 'emchain')
+
+        # Now we start to cycle through the relevant data
+        for obs_info in np.array(rel_obs_info)[good_em]:
+            # This is the valid id that allows us to retrieve the specific event list for this ObsID-M1/2-SubExp
+            #  combination
+            val_id = ''.join(obs_info)
+            # Split out the information in obs_info
+            obs_id, inst, exp_id = obs_info
+
+            # emanom has a different instrument naming convention in its files (because of course it does), so we
+            #  need to be able to catch that.
+            if inst == 'M1':
+                alt_inst = 'mos1'
             else:
-                raise ValueError("Somehow there is no instance of M1 or M2 in that storage key, this should be "
-                                 "impossible!")
+                alt_inst = 'mos2'
 
+            # Grab the relevant event list from the extra information of the emchain (process that created the
+            #  event list) process
             evt_list_file = obs_archive.process_extra_info[miss.name]['emchain'][val_id]['evt_list']
 
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
@@ -105,7 +110,7 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
             temp_dir = dest_dir + temp_name + "/"
 
             # Checking for the output anom file created by the process (unless turned off with an argument)
-            log_name = "{i}{eid}-anom.log".format(i=inst, eid=exp_id)
+            log_name = "{i}{eid}-anom.log".format(i=alt_inst, eid=exp_id)
             final_path = dest_dir + log_name
 
             # If it doesn't already exist then we will create commands to generate it
@@ -122,13 +127,13 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
                 miss_final_paths[miss.name][val_id] = final_path
-                # Make sure to store the log file path so it can be parsed later to see which CCDs to keep
+                # Make sure to store the log file path, so it can be parsed later to see which CCDs to keep
                 miss_extras[miss.name][val_id] = {'log_path': final_path}
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Checking for MOS CCD anomalous states'
 
-    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
 def parse_emanom_out(log_file_path: str, acceptable_states: Union[List[str], str] = ('G', 'I', 'U')) -> List[int]:

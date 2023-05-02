@@ -1,0 +1,1 @@
+This directory is where we store notebooks related to manual inspection of cleaned data to ensure quality.
