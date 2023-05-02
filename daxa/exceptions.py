@@ -144,6 +144,25 @@ class SASVersionError(Exception):
         else:
             return 'SASVersionError has been raised'
 
+class eSASSNotFoundError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if the eROSITA Science Analysis Software System can not be found on the system.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'eSASSNotFoundError has been raised'
+
 
 class BackendSoftwareError(Exception):
     def __init__(self, *args):
@@ -183,6 +202,25 @@ class NoXMMMissionsError(Exception):
             return '{0} '.format(self.message)
         else:
             return 'NoXMMMissionsError has been raised'
+
+class NoEROSITAMissionsError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if an archive containing no eROSITA missions is passed to an eROSITA specific processing function.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'NoEROSITAMissionsError has been raised'
 
 
 class NoProcessingError(Exception):
