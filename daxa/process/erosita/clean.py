@@ -15,8 +15,8 @@ def flaregti(obs_archive: Archive, pimin: float = 200, pimax: float = 10000, mas
             mask_pimax: float = 10000, xmin: float = -108000, xmax: float = 108000, ymin: float = -108000, 
             ymax: float = 108000, gridsize: int = 18, binsize: int = 1200, detml: int = 10, 
             timebin: int = 20, source_size: int = 25, source_like: int = 10, fov_radius: int = 30, 
-            threshold: float = -1, max_threshold: float = -1, write_mask: str = 'yes', mask_iter: int = 3,
-            write_lightcurve: str = 'yes', write_thresholdimg: str = 'no'):
+            threshold: float = -1, max_threshold: float = -1, write_mask: bool = True, mask_iter: int = 3,
+            write_lightcurve: bool = True, write_thresholdimg: bool = False):
     """
     The DAXA wrapper for the eROSITA eSASS task flaregti, which attempts to identify good time intervals with minimal flaring.
     This has been tested up to flaregti v1.20.
@@ -46,10 +46,10 @@ def flaregti(obs_archive: Archive, pimin: float = 200, pimax: float = 10000, mas
     :param threshold float: Flare threshold; dynamic if negative (unit: counts/deg^2/sec).
     :param max_threshold float: Maximum threshold rate, if positive (unit: counts/deg^2/sec),
         if set this forces the threshold to be this rate or less.
-    :param write_mask str: Write mask image.
+    :param write_mask bool: Write mask image.
     :param mask_iter int: Number of repetitions of source masking and GTI creation.
-    :param write_lightcurve str: Write lightcurve.
-    :param write_thresholdimg str: Whether to write a FITS threshold image.
+    :param write_lightcurve bool: Write lightcurve.
+    :param write_thresholdimg bool: Whether to write a FITS threshold image.
     """
 
     # Run the setup for eSASS processes, which checks that eSASS is installed, checks that the archive has at least
@@ -85,6 +85,35 @@ def flaregti(obs_archive: Archive, pimin: float = 200, pimax: float = 10000, mas
     if (ymax <= ymin):
         raise ValueError("The ymax argument must be larger than the ymin argument.")
     
+    # Checking user's input for write_thresholdimg is of the correct type
+    if not isinstance(write_thresholdimg, bool):
+        raise TypeError("The write_thresholdimg parameter must be a boolean.")
+
+    # Checking user's input for write_mask is of the correct type
+    if not isinstance(write_mask, bool):
+        raise TypeError("The write_mask parameter must be a boolean.")
+    
+    # Checking user's input for write_lightcurve is of the correct type
+    if not isinstance(write_lightcurve, bool):
+        raise TypeError("The write_lightcurve parameter must be a boolean.")
+    
+    # Need to change parameter to write threshold image if the user wants it. The parameter
+    #  must be changed from boolean to a 'yes' or 'no' string because that is what flaregti wants
+    if write_thresholdimg:
+        write_thresholdimg = 'yes'
+    else:
+        write_thresholdimg = 'no'
+    # Similarly with write_mask
+    if write_mask:
+        write_mask = 'yes'
+    else:
+        write_mask = 'no'
+    # And lastly with write_lightcurve
+    if write_lightcurve:
+        write_lightcurve = 'yes'
+    else:
+        write_lightcurve = 'no'
+
     # Checking string inputs are valid
     if write_thresholdimg != 'yes' or 'no':
         raise ValueError("The string passed for 'write_thresholdimg' must be either yes or no")
