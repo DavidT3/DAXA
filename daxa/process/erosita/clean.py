@@ -51,4 +51,48 @@ def flaregti(obs_archive: Archive, pimin: float = 200, pimax: float = 10000, mas
     :param write_lightcurve str: Write lightcurve.
     :param write_thresholdimg str: Whether to write a FITS threshold image.
     """
+
+    # Run the setup for eSASS processes, which checks that eSASS is installed, checks that the archive has at least
+    #  one eROSITA mission in it, and shows a warning if the eROSITA missions have already been processed
+    esass_in_docker = _esass_process_setup(obs_archive)
+    
+    # Checking that the upper energy limit is not below the lower energy limit (for the lightcurve)
+    if pimax <= pimin:
+        raise ValueError("The pimax argument must be larger than the pimin argument.")
+
+    # Checking user's pimin and pimax inputs are in the valid energy range for eROSITA
+    if (pimin < 200 or pimin > 10000) or (pimax < 200 or pimax > 10000):
+        raise ValueError("The pimin and pimax value must be between 200 eV and 10000 eV.")
+    
+    # Checking that the upper energy limit is not below the lower energy limit (for the image)
+    if mask_pimax <= mask_pimin:
+        raise ValueError("The mask_pimax argument must be larger than the mask_pimin argument.")
+
+    # Checking user's mask_pimin and mask_pimax inputs are in the valid energy range for eROSITA
+    if (mask_pimin < 200 or mask_pimin > 10000) or (mask_pimax < 200 or mask_pimax > 10000):
+        raise ValueError("The mask_pimin and mask_pimax value must be between 200 eV and 10000 eV.")
+
+    # Checking xmin, xmax, ymin, ymax are valid for eSASS processing
+    if (xmin < -108000 or xmin > 108000) or (xmax < -108000 or xmax > 108000) or \
+       (ymin < -108000 or ymin > 108000) or (ymax < -108000 or ymax > 108000):
+        raise ValueError("The xmin, xmax, ymin, and ymax values must be between -108000 and 108000.")
+    
+    # Checking that the higher pixel limit isn't below the lower limit in the x dimension
+    if (xmax <= xmin):
+        raise ValueError("The xmax argument must be larger than the xmin argument.")
+    
+    # Checking that the higher pixel limit isn't below the lower limit in the y dimension
+    if (ymax <= ymin):
+        raise ValueError("The ymax argument must be larger than the ymin argument.")
+    
+    # Checking string inputs are valid
+    if write_thresholdimg != 'yes' or 'no':
+        raise ValueError("The string passed for 'write_thresholdimg' must be either yes or no")
+    if write_mask != 'yes' or 'no':
+        raise ValueError("The string passed for 'write_mask' must be either yes or no")
+    if write_lightcurve != 'yes' or 'no':
+        raise ValueError("The string passed for 'write_lightcurve' must be either yes or no")
+
+
+
     pass
