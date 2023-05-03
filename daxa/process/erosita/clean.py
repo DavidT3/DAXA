@@ -4,7 +4,7 @@ import os
 from random import randint
 from typing import Union
 
-from astropy.units import Quantity, UnitConversionError, def_unit, ct, deg, s
+from astropy.units import Quantity, UnitConversionError, def_unit, add_enabled_units, ct, deg, s
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
@@ -18,9 +18,11 @@ from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_M
 # JESS_TODO see how it deals with sweeps vs. pointing
 # DAVID_QUESTION not sure how to deal with skypixel
 
-# DAVID_QUESTION not sure where i should put this bit of code
-# defining surface brightness rate astropy unit for use in the function below to measure thresholds in 
-sb_rate = def_unit('sb_rate', ct / (deg**2 *s))
+# DAVID_QUESTION not sure where i should put this bit of code?
+# defining surface brightness rate astropy unit for use in flaregti to measure thresholds in 
+sb_rate = def_unit('sb_rate', ct / (deg**2 *s)) 
+# adding this to enabled units so that it can be used in flaregti
+add_enabled_units([sb_rate])
 
 def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax: Quantity = Quantity(10000, 'eV'), mask_pimin: Quantity = (200, 'eV'), 
             mask_pimax: Quantity = Quantity(10000, 'eV'), binsize: int = 1200, detml: Union[float, int] = 10, timebin: Quantity = Quantity(20, 's'), 
