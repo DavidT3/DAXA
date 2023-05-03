@@ -133,6 +133,14 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     # Converting to the right unit                              
     else:
         timebin = timebin.to('s')
+
+    # Avoiding the operating system error you get when you enter too large of a timebin into flaregti
+    if timebin > 1000000000:
+        raise ValueError("Please enter a timebin argument equivalent to less than 1000000000s.")
+    
+    # Not allowing a negative timebin to be entered
+    if timebin <= 0:
+        raise ValueError("The timebin argument may not be negative or equal to 0.")
     
     # Checking user's choice for the source_size parameter
     if not isinstance(source_size, Quantity):
@@ -150,10 +158,10 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
         source_size = source_size.to('arcsec')
     
     # Converting parameters from astropy units into a type the command line will accept
-    pimin = float(pimin.value)
-    pimax = float(pimax.value)
-    mask_pimin = float(mask_pimin.value)
-    mask_pimax = float(mask_pimax.value)
+    pimin = int(pimin.value)
+    pimax = int(pimax.value)
+    mask_pimin = int(mask_pimin.value)
+    mask_pimax = int(mask_pimax.value)
     timebin = float(timebin.value)
     source_size = float(source_size.value)
 
