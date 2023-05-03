@@ -3,7 +3,7 @@
 import os
 from random import randint
 
-from astropy.units import Quantity
+from astropy.units import Quantity, UnitConversionError
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
@@ -15,11 +15,11 @@ from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_M
 # JESS_TODO put arguments as quantities, need to do .value when putting it into cmd line
 #JESS_TODO see what the limits are on xmax, xmin is it the size of a sweep
 #JESS_TODO see how it deals with sweeps vs. pointing
+# DAVID_QUESTION not sure how to deal with skypixel/ threshold units
 
-
-def flaregti(obs_archive: Archive, pimin: float = 200, pimax: float = 10000, mask_pimin: float = 200, 
-            mask_pimax: float = 10000, binsize: int = 1200, detml: int = 10, timebin: int = 20, 
-            source_size: int = 25, source_like: int = 10, threshold: float = -1, max_threshold: float = -1,  
+def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax: Quantity = Quantity(10000, 'eV'), mask_pimin: Quantity = (200, 'eV'), 
+            mask_pimax: Quantity = Quantity(10000, 'eV'), binsize: int = 1200, detml: int = 10, timebin: Quantity = Quantity(20, 's'), 
+            source_size: Quantity = Quantity(25, 'arcsec'), source_like: int = 10, threshold: float = -1, max_threshold: float = -1,  
             mask_iter: int = 3, num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
     """
     The DAXA wrapper for the eROSITA eSASS task flaregti, which attempts to identify good time intervals with minimal flaring.
@@ -68,22 +68,94 @@ def flaregti(obs_archive: Archive, pimin: float = 200, pimax: float = 10000, mas
     # Run the setup for eSASS processes, which checks that eSASS is installed, checks that the archive has at least
     #  one eROSITA mission in it, and shows a warning if the eROSITA missions have already been processed
     esass_in_docker = _esass_process_setup(obs_archive)
+
+    # Checking user's choice of energy limit parameters
+    if not isinstance(pimin, Quantity) or not isinstance(pimax, Quantity):
+        raise TypeError("The pimin and pimax arguments must be astropy quantities in units "
+                        "that can be converted to eV.")
     
+    # Have to make sure that the energy bounds are in units that can be converted to eV (which is what flaregti
+    #  expects for these arguments).
+    elif not pimin.unit.is_equivalent('eV') or not pimax.unit.is_equivalent('eV'):
+        raise UnitConversionError("The pimin and pimax arguments must be astropy quantities in units "
+                                  "that can be converted to eV.")
+
     # Checking that the upper energy limit is not below the lower energy limit (for the lightcurve)
-    if pimax <= pimin:
+    elif pimax <= pimin:
         raise ValueError("The pimax argument must be larger than the pimin argument.")
+    
+    # Converting to the right unit
+    else:
+        pimin = pimin.to('eV')
+        pimax = pimax.to('eV')
 
     # Checking user's pimin and pimax inputs are in the valid energy range for eROSITA
-    if (pimin < 200 or pimin > 10000) or (pimax < 200 or pimax > 10000):
+    if (pimin < Quantity(200, 'eV') or pimin > Quantity(10000, 'eV')) or \
+        (pimax < Quantity(200, 'eV') or pimax > Quantity(10000, 'eV')):
         raise ValueError("The pimin and pimax value must be between 200 eV and 10000 eV.")
     
+    # Repeating these checks but for the image energy range limits
+    if not isinstance(mask_pimin, Quantity) or not isinstance(mask_pimax, Quantity):
+        raise TypeError("The mask_pimin and mask_pimax arguments must be astropy quantities in units "
+                        "that can be converted to eV.")
+    
+    # Have to make sure that the energy bounds are in units that can be converted to eV (which is what flaregti
+    #  expects for these arguments).
+    elif not mask_pimin.unit.is_equivalent('eV') or not mask_pimax.unit.is_equivalent('eV'):
+        raise UnitConversionError("The mask_pimin and mask_pimax arguments must be astropy quantities in units "
+                                  "that can be converted to eV.")
+    
     # Checking that the upper energy limit is not below the lower energy limit (for the image)
-    if mask_pimax <= mask_pimin:
+    elif mask_pimax <= mask_pimin:
         raise ValueError("The mask_pimax argument must be larger than the mask_pimin argument.")
 
+    # Converting to the right unit
+    else:
+        mask_pimin = mask_pimin.to('eV')
+        mask_pimax = mask_pimax.to('eV')
+
     # Checking user's mask_pimin and mask_pimax inputs are in the valid energy range for eROSITA
-    if (mask_pimin < 200 or mask_pimin > 10000) or (mask_pimax < 200 or mask_pimax > 10000):
+    if (mask_pimin < Quantity(200, 'ev') or mask_pimin > Quantity(10000, 'eV')) or \
+       (mask_pimax < Quantity(200, 'eV') or mask_pimax > Quantity(10000, 'eV')):
         raise ValueError("The mask_pimin and mask_pimax value must be between 200 eV and 10000 eV.")
+    
+    # Checking user's choice for the timebin parameter
+    if not isinstance(timebin, Quantity):
+        raise TypeError("The timebin argument must be an astropy quantity in units "
+                        "that can be converted to seconds.")
+
+    # Have to make sure that the timebin is in units that can be converted to s (which is what flaregti
+    #  expects for this argument).
+    elif not timebin.unit.is_equivalent('s'):
+        raise UnitConversionError("The timebin argument must be an astropy quantity in units "
+                                  "that can be converted to seconds.")
+
+    # Converting to the right unit                              
+    else:
+        timebin = timebin.to('s')
+    
+    # Checking user's choice for the source_size parameter
+    if not isinstance(source_size, Quantity):
+        raise TypeError("The source_size argument must be an astropy quantity in units "
+                        "that can be converted to arcseconds.")
+
+    # Have to make sure that the timebin is in units that can be converted to s (which is what flaregti
+    #  expects for this argument).
+    elif not source_size.unit.is_equivalent('arcsec'):
+        raise UnitConversionError("The source_size argument must be an astropy quantity in units "
+                                  "that can be converted to arcseconds.")
+
+    # Converting to the right unit                              
+    else:
+        source_size = source_size.to('arcsec')
+    
+    # Converting parameters from astropy units into a type the command line will accept
+    pimin = float(pimin.value)
+    pimax = float(pimax.value)
+    mask_pimin = float(mask_pimin.value)
+    mask_pimax = float(mask_pimax.value)
+    timebin = float(timebin.value)
+    source_size = float(source_size.value)
 
     # These parameters we want DAXA to have control over, not the user
     gridsize = 18   # Sections of the image a source detection is run over to determine a dynamic threshold
@@ -128,7 +200,6 @@ def flaregti(obs_archive: Archive, pimin: float = 200, pimax: float = 10000, mas
             obs_id, insts = obs_info
 
             # If all insts are used the name of the eventlist will be in a different format
-            # DAVID_QUESTION is this the right file?
             if len(insts) == 7:
                 evt_list_file = miss._get_evlist_path_from_obs(obs=obs_id)
             else:
@@ -147,7 +218,6 @@ def flaregti(obs_archive: Archive, pimin: float = 200, pimax: float = 10000, mas
             temp_dir = dest_dir + temp_name + "/"
 
             # Setting up the paths to the gti file, lightcurve file, threshold image file, and mask image file
-            # DAVID_QUESTION not sure which energy lims to use?
             og_gti_name = "{i}-gti.fits".format(i=insts)
             og_lc_name = "{i}-lc-{l}-{u}.fits".format(i=insts, l=pimin, u=pimax)
             og_thresholdimg_name = "{i}-thresholdimg-{l}-{u}.fits".format(i=insts, l=pimin, u=pimax)
