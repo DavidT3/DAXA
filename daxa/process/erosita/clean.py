@@ -4,7 +4,7 @@ import os
 from random import randint
 from typing import Union
 
-from astropy.units import Quantity, UnitConversionError
+from astropy.units import Quantity, UnitConversionError, def_unit, ct, deg, s
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
@@ -14,14 +14,18 @@ from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_M
 # JESS_TODO write an esass call wrapper 
 # JESS_TODO check each argument type is correct
 # JESS_TODO put arguments as quantities, need to do .value when putting it into cmd line
-#JESS_TODO see what the limits are on xmax, xmin is it the size of a sweep
-#JESS_TODO see how it deals with sweeps vs. pointing
-# DAVID_QUESTION not sure how to deal with skypixel/ threshold units
+# JESS_TODO see what the limits are on xmax, xmin is it the size of a sweep
+# JESS_TODO see how it deals with sweeps vs. pointing
+# DAVID_QUESTION not sure how to deal with skypixel
+
+# DAVID_QUESTION not sure where i should put this bit of code
+# defining surface brightness rate astropy unit for use in the function below to measure thresholds in 
+sb_rate = def_unit('sb_rate', ct / (deg**2 *s))
 
 def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax: Quantity = Quantity(10000, 'eV'), mask_pimin: Quantity = (200, 'eV'), 
             mask_pimax: Quantity = Quantity(10000, 'eV'), binsize: int = 1200, detml: Union[float, int] = 10, timebin: Quantity = Quantity(20, 's'), 
-            source_size: Quantity = Quantity(25, 'arcsec'), source_like: Union[float, int] = 10, threshold: Union[float, int] = -1, 
-            max_threshold: Union[float, int] = -1, mask_iter: int = 3, num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
+            source_size: Quantity = Quantity(25, 'arcsec'), source_like: Union[float, int] = 10, threshold: Quantity = Quantity(-1, 'sb_rate'), 
+            max_threshold: Quantity = Quantity(-1, 'sb_rate'), mask_iter: int = 3, num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
     """
     The DAXA wrapper for the eROSITA eSASS task flaregti, which attempts to identify good time intervals with minimal flaring.
     This has been tested up to flaregti v1.20.
@@ -168,12 +172,32 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
         raise TypeError("The source_like argument must be an integer or a float.")
     
     # Checking user's choice for the threshold parameter
-    if not isinstance(threshold, (int, float)):
-        raise TypeError("The threshold argument must be an integer or a float.")
+    if not isinstance(threshold, Quantity):
+        raise TypeError("The threshold argument must be an astropy quantity in units that can "
+                        "be converted into counts/deg^2/s.")
+
+    # Checking it is in the correct units
+    elif not threshold.is_equivalent('sb_rate'):
+        raise UnitConversionError("The threshold argument must be an astropy quantity in units that can "
+                                  "be converted into counts/deg^2/s.")
+    
+    # Converting to the right unit                              
+    else:
+        threshold = threshold.to('sb_rate')
     
     # Checking user's choice for the max_threshold parameter
-    if not isinstance(max_threshold, (int, float)):
-        raise TypeError("The max_threshold argument must be an integer or a float.")
+    if not isinstance(max_threshold, Quantity):
+        raise TypeError("The max_threshold argument must be an astropy quantity in units that can "
+                        "be converted into counts/deg^2/s.")
+
+    # Checking it is in the correct units
+    elif not max_threshold.is_equivalent('sb_rate'):
+        raise UnitConversionError("The max_threshold argument must be an astropy quantity in units that can "
+                                  "be converted into counts/deg^2/s.")
+    
+    # Converting to the right unit                              
+    else:
+        max_threshold = max_threshold.to('sb_rate')
     
     # Checking user's choice for the mask_iter parameter
     if not isinstance(mask_iter, int):
