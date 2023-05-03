@@ -2,6 +2,7 @@
 # Last modified by David J Turner (turne540@msu.edu) Thu Apr 20 2023, 10:52. Copyright (c) The Contributors
 import os
 from random import randint
+from typing import Union
 
 from astropy.units import Quantity, UnitConversionError
 
@@ -18,9 +19,9 @@ from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_M
 # DAVID_QUESTION not sure how to deal with skypixel/ threshold units
 
 def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax: Quantity = Quantity(10000, 'eV'), mask_pimin: Quantity = (200, 'eV'), 
-            mask_pimax: Quantity = Quantity(10000, 'eV'), binsize: int = 1200, detml: int = 10, timebin: Quantity = Quantity(20, 's'), 
-            source_size: Quantity = Quantity(25, 'arcsec'), source_like: int = 10, threshold: float = -1, max_threshold: float = -1,  
-            mask_iter: int = 3, num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
+            mask_pimax: Quantity = Quantity(10000, 'eV'), binsize: int = 1200, detml: Union[float, int] = 10, timebin: Quantity = Quantity(20, 's'), 
+            source_size: Quantity = Quantity(25, 'arcsec'), source_like: Union[float, int] = 10, threshold: Union[float, int] = -1, 
+            max_threshold: Union[float, int] = -1, mask_iter: int = 3, num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
     """
     The DAXA wrapper for the eROSITA eSASS task flaregti, which attempts to identify good time intervals with minimal flaring.
     This has been tested up to flaregti v1.20.
@@ -35,10 +36,6 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     :param float pimax:  Upper PI bound of energy range for lightcurve creation.
     :param float mask_pimin: Lower PI bound of energy range for finding sources to mask.
     :param float mask_pimax: Upper PI bound of energy range for finding sources to mask.
-    :param float xmin: Sky pixel range for flare analysis: Xmin.
-    :param float xmax: Sky pixel range for flare analysis: Xmax.
-    :param float ymin: Sky pixel range for flare analysis: Ymin.
-    :param float ymax: Sky pixel range for flare analysis: Ymax.
     :param int binsize: Bin size of mask image (unit: sky pixels).
     :param int detml: Likelihood threshold for mask creation.
     :param int timebin: Bin size for lightcurve (unit: seconds).
@@ -48,20 +45,17 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     :param float threshold: Flare threshold; dynamic if negative (unit: counts/deg^2/sec).
     :param float max_threshold: Maximum threshold rate, if positive (unit: counts/deg^2/sec),
         if set this forces the threshold to be this rate or less.
-    :param bool write_mask: Write mask image.
     :param int mask_iter: Number of repetitions of source masking and GTI creation.
-    :param bool write_lightcurve: Write lightcurve.
-    :param bool write_thresholdimg: Whether to write a FITS threshold image.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
     :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
         Please note that this is not a timeout for the entire flaregti process, but a timeout for individual
         ObsID-Inst-subexposure processes.
     :return: Information required by the eSASS decorator that will run commands. Top level keys of any dictionaries are
-    internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
-    bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
-    obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
-    f) whether the progress bar should be hidden or not.
+        internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
+        bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
+        obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
+        f) whether the progress bar should be hidden or not.
     :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
 
@@ -156,7 +150,35 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     # Converting to the right unit                              
     else:
         source_size = source_size.to('arcsec')
+
+    # Checking user's choice for the binsize parameter
+    if not isinstance(binsize, int):
+        raise TypeError("The binsize argument must be an integer.")
+
+    # Checking the validity of the binsize value
+    elif binsize <= 0:
+        raise ValueError("The binsize argument may not be negative or equal to 0.")
     
+    # Checking user's choice for the detml parameter
+    if not isinstance(detml, (int, float)):
+        raise TypeError("The detml argument must be an integer or a float.")
+    
+    # Checking user's choice for the source_like parameter
+    if not isinstance(source_like, (int, float)):
+        raise TypeError("The source_like argument must be an integer or a float.")
+    
+    # Checking user's choice for the threshold parameter
+    if not isinstance(threshold, (int, float)):
+        raise TypeError("The threshold argument must be an integer or a float.")
+    
+    # Checking user's choice for the max_threshold parameter
+    if not isinstance(max_threshold, (int, float)):
+        raise TypeError("The max_threshold argument must be an integer or a float.")
+    
+    # Checking user's choice for the mask_iter parameter
+    if not isinstance(mask_iter, int):
+        raise TypeError("The mask_iter argument must be an integer.")
+
     # Converting parameters from astropy units into a type the command line will accept
     pimin = int(pimin.value)
     pimax = int(pimax.value)
@@ -175,7 +197,6 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     write_thresholdimg = 'yes'
     write_mask = 'yes'
     write_lightcurve = 'yes' 
-
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
