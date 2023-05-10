@@ -38,7 +38,6 @@ def parse_erositacalpv_sum(raw_obs_path: str):
         for inst in insts:
             info_dict["TM" + str(inst)] = {}
             info_dict["TM" + str(inst)]['active'] = True
-            info_dict["TM" + str(inst)]['included'] = True
             info_dict["TM" + str(inst)]['filter'] = filter
         
     return info_dict
