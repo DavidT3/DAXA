@@ -126,7 +126,7 @@ def esass_call(esass_func):
     @wraps(esass_func)
     def wrapper(*args, **kwargs):
         # This is here to avoid a circular import issue
-        from daxa.process.erosita.setup import parse_erositacalpv_sum
+        from daxa.process.erosita.setup import prepare_erositacalpv_info
 
         # The first argument of all the eSASS processing functions will be an archive instance, and pulling
         #  that out of the arguments will be useful later
