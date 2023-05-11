@@ -1,7 +1,7 @@
 # This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
 # Last modified by David J Turner (turne540@msu.edu) Thu Apr 13 2023, 15:16. Copyright (c) The Contributors
 import glob
-from typing import Bool, Tuple, List
+from typing import Tuple, List
 from warnings import warn
 import os.path
 from subprocess import Popen, PIPE
@@ -18,7 +18,7 @@ from daxa.process.erosita.setup import prepare_erositacalpv_info
 
 ALLOWED_EROSITA_MISSIONS = ['erosita_calpv']
 
-def _esass_process_setup(obs_archive: Archive) -> Bool:
+def _esass_process_setup(obs_archive: Archive) -> bool:
     """
     This function is to be called at the beginning of eROSITA specific processing functions, and contains several
     checks to ensure that passed data common to multiple process function calls is suitable.
@@ -64,7 +64,7 @@ def _esass_process_setup(obs_archive: Archive) -> Bool:
 
     return esass_in_docker
 
-def execute_cmd(cmd: str, docker: Bool, rel_id: str, miss_name: str, check_path: str,
+def execute_cmd(cmd: str, docker: bool, rel_id: str, miss_name: str, check_path: str,
                 extra_info: dict) -> Tuple[str, str, List[bool], str, str, dict]:
     """
     This is a simple function designed to execute eSASS commands either through Docker or the command line
@@ -178,6 +178,7 @@ def esass_call(esass_func):
                 #   of 'path', which will store the raw data path for that obs id.
                 prepare_erositacalpv_info(obs_archive, miss)
 
+        '''
         # I do not love this solution, but this will be what any python errors that are thrown during execute_cmd
         #  are stored in. In theory, because execute_cmd is so simple, there shouldn't be Python errors thrown.
         #  SAS errors will be stored in process_parsed_stderrs
@@ -301,18 +302,12 @@ def esass_call(esass_func):
             #  during the execute_cmd function calls)
             if len(python_errors) != 0:
                 raise ExceptionGroup("Python errors raised during SAS commands", python_errors)
-
-        obs_archive.process_success = (sas_func.__name__, success_flags)
-        obs_archive.process_errors = (sas_func.__name__, process_parsed_stderrs)
-        obs_archive.process_warnings = (sas_func.__name__, process_parsed_stderr_warns)
-        obs_archive.raw_process_errors = (sas_func.__name__, process_raw_stderrs)
-        obs_archive.process_logs = (sas_func.__name__, process_stdouts)
-        obs_archive.process_extra_info = (sas_func.__name__, process_einfo)
-
-        # If the task we just ran is odf ingest, that means we've parsed the summary files to provide us with some
-        #  information on the data we have - that information is in the parsed_obs_info dictionary and needs to be
-        #  added to the observation_summaries property of the archive
-        if run_odf_sum_parse:
-            obs_archive.observation_summaries = parsed_obs_info
+        '''
+        obs_archive.process_success = (esass_func.__name__, success_flags)
+        #obs_archive.process_errors = (esass_func.__name__, process_parsed_stderrs)
+        #obs_archive.process_warnings = (esass_func.__name__, process_parsed_stderr_warns)
+        obs_archive.raw_process_errors = (esass_func.__name__, process_raw_stderrs)
+        obs_archive.process_logs = (esass_func.__name__, process_stdouts)
+        obs_archive.process_extra_info = (esass_func.__name__, process_einfo)
 
     return wrapper
