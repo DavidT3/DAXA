@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 20:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/05/2023, 12:03. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -22,8 +22,9 @@ from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError, NoObsAfterFilterError
 from daxa.mission.base import BaseMission, _lock_check
 
-# Unlike NuSTAR, we should only need one directory to be present to download the unprocessed Chandra observations
-REQUIRED_DIRS = ['secondary/']
+# Unlike NuSTAR, we should only need one directory to be present to download the unprocessed Chandra observations, but
+#  if we're downloading 'standard' data distributions we shall check that primary AND secondary are present
+REQUIRED_DIRS = {'raw': ['secondary/'], 'standard': ['primary/', 'secondary/']}
 GOOD_FILE_PATTERNS = ['evt1.fits', 'mtl1.fits', 'bias0.fits', 'pbk0.fits', 'flt1.fits', 'bpix1.fits', 'msk1.fits']
 
 
@@ -387,13 +388,15 @@ class Chandra(BaseMission):
         self.all_obs_info = rel_chandra
 
     @staticmethod
-    def _download_call(observation_id: str, raw_dir: str):
+    def _download_call(observation_id: str, raw_dir: str, download_standard: bool = False):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
 
         :param str observation_id: The ObsID of the observation to be downloaded.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
+        :param bool download_standard: Whether the 'standard' Chandra data distribution should be downloaded, with
+            'primary' and 'secondary' folders. This is False by default because DAXA normally only wants the raw data.
         """
         # The Chandra data are stored in observatories that are named to correspond with the last digit of
         #  the particular observation's ObsID, so we shall extract that for later
@@ -403,20 +406,25 @@ class Chandra(BaseMission):
         obs_dir = "/FTP/chandra/data/byobsid/{ii}/{oid}/".format(ii=init_id, oid=observation_id)
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
 
-        # This opens a session that will persist - then a lot of the next session is for checking that the expected
-        #  directories are present.
+        # This defines the 'required' directories depending on the type of download that we're doing
+        if not download_standard:
+            req_dir = REQUIRED_DIRS['raw']
+        else:
+            req_dir = REQUIRED_DIRS['standard']
+
+        # This opens a session that will persist
         session = requests.Session()
 
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
         #  that the three directories that I need to download unprocessed Chandra data are present
         # The 'secondary' data products are the L1 unprocessed products that we want
         top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
-                    if en['href'] in REQUIRED_DIRS]
-        # If the lengths of top_data and REQUIRED_DIRS are different, then one or more of the expected dirs
+                    if en['href'] in req_dir]
+        # If the lengths of top_data and req_dir are different, then one or more of the expected dirs
         #  is not present
-        if len(top_data) != len(REQUIRED_DIRS):
+        if len(top_data) != len(req_dir):
             # This list comprehension figures out what directory is missing and reports it
-            missing = [rd for rd in REQUIRED_DIRS if rd not in top_data]
+            missing = [rd for rd in req_dir if rd not in top_data]
             raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
                                     "directories; {rq}".format(o=observation_id, rq=", ".join(missing)))
 
@@ -459,12 +467,16 @@ class Chandra(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, credentials: Union[str, dict] = None):
+    def download(self, num_cores: int = NUM_CORES, credentials: Union[str, dict] = None,
+                 download_standard: bool = False):
         """
         A method to acquire and download the pointed Chandra data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
         property will be downloaded, which is set either on declaration of the class instance or by passing
         a new value to the chosen_instruments property.
+
+        If you're using DAXA only for data acquisition, and wish to use CIAO scripts for reprocessing (e.g.
+        'chandra_repro'), then set 'download_standard=True'.
 
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
@@ -472,6 +484,9 @@ class Chandra(BaseMission):
         :param dict/str credentials: The path to an ini file containing credentials, a dictionary containing 'user'
             and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
             for providing different credentials for different observations.
+        :param bool download_standard: Whether the 'standard' Chandra data structure should be downloaded (i.e. with
+            'primary' and 'secondary' directories. The default is False, as DAXA will do its own processing, but if
+            you just wish to use DAXA for data acquisition, and then use the CIAO scripts, this should be set to True.
         """
 
         if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():
