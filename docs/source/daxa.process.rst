@@ -14,5 +14,5 @@ process.xmm module
 
 .. toctree::
    :maxdepth: 5
-   daxa.process.xmm
+   daxa.process.xmm.rst
 
