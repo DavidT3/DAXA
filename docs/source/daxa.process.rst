@@ -1,7 +1,7 @@
 process
 =======
 
-archive.simple
+process.simple
 ----------------------
 
 .. automodule:: daxa.process.simple
@@ -12,8 +12,7 @@ archive.simple
 process.xmm module
 -------------------
 
-.. automodule:: daxa.process.xmm
-   :members:
-   :undoc-members:
-   :show-inheritance:
+.. toctree::
+   :maxdepth: 5
+   daxa.process.xmm
 
