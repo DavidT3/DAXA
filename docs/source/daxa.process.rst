@@ -9,11 +9,10 @@ process.simple
    :undoc-members:
    :show-inheritance:
 
-process
--------------------
+
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Instrument Specific:
 
    daxa.process.xmm <daxa.process.xmm.rst>
 
