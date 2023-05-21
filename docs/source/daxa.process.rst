@@ -11,5 +11,9 @@ process.simple
 
 process
 -------------------
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
    daxa.process.xmm <daxa.process.xmm.rst>
 
