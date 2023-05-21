@@ -9,10 +9,7 @@ process.simple
    :undoc-members:
    :show-inheritance:
 
-process.xmm module
+process
 -------------------
-
-.. toctree::
-   :maxdepth: 5
-   daxa.process.xmm.rst
+   daxa.process.xmm <daxa.process.xmm.rst>
 
