@@ -10,6 +10,11 @@ process.simple
    :show-inheritance:
 
 
+.. automodule:: daxa.process.xmm
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. toctree::
    :maxdepth: 2
    :caption: Instrument Specific:
