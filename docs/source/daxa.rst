@@ -2,7 +2,7 @@ daxa package
 ===========
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 5
 
    daxa.archive
    daxa.mission
