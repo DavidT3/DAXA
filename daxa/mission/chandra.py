@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 20:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 25/05/2023, 16:26. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -22,9 +22,12 @@ from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError, NoObsAfterFilterError
 from daxa.mission.base import BaseMission, _lock_check
 
-# Unlike NuSTAR, we should only need one directory to be present to download the unprocessed Chandra observations
-REQUIRED_DIRS = ['secondary/']
-GOOD_FILE_PATTERNS = ['evt1.fits', 'mtl1.fits', 'bias0.fits', 'pbk0.fits', 'flt1.fits', 'bpix1.fits', 'msk1.fits']
+# Unlike NuSTAR, we should only need one directory to be present to download the unprocessed Chandra observations, but
+#  if we're downloading 'standard' data distributions we shall check that primary AND secondary are present
+REQUIRED_DIRS = {'raw': ['secondary/'], 'standard': ['primary/', 'secondary/']}
+GOOD_FILE_PATTERNS = {'primary/': ['.fits.gz'],
+                      'secondary/': ['evt1.fits', 'mtl1.fits', 'bias0.fits', 'pbk0.fits', 'flt1.fits', 'bpix1.fits',
+                                     'msk1.fits', 'stat1.fits']}
 
 
 class Chandra(BaseMission):
@@ -387,13 +390,16 @@ class Chandra(BaseMission):
         self.all_obs_info = rel_chandra
 
     @staticmethod
-    def _download_call(observation_id: str, raw_dir: str):
+    def _download_call(observation_id: str, raw_dir: str, download_standard: bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
 
         :param str observation_id: The ObsID of the observation to be downloaded.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
+        :param bool download_standard: Whether the 'standard' Chandra data distribution should be downloaded, with
+            'primary' and 'secondary' folders. This is False by default (in the download method) because DAXA
+            normally only wants the raw data.
         """
         # The Chandra data are stored in observatories that are named to correspond with the last digit of
         #  the particular observation's ObsID, so we shall extract that for later
@@ -403,68 +409,80 @@ class Chandra(BaseMission):
         obs_dir = "/FTP/chandra/data/byobsid/{ii}/{oid}/".format(ii=init_id, oid=observation_id)
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
 
-        # This opens a session that will persist - then a lot of the next session is for checking that the expected
-        #  directories are present.
+        # This defines the 'required' directories depending on the type of download that we're doing
+        if not download_standard:
+            req_dir = REQUIRED_DIRS['raw']
+        else:
+            req_dir = REQUIRED_DIRS['standard']
+
+        # This opens a session that will persist
         session = requests.Session()
 
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
         #  that the three directories that I need to download unprocessed Chandra data are present
         # The 'secondary' data products are the L1 unprocessed products that we want
         top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
-                    if en['href'] in REQUIRED_DIRS]
-        # If the lengths of top_data and REQUIRED_DIRS are different, then one or more of the expected dirs
+                    if en['href'] in req_dir]
+        # If the lengths of top_data and req_dir are different, then one or more of the expected dirs
         #  is not present
-        if len(top_data) != len(REQUIRED_DIRS):
+        if len(top_data) != len(req_dir):
             # This list comprehension figures out what directory is missing and reports it
-            missing = [rd for rd in REQUIRED_DIRS if rd not in top_data]
+            missing = [rd for rd in req_dir if rd not in top_data]
             raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
                                     "directories; {rq}".format(o=observation_id, rq=", ".join(missing)))
 
-        # The lower level URL of the directory we're currently looking at
-        rel_url = top_url + 'secondary/'
-        # This is the directory to which we will be saving this archive directories files
-        local_dir = raw_dir + '/'
-        # Make sure that the local directory is created
-        if not os.path.exists(local_dir):
-            os.makedirs(local_dir)
+        for rd in req_dir:
 
-        # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
-        #  are the files we shall be downloading
-        to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
-                   if '?' not in en['href'] and obs_dir not in en['href']]
+            # This is the directory to which we will be saving this archive directories files
+            local_dir = raw_dir + '/' + rd
+            # Make sure that the local directory is created
+            if not os.path.exists(local_dir):
+                os.makedirs(local_dir)
 
-        # This cleans the list of files further, down to only files matching the patterns defined in the constant
-        #  Those patterns are designed to grab the files that this page
-        #  (https://cxc.cfa.harvard.edu/ciao/data_products_guide/) claims we need for re-processing
-        to_down = [f for f in to_down for fp in GOOD_FILE_PATTERNS if fp in f]
+            # The lower level URL of the directory we're going to look at if we're just downloading the raw data
+            rel_url = top_url + rd
 
-        # Every file will need to be unzipped, as they all appear to be gunzipped when I've looked in
-        #  the HEASARC directories
+            # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
+            #  are the files we shall be downloading
+            to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
+                       if '?' not in en['href'] and obs_dir not in en['href']]
 
-        for down_file in to_down:
-            down_url = rel_url + down_file
-            with session.get(down_url, stream=True) as acquiro:
-                with open(local_dir + down_file, 'wb') as writo:
-                    copyfileobj(acquiro.raw, writo)
+            # This cleans the list of files further, down to only files matching the patterns defined in the constant
+            #  Those patterns are designed to grab the files that this page
+            #  (https://cxc.cfa.harvard.edu/ciao/data_products_guide/) claims we need for re-processing
+            to_down = [f for f in to_down for fp in GOOD_FILE_PATTERNS[rd] if fp in f]
 
-            # There are a few compressed fits files in each archive
-            if '.gz' in down_file:
-                # Open and decompress the events file
-                with gzip.open(local_dir + down_file, 'rb') as compresso:
-                    # Open a new file handler for the decompressed data, then funnel the decompressed events there
-                    with open(local_dir + down_file.split('.gz')[0], 'wb') as writo:
-                        copyfileobj(compresso, writo)
-                # Then remove the tarred file to minimise storage usage
-                os.remove(local_dir + down_file)
+            # Every file will need to be unzipped, as they all appear to be gunzipped when I've looked in
+            #  the HEASARC directories
+
+            for down_file in to_down:
+                down_url = rel_url + down_file
+                with session.get(down_url, stream=True) as acquiro:
+                    with open(local_dir + down_file, 'wb') as writo:
+                        copyfileobj(acquiro.raw, writo)
+
+                # There are a few compressed fits files in each archive
+                if '.gz' in down_file:
+                    # Open and decompress the events file
+                    with gzip.open(local_dir + down_file, 'rb') as compresso:
+                        # Open a new file handler for the decompressed data, then funnel the decompressed events there
+                        with open(local_dir + down_file.split('.gz')[0], 'wb') as writo:
+                            copyfileobj(compresso, writo)
+                    # Then remove the tarred file to minimise storage usage
+                    os.remove(local_dir + down_file)
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, credentials: Union[str, dict] = None):
+    def download(self, num_cores: int = NUM_CORES, credentials: Union[str, dict] = None,
+                 download_standard: bool = False):
         """
         A method to acquire and download the pointed Chandra data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
         property will be downloaded, which is set either on declaration of the class instance or by passing
         a new value to the chosen_instruments property.
+
+        If you're using DAXA only for data acquisition, and wish to use CIAO scripts for reprocessing (e.g.
+        'chandra_repro'), then set 'download_standard=True'.
 
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
@@ -472,6 +490,9 @@ class Chandra(BaseMission):
         :param dict/str credentials: The path to an ini file containing credentials, a dictionary containing 'user'
             and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
             for providing different credentials for different observations.
+        :param bool download_standard: Whether the 'standard' Chandra data structure should be downloaded (i.e. with
+            'primary' and 'secondary' directories. The default is False, as DAXA will do its own processing, but if
+            you just wish to use DAXA for data acquisition, and then use the CIAO scripts, this should be set to True.
         """
 
         if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():
@@ -501,7 +522,8 @@ class Chandra(BaseMission):
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
                     for obs_id in self.filtered_obs_ids:
                         # Use the internal static method I set up which both downloads and unpacks the XMM data
-                        self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id))
+                        self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id),
+                                            download_standard=download_standard)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -543,7 +565,8 @@ class Chandra(BaseMission):
                     for obs_id in self.filtered_obs_ids:
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
-                                         kwds={'observation_id': obs_id, 'raw_dir': stor_dir + '{o}'.format(o=obs_id)},
+                                         kwds={'observation_id': obs_id, 'raw_dir': stor_dir + '{o}'.format(o=obs_id),
+                                               'download_standard': download_standard},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
