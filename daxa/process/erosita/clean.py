@@ -254,7 +254,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
         # We iterate through the valid identifying information
         for obs_info in all_obs_info:
             # Split out the information in obs_info
-            obs_id, insts = obs_info
+            obs_id, insts, _ = obs_info
 
             # Search through the process_extra_info attribute of the archive to find the paths 
             #   to the event lists
