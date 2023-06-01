@@ -420,7 +420,7 @@ def esass_call(esass_func):
                         rel_fin_path = miss_final_paths[miss_name][rel_id]
                         rel_einfo = miss_extras[miss_name][rel_id]
 
-                        pool.apply_async(execute_cmd, args=(cmd, docker, rel_id, miss_name, rel_fin_path, rel_einfo, timeout, esass_in_docker),
+                        pool.apply_async(execute_cmd, args=(cmd, esass_in_docker, rel_id, miss_name, rel_fin_path, rel_einfo, timeout),
                                          error_callback=err_callback, callback=callback)
                         print('WRAPPER Command excecuted')
                     pool.close()  # No more tasks can be added to the pool
