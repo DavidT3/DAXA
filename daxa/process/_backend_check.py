@@ -77,6 +77,7 @@ def find_esass() -> bool:
         docker_daemon_running = True
     
     # Performing eSASS installation checks for eSASS outside of Docker
+    # Checking whether it is installed by seeing if 'evtool' is on PATH and is marked as executable
     if which('evtool') is not None:
         esass_outside_docker = True
 
