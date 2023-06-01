@@ -10,6 +10,7 @@ from multiprocessing.dummy import Pool
 
 from astropy.units import UnitConversionError
 from tqdm import tqdm
+from exceptiongroup import ExceptionGroup
 
 from daxa.archive.base import Archive
 from daxa.exceptions import NoEROSITAMissionsError
