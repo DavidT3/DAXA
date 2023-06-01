@@ -116,30 +116,3 @@ def prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
      
     archive.observation_summaries = parsed_obs_info 
     print('SETUP added data to observation summaries')
-
-
-    
-
-        
-
-    
-
-
-
-            
-
-
-
-
-
-    
-         
-        
-
-
-    
-
-
-
-    
-    
