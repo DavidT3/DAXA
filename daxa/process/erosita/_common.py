@@ -66,7 +66,7 @@ def _esass_process_setup(obs_archive: Archive) -> bool:
     return esass_in_docker
 
 def execute_cmd(cmd: str, esass_in_docker: bool, rel_id: str, miss_name: str, check_path: str,
-                extra_info: dict) -> Tuple[str, str, List[bool], str, str, dict]:
+                extra_info: dict, timeout: float = None) -> Tuple[str, str, List[bool], str, str, dict]:
     """
     This is a simple function designed to execute eSASS commands either through Docker or the command line
     for the processing and reduction of eROSITA mission data. It will collect the stdout and stderr values 
@@ -83,6 +83,8 @@ def execute_cmd(cmd: str, esass_in_docker: bool, rel_id: str, miss_name: str, ch
         for the purposes of checking that it (they) exists.
     :param dict extra_info: A dictionary which can contain extra information about the process or output that will
         eventually be stored in the Archive.
+    :param float timeout: The length of time (in seconds) which the process is allowed to run for before being
+        killed. Default is None, which is supported as an input by communicate().
     :return: The rel_id, a list of boolean flags indicating whether the final files exist, the std_out, and the
         std_err. The final dictionary can contain extra information recorded by the processing function.
     :rtype: Tuple[str, str, List[bool], str, str, dict]
@@ -96,9 +98,17 @@ def execute_cmd(cmd: str, esass_in_docker: bool, rel_id: str, miss_name: str, ch
     if docker:
         raise NotImplementedError("The use of eSASS through Docker has not been implemented.")
 
-    # Starts the process running on a shell, connects to the process and waits for it to terminate, and collects
-    #  the stdout and stderr
-    out, err = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
+    # Starts the process running on a shell
+    cmd_proc = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
+
+    # This makes sure the process is killed if it does timeout
+    try:
+        out, err = cmd_proc.communicate(timeout=timeout)
+    except TimeoutExpired:
+        cmd_proc.kill()
+        out, err = cmd_proc.communicate()
+        warn("An eROSITA process for {} has timed out".format(rel_id), stacklevel=2)
+    
     # Decodes the stdout and stderr from the binary encoding it currently exists in. The errors='ignore' flag
     #  means that it doesn't throw errors if there is a character it doesn't recognize
     out = out.decode("UTF-8", errors='ignore')
