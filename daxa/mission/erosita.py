@@ -771,7 +771,7 @@ class eROSITACalPV(BaseMission):
             rel_info = obs_info[inst]
 
             # Want to check that the observation was taken when the filter wheel was on OPEN or FILTER
-            if rel_info['filter'] != 'OPEN' or to_return[inst]['filter'] != 'FILTER':
+            if rel_info['filter'] not in ['OPEN', 'FILTER']:
                 to_return[inst]['usable'] = False
         
         return to_return
