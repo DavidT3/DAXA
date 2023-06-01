@@ -95,7 +95,7 @@ def execute_cmd(cmd: str, esass_in_docker: bool, rel_id: str, miss_name: str, ch
         check_path = [check_path]
 
     # eSASS is also released in a Docker container for Mac OS and Windows users, which is not yet supported in DAXA.
-    if docker:
+    if esass_in_docker:
         raise NotImplementedError("The use of eSASS through Docker has not been implemented.")
 
     # Starts the process running on a shell
