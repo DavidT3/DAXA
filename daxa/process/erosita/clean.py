@@ -24,7 +24,7 @@ sb_rate = def_unit('sb_rate', ct / (deg**2 *s))
 add_enabled_units([sb_rate])
 
 @esass_call
-def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax: Quantity = Quantity(10000, 'eV'), mask_pimin: Quantity = (200, 'eV'), 
+def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax: Quantity = Quantity(10000, 'eV'), mask_pimin: Quantity = Quantity(200, 'eV'), 
             mask_pimax: Quantity = Quantity(10000, 'eV'), binsize: int = 1200, detml: Union[float, int] = 10, timebin: Quantity = Quantity(20, 's'), 
             source_size: Quantity = Quantity(25, 'arcsec'), source_like: Union[float, int] = 10, threshold: Quantity = Quantity(-1, 'sb_rate'), 
             max_threshold: Quantity = Quantity(-1, 'sb_rate'), mask_iter: int = 3, num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
@@ -115,7 +115,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
         mask_pimax = mask_pimax.to('eV')
 
     # Checking user's mask_pimin and mask_pimax inputs are in the valid energy range for eROSITA
-    if (mask_pimin < Quantity(200, 'ev') or mask_pimin > Quantity(10000, 'eV')) or \
+    if (mask_pimin < Quantity(200, 'eV') or mask_pimin > Quantity(10000, 'eV')) or \
        (mask_pimax < Quantity(200, 'eV') or mask_pimax > Quantity(10000, 'eV')):
         raise ValueError("The mask_pimin and mask_pimax value must be between 200 eV and 10000 eV.")
     
@@ -135,7 +135,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
         timebin = timebin.to('s')
 
     # Avoiding the operating system error you get when you enter too large of a timebin into flaregti
-    if timebin > 1000000000:
+    if timebin > Quantity(1000000000, 's'):
         raise ValueError("Please enter a timebin argument equivalent to less than 1000000000s.")
     
     # Not allowing a negative timebin to be entered
@@ -179,7 +179,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
                         "be converted into counts/deg^2/s.")
 
     # Checking it is in the correct units
-    elif not threshold.is_equivalent('sb_rate'):
+    elif not threshold.unit.is_equivalent('sb_rate'):
         raise UnitConversionError("The threshold argument must be an astropy quantity in units that can "
                                   "be converted into counts/deg^2/s.")
     
@@ -193,7 +193,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
                         "be converted into counts/deg^2/s.")
 
     # Checking it is in the correct units
-    elif not max_threshold.is_equivalent('sb_rate'):
+    elif not max_threshold.unit.is_equivalent('sb_rate'):
         raise UnitConversionError("The max_threshold argument must be an astropy quantity in units that can "
                                   "be converted into counts/deg^2/s.")
     
@@ -205,6 +205,8 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     if not isinstance(mask_iter, int):
         raise TypeError("The mask_iter argument must be an integer.")
 
+    print('FLAREGTI done the argument checking')
+
     # Converting parameters from astropy units into a type the command line will accept
     pimin = int(pimin.value)
     pimax = int(pimax.value)
@@ -212,6 +214,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     mask_pimax = int(mask_pimax.value)
     timebin = float(timebin.value)
     source_size = float(source_size.value)
+    print('FLAREGTI done the parameter conversions')
 
     # These parameters we want DAXA to have control over, not the user
     gridsize = 18   # Sections of the image a source detection is run over to determine a dynamic threshold
@@ -242,6 +245,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
 
         # This method will fetch the valid data (ObsID, Instruments) that can be processed
         all_obs_info = obs_archive.get_obs_to_process(miss.name)
+        print('FLAREGTI done obs_archive.get_obs_to_process(miss.name)')
 
         # Checking that any valid observations are left after the get_obs_to_process function is run
         if len(all_obs_info) == 0:
@@ -259,7 +263,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             # This path is guaranteed to exist, as it was set up in _esass_process_setup. This is where output
             #  files will be written to.
             dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
-
+            print('FLAREGTI done obs_archive.processed_data_path')
             # Set up a temporary directory to work in (probably not really necessary in this case, but will be
             #  in other processing functions).
             temp_name = "tempdir_{}".format(randint(0, 1e+8))
@@ -300,7 +304,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
                                       wti=write_thresholdimg, tif=og_thresholdimg_name, ogti=og_gti_name,
                                       gti=gti_path, olc=og_lc_name, lc=lc_path, oti=og_thresholdimg_name,
                                       ti=threshold_path, omi=og_maskimg_name, mi=maskimg_path)
-
+            print('FLAREGTI command made')
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][obs_id] = cmd
             miss_final_paths[miss.name][obs_id] = final_paths
