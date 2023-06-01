@@ -115,7 +115,7 @@ def execute_cmd(cmd: str, docker: bool, rel_id: str, miss_name: str, check_path:
             files_exist.append(True)
         else:
             files_exist.append(False)
-
+    print('excecute_cmd done')
     return rel_id, miss_name, files_exist, out, err, extra_info
 
 def esass_call(esass_func):
@@ -133,6 +133,22 @@ def esass_call(esass_func):
         # DAVID_QUESTION Arent there a mixture of mission types in here?
         obs_archive = args[0]
         obs_archive: Archive  # Just for autocomplete purposes in my IDE
+
+        # Seeing if any of the erosita missions in the archive have had any processing done yet
+        # DAVID_QUESTION if this is in esass call, is it guarenteed there is an erosita mission
+        erosita_miss = [mission for mission in obs_archive if mission.name in ALLOWED_EROSITA_MISSIONS]
+        print('WRAPPER gone into the wrapper')
+        for miss in erosita_miss:
+            # Getting the process_logs for each mission
+            process_logs = obs_archive._process_logs[miss.name]
+            if len(process_logs) == 0:
+                # If no processing has been done yet, we need to run the prepare_erositacalpv_info function.
+                #   This will fill out the mission observation summaries, which are needed for later 
+                #   processing functions. It will also populate the _process_extra_info dictionary for the archive
+                #   with top level keys of the erositacalpv mission and lower level keys of obs_ids with lower level keys
+                #   of 'path', which will store the raw data path for that obs id.
+                prepare_erositacalpv_info(obs_archive, miss)
+                print('WRAPPER done the prepare_erositacalpv_info function in the wrapper')
 
         # This is the output from whatever function this is a decorator for
         miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout = esass_func(*args, **kwargs)
@@ -162,21 +178,6 @@ def esass_call(esass_func):
         #  this dictionary and eventually passed into the archive. As such this dictionary will only be used
         #  if the task esass_call is wrapping is flaregti
         parsed_obs_info = {}
-
-        # Seeing if any of the erosita missions in the archive have had any processing done yet
-        # DAVID_QUESTION if this is in esass call, is it guarenteed there is an erosita mission
-        erosita_miss = [mission for mission in obs_archive if mission.name in ALLOWED_EROSITA_MISSIONS]
-
-        for miss in erosita_miss:
-            # Getting the process_logs for each mission
-            process_logs = obs_archive._process_logs[miss.name]
-            if len(process_logs) == 0:
-                # If no processing has been done yet, we need to run the prepare_erositacalpv_info function.
-                #   This will fill out the mission observation summaries, which are needed for later 
-                #   processing functions. It will also populate the _process_extra_info dictionary for the archive
-                #   with top level keys of the erositacalpv mission and lower level keys of obs_ids with lower level keys
-                #   of 'path', which will store the raw data path for that obs id.
-                prepare_erositacalpv_info(obs_archive, miss)
 
         '''
         # I do not love this solution, but this will be what any python errors that are thrown during execute_cmd
@@ -303,11 +304,138 @@ def esass_call(esass_func):
             if len(python_errors) != 0:
                 raise ExceptionGroup("Python errors raised during SAS commands", python_errors)
         '''
+
+        # I do not love this solution, but this will be what any python errors that are thrown during execute_cmd
+        #  are stored in. In theory, because execute_cmd is so simple, there shouldn't be Python errors thrown.
+        #  SAS errors will be stored in process_parsed_stderrs
+        python_errors = []
+
+        # Iterating through the missions (there may only one but as the dictionary will have mission name as the top
+        #  level key regardless this is valid for one or multiple eROSITA missions).
+        for miss_name in miss_cmds:
+            # Set up top level (mission name) keys for the output storage dictionaries
+            success_flags[miss_name] = {}
+            process_raw_stderrs[miss_name] = {}
+            process_stdouts[miss_name] = {}
+            process_einfo[miss_name] = {}
+            parsed_obs_info[miss_name] = {}
+
+            # There's no point setting up a Pool etc. if there are no tasks to run for the current mission, so
+            #  we check how many there are
+            if num_to_run[miss_name] > 0:
+                # Use the mission name to grab the relevant mission object out from the observation archive
+                rel_miss = obs_archive[miss_name]
+
+                # Set up a tqdm progress bar, as well as a Pool for multiprocessing (using the number of cores
+                #  specified in the SAS task that this decorator wraps. We want to parallelize these tasks because
+                #  they tend to be embarrassingly parallelise
+                with tqdm(total=num_to_run[miss_name], desc=rel_miss.pretty_name + ' - ' + process_message,
+                          disable=disable) as gen, Pool(cores) as pool:
+
+                    # This 'callback' function is triggered when the parallelized function completes successfully
+                    #  and returns.
+                    def callback(results_in: Tuple[str, str, List[bool], str, str, dict]):
+                        """
+                        Callback function for the apply_async pool method, gets called when a task finishes
+                        and something is returned.
+
+                        :param Tuple[str, str, List[bool], str, str, dict] results_in: The output of execute_cmd.
+                        """
+                        # The progress bar will need updating
+                        nonlocal gen
+                        # Need to make sure we have access to these dictionaries to store information on process
+                        #  success, stderr, and stdout
+                        nonlocal success_flags
+                        nonlocal process_raw_stderrs
+                        nonlocal process_stdouts
+                        nonlocal process_einfo
+
+                        nonlocal parsed_obs_info
+                        nonlocal python_errors
+
+                        # Just unpack the results in for clarity's sake
+                        relevant_id, mission_name, does_file_exist, proc_out, proc_err, proc_extra_info = results_in
+                        # This processes the stderr output to try and differentiate between warnings and actual
+                        #  show-stopping errors
+                        #sas_err, sas_warn, other_err = parse_stderr(proc_err)
+
+                        # We consider the task successful if all the final files exist and there are no entries in
+                        #  the parsed std_err output
+                        if all(does_file_exist) == 0:
+                            success_flags[mission_name][relevant_id] = True
+                        else:
+                            success_flags[mission_name][relevant_id] = False
+                            #if not does_file_exist:
+                                #sas_err.append('Final file not found raised by DAXA')
+                            # We store both the parsed and unparsed stderr for debugging purposes
+                            process_raw_stderrs[mission_name][relevant_id] = proc_err
+                            #process_parsed_stderrs[mission_name][relevant_id] = sas_err
+
+                        # If there are any warnings, we don't consider them an indication of the total failure of
+                        #  the process, but we do make sure to store them
+                        #if len(sas_warn) > 0:
+                        #    process_parsed_stderr_warns[mission_name][relevant_id] = sas_warn
+
+                        # Store the stdout for logging purposes
+                        process_stdouts[mission_name][relevant_id] = proc_out
+
+                        # If there is extra information then we shall store it in the dictionary which will
+                        #  eventually be fed to the archive
+                        if len(proc_extra_info) != 0:
+                            process_einfo[mission_name][relevant_id] = proc_extra_info
+
+                        # If the tested-for output file exists, and we know that the current task is odf_ingest
+                        #  we're going to do an extra post-processing step and parse the output SAS summary file
+                        #if all(does_file_exist):
+                          #  try:
+                          #      parsed_obs_info[mission_name][relevant_id] = parse_odf_sum(proc_extra_info['sum_path'],
+                          #                                                                 relevant_id)
+                            # Possible that this parsing doesn't go our way however, so we have to be able to catch
+                            #  an exception.
+                           # except ValueError as err:
+                          #      python_errors.append(err)
+
+                        # Make sure to update the progress bar
+                        gen.update(1)
+
+                    # This other 'callback' function is triggered when Python inside the parallelised function
+                    #  raises an exception rather than completing successfully
+                    def err_callback(err):
+                        """
+                        The callback function for errors that occur inside a task running in the pool.
+                        :param err: An error that occurred inside a task.
+                        """
+                        nonlocal python_errors
+                        nonlocal gen
+
+                        if err is not None:
+                            # Rather than throwing an error straight away I append them all to a list for later.
+                            python_errors.append(err)
+                        # Still want to update the progress bar if an error has occurred
+                        gen.update(1)
+
+                    for rel_id, cmd in miss_cmds[miss_name].items():
+                        # Grab the relevant information for the current mission and ID
+                        rel_fin_path = miss_final_paths[miss_name][rel_id]
+                        rel_einfo = miss_extras[miss_name][rel_id]
+
+                        pool.apply_async(execute_cmd, args=(cmd, rel_id, miss_name, rel_fin_path, rel_einfo, timeout),
+                                         error_callback=err_callback, callback=callback)
+                        print('WRAPPER Command excecuted')
+                    pool.close()  # No more tasks can be added to the pool
+                    pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+
+            # This uses the new ExceptionGroup class to raise a set of python errors (if there are any raised
+            #  during the execute_cmd function calls)
+            if len(python_errors) != 0:
+                raise ExceptionGroup("Python errors raised during SAS commands", python_errors)
+
         obs_archive.process_success = (esass_func.__name__, success_flags)
         #obs_archive.process_errors = (esass_func.__name__, process_parsed_stderrs)
         #obs_archive.process_warnings = (esass_func.__name__, process_parsed_stderr_warns)
         obs_archive.raw_process_errors = (esass_func.__name__, process_raw_stderrs)
         obs_archive.process_logs = (esass_func.__name__, process_stdouts)
         obs_archive.process_extra_info = (esass_func.__name__, process_einfo)
+        print('WRAPPER added the process logs to the archive')
 
     return wrapper
