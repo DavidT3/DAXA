@@ -315,4 +315,4 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     # This is just used for populating a progress bar during the process run
     process_message = 'Finding flares in eROSITA observations'
 
-    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout, esass_in_docker

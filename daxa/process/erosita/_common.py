@@ -65,7 +65,7 @@ def _esass_process_setup(obs_archive: Archive) -> bool:
 
     return esass_in_docker
 
-def execute_cmd(cmd: str, docker: bool, rel_id: str, miss_name: str, check_path: str,
+def execute_cmd(cmd: str, esass_in_docker: bool, rel_id: str, miss_name: str, check_path: str,
                 extra_info: dict) -> Tuple[str, str, List[bool], str, str, dict]:
     """
     This is a simple function designed to execute eSASS commands either through Docker or the command line
@@ -75,7 +75,7 @@ def execute_cmd(cmd: str, docker: bool, rel_id: str, miss_name: str, check_path:
     process has been run.
 
     :param str cmd: The command that should be executed in a bash shell.
-    :param Bool docker: Set to True if eSASS is being used via Docker.
+    :param Bool esass_in_docker: Set to True if eSASS is being used via Docker.
     :param str rel_id: Whatever ID has been attached to the particular command (it could be an ObsID, or an ObsID
         + instrument combination depending on the task).
     :param str miss_name: The specific eROSITA mission name that this task belongs to.
@@ -152,7 +152,7 @@ def esass_call(esass_func):
                 print('WRAPPER done the prepare_erositacalpv_info function in the wrapper')
 
         # This is the output from whatever function this is a decorator for
-        miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout = esass_func(*args, **kwargs)
+        miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout, esass_in_docker = esass_func(*args, **kwargs)
 
         # Converting the timeout from whatever time units it is in, to seconds - but first checking that the user
         #  hasn't been daft and passed a non-time quantity
@@ -420,7 +420,7 @@ def esass_call(esass_func):
                         rel_fin_path = miss_final_paths[miss_name][rel_id]
                         rel_einfo = miss_extras[miss_name][rel_id]
 
-                        pool.apply_async(execute_cmd, args=(cmd, rel_id, miss_name, rel_fin_path, rel_einfo, timeout),
+                        pool.apply_async(execute_cmd, args=(cmd, docker, rel_id, miss_name, rel_fin_path, rel_einfo, timeout, esass_in_docker),
                                          error_callback=err_callback, callback=callback)
                         print('WRAPPER Command excecuted')
                     pool.close()  # No more tasks can be added to the pool
