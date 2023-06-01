@@ -2,6 +2,7 @@
 # Last modified by Jessica E Pilling (jp735@sussex.ac.uk) Wed May 10 2023, 11:22. Copyright (c) The Contributors
 from typing import List
 import re
+import numpy as np
 
 from astropy.io import fits
 
@@ -78,13 +79,13 @@ def prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
             # Getting insts associated with obs
             data = fits_file[1].data
             t_col = data["TM_NR"]
-            filter = fits_file[0].header['FILTER']
+            filt = fits_file[0].header['FILTER']
             # Getting a numpy array of the unique TM NRs, hence a list of the instruments
-            insts = t_col.unique()
+            insts = np.unique(t_col)
             for inst in insts:
                 info_dict["TM" + str(inst)] = {}
                 info_dict["TM" + str(inst)]['active'] = True
-                info_dict["TM" + str(inst)]['filter'] = filter
+                info_dict["TM" + str(inst)]['filter'] = filt
             
         return info_dict
     
@@ -102,15 +103,19 @@ def prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
     for obs in mission.filtered_obs_ids:
         # getting the raw data path to each observation
         path_to_obs = get_obs_path(mission, obs)
+        print('SETUP found obs path from obs in prepare_erositacalpv_info for {}'.format(obs))
         # Adding in the obs_id keys into the extra_info dictionary
         extra_info[obs] = {}
         # Adding in the path key and value into the obs layer of extra_info
         extra_info[obs]['path'] = path_to_obs
+        print('SETUP populated the archive._process_extra_info dictionary')
 
         # Then adding to the parsed_obs_info dictionary
         parsed_obs_info[mission.name][obs] = parse_erositacalpv_sum(path_to_obs)
+        print('SETUP read data from fits.file to go into observation summaries')
      
     archive.observation_summaries = parsed_obs_info 
+    print('SETUP added data to observation summaries')
 
 
     
