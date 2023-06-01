@@ -77,11 +77,7 @@ def find_esass() -> bool:
         docker_daemon_running = True
     
     # Performing eSASS installation checks for eSASS outside of Docker
-    cmd = 'evtool'
-    out, err = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
-    err = err.decode("UTF-8", errors='ignore')
-    # If this doesnt raise an error, then the eSASS env. is enabled and working
-    if len(err) == 0:
+    if which('evtool') is not None:
         esass_outside_docker = True
 
     # Raising errors 
