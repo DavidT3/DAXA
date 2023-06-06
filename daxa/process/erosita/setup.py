@@ -1,8 +1,8 @@
 # This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
 # Last modified by Jessica E Pilling (jp735@sussex.ac.uk) Wed May 10 2023, 11:22. Copyright (c) The Contributors
+import numpy as np
 from typing import List
 import re
-import numpy as np
 
 from astropy.io import fits
 
