@@ -214,6 +214,8 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     mask_pimax = int(mask_pimax.value)
     timebin = float(timebin.value)
     source_size = float(source_size.value)
+    threshold = threshold.value
+    max_threshold = max_threshold.value
     print('FLAREGTI done the parameter conversions')
 
     # These parameters we want DAXA to have control over, not the user
@@ -290,7 +292,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
                 os.makedirs(temp_dir)
 
             flaregti_cmd = "cd {d}; flaregti eventfile={ef} gtifile={gtif} pimin={pimi} pimax={pima} " \
-                 "mask_pimin{mpimi} mask_pimax={mpima} xmin={xmi} xmax={xma} ymin={ymi} ymax={yma} " \
+                 "mask_pimin={mpimi} mask_pimax={mpima} xmin={xmi} xmax={xma} ymin={ymi} ymax={yma} " \
                  "gridsize={gs} binsize={bs} detml={dl} timebin={tb} source_size={ss} source_like={sl} " \
                  "fov_radius={fr} threshold={t} max_threshold={mt} write_mask={wm} mask={m} mask_iter={mit} " \
                  "write_lightcurve={wl} lightcurve={lcf} write_thresholdimg={wti} thresholdimg={tif}" \
