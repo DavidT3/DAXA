@@ -248,16 +248,30 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
         # This method will fetch the valid data (ObsID, Instruments) that can be processed
         all_obs_info = obs_archive.get_obs_to_process(miss.name)
         print('FLAREGTI done obs_archive.get_obs_to_process(miss.name)')
-
+            
         # Checking that any valid observations are left after the get_obs_to_process function is run
         if len(all_obs_info) == 0:
             raise FileNotFoundError("No valid observations have been found, so flaregti may not be run.")
 
-        # We iterate through the valid identifying information
-        for obs_info in all_obs_info:
+        # all_obs_info is a list of lists, where each list is of the format: [ObsID, Inst, 'usable'].
+        #   There is a new list for each instrument, but I just want to loop over the ObsID in the following bit of code, 
+        #   I also want to know all the instruments that the ObsID contains events for
+        #   So here I am just making a dictionary of the format: {ObsID: insts}
+        # Getting unique obs_ids in all_obs_info
+        obs_ids = list(set([all_obs_info_list[0] for all_obs_info_list in all_obs_info]))
+        obs_info_dict = {}
+        for obs in obs_ids:
+            # Collecting all the insts that a certain ObsID has events for
+            insts = ''.join([all_obs_info_list[1] for all_obs_info_list in all_obs_info if obs in all_obs_info_list])
+            # The insts are all TM{x} where x is a number from 1-7, I just want to retain the x information, 
+            #   and append it to the dict
+            obs_info_dict[obs] = ''.join(ch for ch in insts if ch.isdigit())
 
-            # Split out the information in obs_info (obs_info is a list of format: [ObsID, Inst, 'usable'])
-            obs_id, insts, _ = obs_info
+        # We iterate through the valid identifying information
+        for obs_id in obs_info_dict:
+
+            # Getting the insts associated with this obs for file naming purposes 
+            insts = obs_info_dict[obs_id]
 
             # Search through the process_extra_info attribute of the archive to find the paths 
             #   to the event lists
@@ -296,7 +310,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
                  "gridsize={gs} binsize={bs} detml={dl} timebin={tb} source_size={ss} source_like={sl} " \
                  "fov_radius={fr} threshold={t} max_threshold={mt} write_mask={wm} mask={m} mask_iter={mit} " \
                  "write_lightcurve={wl} lightcurve={lcf} write_thresholdimg={wti} thresholdimg={tif}" \
-                 "; mv {ogti} ../{gti}; mv {olc} ../{lc}; mv {oti} ../{ti}; mv {omi} ../{mi}" \
+                 "; mv {ogti} {gti}; mv {olc} {lc}; mv {oti} {ti}; mv {omi} {mi}" \
                  "; rm -r {d}"
 
             cmd = flaregti_cmd.format(d=temp_dir, ef=evt_list_file, gtif=og_gti_name, pimi=pimin, pima=pimax,
