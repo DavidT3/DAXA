@@ -11,12 +11,6 @@ from daxa.archive.base import Archive
 from daxa.exceptions import NoDependencyProcessError
 from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call
 
-# JESS_TODO write an esass call wrapper 
-# JESS_TODO see what the limits are on xmax, xmin is it the size of a sweep
-# JESS_TODO see how it deals with sweeps vs. pointing
-# DAVID_QUESTION not sure how to deal with skypixel
-
-# DAVID_QUESTION not sure where i should put this bit of code?
 # JESS_TODO put it in setup.py
 # defining surface brightness rate astropy unit for use in flaregti to measure thresholds in 
 sb_rate = def_unit('sb_rate', ct / (deg**2 *s)) 
@@ -205,8 +199,6 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     if not isinstance(mask_iter, int):
         raise TypeError("The mask_iter argument must be an integer.")
 
-    print('FLAREGTI done the argument checking')
-
     # Converting parameters from astropy units into a type the command line will accept
     pimin = int(pimin.value)
     pimax = int(pimax.value)
@@ -216,7 +208,6 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     source_size = float(source_size.value)
     threshold = threshold.value
     max_threshold = max_threshold.value
-    print('FLAREGTI done the parameter conversions')
 
     # These parameters we want DAXA to have control over, not the user
     gridsize = 18   # Sections of the image a source detection is run over to determine a dynamic threshold
@@ -247,7 +238,6 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
 
         # This method will fetch the valid data (ObsID, Instruments) that can be processed
         all_obs_info = obs_archive.get_obs_to_process(miss.name)
-        print('FLAREGTI done obs_archive.get_obs_to_process(miss.name)')
             
         # Checking that any valid observations are left after the get_obs_to_process function is run
         if len(all_obs_info) == 0:
@@ -280,7 +270,6 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             # This path is guaranteed to exist, as it was set up in _esass_process_setup. This is where output
             #  files will be written to.
             dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
-            print('FLAREGTI done obs_archive.processed_data_path')
             # Set up a temporary directory to work in (probably not really necessary in this case, but will be
             #  in other processing functions).
             temp_name = "tempdir_{}".format(randint(0, 1e+8))
@@ -321,7 +310,6 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
                                       wti=write_thresholdimg, tif=og_thresholdimg_name, ogti=og_gti_name,
                                       gti=gti_path, olc=og_lc_name, lc=lc_path, oti=og_thresholdimg_name,
                                       ti=threshold_path, omi=og_maskimg_name, mi=maskimg_path)
-            print('FLAREGTI command made')
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][obs_id] = cmd
             miss_final_paths[miss.name][obs_id] = final_paths

@@ -126,7 +126,6 @@ def execute_cmd(cmd: str, esass_in_docker: bool, rel_id: str, miss_name: str, ch
             files_exist.append(True)
         else:
             files_exist.append(False)
-    print('excecute_cmd done')
     return rel_id, miss_name, files_exist, out, err, extra_info
 
 def esass_call(esass_func):
@@ -141,14 +140,11 @@ def esass_call(esass_func):
 
         # The first argument of all the eSASS processing functions will be an archive instance, and pulling
         #  that out of the arguments will be useful later
-        # DAVID_QUESTION Arent there a mixture of mission types in here?
         obs_archive = args[0]
         obs_archive: Archive  # Just for autocomplete purposes in my IDE
 
         # Seeing if any of the erosita missions in the archive have had any processing done yet
-        # DAVID_QUESTION if this is in esass call, is it guarenteed there is an erosita mission
         erosita_miss = [mission for mission in obs_archive if mission.name in ALLOWED_EROSITA_MISSIONS]
-        print('WRAPPER gone into the wrapper')
         for miss in erosita_miss:
             # Getting the process_logs for each mission
             process_logs = obs_archive._process_logs[miss.name]
@@ -159,7 +155,6 @@ def esass_call(esass_func):
                 #   with top level keys of the erositacalpv mission and lower level keys of obs_ids with lower level keys
                 #   of 'path', which will store the raw data path for that obs id.
                 prepare_erositacalpv_info(obs_archive, miss)
-                print('WRAPPER done the prepare_erositacalpv_info function in the wrapper')
 
         # This is the output from whatever function this is a decorator for
         miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout, esass_in_docker = esass_func(*args, **kwargs)
@@ -432,7 +427,6 @@ def esass_call(esass_func):
 
                         pool.apply_async(execute_cmd, args=(cmd, esass_in_docker, rel_id, miss_name, rel_fin_path, rel_einfo, timeout),
                                          error_callback=err_callback, callback=callback)
-                        print('WRAPPER Command excecuted')
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
 
@@ -447,6 +441,5 @@ def esass_call(esass_func):
         obs_archive.raw_process_errors = (esass_func.__name__, process_raw_stderrs)
         obs_archive.process_logs = (esass_func.__name__, process_stdouts)
         obs_archive.process_extra_info = (esass_func.__name__, process_einfo)
-        print('WRAPPER added the process logs to the archive')
 
     return wrapper

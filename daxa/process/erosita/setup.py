@@ -103,16 +103,11 @@ def prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
     for obs in mission.filtered_obs_ids:
         # getting the raw data path to each observation
         path_to_obs = get_obs_path(mission, obs)
-        print('SETUP found obs path from obs in prepare_erositacalpv_info for {}'.format(obs))
         # Adding in the obs_id keys into the extra_info dictionary
         extra_info[obs] = {}
         # Adding in the path key and value into the obs layer of extra_info
         extra_info[obs]['path'] = path_to_obs
-        print('SETUP populated the archive._process_extra_info dictionary')
-
         # Then adding to the parsed_obs_info dictionary
         parsed_obs_info[mission.name][obs] = parse_erositacalpv_sum(path_to_obs)
-        print('SETUP read data from fits.file to go into observation summaries')
      
     archive.observation_summaries = parsed_obs_info 
-    print('SETUP added data to observation summaries')
