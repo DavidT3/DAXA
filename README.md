@@ -18,7 +18,7 @@ set of coordinates), and the time frame in which the observations were taken. As
 identify what archival data might be available for a set of objects you wish to study. It is also possible to place
 no filters on the desired observations, and as such process every observation available for a set of missions. 
 
-Documentation is available **_[Under Development]_** on ReadTheDocs, and can be [found here](daxa.readthedocs.io), or
+Documentation is available **_[Under Development]_** on ReadTheDocs, and can be [found here](https://daxa.readthedocs.io), or
 accessed by clicking on the documentation build status at the top of the README. The source for the documentation can
 be found in the 'docs' directory in this repository.
 
