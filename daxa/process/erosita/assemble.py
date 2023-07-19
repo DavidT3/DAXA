@@ -3,8 +3,9 @@
 
 from astropy.units import Quantity
 
+from daxa import NUM_CORES
 from daxa.archive.base import Archive
-from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call, ALL_EROSITA_FLAGS
+from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call
 
 @esass_call
 def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quantity = None,
@@ -179,7 +180,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             evtool_cmd = "cd {d}; evtool eventfiles={ef} gtitype=FLAREGTI outfile={of} flag={f} flag_invert={fi} pattern={p} " \
                 "emin={emin} emax={emax}; mv {of} {fep}; rm -r "
             
-            cmd = evtool_cmd.format(d=temp_dir, ef=evt_list_file,of=filt_evt_name f=flag fi=flag_invert, p=pattern,
+            cmd = evtool_cmd.format(d=temp_dir, ef=evt_list_file, of=filt_evt_name, f=flag, fi=flag_invert, p=pattern,
                 emin=lo_en, emax=hi_en, fep=filt_evt_path)
 
             # Now store the bash command, the path, and extra info in the dictionaries
