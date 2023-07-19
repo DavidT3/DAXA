@@ -9,7 +9,7 @@ from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_M
 @esass_call
 def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quantity = None,
                       flag: int = 0xc0000000, flag_invert: bool = False, pattern: int = 15, num_cores: int = NUM_CORES,
-                      disable_progress: bool = False, timeout: Quantity = None)
+                      disable_progress: bool = False, timeout: Quantity = None):
 
     """
     The function wraps the eROSITA eSASS task evtool, which is used for selecting events.
@@ -146,7 +146,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
 
         # We iterate through the valid identifying information
         for obs_id in obs_info_dict:
-            
+
             # Checking that flaregti has been run successfully on this observation so that it can be cleaned
             if not obs_archive.process_success[miss.name]['flaregti'][obs_id]:
                 raise NoProcessingError("Flaregti must be run on {obs} before it may be cleaned.".format(obs_id))
