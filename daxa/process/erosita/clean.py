@@ -218,6 +218,15 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     write_mask = 'yes'
     write_lightcurve = 'yes' 
 
+    # Defining the command 
+    flaregti_cmd = "cd {d}; flaregti eventfile={ef} gtifile={gtif} pimin={pimi} pimax={pima} " \
+        "mask_pimin={mpimi} mask_pimax={mpima} xmin={xmi} xmax={xma} ymin={ymi} ymax={yma} " \
+        "gridsize={gs} binsize={bs} detml={dl} timebin={tb} source_size={ss} source_like={sl} " \
+        "fov_radius={fr} threshold={t} max_threshold={mt} write_mask={wm} mask={m} mask_iter={mit} " \
+        "write_lightcurve={wl} lightcurve={lcf} write_thresholdimg={wti} thresholdimg={tif}" \
+        "; mv {ogti} {gti}; mv {olc} {lc}; mv {oti} {ti}; mv {omi} {mi}" \
+        "; rm -r {d}"
+
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
     miss_cmds = {}
@@ -291,14 +300,6 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             # Make the temporary directory (it shouldn't already exist but doing this to be safe)
             if not os.path.exists(temp_dir):
                 os.makedirs(temp_dir)
-
-            flaregti_cmd = "cd {d}; flaregti eventfile={ef} gtifile={gtif} pimin={pimi} pimax={pima} " \
-                 "mask_pimin={mpimi} mask_pimax={mpima} xmin={xmi} xmax={xma} ymin={ymi} ymax={yma} " \
-                 "gridsize={gs} binsize={bs} detml={dl} timebin={tb} source_size={ss} source_like={sl} " \
-                 "fov_radius={fr} threshold={t} max_threshold={mt} write_mask={wm} mask={m} mask_iter={mit} " \
-                 "write_lightcurve={wl} lightcurve={lcf} write_thresholdimg={wti} thresholdimg={tif}" \
-                 "; mv {ogti} {gti}; mv {olc} {lc}; mv {oti} {ti}; mv {omi} {mi}" \
-                 "; rm -r {d}"
 
             cmd = flaregti_cmd.format(d=temp_dir, ef=evt_list_file, gtif=og_gti_name, pimi=pimin, pima=pimax,
                                       mpimi=mask_pimin, mpima=mask_pimax, xmi=xmin, xma=xmax, ymi=ymin,
