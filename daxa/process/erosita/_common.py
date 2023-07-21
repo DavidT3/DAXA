@@ -207,7 +207,7 @@ def esass_call(esass_func):
                 rel_miss = obs_archive[miss_name]
 
                 # Set up a tqdm progress bar, as well as a Pool for multiprocessing (using the number of cores
-                #  specified in the SAS task that this decorator wraps. We want to parallelize these tasks because
+                #  specified in the eSASS task that this decorator wraps. We want to parallelize these tasks because
                 #  they tend to be embarrassingly parallelise
                 with tqdm(total=num_to_run[miss_name], desc=rel_miss.pretty_name + ' - ' + process_message,
                           disable=disable) as gen, Pool(cores) as pool:
