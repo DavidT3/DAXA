@@ -25,7 +25,7 @@ def prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
 
     :param Archive archive: The Archive instance that has been parsed into the esass function 
         which esass_func wraps. 
-    :mission: The eROSITACalPV mission for which this information must be prepared.
+    :param BaseMission mission: The eROSITACalPV mission for which this information must be prepared.
     """
     def get_obs_path(mission: BaseMission, obs_id: str):
         """
