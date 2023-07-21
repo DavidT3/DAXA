@@ -235,9 +235,8 @@ def esass_call(esass_func):
 
                         # Just unpack the results in for clarity's sake
                         relevant_id, mission_name, does_file_exist, proc_out, proc_err, proc_extra_info = results_in
-                        # This processes the stderr output to try and differentiate between warnings and actual
-                        #  show-stopping errors
-                        #sas_err, sas_warn, other_err = parse_stderr(proc_err)
+
+                        # TODO would like to parse and identify eSASS errors like we can with SAS
 
                         # We consider the task successful if all the final files exist and there are no entries in
                         #  the parsed std_err output
@@ -245,16 +244,7 @@ def esass_call(esass_func):
                             success_flags[mission_name][relevant_id] = True
                         else:
                             success_flags[mission_name][relevant_id] = False
-                            #if not does_file_exist:
-                                #sas_err.append('Final file not found raised by DAXA')
-                            # We store both the parsed and unparsed stderr for debugging purposes
                             process_raw_stderrs[mission_name][relevant_id] = proc_err
-                            #process_parsed_stderrs[mission_name][relevant_id] = sas_err
-
-                        # If there are any warnings, we don't consider them an indication of the total failure of
-                        #  the process, but we do make sure to store them
-                        #if len(sas_warn) > 0:
-                        #    process_parsed_stderr_warns[mission_name][relevant_id] = sas_warn
 
                         # Store the stdout for logging purposes
                         process_stdouts[mission_name][relevant_id] = proc_out
@@ -263,17 +253,6 @@ def esass_call(esass_func):
                         #  eventually be fed to the archive
                         if len(proc_extra_info) != 0:
                             process_einfo[mission_name][relevant_id] = proc_extra_info
-
-                        # If the tested-for output file exists, and we know that the current task is odf_ingest
-                        #  we're going to do an extra post-processing step and parse the output SAS summary file
-                        #if all(does_file_exist):
-                          #  try:
-                          #      parsed_obs_info[mission_name][relevant_id] = parse_odf_sum(proc_extra_info['sum_path'],
-                          #                                                                 relevant_id)
-                            # Possible that this parsing doesn't go our way however, so we have to be able to catch
-                            #  an exception.
-                           # except ValueError as err:
-                          #      python_errors.append(err)
 
                         # Make sure to update the progress bar
                         gen.update(1)
@@ -310,8 +289,6 @@ def esass_call(esass_func):
                 raise ExceptionGroup("Python errors raised during SAS commands", python_errors)
 
         obs_archive.process_success = (esass_func.__name__, success_flags)
-        #obs_archive.process_errors = (esass_func.__name__, process_parsed_stderrs)
-        #obs_archive.process_warnings = (esass_func.__name__, process_parsed_stderr_warns)
         obs_archive.raw_process_errors = (esass_func.__name__, process_raw_stderrs)
         obs_archive.process_logs = (esass_func.__name__, process_stdouts)
         obs_archive.process_extra_info = (esass_func.__name__, process_einfo)
