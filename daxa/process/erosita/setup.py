@@ -5,10 +5,14 @@ from typing import List
 import re
 
 from astropy.io import fits
+from astropy.units import def_unit, ct, deg, s
 
 from daxa import NUM_CORES
 from daxa import BaseMission
 from daxa.archive.base import Archive
+
+# Defining surface brightness rate astropy unit for use in flaregti to measure thresholds in 
+sb_rate = def_unit('sb_rate', ct / (deg**2 *s)) 
 
 def prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
     """

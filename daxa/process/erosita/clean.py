@@ -4,17 +4,15 @@ import os
 from random import randint
 from typing import Union
 
-from astropy.units import Quantity, UnitConversionError, def_unit, add_enabled_units, ct, deg, s
+from astropy.units import Quantity, UnitConversionError, add_enabled_units
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
 from daxa.exceptions import NoDependencyProcessError
+from daxa.process.erosita.setup import sb_rate
 from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call
 
-# JESS_TODO put it in setup.py
-# defining surface brightness rate astropy unit for use in flaregti to measure thresholds in 
-sb_rate = def_unit('sb_rate', ct / (deg**2 *s)) 
-# adding this to enabled units so that it can be used in flaregti
+# Adding this to the enabled astropy units so that it can be used in flaregti to define thresholds
 add_enabled_units([sb_rate])
 
 @esass_call
