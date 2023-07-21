@@ -14,7 +14,7 @@ from daxa.archive.base import Archive
 # Defining surface brightness rate astropy unit for use in flaregti to measure thresholds in 
 sb_rate = def_unit('sb_rate', ct / (deg**2 *s)) 
 
-def prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
+def _prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
     """
     A function to be used with in the esass_call wrapper. This is called only
     if no erosita processing has taken place yet. It populates two dictionaries

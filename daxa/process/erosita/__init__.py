@@ -2,4 +2,4 @@
 #  Last modified by Jessica Pilling (jp735@sussex.ac.uk) 21/07/2023, 15:38. Copyright (c) The Contributors
 
 from .clean import flaregti
-from .setup import prepare_erositacalpv_info
+from .setup import _prepare_erositacalpv_info

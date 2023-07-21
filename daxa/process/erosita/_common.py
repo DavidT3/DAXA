@@ -15,7 +15,7 @@ from exceptiongroup import ExceptionGroup
 from daxa.archive.base import Archive
 from daxa.exceptions import NoEROSITAMissionsError
 from daxa.process._backend_check import find_esass
-from daxa.process.erosita.setup import prepare_erositacalpv_info
+from daxa.process.erosita.setup import _prepare_erositacalpv_info
 
 ALLOWED_EROSITA_MISSIONS = ['erosita_calpv']
 
@@ -136,7 +136,7 @@ def esass_call(esass_func):
     @wraps(esass_func)
     def wrapper(*args, **kwargs):
         # This is here to avoid a circular import issue
-        from daxa.process.erosita.setup import prepare_erositacalpv_info
+        from daxa.process.erosita.setup import _prepare_erositacalpv_info
 
         # The first argument of all the eSASS processing functions will be an archive instance, and pulling
         #  that out of the arguments will be useful later
@@ -149,12 +149,12 @@ def esass_call(esass_func):
             # Getting the process_logs for each mission
             process_logs = obs_archive._process_logs[miss.name]
             if len(process_logs) == 0:
-                # If no processing has been done yet, we need to run the prepare_erositacalpv_info function.
+                # If no processing has been done yet, we need to run the _prepare_erositacalpv_info function.
                 #   This will fill out the mission observation summaries, which are needed for later 
                 #   processing functions. It will also populate the _process_extra_info dictionary for the archive
                 #   with top level keys of the erositacalpv mission and lower level keys of obs_ids with lower level keys
                 #   of 'path', which will store the raw data path for that obs id.
-                prepare_erositacalpv_info(obs_archive, miss)
+                _prepare_erositacalpv_info(obs_archive, miss)
 
         # This is the output from whatever function this is a decorator for
         miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout, esass_in_docker = esass_func(*args, **kwargs)
