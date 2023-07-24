@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 18:10. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/07/2023, 06:13. Copyright (c) The Contributors
 
 import os
 import re
@@ -500,11 +500,12 @@ class eROSITACalPV(BaseMission):
             os.makedirs(field_dir)
             with open(field_dir + "{f}.tar.gz".format(f=field_name), "wb") as writo:
                 copyfileobj(r.raw, writo)
-                # unzipping the tar file
-                tarname = field_dir + "{f}.tar.gz".format(f=field_name)
-                with tarfile.open(tarname, "r:gz") as tar:
-                    tar.extractall(field_dir)
-                    os.remove(tarname)
+
+        # unzipping the tar file
+        tarname = field_dir + "{f}.tar.gz".format(f=field_name)
+        with tarfile.open(tarname, "r:gz") as tar:
+            tar.extractall(field_dir)
+            os.remove(tarname)
 
         return None
     
