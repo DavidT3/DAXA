@@ -28,10 +28,11 @@ be found in the 'docs' directory in this repository.
 limited. Support for more telescopes is either currently under development or being actively planned._** 
 
 * XMM-Newton Pointed
-* **_[Under Development]_** eROSITA Commissioning
+* **_[Under Development - data acquisition/some processing implemented]_** eROSITA Commissioning
 * **_[Under Development - data acquisition implemented]_** NuSTAR
+* **_[Under Development - data acquisition implemented]_** Chandra
 
-**_Chandra support is being planned as a priority_** - if you would like to help with this, please get in contact!
+_If you would like to help with any of the telescopes above, or adding another X-ray telescope, please get in contact!_
 
 # Required telescope-specific software
 
