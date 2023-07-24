@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 18:10. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/07/2023, 06:18. Copyright (c) The Contributors
 
 import os
 import re
@@ -45,7 +45,7 @@ class eROSITACalPV(BaseMission):
 
         # All the allowed names of fields 
         self._miss_poss_fields = CALPV_INFO["Field_Name"].tolist()
-        # All the allowed types of field, ie. survey, magellanic cloud, galactic field, extragalactic field
+        # All the allowed types of field, ie. survey, magellanic cloud, galactic field, extragalactic field
         self._miss_poss_field_types = CALPV_INFO["Field_Type"].unique().tolist()
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
@@ -191,11 +191,10 @@ class eROSITACalPV(BaseMission):
             allowed_obs_ids.append('700199')
             allowed_obs_ids.append('700200')
             warn("The ObsID '700195' is misstyped on the eROSITA early data release website. It has"
-            " been replaced with '700199', '700200' which are the true ObsIDs associated with the "
-            "Puppis A galactic field.", stacklevel=2)
+                 " been replaced with '700199', '700200' which are the true ObsIDs associated with the "
+                 "Puppis A galactic field.", stacklevel=2)
         
         super().filter_on_obs_ids(allowed_obs_ids)
-    
 
     def _check_chos_insts(self, insts: Union[List[str], str]):
         """
@@ -212,17 +211,18 @@ class eROSITACalPV(BaseMission):
 
         # Checking if the data has already been downloaded:
         if all([os.path.exists(self.raw_data_path + '{o}'.format(o=obs)) for obs in self.filtered_obs_ids]):
-            # Only doing the instrument filtering if not all the instruments have been chosen
+            # Only doing the instrument filtering if not all the instruments have been chosen
             if len(insts) != 7:
-                # Getting all the path for each eventlist corresponding to an obs_id for the _inst_filtering function later
+                # Getting all the path for each eventlist corresponding to an obs_id for the
+                #  _inst_filtering function later
                 fits_paths = [self._get_evlist_path_from_obs(obs=o) for o in self.filtered_obs_ids]
 
-                # Filtering out any events from the raw data that arent from the selected instruments
+                # Filtering out any events from the raw data that arent from the selected instruments
                 if NUM_CORES == 1:
                     with tqdm(total=len(self), desc="Selecting EventLists from {}".format(insts)) as inst_filter_prog:
                         for path in fits_paths:
                             self._inst_filtering(insts=insts, evlist_path=path)
-                            # Update the progress bar
+                            # Update the progress bar
                             inst_filter_prog.update(1)
 
                 elif NUM_CORES > 1:
@@ -236,15 +236,16 @@ class eROSITACalPV(BaseMission):
                         # The callback function is what is called on the successful completion of a _download_call
                         def callback(download_conf: Any):
                             """
-                            Callback function for the apply_async pool method, gets called when a download task finishes
-                            without error.
+                            Callback function for the apply_async pool method, gets called when a download task
+                            finishes without error.
 
                             :param Any download_conf: The Null value confirming the operation is over.
                             """
                             nonlocal inst_filter_prog  # The progress bar will need updating
                             inst_filter_prog.update(1)
 
-                        # The error callback function is what happens when an exception is thrown during a _download_call
+                        # The error callback function is what happens when an exception is thrown
+                        #  during a _download_call
                         def err_callback(err):
                             """
                             The callback function for errors that occur inside a download task running in the pool.
@@ -262,9 +263,8 @@ class eROSITACalPV(BaseMission):
                         # Again nested for loop through each Obs_ID
                         for path in fits_paths:
                             # Add each download task to the pool
-                            pool.apply_async(self._inst_filtering, kwds={'insts': insts, 
-                                            'evlist_path': path}, 
-                                            error_callback=err_callback, callback=callback)
+                            pool.apply_async(self._inst_filtering, kwds={'insts': insts, 'evlist_path': path},
+                                             error_callback=err_callback, callback=callback)
                         pool.close()  # No more tasks can be added to the pool
                         pool.join()  # Joins the pool, the code will only move on once the pool is empty.
 
@@ -329,10 +329,10 @@ class eROSITACalPV(BaseMission):
             that you wish to be let through the filter.
         """
 
-        # Convert field types or a singular field name into a list of field name(s)
+        #Convert field types or a singular field name into a list of field name(s)
         fields = self._check_chos_fields(fields=fields)
 
-        # Updating the chosen_field attribute
+        #Updating the chosen_field attribute
         self.chosen_fields = fields
 
         # Selecting all Obs_IDs from each field
@@ -410,14 +410,14 @@ class eROSITACalPV(BaseMission):
         
         # Extracting the alt_fields from fields
         alt_fields = [field for field in fields if field in poss_alt_field_names]
-        # Making a list of the alt_fields DAXA compatible name
+        #Making a list of the alt_fields DAXA compatible name
         alt_fields_proper_name = [poss_alt_field_names[field] for field in alt_fields]
         # Seeing if someone just input 'crab' into the fields argument
         if 'CRAB' in fields:
             crab = ['CRAB_1', 'CRAB_2', 'CRAB_3', 'CRAB_4']
         else:
             crab = []
-        # Then the extracting the field_types
+        #Then the extracting the field_types
         field_types = [field for field in fields if field in self._miss_poss_field_types]
         # Turning the field_types into field_names
         field_types_proper_name = CALPV_INFO.loc[CALPV_INFO["Field_Type"].isin(field_types), "Field_Name"].tolist()
@@ -447,7 +447,7 @@ class eROSITACalPV(BaseMission):
 
         # Checking that this combination of instruments has not been filtered for before for this Obsid
         #  this is done by checking that there is no file with the _if_{}.fits ending where {} is the 
-        #  number(s) of the TM(s) that the user has specified when declaring the mission.
+        # number(s) of the TM(s) that the user has specified when declaring the mission.
         # Indexing the string at [:-5] removes the .fits part of the file path
         if os.path.exists(evlist_path[:-5] + '_if_{}.fits'.format(insts_str)):
             pass
@@ -500,11 +500,12 @@ class eROSITACalPV(BaseMission):
             os.makedirs(field_dir)
             with open(field_dir + "{f}.tar.gz".format(f=field_name), "wb") as writo:
                 copyfileobj(r.raw, writo)
-                # unzipping the tar file
-                tarname = field_dir + "{f}.tar.gz".format(f=field_name)
-                with tarfile.open(tarname, "r:gz") as tar:
-                    tar.extractall(field_dir)
-                    os.remove(tarname)
+
+        # unzipping the tar file
+        tarname = field_dir + "{f}.tar.gz".format(f=field_name)
+        with tarfile.open(tarname, "r:gz") as tar:
+            tar.extractall(field_dir)
+            os.remove(tarname)
 
         return None
     
@@ -537,7 +538,7 @@ class eROSITACalPV(BaseMission):
                         second_field_dir = all_files[0]
                         # redefining all_files so it lists the files in the folder
                         all_files = [f for f in os.listdir(os.path.join(field_dir, second_field_dir)) if not f.startswith('.')]
-                        # redefining field_dir so in the later block, the source is correct
+                        #redefining field_dir so in the later block, the source is correct
                         field_dir = os.path.join(field_dir, second_field_dir)
 
                         # Some of the fields are in another folder, so need to perform the same check again (pretty sure this only applies to efeds and eta cha)
@@ -545,7 +546,7 @@ class eROSITACalPV(BaseMission):
                             third_field_dir = all_files[0]
                             # redefining all_files so it lists the files in the folder
                             all_files = os.listdir(os.path.join(field_dir, third_field_dir))
-                            # redefining field_dir so in the later block, the source is correct
+                            #redefining field_dir so in the later block, the source is correct
                             field_dir = os.path.join(field_dir, third_field_dir)
 
                     # Selecting the eventlist for the obs_id
@@ -562,7 +563,6 @@ class eROSITACalPV(BaseMission):
         temp_dir = os.path.join(self.raw_data_path, "temp_download")
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
-        
 
     def _get_evlist_path_from_obs(self, obs: str):
         '''
@@ -677,17 +677,19 @@ class eROSITACalPV(BaseMission):
             # Rearranging the obs_id eventlists into the directory format DAXA expects
             self._directory_formatting()
 
-            # Only doing the instrument filtering step if not all the instruments have been chosen
+            # Only doing the instrument filtering step if not all the instruments have been chosen
             if len(self.chosen_instruments) != 7:
-                # Getting all the path for each eventlist corresponding to an obs_id for the _inst_filtering function later
+                # Getting all the path for each eventlist corresponding to an obs_id for the
+                #  _inst_filtering function later
                 fits_paths = [self._get_evlist_path_from_obs(obs=o) for o in self.filtered_obs_ids]
 
-                # Filtering out any events from the raw data that arent from the selected instruments
+                # Filtering out any events from the raw data that arent from the selected instruments
                 if num_cores == 1:
-                    with tqdm(total=len(self), desc="Selecting EventLists from {}".format(self.chosen_instruments)) as inst_filter_prog:
+                    with tqdm(total=len(self), desc="Selecting EventLists from "
+                                                    "{}".format(self.chosen_instruments)) as inst_filter_prog:
                         for path in fits_paths:
                             self._inst_filtering(insts=self.chosen_instruments, evlist_path=path)
-                            # Update the progress bar
+                            # Update the progress bar
                             inst_filter_prog.update(1)
 
                 elif num_cores > 1:
@@ -709,7 +711,8 @@ class eROSITACalPV(BaseMission):
                             nonlocal inst_filter_prog  # The progress bar will need updating
                             inst_filter_prog.update(1)
 
-                        # The error callback function is what happens when an exception is thrown during a _download_call
+                        # The error callback function is what happens when an exception is thrown
+                        #  during a _download_call
                         def err_callback(err):
                             """
                             The callback function for errors that occur inside a download task running in the pool.
@@ -727,9 +730,9 @@ class eROSITACalPV(BaseMission):
                         # Again nested for loop through each Obs_ID
                         for path in fits_paths:
                             # Add each download task to the pool
-                            pool.apply_async(self._inst_filtering, kwds={'insts': self.chosen_instruments, 
-                                            'evlist_path': path}, 
-                                            error_callback=err_callback, callback=callback)
+                            pool.apply_async(self._inst_filtering, kwds={'insts': self.chosen_instruments,
+                                                                         'evlist_path': path},
+                                             error_callback=err_callback, callback=callback)
                         pool.close()  # No more tasks can be added to the pool
                         pool.join()  # Joins the pool, the code will only move on once the pool is empty.
 
