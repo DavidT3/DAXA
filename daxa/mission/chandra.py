@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 25/05/2023, 16:26. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 25/07/2023, 06:12. Copyright (c) The Contributors
+
 import gzip
 import io
 import os
@@ -79,7 +80,7 @@ class Chandra(BaseMission):
         # Makes sure everything is uppercase
         insts = [i.upper() for i in insts]
 
-        # TODO Remove this once RGS is supported, not sure OM should even be here tbh
+        # TODO Remove this once HETG and LETG are supported
         if 'HETG' in insts or 'LETG' in insts:
             raise NotImplementedError("The RGS and OM instruments are not currently supported by this class.")
 
@@ -96,7 +97,7 @@ class Chandra(BaseMission):
         self._required_mission_specific_cols = ['proprietary_end_date', 'target_category', 'detector', 'grating',
                                                 'data_mode', 'proprietary_usable']
 
-        # Runs the method which fetches information on all available pointed NuSTAR observations and stores that
+        # Runs the method which fetches information on all available pointed Chandra observations and stores that
         #  information in the all_obs_info property
         self._fetch_obs_info()
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
