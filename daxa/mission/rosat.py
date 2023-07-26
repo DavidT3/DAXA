@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 26/07/2023, 03:20. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 26/07/2023, 03:28. Copyright (c) The Contributors
 
 import io
 from datetime import datetime
@@ -98,8 +98,8 @@ class ROSATAllSky(BaseMission):
         # TODO THEY ARE FORMATTED LIKE THIS -  RS123456N00
 
         # The ObsID regular expression is defined here because this is the pattern for this property defined in
-        #  the BaseMission superclass - NuSTAR observations have a unique 11-digit ObsID, the construction of
-        #  which is discussed here (https://heasarc.gsfc.nasa.gov/W3Browse/nustar/numaster.html#obsid)
+        #  the BaseMission superclass - RASS (and possibly all ROSAT?) observations have an ObsID of length 11. The
+        #  first two digits
         self._id_format = '^[A-Z]{2}+[0-9]{6}+[A-Z]{1}+[0-9]{2}$'
         return self._id_format
 
@@ -259,3 +259,8 @@ class ROSATAllSky(BaseMission):
         # Use the setter for all_obs_info to actually add this information to the instance
         self.all_obs_info = rel_nustar
 
+    def download(self):
+        pass
+
+    def assess_process_obs(self, obs_info: dict):
+        pass
