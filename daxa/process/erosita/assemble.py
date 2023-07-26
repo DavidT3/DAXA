@@ -1,5 +1,6 @@
 # This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
 # Last modified by Jessica Pilling (jp735@sussex.ac.uk) Wed Jul 19 2023, 13:52. Copyright (c) The Contributors
+from random import randint
 
 from astropy.units import Quantity
 
