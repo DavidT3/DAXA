@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 25/07/2023, 06:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 26/07/2023, 03:53. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -267,7 +267,7 @@ class Chandra(BaseMission):
         # This returns the requested information in a FITS format - the idea being I will stream this into memory
         #  and then have a fits table that I can convert into a Pandas dataframe (which I much prefer working with).
         down_form = "&displaymode=FitsDisplay"
-        # This should mean unlimited, as we don't know how many NuSTAR observations there are, and the number will
+        # This should mean unlimited, as we don't know how many Chandra observations there are, and the number will
         #  increase with time (so long as the telescope doesn't break...)
         result_max = "&ResultMax=0"
         # This just tells the interface it's a query (I think?)
