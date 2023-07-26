@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 17:58. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 26/07/2023, 03:55. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -27,7 +27,7 @@ REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'science_usable', 'start', 'duration', 'e
 #  target specific types of source (if that data is available for a specific mission).
 SRC_TYPE_TAXONOMY = {'AGN': 'Active Galaxies and Quasars', 'BLZ': 'Blazars',
                      'CAL': 'Calibration Observation (possibly of objects)', 'EGS': 'Extragalactic Surveys',
-                     'GCL': 'Galaxy Clusters', 'GS': 'Galactic Survey',
+                     'GCL': 'Galaxy Clusters', 'GS': 'Galactic Survey', 'ASK': 'All Sky Survey',
                      'MAG': 'Magnetars and Rotation-Powered Pulsars', 'NGS': 'Normal and Starburst Galaxies',
                      'OAGN': 'Obscured Active Galaxies and Quasars', 'SNE': 'Non-ToO Supernovae',
                      'SNR': 'Supernova Remnants and Galactic diffuse', 'SOL': 'Solar System Observations',
