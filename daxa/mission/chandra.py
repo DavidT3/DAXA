@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 26/07/2023, 03:53. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 26/07/2023, 15:24. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -522,7 +522,7 @@ class Chandra(BaseMission):
             if num_cores == 1:
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
                     for obs_id in self.filtered_obs_ids:
-                        # Use the internal static method I set up which both downloads and unpacks the XMM data
+                        # Use the internal static method I set up which both downloads and unpacks the Chandra data
                         self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id),
                                             download_standard=download_standard)
                         # Update the progress bar
