@@ -1,16 +1,17 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 06:10. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 07:43. Copyright (c) The Contributors
 
-import gzip
 import io
 import os
 from multiprocessing import Pool
+from pathlib import Path
 from shutil import copyfileobj
 from typing import Any
 from warnings import warn
 
 import pandas as pd
 import requests
+import unlzw3
 from astropy.coordinates import BaseRADecFrame, FK5
 from astropy.io import fits
 from astropy.table import Table
@@ -235,6 +236,10 @@ class ROSATAllSky(BaseMission):
         :param bool download_processed:
         """
 
+        # Make sure raw_dir has a slash at the end
+        if raw_dir[-1] != '/':
+            raw_dir += '/'
+
         # This is the path to the HEASArc data directory for this ObsID - all PSPC data are stored in parent
         #  directories that have names/IDs corresponding to the targeted object type. In the case of RASS that
         #  will always be 900000, as it corresponds to Solar Systems, SURVEYS, and Miscellaneous. Specifically this
@@ -288,21 +293,26 @@ class ROSATAllSky(BaseMission):
         #     #  (https://cxc.cfa.harvard.edu/ciao/data_products_guide/) claims we need for re-processing
         #     to_down = [f for f in to_down for fp in GOOD_FILE_PATTERNS[rd] if fp in f]
 
-        # Every file will need to be unzipped, as they all appear to be gunzipped when I've looked in
-        #  the HEASARC directories
+        # This is where the data for this observation are to be downloaded, need to make sure said directory exists
+        if not os.path.exists(raw_dir):
+            os.makedirs(raw_dir)
+
         for down_file in sel_files:
+            stor_name = down_file.replace('.Z', '')
             down_url = top_url + down_file
             with session.get(down_url, stream=True) as acquiro:
                 with open(raw_dir + down_file, 'wb') as writo:
                     copyfileobj(acquiro.raw, writo)
 
-            # There are a few compressed fits files in each archive
-            if '.gz' in down_file:
-                # Open and decompress the events file
-                with gzip.open(raw_dir + down_file, 'rb') as compresso:
-                    # Open a new file handler for the decompressed data, then funnel the decompressed events there
-                    with open(raw_dir + down_file.split('.gz')[0], 'wb') as writo:
-                        copyfileobj(compresso, writo)
+            # The files we're downloading are compressed
+            if '.Z' in down_file:
+                # Open and decompress the events file - as the storage setup for RASS uses an old compression
+                #  algorithm we have to use this specialised module to decompress
+                decomp = unlzw3.unlzw(Path(raw_dir + down_file))
+
+                # Open a new file handler for the decompressed data, and store the decompressed bytes there
+                with open(raw_dir + stor_name, 'wb') as writo:
+                    writo.write(decomp)
                 # Then remove the tarred file to minimise storage usage
                 os.remove(raw_dir + down_file)
 
