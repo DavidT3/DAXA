@@ -1,12 +1,13 @@
 # This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
 # Last modified by Jessica Pilling (jp735@sussex.ac.uk) Wed Jul 19 2023, 13:52. Copyright (c) The Contributors
 from random import randint
+import os.path
 
 from astropy.units import Quantity
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
-from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call
+from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call, is_valid_flag
 
 @esass_call
 def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quantity = None,
@@ -71,25 +72,14 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         (hi_en < Quantity(200, 'eV') or hi_en > Quantity(10000, 'eV')):
         raise ValueError("The lo_en and hi_en value must be between 0.2 keV and 10 keV.")
 
-    # Checking user has input the flag parameter as a string
+    # Checking user has input the flag parameter as an integer
     if not isinstance(flag, int):
             raise TypeError("The flag parameter must be an integer.")
 
     # Checking the input is a valid hexidecimal number
-    def is_hexadecimal(s):
-        try:
-            # if the number is hexidecimal then it will be an integer with base 16
-            int(str(s), 16)
-            return True
-        except ValueError:
-            return False
-    
-    if not is_hexadecimal(flag):
-            raise ValueError("The flag parameter must be a valid hexidecimal number.")
-    
-    # Checking user has input a valid erosita flag
-    if flag > 2**32:
-        raise ValueError("The flag parameter is not a valid eROSITA flag.")
+    if not is_valid_flag(flag):
+            raise ValueError("{} is not a valid eSASS flag, see the eROSITA website"
+                             " for valid flags.".format(flag))
     
     # Checking user has input flag_invert as a boolean
     if not isinstance(flag_invert, bool):
