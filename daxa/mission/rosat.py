@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 07:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 07:45. Copyright (c) The Contributors
 
 import io
 import os
@@ -233,7 +233,9 @@ class ROSATAllSky(BaseMission):
 
         :param str observation_id: The ObsID of the observation to be downloaded.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
-        :param bool download_processed:
+        :param bool download_processed: This controls whether the data downloaded are the pre-processed event lists
+            stored by HEASArc, or whether they are the original raw event lists. Default is to download pre-processed
+            data.
         """
 
         # Make sure raw_dir has a slash at the end
@@ -271,27 +273,6 @@ class ROSATAllSky(BaseMission):
             missing = [fp for fp in sel_files if fp not in top_data]
             raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
                                     "files; {rq}".format(o=observation_id, rq=", ".join(missing)))
-
-        # for rd in GOOD_FILE_PATTERNS['rass']:
-        #
-        #     # This is the directory to which we will be saving this archive directories files
-        #     local_dir = raw_dir + '/' + rd
-        #     # Make sure that the local directory is created
-        #     if not os.path.exists(local_dir):
-        #         os.makedirs(local_dir)
-        #
-        #     # The lower level URL of the directory we're going to look at if we're just downloading the raw data
-        #     rel_url = top_url + rd
-        #
-        #     # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
-        #     #  are the files we shall be downloading
-        #     to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
-        #                if '?' not in en['href'] and obs_dir not in en['href']]
-        #
-        #     # This cleans the list of files further, down to only files matching the patterns defined in the constant
-        #     #  Those patterns are designed to grab the files that this page
-        #     #  (https://cxc.cfa.harvard.edu/ciao/data_products_guide/) claims we need for re-processing
-        #     to_down = [f for f in to_down for fp in GOOD_FILE_PATTERNS[rd] if fp in f]
 
         # This is where the data for this observation are to be downloaded, need to make sure said directory exists
         if not os.path.exists(raw_dir):
@@ -422,4 +403,4 @@ class ROSATAllSky(BaseMission):
             warn("The raw data for this mission have already been downloaded.")
 
     def assess_process_obs(self, obs_info: dict):
-        pass
+        raise NotImplementedError("The observation assessment process has not been implemented for ROSATAllSky.")
