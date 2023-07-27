@@ -10,7 +10,7 @@ from daxa.archive.base import Archive
 from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call, is_valid_flag
 
 @esass_call
-def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quantity = None,
+def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV'), hi_en: Quantity = Quantity(10, 'keV'),
                       flag: int = 0xc0000000, flag_invert: bool = False, pattern: int = 15, num_cores: int = NUM_CORES,
                       disable_progress: bool = False, timeout: Quantity = None):
 
