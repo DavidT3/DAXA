@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 25/05/2023, 16:26. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 26/07/2023, 15:24. Copyright (c) The Contributors
+
 import gzip
 import io
 import os
@@ -79,7 +80,7 @@ class Chandra(BaseMission):
         # Makes sure everything is uppercase
         insts = [i.upper() for i in insts]
 
-        # TODO Remove this once RGS is supported, not sure OM should even be here tbh
+        # TODO Remove this once HETG and LETG are supported
         if 'HETG' in insts or 'LETG' in insts:
             raise NotImplementedError("The RGS and OM instruments are not currently supported by this class.")
 
@@ -96,7 +97,7 @@ class Chandra(BaseMission):
         self._required_mission_specific_cols = ['proprietary_end_date', 'target_category', 'detector', 'grating',
                                                 'data_mode', 'proprietary_usable']
 
-        # Runs the method which fetches information on all available pointed NuSTAR observations and stores that
+        # Runs the method which fetches information on all available pointed Chandra observations and stores that
         #  information in the all_obs_info property
         self._fetch_obs_info()
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
@@ -266,7 +267,7 @@ class Chandra(BaseMission):
         # This returns the requested information in a FITS format - the idea being I will stream this into memory
         #  and then have a fits table that I can convert into a Pandas dataframe (which I much prefer working with).
         down_form = "&displaymode=FitsDisplay"
-        # This should mean unlimited, as we don't know how many NuSTAR observations there are, and the number will
+        # This should mean unlimited, as we don't know how many Chandra observations there are, and the number will
         #  increase with time (so long as the telescope doesn't break...)
         result_max = "&ResultMax=0"
         # This just tells the interface it's a query (I think?)
@@ -521,7 +522,7 @@ class Chandra(BaseMission):
             if num_cores == 1:
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
                     for obs_id in self.filtered_obs_ids:
-                        # Use the internal static method I set up which both downloads and unpacks the XMM data
+                        # Use the internal static method I set up which both downloads and unpacks the Chandra data
                         self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id),
                                             download_standard=download_standard)
                         # Update the progress bar
