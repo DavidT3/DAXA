@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 05:28. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 06:09. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -22,7 +22,8 @@ from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
 
-GOOD_FILE_PATTERNS = {'rass': {'processed': ['_anc.fits', '_bas.fits'], 'raw': ['_raw.fits.Z', '_anc.fits']}}
+GOOD_FILE_PATTERNS = {'rass': {'processed': ['{o}_anc.fits.Z', '{o}_bas.fits.Z'],
+                               'raw': ['{o}_raw.fits.Z', '{o}_anc.fits.Z']}}
 
 
 class ROSATAllSky(BaseMission):
@@ -249,22 +250,20 @@ class ROSATAllSky(BaseMission):
         # This opens a session that will persist
         session = requests.Session()
 
-        print([en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")])
+        # This defines the files we're looking to download, based on the fact this is a RASS mission, and we want
+        #  the pre-processed data
+        sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['rass']['processed']]
 
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
         #  that the files that I need to download RASS data are present
         top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
-                    if any([fp in en['href'] for fp in GOOD_FILE_PATTERNS['rass']])]
+                    if en['href'] in sel_files]
 
-        print(top_data)
-        import sys
-        sys.exit()
-        # If the lengths of top_data and the file list are different, then one or more of the expected dirs
-        #  is not present
-        if len(top_data) != len(GOOD_FILE_PATTERNS['rass']):
-            # TODO THIS IS NONSENSE
-            # This list comprehension figures out what directory is missing and reports it
-            missing = [rd for rd in GOOD_FILE_PATTERNS['rass'] if rd not in top_data]
+        # If the lengths of top_data and the file list are different, then one or more of the
+        #  expected dirs is not present
+        if len(top_data) != len(sel_files):
+            # This list comprehension figures out what file is missing and reports it
+            missing = [fp for fp in sel_files if fp not in top_data]
             raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
                                     "files; {rq}".format(o=observation_id, rq=", ".join(missing)))
 
