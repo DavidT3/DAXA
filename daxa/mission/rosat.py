@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 06:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 06:10. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -290,7 +290,7 @@ class ROSATAllSky(BaseMission):
 
         # Every file will need to be unzipped, as they all appear to be gunzipped when I've looked in
         #  the HEASARC directories
-        for down_file in GOOD_FILE_PATTERNS['rass']:
+        for down_file in sel_files:
             down_url = top_url + down_file
             with session.get(down_url, stream=True) as acquiro:
                 with open(raw_dir + down_file, 'wb') as writo:
