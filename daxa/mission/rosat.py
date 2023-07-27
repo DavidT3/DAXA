@@ -1,12 +1,12 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 08:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 09:02. Copyright (c) The Contributors
 
 import io
 import os
 from multiprocessing import Pool
 from pathlib import Path
 from shutil import copyfileobj
-from typing import Any
+from typing import Any, Union, List
 from warnings import warn
 
 import pandas as pd
@@ -25,6 +25,62 @@ from daxa.mission.base import BaseMission
 
 GOOD_FILE_PATTERNS = {'rass': {'processed': ['{o}_anc.fits.Z', '{o}_bas.fits.Z'],
                                'raw': ['{o}_raw.fits.Z', '{o}_anc.fits.Z']}}
+
+
+class ROSATPointed(BaseMission):
+    """
+
+    :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
+            pass either a single string value or a list of strings. They may include PSPC and HRI.
+    """
+
+    def __init__(self, insts: Union[List[str], str] = None):
+        """
+
+        :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
+            pass either a single string value or a list of strings. They may include PSPC and HRI.
+        """
+        super().__init__()
+
+        # Sets the default instruments - ROSAT had the Position Sensitive Proportional Counters (PSPC) and the
+        #  High Resolution Imager (HRI). PSPC-C was used for the all-sky survey until it was destroyed by an
+        #  accidental pass over the Sun. PSPC-B was used to complete the survey in pointed mode towards the end of
+        #  the mission's life.
+        if insts is None:
+            insts = ['PSPC', 'HRI']
+        elif isinstance(insts, str):
+            # Makes sure that, if a single instrument is passed as a string, the insts variable is a list for the
+            #  rest of the work done using it
+            insts = [insts]
+        # Makes sure everything is uppercase
+        insts = [i.upper() for i in insts]
+
+        # These are the allowed instruments for this mission - Chandra has two sets of instruments (HRC and
+        #  ACIS), each with two sets of detectors (one for imaging one for grating spectroscopy). It also has
+        #  two choices of grating spectroscopy (HETG and LETG).
+        self._miss_poss_insts = ['PSPC', 'HRI']
+        self._alt_miss_inst_names = {'PSPC-B': 'PSPC', 'PSPC-C': 'PSPC', 'PSPC B': 'PSPC', 'PSPC C': 'PSPC',
+                                     'PSPCB': 'PSPC', 'PSPCC': 'PSPC', }
+
+        # Call the name property to set up the name and pretty name attributes
+        self.name
+
+        # I don't wish to add any extra columns over the defaults expected by DAXA
+        self._required_mission_specific_cols = []
+
+        # Runs the method which fetches information on all available pointed Chandra observations and stores that
+        #  information in the all_obs_info property
+        self._fetch_obs_info()
+        # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
+        #  column of all_obs_info, rather than the initial None value
+        self.reset_filter()
+
+        # Deliberately using the property setter, because it calls the internal _check_chos_insts function
+        #  to make sure the input instruments are allowed
+        # This instrument stuff is down here because for ROSAT I want it to happen AFTER the Observation info
+        #  table has been fetched. As ROSAT uses one instrument per observation, this will effectively be another
+        #  filtering operation rather than the download-time operation is has been for NuSTAR for instance
+        self.chosen_instruments = insts
 
 
 class ROSATAllSky(BaseMission):
@@ -125,7 +181,7 @@ class ROSATAllSky(BaseMission):
         #  mode), the next 6 characters are the ROSAT observation request sequence number or ROR, while the
         #  following 3 characters after the ROR number are the follow-on suffix. A complete pointing at a given
         #  ROSAT target comprises all the datasets having the same prefix and ROR numbers.
-        self._id_format = '^[A-Z]{2}+[0-9]{6}+[A-Z]{1}+[0-9]{2}$'
+        self._id_format = r'^RS\d{6}[A-Z]\d{2}$'
         return self._id_format
 
     @property
