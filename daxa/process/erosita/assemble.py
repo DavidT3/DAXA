@@ -174,7 +174,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
                 os.makedirs(temp_dir)
 
             evtool_cmd = "cd {d}; evtool eventfiles={ef} gti=FLAREGTI outfile={of} flag={f} flag_invert={fi} pattern={p} " \
-                "emin={emin} emax={emax}; mv {of} {fep}; rm -r "
+                "emin={emin} emax={emax}; mv {of} {fep}; rm -r {d}"
             
             cmd = evtool_cmd.format(d=temp_dir, ef=evt_list_file, of=filt_evt_name, f=flag, fi=flag_invert, p=pattern,
                 emin=lo_en, emax=hi_en, fep=filt_evt_path)
