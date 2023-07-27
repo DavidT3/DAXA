@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 07:45. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 08:30. Copyright (c) The Contributors
 
 import io
 import os
@@ -29,13 +29,26 @@ GOOD_FILE_PATTERNS = {'rass': {'processed': ['{o}_anc.fits.Z', '{o}_bas.fits.Z']
 
 class ROSATAllSky(BaseMission):
     """
+    The mission class for ROSAT All-Sky Survey (RASS) observations. The available observation information is
+    fetched from the HEASArc  RASSMASTER table, and data are downloaded from the HEASArc https access to their FTP
+    server. Only data from the initial scanning phase of RASS will be fetched by this class, not the follow-up pointed
+    mode observations used to complete the survey towards the end of the ROSAT mission.
 
-    No instrument choice is offered for this mission class because all RASS observations were taken with PSPC-C.
+    Another mission class is available for pointed ROSAT observations.
+
+    No instrument choice is offered for this mission class because all RASS observations in the scanning portion
+    of the survey were taken with PSPC-C.
     """
 
     def __init__(self):
         """
+        The mission class for ROSAT All-Sky Survey (RASS) observations. The available observation information is
+        fetched from the HEASArc  RASSMASTER table, and data are downloaded from the HEASArc https access to their FTP
+        server. Only data from the initial scanning phase of RASS will be fetched by this class, not the follow-up pointed
+        mode observations used to complete the survey towards the end of the ROSAT mission.
 
+        No instrument choice is offered for this mission class because all RASS observations in the scanning portion
+        of the survey were taken with PSPC-C.
         """
         super().__init__()
 
@@ -56,8 +69,7 @@ class ROSATAllSky(BaseMission):
         # Call the name property to set up the name and pretty name attributes
         self.name
 
-        # TODO Revisit this when I've explored what is actually in the table for RASS
-        # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
+        # I don't wish to add any extra columns over the defaults expected by DAXA
         self._required_mission_specific_cols = []
 
         # Runs the method which fetches information on all available RASS observations and stores that
