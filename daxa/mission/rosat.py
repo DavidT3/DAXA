@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 26/07/2023, 15:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 05:28. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -15,10 +15,14 @@ from astropy.coordinates import BaseRADecFrame, FK5
 from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time
+from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-from daxa import NUM_CORES, DAXADownloadError
+from daxa import NUM_CORES
+from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
+
+GOOD_FILE_PATTERNS = {'rass': {'processed': ['_anc.fits', '_bas.fits'], 'raw': ['_raw.fits.Z', '_anc.fits']}}
 
 
 class ROSATAllSky(BaseMission):
@@ -220,80 +224,92 @@ class ROSATAllSky(BaseMission):
         self.all_obs_info = full_rass
 
     @staticmethod
-    def _download_call(observation_id: str, raw_dir: str):
+    def _download_call(observation_id: str, raw_dir: str, download_processed: bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
 
         :param str observation_id: The ObsID of the observation to be downloaded.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
+        :param bool download_processed:
         """
 
         # This is the path to the HEASArc data directory for this ObsID - all PSPC data are stored in parent
         #  directories that have names/IDs corresponding to the targeted object type. In the case of RASS that
-        #  will always be 900000, as it corresponds to Solar Systems, SURVEYS, and Miscellaneous
-        obs_dir = "FTP/rosat/data/pspc/processed_data/900000/{oid}/".format(oid=observation_id)
+        #  will always be 900000, as it corresponds to Solar Systems, SURVEYS, and Miscellaneous. Specifically this
+        #  is the URL for downloading the pre-processed data
+        if download_processed:
+            obs_dir = "/FTP/rosat/data/pspc/processed_data/900000/{oid}/".format(oid=observation_id.lower())
+        # This URL is for downloading RAW data, not the pre-processed stuff
+        else:
+            obs_dir = "/FTP/rosat/data/pspc/RDA/900000/{oid}/".format(oid=observation_id)
+        # Assembles the full URL to the archive directory
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
 
         # This opens a session that will persist
         session = requests.Session()
 
+        print([en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")])
+
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
-        #  that the three directories that I need to download unprocessed Chandra data are present
-        # The 'secondary' data products are the L1 unprocessed products that we want
+        #  that the files that I need to download RASS data are present
         top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
-                    if en['href'] in req_dir]
-        # If the lengths of top_data and req_dir are different, then one or more of the expected dirs
+                    if any([fp in en['href'] for fp in GOOD_FILE_PATTERNS['rass']])]
+
+        print(top_data)
+        import sys
+        sys.exit()
+        # If the lengths of top_data and the file list are different, then one or more of the expected dirs
         #  is not present
-        if len(top_data) != len(req_dir):
+        if len(top_data) != len(GOOD_FILE_PATTERNS['rass']):
+            # TODO THIS IS NONSENSE
             # This list comprehension figures out what directory is missing and reports it
-            missing = [rd for rd in req_dir if rd not in top_data]
+            missing = [rd for rd in GOOD_FILE_PATTERNS['rass'] if rd not in top_data]
             raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
-                                    "directories; {rq}".format(o=observation_id, rq=", ".join(missing)))
+                                    "files; {rq}".format(o=observation_id, rq=", ".join(missing)))
 
-        for rd in req_dir:
+        # for rd in GOOD_FILE_PATTERNS['rass']:
+        #
+        #     # This is the directory to which we will be saving this archive directories files
+        #     local_dir = raw_dir + '/' + rd
+        #     # Make sure that the local directory is created
+        #     if not os.path.exists(local_dir):
+        #         os.makedirs(local_dir)
+        #
+        #     # The lower level URL of the directory we're going to look at if we're just downloading the raw data
+        #     rel_url = top_url + rd
+        #
+        #     # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
+        #     #  are the files we shall be downloading
+        #     to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
+        #                if '?' not in en['href'] and obs_dir not in en['href']]
+        #
+        #     # This cleans the list of files further, down to only files matching the patterns defined in the constant
+        #     #  Those patterns are designed to grab the files that this page
+        #     #  (https://cxc.cfa.harvard.edu/ciao/data_products_guide/) claims we need for re-processing
+        #     to_down = [f for f in to_down for fp in GOOD_FILE_PATTERNS[rd] if fp in f]
 
-            # This is the directory to which we will be saving this archive directories files
-            local_dir = raw_dir + '/' + rd
-            # Make sure that the local directory is created
-            if not os.path.exists(local_dir):
-                os.makedirs(local_dir)
+        # Every file will need to be unzipped, as they all appear to be gunzipped when I've looked in
+        #  the HEASARC directories
+        for down_file in GOOD_FILE_PATTERNS['rass']:
+            down_url = top_url + down_file
+            with session.get(down_url, stream=True) as acquiro:
+                with open(raw_dir + down_file, 'wb') as writo:
+                    copyfileobj(acquiro.raw, writo)
 
-            # The lower level URL of the directory we're going to look at if we're just downloading the raw data
-            rel_url = top_url + rd
-
-            # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
-            #  are the files we shall be downloading
-            to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
-                       if '?' not in en['href'] and obs_dir not in en['href']]
-
-            # This cleans the list of files further, down to only files matching the patterns defined in the constant
-            #  Those patterns are designed to grab the files that this page
-            #  (https://cxc.cfa.harvard.edu/ciao/data_products_guide/) claims we need for re-processing
-            to_down = [f for f in to_down for fp in GOOD_FILE_PATTERNS[rd] if fp in f]
-
-            # Every file will need to be unzipped, as they all appear to be gunzipped when I've looked in
-            #  the HEASARC directories
-
-            for down_file in to_down:
-                down_url = rel_url + down_file
-                with session.get(down_url, stream=True) as acquiro:
-                    with open(local_dir + down_file, 'wb') as writo:
-                        copyfileobj(acquiro.raw, writo)
-
-                # There are a few compressed fits files in each archive
-                if '.gz' in down_file:
-                    # Open and decompress the events file
-                    with gzip.open(local_dir + down_file, 'rb') as compresso:
-                        # Open a new file handler for the decompressed data, then funnel the decompressed events there
-                        with open(local_dir + down_file.split('.gz')[0], 'wb') as writo:
-                            copyfileobj(compresso, writo)
-                    # Then remove the tarred file to minimise storage usage
-                    os.remove(local_dir + down_file)
+            # There are a few compressed fits files in each archive
+            if '.gz' in down_file:
+                # Open and decompress the events file
+                with gzip.open(raw_dir + down_file, 'rb') as compresso:
+                    # Open a new file handler for the decompressed data, then funnel the decompressed events there
+                    with open(raw_dir + down_file.split('.gz')[0], 'wb') as writo:
+                        copyfileobj(compresso, writo)
+                # Then remove the tarred file to minimise storage usage
+                os.remove(raw_dir + down_file)
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES):
+    def download(self, num_cores: int = NUM_CORES, download_processed: bool = True):
         """
         A method to acquire and download the ROSAT All-Sky Survey data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded).
@@ -304,7 +320,15 @@ class ROSATAllSky(BaseMission):
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
+        :param bool download_processed: This controls whether the data downloaded are the pre-processed event lists
+            stored by HEASArc, or whether they are the original raw event lists. Default is to download pre-processed
+            data.
         """
+
+        if not download_processed:
+            raise NotImplementedError("The ability to download completely unprocessed RASS data has not been added "
+                                      "yet, mainly due to confusion about the location of the data and whether the "
+                                      "software to process it still exists.")
 
         # Ensures that a directory to store the 'raw' RASS data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
@@ -325,7 +349,8 @@ class ROSATAllSky(BaseMission):
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
                     for obs_id in self.filtered_obs_ids:
                         # Use the internal static method I set up which both downloads and unpacks the RASS data
-                        self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id))
+                        self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id),
+                                            download_processed=download_processed)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -367,7 +392,8 @@ class ROSATAllSky(BaseMission):
                     for obs_id in self.filtered_obs_ids:
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
-                                         kwds={'observation_id': obs_id, 'raw_dir': stor_dir + '{o}'.format(o=obs_id)},
+                                         kwds={'observation_id': obs_id, 'raw_dir': stor_dir + '{o}'.format(o=obs_id),
+                                               'download_processed': download_processed},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
