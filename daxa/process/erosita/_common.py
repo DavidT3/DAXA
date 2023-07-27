@@ -416,12 +416,6 @@ def esass_call(esass_func):
 
                         # Just unpack the results in for clarity's sake
                         relevant_id, mission_name, does_file_exist, proc_out, proc_err, proc_extra_info = results_in
-                        print("rel_id = {}".format(results_in))
-                        print("mission_name = {}".format(mission_name))
-                        print("does_file_exist = {}".format(does_file_exist))
-                        print("proc_out = {}".format(proc_out))
-                        print("proc_err = {}".format(proc_err))
-                        print("proc_extra_info = {}".format(proc_extra_info))
                         # This processes the stderr output to try and differentiate between warnings and actual
                         #  show-stopping errors
                         #sas_err, sas_warn, other_err = parse_stderr(proc_err)

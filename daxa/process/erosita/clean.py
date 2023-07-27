@@ -307,8 +307,6 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
                                       m=og_maskimg_name, mit=mask_iter, wl=write_lightcurve, lcf=og_lc_name,
                                       wti=write_thresholdimg, tif=og_thresholdimg_name, olc=og_lc_name, lc=lc_path, 
                                       oti=og_thresholdimg_name, ti=threshold_path, omi=og_maskimg_name, mi=maskimg_path)
-            
-            print(cmd)
 
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][obs_id] = cmd
