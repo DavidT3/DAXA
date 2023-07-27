@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 26/07/2023, 03:55. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 09:07. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -610,6 +610,10 @@ class BaseMission(metaclass=ABCMeta):
         # Makes sure that the allowed_obs_ids variable is iterable over ObsIDs, even if just a single ObsID was passed
         if not isinstance(allowed_obs_ids, list):
             allowed_obs_ids = [allowed_obs_ids]
+
+        # Just upper-cases everything, as that is what DAXA expects in cases where there are non-numerical characters
+        #  in the ObsIDs
+        allowed_obs_ids = [oid.upper() for oid in allowed_obs_ids]
 
         # Runs the ObsID pattern checks for all the passed ObsIDs
         oid_check = [oid for oid in allowed_obs_ids if not self.check_obsid_pattern(oid)]

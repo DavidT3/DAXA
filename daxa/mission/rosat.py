@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 09:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 09:07. Copyright (c) The Contributors
 
 import io
 import os
@@ -181,7 +181,7 @@ class ROSATAllSky(BaseMission):
         #  mode), the next 6 characters are the ROSAT observation request sequence number or ROR, while the
         #  following 3 characters after the ROR number are the follow-on suffix. A complete pointing at a given
         #  ROSAT target comprises all the datasets having the same prefix and ROR numbers.
-        self._id_format = r'^RS\d{6}[A-Z]\d{2}$'
+        self._id_format = r'^(RS|rs)\d{6}[A-Z]\d{2}$'
         return self._id_format
 
     @property
