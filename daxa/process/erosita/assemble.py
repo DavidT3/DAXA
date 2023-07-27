@@ -94,6 +94,8 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         raise ValueError("Valid eROSITA patterns are between 1 and 15 inclusive")
     
     # Converting the parameters to the correct format for the esass command
+    lo_en = lo_en.value
+    hi_en = hi_en.value
     if flag_invert:
         flag_invert = 'yes'
     else:
@@ -162,6 +164,9 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             filt_evt_name = "{i}-{l}-{u}_clean.fits".format(i=insts, l=lo_en, u=hi_en)
             filt_evt_path = dest_dir + filt_evt_name
 
+            # The path that needs to exist is the filtered event list 
+            final_paths = [filt_evt_path]
+
             # If it doesn't already exist then we will create commands to generate it
             # TODO Need to decide which file to check for here to see whether the command has already been run
             # Make the temporary directory (it shouldn't already exist but doing this to be safe)
@@ -173,12 +178,12 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             
             cmd = evtool_cmd.format(d=temp_dir, ef=evt_list_file, of=filt_evt_name, f=flag, fi=flag_invert, p=pattern,
                 emin=lo_en, emax=hi_en, fep=filt_evt_path)
+            print(cmd)
 
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][obs_id] = cmd
             miss_final_paths[miss.name][obs_id] = final_paths
-            miss_extras[miss.name][obs_id] = {'lc_path': lc_path, 'threshold_path': threshold_path,
-                                              'maskimg_path': maskimg_path}
+            miss_extras[miss.name][obs_id] = {'final_evt': filt_evt_path}
     
     # This is just used for populating a progress bar during the process run
     process_message = 'Cleaning eROSITA observations'
