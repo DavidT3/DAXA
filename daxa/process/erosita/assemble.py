@@ -7,8 +7,10 @@ from astropy.units import Quantity
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
-from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call, is_valid_flag
+from daxa.process._cleanup import _last_process
+from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call, _is_valid_flag
 
+@_last_process(ALLOWED_EROSITA_MISSIONS, 1)
 @esass_call
 def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV'), hi_en: Quantity = Quantity(10, 'keV'),
                       flag: int = 0xc0000000, flag_invert: bool = False, pattern: int = 15, num_cores: int = NUM_CORES,
@@ -77,7 +79,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
             raise TypeError("The flag parameter must be an integer.")
 
     # Checking the input is a valid hexidecimal number
-    if not is_valid_flag(flag):
+    if not _is_valid_flag(flag):
             raise ValueError("{} is not a valid eSASS flag, see the eROSITA website"
                              " for valid flags.".format(flag))
     
@@ -178,7 +180,6 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
             
             cmd = evtool_cmd.format(d=temp_dir, ef=evt_list_file, of=filt_evt_name, f=flag, fi=flag_invert, p=pattern,
                 emin=lo_en, emax=hi_en, fep=filt_evt_path)
-            print(cmd)
 
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][obs_id] = cmd

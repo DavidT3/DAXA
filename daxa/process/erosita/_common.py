@@ -21,7 +21,7 @@ from daxa.process.erosita.setup import prepare_erositacalpv_info
 
 ALLOWED_EROSITA_MISSIONS = ['erosita_calpv']
 
-class eSASS_Flag(Flag):
+class _eSASS_Flag(Flag):
     """
     This class was written by Toby Wallage.
     It throws a ValueError when an invalid eSASS Flag is declared with this class.
@@ -56,7 +56,7 @@ class eSASS_Flag(Flag):
     def get_hex(self):
         return hex(self.value)
 
-def is_valid_flag(flag):
+def _is_valid_flag(flag):
     """
     This function is to be called within the cleaned_evt_lists function to check that the user has
     input a valid eSASS flag to filter event with. 
@@ -67,7 +67,7 @@ def is_valid_flag(flag):
     """
     try:
         # If the flag is valid then it will declare the class without an error
-        eSASS_Flag(flag)
+        _eSASS_Flag(flag)
         return True
 
     except ValueError:
@@ -416,6 +416,7 @@ def esass_call(esass_func):
 
                         # Just unpack the results in for clarity's sake
                         relevant_id, mission_name, does_file_exist, proc_out, proc_err, proc_extra_info = results_in
+
                         # This processes the stderr output to try and differentiate between warnings and actual
                         #  show-stopping errors
                         #sas_err, sas_warn, other_err = parse_stderr(proc_err)
