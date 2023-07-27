@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 09:07. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 12:13. Copyright (c) The Contributors
 
 import io
 import os
@@ -20,8 +20,8 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 from daxa import NUM_CORES
-from daxa.exceptions import DAXADownloadError
-from daxa.mission.base import BaseMission
+from daxa.exceptions import DAXADownloadError, NoObsAfterFilterError
+from daxa.mission.base import BaseMission, _lock_check
 
 GOOD_FILE_PATTERNS = {'rass': {'processed': ['{o}_anc.fits.Z', '{o}_bas.fits.Z'],
                                'raw': ['{o}_raw.fits.Z', '{o}_anc.fits.Z']}}
@@ -55,9 +55,8 @@ class ROSATPointed(BaseMission):
         # Makes sure everything is uppercase
         insts = [i.upper() for i in insts]
 
-        # These are the allowed instruments for this mission - Chandra has two sets of instruments (HRC and
-        #  ACIS), each with two sets of detectors (one for imaging one for grating spectroscopy). It also has
-        #  two choices of grating spectroscopy (HETG and LETG).
+        # These are the allowed instruments for this mission - just the same as the default, as I have
+        #  no immediate plans to include the wide field XUV imager
         self._miss_poss_insts = ['PSPC', 'HRI']
         self._alt_miss_inst_names = {'PSPC-B': 'PSPC', 'PSPC-C': 'PSPC', 'PSPC B': 'PSPC', 'PSPC C': 'PSPC',
                                      'PSPCB': 'PSPC', 'PSPCC': 'PSPC', }
@@ -81,6 +80,245 @@ class ROSATPointed(BaseMission):
         #  table has been fetched. As ROSAT uses one instrument per observation, this will effectively be another
         #  filtering operation rather than the download-time operation is has been for NuSTAR for instance
         self.chosen_instruments = insts
+
+    @property
+    def name(self) -> str:
+        """
+        Property getter for the name of this mission
+
+        :return: The mission name.
+        :rtype: str
+        """
+        # The name is defined here because this is the pattern for this property defined in
+        #  the BaseMission superclass. Suggest keeping this in a format that would be good for a unix
+        #  directory name (i.e. lowercase + underscores), because it will be used as a directory name
+        self._miss_name = "rosat_pointed"
+        # This won't be used to name directories, but will be used for things like progress bar descriptions
+        self._pretty_miss_name = "ROSAT Pointed"
+        return self._miss_name
+
+    @property
+    def chosen_instruments(self) -> List[str]:
+        """
+        Property getter for the names of the currently selected instruments associated with this mission which
+        will be processed into an archive by DAXA functions. Overwritten here because I want to use a custom
+        version of _check_chos_insts for ROSAT pointed.
+
+        :return: A list of instrument names.
+        :rtype: List[str]
+        """
+        return self._chos_insts
+
+    @chosen_instruments.setter
+    @_lock_check
+    def chosen_instruments(self, new_insts: List[str]):
+        """
+        Property setter for the instruments associated with this mission that should be processed. This property
+        may only be set to a list that is a subset of the existing property value. Overwritten here because I want
+        to use a custom version of _check_chos_insts for ROSAT pointed.
+
+        :param List[str] new_insts: The new list of instruments associated with this mission which should
+            be processed into the archive.
+        """
+        self._chos_insts = self._check_chos_insts(new_insts)
+
+    @property
+    def coord_frame(self) -> BaseRADecFrame:
+        """
+        Property getter for the coordinate frame of the RA-Decs of the observations of this mission. Not completely
+        certain that FK5 is the correct frame for RASS, but a processed image downloaded from HEASArc used FK5 as
+        the reference frame for its WCS.
+
+        :return: The coordinate frame of the RA-Dec.
+        :rtype: BaseRADecFrame
+        """
+        # The name is defined here because this is the pattern for this property defined in
+        #  the BaseMission superclass
+        self._miss_coord_frame = FK5
+        return self._miss_coord_frame
+
+    @property
+    def id_regex(self) -> str:
+        """
+        Property getter for the regular expression (regex) pattern for observation IDs of this mission.
+
+        :return: The regex pattern for observation IDs.
+        :rtype: str
+        """
+
+        # The ObsID regular expression is defined here because this is the pattern for this property defined in
+        #  the BaseMission superclass - RASS (and possibly all ROSAT?) observations have an ObsID of length
+        #  11 (e.g. RS123456N00) APART FROM GERMAN PROCESSED OBSERVATIONS, they are 8 long??.
+        #
+        # rp = US PSPC
+        # rf = US PSPC + BORON FILTER
+        # rh = US HRI
+        # wp = MPE PSPC
+        # wf = MPE PSPC + BORON FILTER
+        # wh = MPE HRI
+        #
+        #  The first two digits of RASS ObsIDs are always RS (which indicates scanning
+        #  mode), the next 6 characters are the ROSAT observation request sequence number or ROR, while the
+        #  following 3 characters after the ROR number are the follow-on suffix.
+        self._id_format = r'^(RS|rs|RP|rp|RF|rf|WS|ws|WP|wp|WF|wf)\d{6}([A-Z]\d{2}|)$'
+        return self._id_format
+
+    @property
+    def all_obs_info(self) -> pd.DataFrame:
+        """
+        A property getter that returns the base dataframe containing information about all the observations available
+        for an instance of a mission class.
+
+        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'science_usable',
+            'start', 'duration'
+        :rtype: pd.DataFrame
+        """
+        return self._obs_info
+
+    @all_obs_info.setter
+    def all_obs_info(self, new_info: pd.DataFrame):
+        """
+        Property setter that allows the setting of a new all-observation-information dataframe. This is the dataframe
+        that contains information on every possible observation for a mission.
+
+        :param pd.DataFrame new_info: The new dataframe to update the all observation information.
+        """
+        # Frankly I'm not really sure why I made this an abstract method, but possibly because I thought some
+        #  missions might need extra checks run on their observation information dataframes?
+        # This _obs_info_checks method is defined in BaseMission, and uses the ObsID regex defined near the top of
+        #  this class to ensure that the dataframe's ObsID column contains legal values.
+        self._obs_info_checks(new_info)
+        self._obs_info = new_info
+        self.reset_filter()
+
+    def _check_chos_insts(self, insts: Union[List[str], str]) -> List[str]:
+        """
+        An internal function to perform some checks on the validity of chosen instrument names for ROSAT pointed. This
+        overwrites the version of this method declared in BaseMission, though it does call the super method. This
+        sub-class of BaseMission re-implements this method so that setting chosen instruments becomes another
+        filtering action, as ROSAT pointed has only one instrument per observation.
+
+        :param List[str]/str insts:
+        :return: The list of instruments (possibly altered to match formats expected by this module).
+        :rtype: List
+        """
+        # As a part of this, I will reset the filter array - in case the user used the chosen_instruments (property
+        #  setter that calls this function) after the initial declaration phase.
+        self.reset_filter()
+
+        insts = super()._check_chos_insts(insts)
+        # If we've gotten through the super call then the instruments are acceptable, so now we filter the
+        #  observation info table using them. This is complicated slightly by the fact that the gratings are
+        #  considered separately from the detectors by the table (they have their own column).
+
+        # I considered removing any gratings entries from inst, but it doesn't matter because I will just check
+        #  which rows in the obs info table have detector entries in the insts list, doesn't matter that gratings
+        #  might be in there.
+        sel_inst_mask = self._obs_info['detector'].isin(insts)
+
+        # I can't think of a way this would happen, but I will just quickly ensure that this filtering didn't
+        #  return zero results
+        if sel_inst_mask.sum() == 0:
+            raise NoObsAfterFilterError("No ROSAT observations are left after instrument filtering.")
+
+        # The boolean mask can be multiplied with the existing filter array (by default all ones, which means
+        #  all observations are let through) to produce an updated filter.
+        new_filter = self.filter_array * sel_inst_mask
+        # Then we set the filter array property with that updated mask
+        self.filter_array = new_filter
+
+        return insts
+
+    def _fetch_obs_info(self):
+        """
+        This method adapts the 'browse_extract.pl' script (a copy of which can be found in daxa/files for the proper
+        credit) to acquire the 'ROSMASTER' table from HEASArc - this method is much simpler, as it doesn't need to be
+        dynamic and accept different arguments, and we will filter observations locally. This table describes the
+        available ROSAT pointed observations, with important information such as pointing coordinates,
+        ObsIDs, and exposure.
+        """
+        # This is the web interface for querying NASA HEASArc catalogues
+        host_url = "https://heasarc.gsfc.nasa.gov/db-perl/W3Browse/w3query.pl?"
+
+        # This returns the requested information in a FITS format - the idea being I will stream this into memory
+        #  and then have a fits table that I can convert into a Pandas dataframe (which I much prefer working with).
+        down_form = "&displaymode=FitsDisplay"
+        # This should mean unlimited, as though we could hard code how many RASS observations there are (there aren't
+        #  going to be any more...) we should still try to avoid that
+        result_max = "&ResultMax=0"
+        # This just tells the interface it's a query (I think?)
+        action = "&Action=Query"
+        # Tells the interface that I want to retrieve from the ROSMASTER catalogue
+        table_head = "tablehead=name=BATCHRETRIEVALCATALOG_2.0%20rosmaster"
+
+        # The definition of all of these fields can be found here:
+        #  (https://heasarc.gsfc.nasa.gov/W3Browse/rosat/rassmaster.html)
+        # The INSTRUMENT_MODE is acquired here even though they say that it is unlikely any observations will be made
+        #  in 'normal' mode, just so I can exclude those observations because frankly I don't know the difference
+        # SPACECRAFT_MODE is acquired because the 'STELLAR' mode might not be suitable for science so may be excluded
+        which_cols = ['RA', 'DEC', 'Seq_ID', 'Start_Date', 'End_Date', 'Exposure']
+        # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
+        #  but I curated it to only those I think might be useful for DAXA
+        fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
+
+        # The full URL that we will pull the data from, with all the components we have previously defined
+        fetch_url = host_url + table_head + action + result_max + down_form + fields
+
+        # Opening that URL, we can access the results of our request!
+        with requests.get(fetch_url, stream=True) as urlo:
+            # This opens the data as using the astropy fits interface (using io.BytesIO() to stream it into memory
+            #  first so that fits.open can access it as an already opened file handler).
+            with fits.open(io.BytesIO(urlo.content)) as full_fits:
+                # Then convert the data in that fits file just into an astropy table object, and from there to a DF
+                full_ros = Table(full_fits[1].data).to_pandas()
+                # This cycles through any column with the 'object' data type (string in this instance), and
+                #  strips it of white space (I noticed there was extra whitespace on the end of a lot of the
+                #  string data).
+                for col in full_ros.select_dtypes(['object']).columns:
+                    full_ros[col] = full_ros[col].apply(lambda x: x.strip())
+
+        # Lower-casing all the column names (personal preference largely).
+        full_ros = full_ros.rename(columns=str.lower)
+
+        import sys
+        sys.exit()
+
+        # Changing a few column names to match what BaseMission expects - changing 'exposure' to duration might not
+        #  be entirely valid as I'm not sure that they have consistent meanings throughout DAXA.
+        #  TODO CHECK DURATION MEANING
+        full_rass = full_rass.rename(columns={'seq_id': 'ObsID', 'start_date': 'start', 'end_date': 'end',
+                                              'exposure': 'duration'})
+
+        # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
+        #  BaseMission time selection methods expect
+        full_rass['start'] = pd.to_datetime(Time(full_rass['start'].values, format='mjd', scale='utc').to_datetime())
+        full_rass['end'] = pd.to_datetime(Time(full_rass['end'].values, format='mjd', scale='utc').to_datetime())
+        # Convert the exposure time into a Pandas datetime delta
+        full_rass['duration'] = pd.to_timedelta(full_rass['duration'], 's')
+
+        # At this point in other missions I have dealt with the proprietary release data, and whether data are
+        #  currently in a proprietary period, but that isn't really a consideration for this mission as RASS finished
+        #  decades ago
+
+        # There isn't really a flag that translates to this in the online table, and I hope that if the data are
+        #  being served on HEASArc after this long then they are scientifically usable
+        full_rass['science_usable'] = True
+
+        # There isn't target information because this is an all sky survey, but I have actually added an 'all sky
+        #  survey' target type to the DAXA taxonomy. So we'll set all the observations to that
+        full_rass['target_category'] = 'ASK'
+
+        # Re-ordering the table, and not including certain columns which have served their purpose
+        full_rass = full_rass[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category']]
+
+        # Use the setter for all_obs_info to actually add this information to the instance
+        self.all_obs_info = full_rass
+
+    def download(self):
+        pass
+    
+    def assess_process_obs(self, obs_info: dict):
+        pass
 
 
 class ROSATAllSky(BaseMission):
@@ -231,7 +469,7 @@ class ROSATAllSky(BaseMission):
         result_max = "&ResultMax=0"
         # This just tells the interface it's a query (I think?)
         action = "&Action=Query"
-        # Tells the interface that I want to retrieve from the numaster (RASSMASTER) catalogue
+        # Tells the interface that I want to retrieve from the RASSMASTER catalogue
         table_head = "tablehead=name=BATCHRETRIEVALCATALOG_2.0%20rassmaster"
 
         # The definition of all of these fields can be found here:

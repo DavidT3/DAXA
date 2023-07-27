@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 26/07/2023, 15:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 12:13. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -210,7 +210,7 @@ class Chandra(BaseMission):
 
     def _check_chos_insts(self, insts: Union[List[str], str]) -> List[str]:
         """
-        An internal function to perform some checks on the validity of chosen instrument names for a Chandra. This
+        An internal function to perform some checks on the validity of chosen instrument names for Chandra. This
         overwrites the version of this method declared in BaseMission, though it does call the super method. This
         sub-class of BaseMission re-implements this method so that setting chosen instruments becomes another
         filtering action, as Chandra has only one instrument per observation.
