@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/07/2023, 05:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/07/2023, 05:39. Copyright (c) The Contributors
 
 import io
 import os
@@ -277,7 +277,7 @@ class ROSATPointed(BaseMission):
         #  be entirely valid as I'm not sure that they have consistent meanings throughout DAXA.
         #  TODO CHECK DURATION MEANING
         full_ros = full_ros.rename(columns={'seq_id': 'ObsID', 'start_time': 'start', 'end_time': 'end',
-                                            'exposure': 'duration', 'filter': 'with_filter'})
+                                            'exposure': 'duration', 'filter': 'with_filter', 'name': 'target_name'})
 
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
         #  BaseMission time selection methods expect
@@ -285,6 +285,10 @@ class ROSATPointed(BaseMission):
         # full_ros['end'] = pd.to_datetime(Time(full_ros['end'].values, format='mjd', scale='utc').to_datetime())
         # Convert the exposure time into a Pandas datetime delta
         full_ros['duration'] = pd.to_timedelta(full_ros['duration'], 's')
+
+        # TODO FIGURE OUT HOW I WANT TO DO THIS IN THE END
+        full_ros['instrument'] = full_ros['instrument'].apply(lambda x:
+                                                              'PSPC' if x in ['PSPC', 'PSPCB', 'PSPCC'] else 'HRI')
 
         # At this point in other missions I have dealt with the proprietary release data, and whether data are
         #  currently in a proprietary period, but that isn't really a consideration for this mission as RASS finished
@@ -300,8 +304,12 @@ class ROSATPointed(BaseMission):
         #  survey' target type to the DAXA taxonomy. So we'll set all the observations to that
         full_ros['target_category'] = 'ASK'
 
+        # TODO THIS NEEDS CHANGING FOR THE DIFFERENT COLUMNS HERE
         # Re-ordering the table, and not including certain columns which have served their purpose
-        full_ros = full_ros[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category']]
+        full_ros = full_ros[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category',
+                             'target_name', 'instrument']]
+
+        print(full_ros['instrument'].value_counts())
 
         # Use the setter for all_obs_info to actually add this information to the instance
         self.all_obs_info = full_ros
