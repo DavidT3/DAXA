@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/07/2023, 12:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/07/2023, 13:40. Copyright (c) The Contributors
 
 import io
 import os
@@ -9,6 +9,7 @@ from shutil import copyfileobj
 from typing import Any, Union, List
 from warnings import warn
 
+import numpy as np
 import pandas as pd
 import requests
 import unlzw3
@@ -283,37 +284,65 @@ class ROSATPointed(BaseMission):
         #  be entirely valid as I'm not sure that they have consistent meanings throughout DAXA.
         #  TODO CHECK DURATION MEANING
         full_ros = full_ros.rename(columns={'seq_id': 'ObsID', 'start_time': 'start', 'end_time': 'end',
-                                            'exposure': 'duration', 'filter': 'with_filter', 'name': 'target_name'})
+                                            'exposure': 'duration', 'filter': 'with_filter', 'name': 'target_name',
+                                            'subj_cat': 'target_category'})
+
+        # We make sure that the start and end columns are floats, otherwise the conversion to datetime doesn't work
+        full_ros['start'] = full_ros['start'].astype(float)
+        full_ros['end'] = full_ros['end'].astype(float)
+
+        # The target category column is turned to strings, because that's how I wrote the conversion dictionary and
+        #  I can't be bothered to change it
+        full_ros['target_category'] = full_ros['target_category'].astype(str)
 
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
         #  BaseMission time selection methods expect
-        # full_ros['start'] = pd.to_datetime(Time(full_ros['start'].values, format='mjd', scale='utc').to_datetime())
-        # full_ros['end'] = pd.to_datetime(Time(full_ros['end'].values, format='mjd', scale='utc').to_datetime())
+        full_ros['start'] = pd.to_datetime(Time(full_ros['start'].values, format='mjd', scale='utc').to_datetime())
+        full_ros['end'] = pd.to_datetime(Time(full_ros['end'].values, format='mjd', scale='utc').to_datetime())
         # Convert the exposure time into a Pandas datetime delta
         full_ros['duration'] = pd.to_timedelta(full_ros['duration'], 's')
 
-        # TODO FIGURE OUT HOW I WANT TO DO THIS IN THE END
-        # full_ros['instrument'] = full_ros['instrument'].apply(lambda x:
-        #                                                       'PSPC' if x in ['PSPC', 'PSPCB', 'PSPCC'] else 'HRI')
-
         # At this point in other missions I have dealt with the proprietary release data, and whether data are
-        #  currently in a proprietary period, but that isn't really a consideration for this mission as RASS finished
-        #  decades ago
+        #  currently in a proprietary period, but that isn't really a consideration for this mission as ROSAT died
+        #  many years ago
 
         # TODO THIS ISN'T TRUE HERE I DON'T THINK
-        # There isn't really a flag that translates to this in the online table, and I hope that if the data are
-        #  being served on HEASArc after this long then they are scientifically usable
-        full_ros['science_usable'] = True
+        # There isn't really a flag that translates to this in the online table - all I have to go on is that there
+        #  are some observations with an exposure time (in the ROSMASTER table at least) of 0, so we'll mark them
+        #  as not usable until I know better (see issue #185)
+        full_ros['science_usable'] = full_ros['duration'].apply(lambda x: False if x <= np.timedelta64(0) else True)
 
-        # TODO TRANSLATE THE TARGET TYPE FLAGS TO THE DAXA TAXONOMY
-        # There isn't target information because this is an all sky survey, but I have actually added an 'all sky
-        #  survey' target type to the DAXA taxonomy. So we'll set all the observations to that
-        full_ros['target_category'] = 'ASK'
+        # Here we translate the target categories to the DAXA taxonomy, which is shared between all DAXA missions
+        # From the ROSMASTER catalogue page
+        # 1        Normal (non-degenerate) stars
+        # 2        White dwarf stars
+        # 3        Cataclysmic variables
+        # 4        Neutron stars and black holes
+        # 5        Supernova remnants
+        # 6        Normal galaxies
+        # 7        Active Galactic Nuclei (AGN)
+        # 8        Clusters of galaxies
+        # 9        Extended and diffuse X-ray emission
+        # 10        Other types of objects
+        # I think 0 means mispoints (if we go by the table on this page
+        #  https://heasarc.gsfc.nasa.gov/docs/rosat/archive_access.html)
+
+        conv_dict = {'1': 'STR', '2': 'STR', '3': 'CV',
+                     '4': 'NS', '5': 'SNR', '6': 'NGS', '7': 'AGN',
+                     '8': 'GCL', '9': 'EGE', '10': 'MISC', '0': 'MISC'}
+
+        # I don't want to assume that the types I've seen in the catalogue will stay forever (though they probably
+        #  will), as such I construct a mask that tells me which entries have a recognised description - any that
+        #  don't will be set to the 'MISC' code
+        type_recog = full_ros['target_category'].isin(list(conv_dict.keys()))
+        # The recognized target category descriptions are converted to DAXA taxonomy
+        full_ros.loc[type_recog, 'target_category'] = full_ros.loc[type_recog, 'target_category'].apply(
+            lambda x: conv_dict[x])
 
         # TODO THIS NEEDS CHANGING FOR THE DIFFERENT COLUMNS HERE
         # Re-ordering the table, and not including certain columns which have served their purpose
-        full_ros = full_ros[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category',
-                             'target_name', 'instrument']]
+        full_ros = full_ros[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'instrument',
+                             'with_filter', 'target_category', 'target_name', 'proc_rev', 'fits_type']]
 
         print(full_ros['instrument'].value_counts())
 

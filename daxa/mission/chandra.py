@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 12:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/07/2023, 13:40. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -370,7 +370,7 @@ class Chandra(BaseMission):
         rel_chandra.loc[~type_recog, 'target_category'] = 'MISC'
 
         # Doing things slightly differently for Chandra - as it has a type of observation column and a lot of 'misc'
-        #  entries, I'm going to check to see if any of them can be labelled as calibration or Target of oppurtunity,
+        #  entries, I'm going to check to see if any of them can be labelled as calibration or Target of opportunity,
         #  just to give the user more to work with.
         misc_mask = rel_chandra['target_category'] == 'MISC'
         # For context, GO means General Observer, GTO means Guaranteed Time Observation, and CCT means Chandra
