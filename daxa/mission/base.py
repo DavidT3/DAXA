@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 09:07. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/07/2023, 13:18. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -25,10 +25,11 @@ from daxa.exceptions import MissionLockedError, NoObsAfterFilterError, IllegalSo
 REQUIRED_COLS = ['ra', 'dec', 'ObsID', 'science_usable', 'start', 'duration', 'end']
 # This defines the DAXA source category system, which can be employed by users to narrow down observations which
 #  target specific types of source (if that data is available for a specific mission).
-SRC_TYPE_TAXONOMY = {'AGN': 'Active Galaxies and Quasars', 'BLZ': 'Blazars',
+SRC_TYPE_TAXONOMY = {'AGN': 'Active Galaxies and Quasars', 'BLZ': 'Blazars', 'CV': 'Cataclysmic Variables',
                      'CAL': 'Calibration Observation (possibly of objects)', 'EGS': 'Extragalactic Surveys',
                      'GCL': 'Galaxy Clusters', 'GS': 'Galactic Survey', 'ASK': 'All Sky Survey',
                      'MAG': 'Magnetars and Rotation-Powered Pulsars', 'NGS': 'Normal and Starburst Galaxies',
+                     'NS': 'Neutron stars and Black Holes', 'STR': 'Non-degenerate and White Dwarf Stars',
                      'OAGN': 'Obscured Active Galaxies and Quasars', 'SNE': 'Non-ToO Supernovae',
                      'SNR': 'Supernova Remnants and Galactic diffuse', 'SOL': 'Solar System Observations',
                      'ULX': 'Ultra-luminous X-ray Sources', 'XRB': 'X-ray Binaries', 'TOO': 'Targets of Opportunity',
