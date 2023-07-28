@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/07/2023, 12:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/07/2023, 05:29. Copyright (c) The Contributors
 
 import io
 import os
@@ -208,13 +208,8 @@ class ROSATPointed(BaseMission):
 
         insts = super()._check_chos_insts(insts)
         # If we've gotten through the super call then the instruments are acceptable, so now we filter the
-        #  observation info table using them. This is complicated slightly by the fact that the gratings are
-        #  considered separately from the detectors by the table (they have their own column).
-
-        # I considered removing any gratings entries from inst, but it doesn't matter because I will just check
-        #  which rows in the obs info table have detector entries in the insts list, doesn't matter that gratings
-        #  might be in there.
-        sel_inst_mask = self._obs_info['detector'].isin(insts)
+        #  observation info table using them.
+        sel_inst_mask = self._obs_info['instrument'].isin(insts)
 
         # I can't think of a way this would happen, but I will just quickly ensure that this filtering didn't
         #  return zero results
@@ -252,11 +247,9 @@ class ROSATPointed(BaseMission):
         table_head = "tablehead=name=BATCHRETRIEVALCATALOG_2.0%20rosmaster"
 
         # The definition of all of these fields can be found here:
-        #  (https://heasarc.gsfc.nasa.gov/W3Browse/rosat/rassmaster.html)
-        # The INSTRUMENT_MODE is acquired here even though they say that it is unlikely any observations will be made
-        #  in 'normal' mode, just so I can exclude those observations because frankly I don't know the difference
-        # SPACECRAFT_MODE is acquired because the 'STELLAR' mode might not be suitable for science so may be excluded
-        which_cols = ['RA', 'DEC', 'Seq_ID', 'Start_Date', 'End_Date', 'Exposure']
+        #  (https://heasarc.gsfc.nasa.gov/W3Browse/rosat/rosmaster.html)
+        which_cols = ['RA', 'DEC', 'Seq_ID', 'Start_Time', 'End_Time', 'Exposure', 'FITS_Type', 'Instrument',
+                      'Filter', 'Proc_Rev', 'Subj_Cat', 'Name', 'Site']
         # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
         #  but I curated it to only those I think might be useful for DAXA
         fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
@@ -280,39 +273,38 @@ class ROSATPointed(BaseMission):
         # Lower-casing all the column names (personal preference largely).
         full_ros = full_ros.rename(columns=str.lower)
 
-        import sys
-        sys.exit()
-
         # Changing a few column names to match what BaseMission expects - changing 'exposure' to duration might not
         #  be entirely valid as I'm not sure that they have consistent meanings throughout DAXA.
         #  TODO CHECK DURATION MEANING
-        full_rass = full_rass.rename(columns={'seq_id': 'ObsID', 'start_date': 'start', 'end_date': 'end',
-                                              'exposure': 'duration'})
+        full_ros = full_ros.rename(columns={'seq_id': 'ObsID', 'start_time': 'start', 'end_time': 'end',
+                                            'exposure': 'duration', 'filter': 'with_filter'})
 
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
         #  BaseMission time selection methods expect
-        full_rass['start'] = pd.to_datetime(Time(full_rass['start'].values, format='mjd', scale='utc').to_datetime())
-        full_rass['end'] = pd.to_datetime(Time(full_rass['end'].values, format='mjd', scale='utc').to_datetime())
+        # full_ros['start'] = pd.to_datetime(Time(full_ros['start'].values, format='mjd', scale='utc').to_datetime())
+        # full_ros['end'] = pd.to_datetime(Time(full_ros['end'].values, format='mjd', scale='utc').to_datetime())
         # Convert the exposure time into a Pandas datetime delta
-        full_rass['duration'] = pd.to_timedelta(full_rass['duration'], 's')
+        full_ros['duration'] = pd.to_timedelta(full_ros['duration'], 's')
 
         # At this point in other missions I have dealt with the proprietary release data, and whether data are
         #  currently in a proprietary period, but that isn't really a consideration for this mission as RASS finished
         #  decades ago
 
+        # TODO THIS ISN'T TRUE HERE I DON'T THINK
         # There isn't really a flag that translates to this in the online table, and I hope that if the data are
         #  being served on HEASArc after this long then they are scientifically usable
-        full_rass['science_usable'] = True
+        full_ros['science_usable'] = True
 
+        # TODO TRANSLATE THE TARGET TYPE FLAGS TO THE DAXA TAXONOMY
         # There isn't target information because this is an all sky survey, but I have actually added an 'all sky
         #  survey' target type to the DAXA taxonomy. So we'll set all the observations to that
-        full_rass['target_category'] = 'ASK'
+        full_ros['target_category'] = 'ASK'
 
         # Re-ordering the table, and not including certain columns which have served their purpose
-        full_rass = full_rass[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category']]
+        full_ros = full_ros[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category']]
 
         # Use the setter for all_obs_info to actually add this information to the instance
-        self.all_obs_info = full_rass
+        self.all_obs_info = full_ros
 
     def download(self):
         pass
