@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/07/2023, 13:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/07/2023, 17:31. Copyright (c) The Contributors
 
 import io
 import os
@@ -32,7 +32,7 @@ class ROSATPointed(BaseMission):
     """
 
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
-            pass either a single string value or a list of strings. They may include PSPC and HRI.
+            pass either a single string value or a list of strings. They may include PSPCB, PSPCC, and HRI.
     """
 
     def __init__(self, insts: Union[List[str], str] = None):
@@ -48,7 +48,7 @@ class ROSATPointed(BaseMission):
         #  accidental pass over the Sun. PSPC-B was used to complete the survey in pointed mode towards the end of
         #  the mission's life.
         if insts is None:
-            insts = ['PSPCB', 'PSPCB', 'HRI']
+            insts = ['PSPCB', 'PSPCC', 'HRI']
         elif isinstance(insts, str):
             # Makes sure that, if a single instrument is passed as a string, the insts variable is a list for the
             #  rest of the work done using it
@@ -306,7 +306,6 @@ class ROSATPointed(BaseMission):
         #  currently in a proprietary period, but that isn't really a consideration for this mission as ROSAT died
         #  many years ago
 
-        # TODO THIS ISN'T TRUE HERE I DON'T THINK
         # There isn't really a flag that translates to this in the online table - all I have to go on is that there
         #  are some observations with an exposure time (in the ROSMASTER table at least) of 0, so we'll mark them
         #  as not usable until I know better (see issue #185)
@@ -339,21 +338,199 @@ class ROSATPointed(BaseMission):
         full_ros.loc[type_recog, 'target_category'] = full_ros.loc[type_recog, 'target_category'].apply(
             lambda x: conv_dict[x])
 
-        # TODO THIS NEEDS CHANGING FOR THE DIFFERENT COLUMNS HERE
         # Re-ordering the table, and not including certain columns which have served their purpose
         full_ros = full_ros[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'instrument',
                              'with_filter', 'target_category', 'target_name', 'proc_rev', 'fits_type']]
 
-        print(full_ros['instrument'].value_counts())
-
         # Use the setter for all_obs_info to actually add this information to the instance
         self.all_obs_info = full_ros
 
-    def download(self):
-        pass
-    
+    @staticmethod
+    def _download_call(observation_id: str, raw_dir: str, download_processed: bool):
+        """
+        The internal method called (in a couple of different possible ways) by the download method. This will check
+        the availability of, acquire, and decompress the specified observation.
+
+        :param str observation_id: The ObsID of the observation to be downloaded.
+        :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
+        :param bool download_processed: This controls whether the data downloaded are the pre-processed event lists
+            stored by HEASArc, or whether they are the original raw event lists. Default is to download pre-processed
+            data.
+        """
+
+        # Make sure raw_dir has a slash at the end
+        if raw_dir[-1] != '/':
+            raw_dir += '/'
+
+        # This grabs the first digit of the ROSAT observation request sequence number (ROR), which we need to know
+        #  to construct a part of the URL for downloading the data
+        obj_type = observation_id[2] + '00000'
+        # Also need to determine the instrument, as that also factors into the URL
+        inst = 'hri' if observation_id[1] == 'H' else 'pspc'
+
+        # Setting up the FTP paths for ROSAT pointed data is slightly more complicated than for the All-Sky Survey, as
+        #  pointed data can be with HRI or PSPC instruments, and the first digit of the six-digit chunk of the ObsID
+        #  can be something other than 9, as that indicates what type of object was being observed
+        if download_processed:
+            obs_dir = "/FTP/rosat/data/{inst}/processed_data/{ot}/{oid}/".format(oid=observation_id.lower(),
+                                                                                 inst=inst, ot=obj_type)
+        # This URL is for downloading RAW data, not the pre-processed stuff
+        else:
+            obs_dir = "/FTP/rosat/data/{inst}/RDA/{ot}/{oid}/".format(oid=observation_id.lower(), inst=inst,
+                                                                      ot=obj_type)
+        # Assembles the full URL to the archive directory
+        top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
+
+        # This opens a session that will persist
+        session = requests.Session()
+
+        # This defines the files we're looking to download, based on the fact this is a RASS mission, and we want
+        #  the pre-processed data
+        sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['rass']['processed']]
+
+        # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
+        #  that the files that I need to download RASS data are present
+        top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
+                    if en['href'] in sel_files]
+
+        # If the lengths of top_data and the file list are different, then one or more of the
+        #  expected dirs is not present
+        if len(top_data) != len(sel_files):
+            # This list comprehension figures out what file is missing and reports it
+            missing = [fp for fp in sel_files if fp not in top_data]
+            raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
+                                    "files; {rq}".format(o=observation_id, rq=", ".join(missing)))
+
+        # This is where the data for this observation are to be downloaded, need to make sure said directory exists
+        if not os.path.exists(raw_dir):
+            os.makedirs(raw_dir)
+
+        for down_file in sel_files:
+            stor_name = down_file.replace('.Z', '')
+            down_url = top_url + down_file
+            with session.get(down_url, stream=True) as acquiro:
+                with open(raw_dir + down_file, 'wb') as writo:
+                    copyfileobj(acquiro.raw, writo)
+
+            # The files we're downloading are compressed
+            if '.Z' in down_file:
+                # Open and decompress the events file - as the storage setup for RASS uses an old compression
+                #  algorithm we have to use this specialised module to decompress
+                decomp = unlzw3.unlzw(Path(raw_dir + down_file))
+
+                # Open a new file handler for the decompressed data, and store the decompressed bytes there
+                with open(raw_dir + stor_name, 'wb') as writo:
+                    writo.write(decomp)
+                # Then remove the tarred file to minimise storage usage
+                os.remove(raw_dir + down_file)
+
+        return None
+
+    def download(self, num_cores: int = NUM_CORES, download_processed: bool = True):
+        """
+        A method to acquire and download the ROSAT pointed data that have not been filtered out (if a filter
+        has been applied, otherwise all data will be downloaded).
+
+        Proprietary data is not a relevant concept for ROSAT at this point, so no option to provide
+        credentials is provided here as it is in some other mission classes.
+
+        :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
+            the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
+            of the cores available on the current machine.
+        :param bool download_processed: This controls whether the data downloaded are the pre-processed event lists
+            stored by HEASArc, or whether they are the original raw event lists. Default is to download pre-processed
+            data.
+        """
+
+        if not download_processed:
+            raise NotImplementedError("The ability to download completely unprocessed RASS data has not been added "
+                                      "yet, mainly due to confusion about the location of the data and whether the "
+                                      "software to process it still exists.")
+
+        # Ensures that a directory to store the 'raw' RASS data in exists - once downloaded and unpacked
+        #  this data will be processed into a DAXA 'archive' and stored elsewhere.
+        if not os.path.exists(self.top_level_path + self.name + '_raw'):
+            os.makedirs(self.top_level_path + self.name + '_raw')
+        # Grabs the raw data storage path
+        stor_dir = self.raw_data_path
+
+        # A very unsophisticated way of checking whether raw data have been downloaded before
+        #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
+        #  the _download_call method
+        if all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in self.filtered_obs_ids]):
+            self._download_done = True
+
+        if not self._download_done:
+            # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
+            if num_cores == 1:
+                with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
+                    for obs_id in self.filtered_obs_ids:
+                        # Use the internal static method I set up which both downloads and unpacks the RASS data
+                        self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id),
+                                            download_processed=download_processed)
+                        # Update the progress bar
+                        download_prog.update(1)
+
+            elif num_cores > 1:
+                # List to store any errors raised during download tasks
+                raised_errors = []
+
+                # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
+                with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) \
+                        as download_prog, Pool(num_cores) as pool:
+
+                    # The callback function is what is called on the successful completion of a _download_call
+                    def callback(download_conf: Any):
+                        """
+                        Callback function for the apply_async pool method, gets called when a download task finishes
+                        without error.
+
+                        :param Any download_conf: The Null value confirming the operation is over.
+                        """
+                        nonlocal download_prog  # The progress bar will need updating
+                        download_prog.update(1)
+
+                    # The error callback function is what happens when an exception is thrown during a _download_call
+                    def err_callback(err):
+                        """
+                        The callback function for errors that occur inside a download task running in the pool.
+
+                        :param err: An error that occurred inside a task.
+                        """
+                        nonlocal raised_errors
+                        nonlocal download_prog
+
+                        if err is not None:
+                            # Rather than throwing an error straight away I append them all to a list for later.
+                            raised_errors.append(err)
+                        download_prog.update(1)
+
+                    # Again nested for loop through ObsIDs and instruments
+                    for obs_id in self.filtered_obs_ids:
+                        # Add each download task to the pool
+                        pool.apply_async(self._download_call,
+                                         kwds={'observation_id': obs_id, 'raw_dir': stor_dir + '{o}'.format(o=obs_id),
+                                               'download_processed': download_processed},
+                                         error_callback=err_callback, callback=callback)
+                    pool.close()  # No more tasks can be added to the pool
+                    pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+
+                # Raise all the download errors at once, if there are any
+                if len(raised_errors) != 0:
+                    raise DAXADownloadError(str(raised_errors))
+
+            else:
+                raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
+
+            # This is set to True once the download is done, and is used by archives to tell if data have been
+            #  downloaded for a particular mission or not
+            self._download_done = True
+
+        else:
+            warn("The raw data for this mission have already been downloaded.")
+
     def assess_process_obs(self, obs_info: dict):
-        pass
+        raise NotImplementedError("The observation assessment process has not been implemented for ROSATPointed.")
 
 
 class ROSATAllSky(BaseMission):
