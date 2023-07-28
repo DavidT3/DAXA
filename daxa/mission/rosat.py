@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/07/2023, 05:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/07/2023, 12:23. Copyright (c) The Contributors
 
 import io
 import os
@@ -38,7 +38,7 @@ class ROSATPointed(BaseMission):
         """
 
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
-            pass either a single string value or a list of strings. They may include PSPC and HRI.
+            pass either a single string value or a list of strings. They may include PSPCB, PSPCC, and HRI.
         """
         super().__init__()
 
@@ -47,7 +47,7 @@ class ROSATPointed(BaseMission):
         #  accidental pass over the Sun. PSPC-B was used to complete the survey in pointed mode towards the end of
         #  the mission's life.
         if insts is None:
-            insts = ['PSPC', 'HRI']
+            insts = ['PSPCB', 'PSPCB', 'HRI']
         elif isinstance(insts, str):
             # Makes sure that, if a single instrument is passed as a string, the insts variable is a list for the
             #  rest of the work done using it
@@ -57,9 +57,8 @@ class ROSATPointed(BaseMission):
 
         # These are the allowed instruments for this mission - just the same as the default, as I have
         #  no immediate plans to include the wide field XUV imager
-        self._miss_poss_insts = ['PSPC', 'HRI']
-        self._alt_miss_inst_names = {'PSPC-B': 'PSPC', 'PSPC-C': 'PSPC', 'PSPC B': 'PSPC', 'PSPC C': 'PSPC',
-                                     'PSPCB': 'PSPC', 'PSPCC': 'PSPC', }
+        self._miss_poss_insts = ['PSPCB', 'PSPCC', 'HRI']
+        self._alt_miss_inst_names = {'PSPC-B': 'PSPCB', 'PSPC-C': 'PSPCC', 'PSPC B': 'PSPCB', 'PSPC C': 'PSPCC'}
 
         # Call the name property to set up the name and pretty name attributes
         self.name
@@ -207,6 +206,13 @@ class ROSATPointed(BaseMission):
         self.reset_filter()
 
         insts = super()._check_chos_insts(insts)
+
+        # Currently the HEASArc ROSMASTER table contains some entries with a generic 'PSPC' in the instruments
+        #  column, rather than PSPCB or PSPCC. I will email them about this (see issue #183), but for now this will
+        #  just include the generic ones if the user has selected either PSPC instrument
+        if 'PSPCB' in insts or 'PSPCC' in insts:
+            insts.append('PSPC')
+
         # If we've gotten through the super call then the instruments are acceptable, so now we filter the
         #  observation info table using them.
         sel_inst_mask = self._obs_info['instrument'].isin(insts)
@@ -287,8 +293,8 @@ class ROSATPointed(BaseMission):
         full_ros['duration'] = pd.to_timedelta(full_ros['duration'], 's')
 
         # TODO FIGURE OUT HOW I WANT TO DO THIS IN THE END
-        full_ros['instrument'] = full_ros['instrument'].apply(lambda x:
-                                                              'PSPC' if x in ['PSPC', 'PSPCB', 'PSPCC'] else 'HRI')
+        # full_ros['instrument'] = full_ros['instrument'].apply(lambda x:
+        #                                                       'PSPC' if x in ['PSPC', 'PSPCB', 'PSPCC'] else 'HRI')
 
         # At this point in other missions I have dealt with the proprietary release data, and whether data are
         #  currently in a proprietary period, but that isn't really a consideration for this mission as RASS finished
