@@ -27,12 +27,16 @@ authors:
   - name: Kathy Romer
     orcid: 0000-0002-9328-879X
     affiliation: 2
+  - name: Agrim Gupta
+    affiliation: 1
+  - name: Toby Wallage
+    affiliation: 2
 affiliations:
   - name: Department of Physics and Astronomy, Michigan State University, East Lansing, Michigan, 48824, USA
     index: 1
   - name: Department of Physics and Astronomy, University of Sussex, Brighton, BN1 9QH, UK
     index: 2
-date: 15 February 2023
+date: 31 July 2023
 bibliography: paper.bib
 ---
 
