@@ -1,4 +1,4 @@
-,ObsID,start,duration,end,ra,dec,usable,Field_Name,Field_Type,download
+,ObsID,start,duration,end,ra,dec,science_usable,Field_Name,Field_Type,download
 0,300007,2019-11-03T02:42:50,89627.0,2019-11-04T03:36:37,129.55,1.5,True,EFEDS,SURVEY,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/eFEDS.tar.gz
 1,300008,2019-11-04T03:49:16,91643.0,2019-11-05T05:16:39,133.86,1.5,True,EFEDS,SURVEY,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/eFEDS.tar.gz
 2,300009,2019-11-05T05:29:18,90648.0,2019-11-06T06:40:06,138.14,1.5,True,EFEDS,SURVEY,https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/eFEDS.tar.gz

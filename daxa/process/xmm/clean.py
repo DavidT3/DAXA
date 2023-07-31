@@ -1,8 +1,9 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/04/2023, 10:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/05/2023, 22:21. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
+from warnings import warn
 
 import numpy as np
 from astropy.units import Quantity, UnitConversionError

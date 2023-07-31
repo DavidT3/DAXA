@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/04/2023, 16:33. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 22:34. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -626,8 +626,8 @@ class Archive:
             for o_id in new_val[mn]:
                 cur_val = new_val[mn][o_id]
                 # If the particular observation does not have an entry for the particular mission then we add it to the
-                #  dictionary, but if it does then we warn the user and do nothing
-                if o_id in self._miss_obs_summ_info[mn]:
+                #  dictionary, but if it does then we warn the user
+                if o_id in self._source_regions[mn]:
                     warn("The source_regions property already had an entry for {o_id} under {mn}, this has been "
                          "overwritten!".format(o_id=o_id, mn=mn), stacklevel=2)
                 # The observation level keys should just be ObsIDs (without any sub-exposure or instrument
@@ -637,9 +637,10 @@ class Archive:
                 elif o_id not in self._missions[mn].filtered_obs_ids:
                     raise ObsNotAssociatedError("The ObsID {oid} is not associated with the filtered dataset of "
                                                 "{mn}.".format(mn=mn, oid=o_id))
+
                 # If a dictionary is the value then regions must be one entry, which should either be a path to a
                 #  regions file or a list of regions
-                elif isinstance(cur_val, dict) and 'regions' not in cur_val:
+                if isinstance(cur_val, dict) and 'regions' not in cur_val:
                     raise KeyError("The new regions entry for {mn}-{o} is a dictionary but does not contain a "
                                    "'regions' key - this is mandatory.".format(mn=mn, o=o_id))
                 # Really if the value is a dictionary it should be because a source of WCS information required to
