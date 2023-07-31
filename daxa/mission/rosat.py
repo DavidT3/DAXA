@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 10:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 10:15. Copyright (c) The Contributors
 
 import io
 import os
@@ -376,19 +376,22 @@ class ROSATPointed(BaseMission):
         if not download_processed:
             obs_dir = "/FTP/rosat/data/{inst}/processed_data/{ot}/{oid}/".format(oid=observation_id.lower(),
                                                                                  inst=inst, ot=obj_type)
+            # This defines the files we're looking to download, based on the fact this is the pointed ROSAT
+            #  mission, and we want the pre-processed data
+            sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['pointed']['processed']]
         # This URL is for downloading RAW data, not the pre-processed stuff
         else:
             obs_dir = "/FTP/rosat/data/{inst}/RDA/{ot}/{oid}/".format(oid=observation_id.lower(), inst=inst,
                                                                       ot=obj_type)
+            # This defines the files we're looking to download, based on the fact this is the pointed ROSAT
+            #  mission, and we want the raw data
+            sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['pointed']['raw']]
+
         # Assembles the full URL to the archive directory
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
 
         # This opens a session that will persist
         session = requests.Session()
-
-        # This defines the files we're looking to download, based on the fact this is a RASS mission, and we want
-        #  the pre-processed data
-        sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['rass']['processed']]
 
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
         #  that the files that I need to download RASS data are present
@@ -416,7 +419,7 @@ class ROSATPointed(BaseMission):
 
             # The files we're downloading are compressed
             if '.Z' in down_file:
-                # Open and decompress the events file - as the storage setup for RASS uses an old compression
+                # Open and decompress the events file - as the storage setup for ROSAT Pointed uses an old compression
                 #  algorithm we have to use this specialised module to decompress
                 decomp = unlzw3.unlzw(Path(raw_dir + down_file))
 
