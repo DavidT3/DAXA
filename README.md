@@ -31,6 +31,7 @@ limited. Support for more telescopes is either currently under development or be
 * **_[Under Development - data acquisition/some processing implemented]_** eROSITA Commissioning
 * **_[Under Development - data acquisition implemented]_** NuSTAR
 * **_[Under Development - data acquisition implemented]_** Chandra
+* **_[Under Development - RASS/pointed data acquisition implemented]_** ROSAT
 
 _If you would like to help with any of the telescopes above, or adding another X-ray telescope, please get in contact!_
 
