@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 12:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 12:28. Copyright (c) The Contributors
 
 import io
 import os
@@ -846,8 +846,16 @@ class ROSATAllSky(BaseMission):
 
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
         #  that the files that I need to download RASS data are present
-        top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
-                    if en['href'] in sel_files]
+        if not download_products:
+            top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
+                        if en['href'] in sel_files]
+        # Note that in the case I am downloading processed data, I add an extra file to the check, a variation of the
+        #  exposure map that hasn't been compressed (I've noticed this happens sometimes). The idea being if it is
+        #  there then the fits.Z version WON'T be, and the next check that top_data has the same length as sel_files
+        #  won't fail.
+        else:
+            top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
+                        if en['href'] in (sel_files + ['{o}_mex.fits'.format(o=observation_id).lower()])]
 
         # If the lengths of top_data and the file list are different, then one or more of the
         #  expected dirs is not present
@@ -861,7 +869,9 @@ class ROSATAllSky(BaseMission):
         if not os.path.exists(raw_dir):
             os.makedirs(raw_dir)
 
-        for down_file in sel_files:
+        # I use the top_data list here because it contains the filenames, but might be different from sel_files in the
+        #  case where an exposure map is stored as a fits and not a fits.Z
+        for down_file in top_data:
             stor_name = down_file.replace('.Z', '')
             down_url = top_url + down_file
             with session.get(down_url, stream=True) as acquiro:
