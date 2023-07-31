@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 11:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 11:50. Copyright (c) The Contributors
 
 import io
 import os
@@ -35,7 +35,7 @@ GOOD_FILE_PATTERNS = {'rass': {'processed': ['{o}_anc.fits.Z', '{o}_bas.fits.Z']
 #   - 3 = "soft band", which is 0.07-0.4 keV
 #  HRI observations only include im1 images, because the energy resolution of HRI is so poor
 # The 'mex' file is the exposure map - for some reason HRI archives directories don't seem to have them??
-PROC_PROD_NAMES = {'hri': ['{o}_bk1.fits.Z', '{o}_im1.fits.Z', '{o}_mex.fits'],
+PROC_PROD_NAMES = {'hri': ['{o}_bk1.fits.Z', '{o}_im1.fits.Z'],
                    'pspc': ['{o}_bk1.fits.Z', '{o}_bk2.fits.Z', '{o}_bk3.fits.Z',
                             '{o}_im1.fits.Z', '{o}_im2.fits.Z', '{o}_im3.fits.Z',
                             '{o}_mex.fits.Z']}
