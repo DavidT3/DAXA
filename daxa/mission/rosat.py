@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/07/2023, 17:31. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 10:12. Copyright (c) The Contributors
 
 import io
 import os
@@ -25,7 +25,9 @@ from daxa.exceptions import DAXADownloadError, NoObsAfterFilterError
 from daxa.mission.base import BaseMission, _lock_check
 
 GOOD_FILE_PATTERNS = {'rass': {'processed': ['{o}_anc.fits.Z', '{o}_bas.fits.Z'],
-                               'raw': ['{o}_raw.fits.Z', '{o}_anc.fits.Z']}}
+                               'raw': ['{o}_raw.fits.Z', '{o}_anc.fits.Z']},
+                      'pointed': {'processed': ['{o}_anc.fits.Z', '{o}_bas.fits.Z'],
+                                  'raw': ['{o}_raw.fits.Z', '{o}_anc.fits.Z']}}
 
 
 class ROSATPointed(BaseMission):
@@ -371,7 +373,7 @@ class ROSATPointed(BaseMission):
         # Setting up the FTP paths for ROSAT pointed data is slightly more complicated than for the All-Sky Survey, as
         #  pointed data can be with HRI or PSPC instruments, and the first digit of the six-digit chunk of the ObsID
         #  can be something other than 9, as that indicates what type of object was being observed
-        if download_processed:
+        if not download_processed:
             obs_dir = "/FTP/rosat/data/{inst}/processed_data/{ot}/{oid}/".format(oid=observation_id.lower(),
                                                                                  inst=inst, ot=obj_type)
         # This URL is for downloading RAW data, not the pre-processed stuff
@@ -766,18 +768,24 @@ class ROSATAllSky(BaseMission):
         #  is the URL for downloading the pre-processed data
         if download_processed:
             obs_dir = "/FTP/rosat/data/pspc/processed_data/900000/{oid}/".format(oid=observation_id.lower())
+            # This defines the files we're looking to download, based on the fact this is a RASS mission, and we want
+            #  the pre-processed data
+            sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['rass']['processed']]
+
         # This URL is for downloading RAW data, not the pre-processed stuff
         else:
             obs_dir = "/FTP/rosat/data/pspc/RDA/900000/{oid}/".format(oid=observation_id)
+            # This defines the files we're looking to download, based on the fact this is a RASS mission, and we want
+            #  the raw data
+            sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['rass']['raw']]
+
         # Assembles the full URL to the archive directory
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
 
         # This opens a session that will persist
         session = requests.Session()
 
-        # This defines the files we're looking to download, based on the fact this is a RASS mission, and we want
-        #  the pre-processed data
-        sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['rass']['processed']]
+
 
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
         #  that the files that I need to download RASS data are present
