@@ -9,7 +9,7 @@ Planned DAXA Features
 
 * **Chandra Data** - Data can be acquired and downloaded, but not processed yet. Data can also be downloaded in a form that will work with the standard Chandra reprocessing scripts.
 
-* **ROSAT Data** - Mission(s) for ROSAT will be added in the near-ish future.
+* **ROSAT Data** - Data can be acquired and downloaded, but not processed yet. Archived data products (images/exposure maps) can also be downloaded.
 
 * **Swift Data** - Not actively being planned, but under consideration, is support for Swift - please get in touch if you're interested in contributing.
 
