@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 10:28. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 11:40. Copyright (c) The Contributors
 
 import io
 import os
@@ -28,6 +28,17 @@ GOOD_FILE_PATTERNS = {'rass': {'processed': ['{o}_anc.fits.Z', '{o}_bas.fits.Z']
                                'raw': ['{o}_raw.fits.Z', '{o}_anc.fits.Z']},
                       'pointed': {'processed': ['{o}_anc.fits.Z', '{o}_bas.fits.Z'],
                                   'raw': ['{o}_raw.fits.Z', '{o}_anc.fits.Z']}}
+
+# The energy ranges are defined thus (https://heasarc.gsfc.nasa.gov/docs/rosat/newsletters/rdf_formats10.html):
+#   - 1 = "broad band", which I'm taking to mean 0.07-2.4 keV
+#   - 2 = "hard band", which is 0.4-2.4 keV
+#   - 3 = "soft band", which is 0.07-0.4 keV
+#  HRI observations only include im1 images, because the energy resolution of HRI is so poor
+# The 'mex' file is the exposure map - for some reason HRI archives directories don't seem to have them??
+PROC_PROD_NAMES = {'hri': ['{o}_bk1.fits.Z', '{o}_im1.fits.Z', '{o}_mex.fits'],
+                   'pspc': ['{o}_bk1.fits.Z', '{o}_bk2.fits.Z', '{o}_bk3.fits.Z',
+                            '{o}_im1.fits.Z', '{o}_im2.fits.Z', '{o}_im3.fits.Z',
+                            '{o}_mex.fits.Z']}
 
 
 class ROSATPointed(BaseMission):
@@ -184,7 +195,7 @@ class ROSATPointed(BaseMission):
         #  The first two digits of RASS ObsIDs are always RS (which indicates scanning
         #  mode), the next 6 characters are the ROSAT observation request sequence number or ROR, while the
         #  following 3 characters after the ROR number are the follow-on suffix.
-        self._id_format = r'^(RS|rs|RP|rp|RF|rf|WS|ws|WP|wp|WF|wf)\d{6}([A-Z]\d{2}|)$'
+        self._id_format = r'^(RH|rh|RP|rp|RF|rf|WH|wh|WP|wp|WF|wf)\d{6}([A-Z]\d{2}|)$'
         return self._id_format
 
     @property
@@ -370,7 +381,7 @@ class ROSATPointed(BaseMission):
         self.all_obs_info = full_ros
 
     @staticmethod
-    def _download_call(observation_id: str, raw_dir: str, download_processed: bool):
+    def _download_call(observation_id: str, raw_dir: str, download_processed: bool, download_products: bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
@@ -380,6 +391,9 @@ class ROSATPointed(BaseMission):
         :param bool download_processed: This controls whether the data downloaded are the pre-processed event lists
             stored by HEASArc, or whether they are the original raw event lists. Default is to download pre-processed
             data.
+        :param bool download_products: This controls whether the HEASArc-published images and exposure maps are
+            downloaded alongside the event lists and attitude files. Setting this to True will download the
+            images/exposure maps, IF download_processed is set to True. The default is False.
         """
 
         # Make sure raw_dir has a slash at the end
@@ -401,6 +415,10 @@ class ROSATPointed(BaseMission):
             # This defines the files we're looking to download, based on the fact this is the pointed ROSAT
             #  mission, and we want the pre-processed data
             sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['pointed']['processed']]
+
+            if download_products:
+                oth_sel_files = [fp.format(o=observation_id.lower()) for fp in PROC_PROD_NAMES[inst]]
+                sel_files += oth_sel_files
         # This URL is for downloading RAW data, not the pre-processed stuff
         else:
             obs_dir = "/FTP/rosat/data/{inst}/RDA/{ot}/{oid}/".format(oid=observation_id.lower(), inst=inst,
@@ -453,7 +471,7 @@ class ROSATPointed(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, download_processed: bool = True):
+    def download(self, num_cores: int = NUM_CORES, download_processed: bool = True, download_products: bool = False):
         """
         A method to acquire and download the ROSAT pointed data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded).
@@ -467,12 +485,20 @@ class ROSATPointed(BaseMission):
         :param bool download_processed: This controls whether the data downloaded are the pre-processed event lists
             stored by HEASArc, or whether they are the original raw event lists. Default is to download pre-processed
             data.
+        :param bool download_products: This controls whether the HEASArc-published images and exposure maps are
+            downloaded alongside the event lists and attitude files. Setting this to True will download the
+            images/exposure maps, IF download_processed is set to True. The default is False.
         """
 
         if not download_processed:
             raise NotImplementedError("The ability to download completely unprocessed RASS data has not been added "
                                       "yet, mainly due to confusion about the location of the data and whether the "
                                       "software to process it still exists.")
+
+        # Must check that the user isn't trying to download processed products and raw data
+        if not download_products and download_processed:
+            raise ValueError("The download_products argument may only be set to True if the download_processed "
+                             "argument is also True.")
 
         # Ensures that a directory to store the 'raw' RASS data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
@@ -494,7 +520,7 @@ class ROSATPointed(BaseMission):
                     for obs_id in self.filtered_obs_ids:
                         # Use the internal static method I set up which both downloads and unpacks the RASS data
                         self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id),
-                                            download_processed=download_processed)
+                                            download_processed=download_processed, download_products=download_products)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -537,7 +563,8 @@ class ROSATPointed(BaseMission):
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
                                          kwds={'observation_id': obs_id, 'raw_dir': stor_dir + '{o}'.format(o=obs_id),
-                                               'download_processed': download_processed},
+                                               'download_processed': download_processed,
+                                               'download_products': download_products},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
