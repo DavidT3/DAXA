@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 10:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 10:21. Copyright (c) The Contributors
 
 import io
 import os
@@ -373,7 +373,7 @@ class ROSATPointed(BaseMission):
         # Setting up the FTP paths for ROSAT pointed data is slightly more complicated than for the All-Sky Survey, as
         #  pointed data can be with HRI or PSPC instruments, and the first digit of the six-digit chunk of the ObsID
         #  can be something other than 9, as that indicates what type of object was being observed
-        if not download_processed:
+        if download_processed:
             obs_dir = "/FTP/rosat/data/{inst}/processed_data/{ot}/{oid}/".format(oid=observation_id.lower(),
                                                                                  inst=inst, ot=obj_type)
             # This defines the files we're looking to download, based on the fact this is the pointed ROSAT
