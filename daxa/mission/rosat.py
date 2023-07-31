@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 11:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 12:05. Copyright (c) The Contributors
 
 import io
 import os
@@ -496,7 +496,7 @@ class ROSATPointed(BaseMission):
                                       "software to process it still exists.")
 
         # Must check that the user isn't trying to download processed products and raw data
-        if not download_products and download_processed:
+        if download_products and not download_processed:
             raise ValueError("The download_products argument may only be set to True if the download_processed "
                              "argument is also True.")
 
@@ -798,7 +798,7 @@ class ROSATAllSky(BaseMission):
         self.all_obs_info = full_rass
 
     @staticmethod
-    def _download_call(observation_id: str, raw_dir: str, download_processed: bool):
+    def _download_call(observation_id: str, raw_dir: str, download_processed: bool, download_products:bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
@@ -808,6 +808,9 @@ class ROSATAllSky(BaseMission):
         :param bool download_processed: This controls whether the data downloaded are the pre-processed event lists
             stored by HEASArc, or whether they are the original raw event lists. Default is to download pre-processed
             data.
+        :param bool download_products: This controls whether the HEASArc-published images and exposure maps are
+            downloaded alongside the event lists and attitude files. Setting this to True will download the
+            images/exposure maps, IF download_processed is set to True. The default is False.
         """
 
         # Make sure raw_dir has a slash at the end
@@ -824,6 +827,10 @@ class ROSATAllSky(BaseMission):
             #  the pre-processed data
             sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['rass']['processed']]
 
+            if download_products:
+                oth_sel_files = [fp.format(o=observation_id.lower()) for fp in PROC_PROD_NAMES['pspc']]
+                sel_files += oth_sel_files
+
         # This URL is for downloading RAW data, not the pre-processed stuff
         else:
             obs_dir = "/FTP/rosat/data/pspc/RDA/900000/{oid}/".format(oid=observation_id)
@@ -836,8 +843,6 @@ class ROSATAllSky(BaseMission):
 
         # This opens a session that will persist
         session = requests.Session()
-
-
 
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
         #  that the files that I need to download RASS data are present
@@ -877,7 +882,7 @@ class ROSATAllSky(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, download_processed: bool = True):
+    def download(self, num_cores: int = NUM_CORES, download_processed: bool = True, download_products: bool = False):
         """
         A method to acquire and download the ROSAT All-Sky Survey data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded).
@@ -891,12 +896,20 @@ class ROSATAllSky(BaseMission):
         :param bool download_processed: This controls whether the data downloaded are the pre-processed event lists
             stored by HEASArc, or whether they are the original raw event lists. Default is to download pre-processed
             data.
+        :param bool download_products: This controls whether the HEASArc-published images and exposure maps are
+            downloaded alongside the event lists and attitude files. Setting this to True will download the
+            images/exposure maps, IF download_processed is set to True. The default is False.
         """
 
         if not download_processed:
             raise NotImplementedError("The ability to download completely unprocessed RASS data has not been added "
                                       "yet, mainly due to confusion about the location of the data and whether the "
                                       "software to process it still exists.")
+
+        # Must check that the user isn't trying to download processed products and raw data
+        if download_products and not download_processed:
+            raise ValueError("The download_products argument may only be set to True if the download_processed "
+                             "argument is also True.")
 
         # Ensures that a directory to store the 'raw' RASS data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
@@ -918,7 +931,7 @@ class ROSATAllSky(BaseMission):
                     for obs_id in self.filtered_obs_ids:
                         # Use the internal static method I set up which both downloads and unpacks the RASS data
                         self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id),
-                                            download_processed=download_processed)
+                                            download_processed=download_processed, download_products=download_products)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -961,7 +974,8 @@ class ROSATAllSky(BaseMission):
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
                                          kwds={'observation_id': obs_id, 'raw_dir': stor_dir + '{o}'.format(o=obs_id),
-                                               'download_processed': download_processed},
+                                               'download_processed': download_processed,
+                                               'download_products': download_products},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
