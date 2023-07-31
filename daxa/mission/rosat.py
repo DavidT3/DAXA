@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 10:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 10:28. Copyright (c) The Contributors
 
 import io
 import os
@@ -32,6 +32,17 @@ GOOD_FILE_PATTERNS = {'rass': {'processed': ['{o}_anc.fits.Z', '{o}_bas.fits.Z']
 
 class ROSATPointed(BaseMission):
     """
+    The mission class for ROSAT Pointed observations, taken after the initial all-sky survey. This mission includes
+    the follow-up observations taken to complete the all-sky survey in pointed mode towards the end of the ROSAT
+    lifetime. This mission class pulls observation information from the HEASArc ROSMASTER table, and downloads data
+    from the HEASArc website.
+
+    NOTE: Follow-up All-Sky observations are marked as being taken with 'PSPC' (rather than a specific PSPC-C or B)
+    in the ROSMASTER table, but they were actually taken with PSPC-B, so DAXA corrects the entries on acquisition of
+    the table from HEASArc.
+
+    Another mission class is available for ROSAT All-Sky Survey observations, specifically the ones taken in slewing
+    mode with PSPC-C at the beginning of the ROSAT mission.
 
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
             pass either a single string value or a list of strings. They may include PSPCB, PSPCC, and HRI.
@@ -39,6 +50,17 @@ class ROSATPointed(BaseMission):
 
     def __init__(self, insts: Union[List[str], str] = None):
         """
+        The mission class for ROSAT Pointed observations, taken after the initial all-sky survey. This mission includes
+        the follow-up observations taken to complete the all-sky survey in pointed mode towards the end of the ROSAT
+        lifetime. This mission class pulls observation information from the HEASArc ROSMASTER table, and downloads data
+        from the HEASArc website.
+
+        NOTE: Follow-up All-Sky observations are marked as being taken with 'PSPC' (rather than a specific PSPC-C or B)
+        in the ROSMASTER table, but they were actually taken with PSPC-B, so DAXA corrects the entries on acquisition of
+        the table from HEASArc.
+
+        Another mission class is available for ROSAT All-Sky Survey observations, specifically the ones taken in slewing
+        mode with PSPC-C at the beginning of the ROSAT mission.
 
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
             pass either a single string value or a list of strings. They may include PSPCB, PSPCC, and HRI.
