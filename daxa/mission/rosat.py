@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 12:28. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 20:01. Copyright (c) The Contributors
 
 import io
 import os
@@ -345,6 +345,12 @@ class ROSATPointed(BaseMission):
         #  are some observations with an exposure time (in the ROSMASTER table at least) of 0, so we'll mark them
         #  as not usable until I know better (see issue #185)
         full_ros['science_usable'] = full_ros['duration'].apply(lambda x: False if x <= np.timedelta64(0) else True)
+
+        # This step is necessary because some of the ROSAT Pointed observations are labelled as having instrument
+        #  'PSPC', rather than a specific 'PSPCB' or 'PSPCC'. These are, apparently, the finishing-up observations
+        #  for RASS, and even though they were all taken with PSPCB, they've just been generically labelled. This
+        #  is according to communications with HEASArc - as such I change them here
+        full_ros['instrument'] = full_ros['instrument'].apply(lambda x: x if x != 'PSPC' else 'PSPCB')
 
         # Here we translate the target categories to the DAXA taxonomy, which is shared between all DAXA missions
         # From the ROSMASTER catalogue page
