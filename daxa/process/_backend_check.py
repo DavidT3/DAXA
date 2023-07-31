@@ -65,18 +65,20 @@ def find_esass() -> bool:
     # Firstly checking whether it is installed by seeing if 'docker' is on PATH and is marked as executable
     if which('docker') is not None:
         docker_installed = True
-    # Then seeing if a Docker daemon is running, aka can a container be run
-    cmd = 'docker run hello-world'
-    # Running this command in the terminal to see if it is possible to run a container
-    out, err = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
-    # Decodes the stdout and stderr from the binary encoding it currently exists in. The errors='ignore' flag
-    #  means that it doesn't throw errors if there is a character it doesn't recognize
-    err = err.decode("UTF-8", errors='ignore')
-    # If this doesnt raise an error, then the eSASS env. is enabled and working
-    if len(err) == 0:
-        docker_daemon_running = True
-        
+
+        # Then seeing if a Docker daemon is running, aka can a container be run
+        cmd = 'docker run hello-world'
+        # Running this command in the terminal to see if it is possible to run a container
+        out, err = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE).communicate()
+        # Decodes the stdout and stderr from the binary encoding it currently exists in. The errors='ignore' flag
+        #  means that it doesn't throw errors if there is a character it doesn't recognize
+        err = err.decode("UTF-8", errors='ignore')
+        # If this doesnt raise an error, then the eSASS env. is enabled and working
+        if len(err) == 0:
+            docker_daemon_running = True
+    
     # Performing eSASS installation checks for eSASS outside of Docker
+    # Checking whether it is installed by seeing if 'evtool' is on PATH and is marked as executable
     if which('evtool') is not None:
         esass_outside_docker = True
         
@@ -88,7 +90,10 @@ def find_esass() -> bool:
         raise eSASSNotFoundError("Please start the Docker daemon so that the eSASS container may be run."
                                 " If you are using the desktop application of Docker, this error may arise"
                                 " if the application is installed, but not open.") 
-    
+        
+    if docker_daemon_running and not esass_outside_docker:
+        raise NotImplementedError("DAXA currently only supports eSASS via direct installation, and not via Docker.")
+      
     # Doing the returns
     if docker_daemon_running and not esass_outside_docker:
         return True
@@ -117,5 +122,5 @@ def find_lcurve() -> Version:
         # If we cannot find lcurve on the path then we raise a (hopefully useful) exception
         raise BackendSoftwareError("The lcurve package (included in the XRONOS section of HEASoft) cannot be "
                                    "found, you may not have installed HEASoft with the right software selections.")
-
+        
     return lc_version

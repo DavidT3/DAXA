@@ -761,7 +761,27 @@ class eROSITACalPV(BaseMission):
         :param dict obs_info: The multi-level dictionary containing available observation information for an
             observation.
         """
-        raise NotImplementedError("The check_process_obs method has not yet been implemented for eROSITACalPV.")
+        
+        insts = list(obs_info.keys())
+
+        # The dictionary which will be set back will have top level instrument dictionaries with the 
+        # following keys lower level sub keys:
+        #   usable --> this dependent on the filter_wheel setting 
+        #   included --> this is to indicate whether this instrument is included in the chosen instruments
+        # We start off by assuming all the filters are set to OPEN and all the instruments are included
+        to_return = {inst: {'usable': True} for inst in insts}
+
+        for inst in to_return:
+            rel_info = obs_info[inst]
+
+            # Want to check that the observation was taken when the filter wheel was on OPEN or FILTER
+            if rel_info['filter'] not in ['OPEN', 'FILTER']:
+                to_return[inst]['usable'] = False
+        
+        return to_return
+
+
+
 
 
 
