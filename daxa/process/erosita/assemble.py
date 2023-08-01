@@ -89,7 +89,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
     
     # Checking user has input pattern as an integer
     if not isinstance(pattern, int):
-        raise TypeError("The pattern parameter must be a boolean between 1 and 15 inclusive.")
+        raise TypeError("The pattern parameter must be an integer between 1 and 15 inclusive.")
     
     #  Checking user has input a valid pattern
     if (pattern <= 0 or pattern >= 16):
