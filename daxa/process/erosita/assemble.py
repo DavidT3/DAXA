@@ -33,8 +33,9 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
         'hi_en' is set to an Astropy Quantity, then 'lo_en' must be as well. Default is None, in which case no
         energy filter is applied.
     :param int flag: FLAG parameter to select events based on owner, information, rejection, quality, and corrupted data. The eROSITA
-        website contains the full description of event flags. The default parameter will remove all events flagged as either singly 
-        corrupt or as part of a corrupt frame.
+        website contains the full description of event flags in section 1.1.2 of the following link:
+        https://erosita.mpe.mpg.de/edr/DataAnalysis/prod_descript/EventFiles_edr.html. The default parameter will remove all events 
+        flagged as either singly corrupt or as part of a corrupt frame.
     :param bool flag_invert: If set to True, this function will discard all events selected by the flag parameter.
     :param int pattern: Selects events of a certain pattern chosen by the integer key. The default of 15 selects all four of the
         recognized legal patterns.
