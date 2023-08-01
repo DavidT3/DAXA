@@ -26,6 +26,32 @@ class _eSASS_Flag(Flag):
     This class was written by Toby Wallage.
     It throws a ValueError when an invalid eSASS Flag is declared with this class.
     For use in the cleaned_evt_lists function to check the user input.
+
+    Class derived from Enum/Flag containing possible flags that can be used in
+    evtool.
+    
+    Descriptions found here:
+    https://erosita.mpe.mpg.de/edr/DataAnalysis/prod_descript/EventFiles_edr.html
+
+    Args
+        :param int value: An integer repesenting a valid flag value. The flag
+        value will determine which type of events will be discarded by the
+        cleaned_evt_lists function.
+    
+    Raises
+        :raises ValueError: If value is NOT a valid flag.
+        :raises TypeError: If value is not an integer or integer-like.
+
+    Examples
+
+        A flag may be constructed with a valid integer hexadecimal value
+        >>> some_flag = _eSASS_Flag(0xc0008000)
+
+        A flag may also be constructed from individual events
+        >>> some_new_flag = _eSASS_Flag.DEFAULT_FLAG | _eSASS_Flag.OUT_OF_FOV
+
+        These flags are identical
+    
     """
     # Values copied and pasted from eSASS docs
     MPE_OWNER               = 0x1
