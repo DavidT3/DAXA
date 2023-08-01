@@ -103,6 +103,10 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
     else:
         flag_invert = 'no'
 
+    # Define the form of the evtool command that must be run for event list filtering to take place
+    evtool_cmd = "cd {d}; evtool eventfiles={ef} gti=FLAREGTI outfile={of} flag={f} flag_invert={fi} pattern={p} " \
+                 "emin={emin} emax={emax}; mv {of} {fep}; rm -r {d}"
+
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
     miss_cmds = {}
@@ -174,9 +178,6 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
             # Make the temporary directory (it shouldn't already exist but doing this to be safe)
             if not os.path.exists(temp_dir):
                 os.makedirs(temp_dir)
-
-            evtool_cmd = "cd {d}; evtool eventfiles={ef} gti=FLAREGTI outfile={of} flag={f} flag_invert={fi} pattern={p} " \
-                "emin={emin} emax={emax}; mv {of} {fep}; rm -r {d}"
             
             cmd = evtool_cmd.format(d=temp_dir, ef=evt_list_file, of=filt_evt_name, f=flag, fi=flag_invert, p=pattern,
                 emin=lo_en, emax=hi_en, fep=filt_evt_path)
