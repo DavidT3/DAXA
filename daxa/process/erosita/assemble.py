@@ -40,7 +40,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
     :param int pattern: Selects events of a certain pattern chosen by the integer key. The default of 15 selects all four of the
         recognized legal patterns.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
-    :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param bool disable_progress: Setting this to true will turn off the eSASS generation progress bar.
     :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
         Please note that this is not a timeout for the entire cleaned_evt_lists process, but a timeout for individual
         ObsID-Inst-subexposure processes.
