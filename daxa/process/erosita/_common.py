@@ -23,7 +23,7 @@ ALLOWED_EROSITA_MISSIONS = ['erosita_calpv']
 
 class _eSASS_Flag(Flag):
     """
-    This class was written by Toby Wallage.
+    This class was written by Toby Wallage found on Github @TobyWallage.
     It throws a ValueError when an invalid eSASS Flag is declared with this class.
     For use in the cleaned_evt_lists function to check the user input.
 
