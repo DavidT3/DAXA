@@ -22,8 +22,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
 
     This function is used to apply the soft-proton filtering (along with any other filtering you may desire, including
     the setting of energy limits) to eROSITA event lists, resulting in the creation of sets of cleaned event lists
-    which are ready to be analysed (or merged together, if there are multiple exposures for a particular
-    observation-instrument combination).
+    which are ready to be analysed.
 
     :param Archive obs_archive: An Archive instance containing eROSITA mission instances with observations for
         which cleaned event lists should be created. This function will fail if no eROSITA missions are present in the archive.
