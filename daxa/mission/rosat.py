@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 19:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 21:00. Copyright (c) The Contributors
 
 import io
 import os
@@ -260,12 +260,6 @@ class ROSATPointed(BaseMission):
         self.reset_filter()
 
         insts = super()._check_chos_insts(insts)
-
-        # Currently the HEASArc ROSMASTER table contains some entries with a generic 'PSPC' in the instruments
-        #  column, rather than PSPCB or PSPCC. I will email them about this (see issue #183), but for now this will
-        #  just include the generic ones if the user has selected either PSPC instrument
-        if 'PSPCB' in insts or 'PSPCC' in insts:
-            insts.append('PSPC')
 
         # If we've gotten through the super call then the instruments are acceptable, so now we filter the
         #  observation info table using them.
