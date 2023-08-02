@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 20:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 19:25. Copyright (c) The Contributors
 
 import io
 import os
@@ -17,6 +17,7 @@ from astropy.coordinates import BaseRADecFrame, FK5
 from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time
+from astropy.units import Quantity
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
@@ -197,6 +198,23 @@ class ROSATPointed(BaseMission):
         #  following 3 characters after the ROR number are the follow-on suffix.
         self._id_format = r'^(RH|rh|RP|rp|RF|rf|WH|wh|WP|wp|WF|wf)\d{6}([A-Z]\d{2}|)$'
         return self._id_format
+
+    @property
+    def fov(self) -> Union[Quantity, dict]:
+        """
+        Property getter for the approximate field of view set for this mission. This is the radius/half-side-length of
+        the field of view. In cases where the field of view is not square/circular, it is the half-side-length of
+        the longest side.
+
+        :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
+            then this may be a dictionary, with keys being instrument names.
+        :rtype: Union[Quantity, dict]
+        """
+        # The approximate field of view is defined here because I want to force implementation for each
+        #  new mission class. Values taken from https://heasarc.gsfc.nasa.gov/docs/rosat/rosat.html
+        self._approx_fov = {'PSPCB': Quantity(60, 'arcmin'), 'PSPCC': Quantity(60, 'arcmin'),
+                            'HRI': Quantity(19, 'arcmin')}
+        return self._approx_fov
 
     @property
     def all_obs_info(self) -> pd.DataFrame:
