@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 20:19. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 19:05. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -10,6 +10,7 @@ from warnings import warn
 import numpy as np
 import pandas as pd
 from astropy.coordinates import BaseRADecFrame, FK5
+from astropy.units import Quantity
 from astroquery import log
 from astroquery.esa.xmm_newton import XMMNewton as AQXMMNewton
 from tqdm import tqdm
@@ -119,6 +120,22 @@ class XMMPointed(BaseMission):
         #  the BaseMission superclass
         self._id_format = '^[0-9]{10}$'
         return self._id_format
+
+    @property
+    def fov(self) -> Union[Quantity, dict]:
+        """
+        Property getter for the approximate field of view set for this mission. This is the radius/half-side-length of
+        the field of view. In cases where the field of view is not square/circular, it is the half-side-length of
+        the longest side.
+
+        :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
+            then this may be a dictionary, with keys being instrument names.
+        :rtype: Union[Quantity, dict]
+        """
+        # The approximate field of view is defined here because I want to force implementation for each
+        #  new mission class
+        self._approx_fov = Quantity(15, 'arcmin')
+        return self._approx_fov
 
     @property
     def all_obs_info(self) -> pd.DataFrame:

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 18:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 19:05. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -210,6 +210,9 @@ class BaseMission(metaclass=ABCMeta):
         different instruments have different field-of-views this may be a dictionary (see ROSATPointed for an
         example). Must be overwritten in any subclass. This is to ensure that any subclasses that people might
         add will definitely set a FoV, which is not guaranteed by having it done in the init.
+
+        The convention will be that the value supplied is the radius/half-side-length of the field of view. In cases
+        where the field of view is not square/circular, it should be the half-side-length of the longest side.
 
         :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
             then this may be a dictionary, with keys being instrument names.
