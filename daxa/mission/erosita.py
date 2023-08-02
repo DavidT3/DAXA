@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 19:53. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 21:18. Copyright (c) The Contributors
 
 import os
 import re
@@ -155,7 +155,8 @@ class eROSITACalPV(BaseMission):
         the field of view. In cases where the field of view is not square/circular, it is the half-side-length of
         the longest side.
 
-        NOTE - THIS WILL ERROR FOR eROSITACalPV, BECAUSE OF THE WAY THE DATA ARE BOTH IN SLEW AND POINTING MODE
+        NOTE - THIS FIELD OF VIEW IS NONSENSE BECAUSE OF HOW SOME OF THE eROSITACalPV DATA WERE TAKEN IN POINTING
+        AND SOME IN SLEWING MODE.
 
         :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
             then this may be a dictionary, with keys being instrument names.
@@ -163,9 +164,9 @@ class eROSITACalPV(BaseMission):
         """
         # The approximate field of view is defined here because I want to force implementation for each
         #  new mission class.
-        raise NotImplementedError("A field-of-view cannot be easily defined for eROSITACalPV, you will have to make"
-                                  " your own judgement on a search distance.")
-        self._approx_fov = None
+        warn("A field-of-view cannot be easily defined for eROSITACalPV and this number is almost completely "
+             "arbitrary, you should make your own judgement on a search distance.", stacklevel=2)
+        self._approx_fov = Quantity(30, 'arcmin')
         return self._approx_fov
 
     @property
