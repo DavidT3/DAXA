@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 20:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 21:11. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -213,6 +213,10 @@ class BaseMission(metaclass=ABCMeta):
 
         The convention will be that the value supplied is the radius/half-side-length of the field of view. In cases
         where the field of view is not square/circular, it should be the half-side-length of the longest side.
+
+        A dictionary should ONLY be defined if the instruments have different field of views, and have their own
+        observations in the all_obs_info table (e.g. ROSAT's instruments are mutually exclusive and cannot have
+        multiple per observation).
 
         :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
             then this may be a dictionary, with keys being instrument names.
@@ -745,18 +749,18 @@ class BaseMission(metaclass=ABCMeta):
 
         # If the value is left as None, the default, then we use the defined FoV for this mission and multiply by 1.2
         if search_distance is None and isinstance(self.fov, Quantity):
-            search_distance = self.fov * 1.2
+            search_distance = (self.fov * 1.2).to('deg')
         # Also possible for different instruments to have different FoVs, so we have to take that into account - maybe
         #  I should just have made .fov always return a dictionary but oh well
         elif search_distance is None and isinstance(self.fov, dict):
-            search_distance = {i: v * 1.2 for i, v in self.fov.items()}
+            search_distance = {i: (v * 1.2).to('deg') for i, v in self.fov.items()}
         # Checks to see whether a quantity has been passed, if not then the input is converted to an Astropy
         #  quantity in units of degrees. If a Quantity that cannot be converted to degrees is passed then the
         #  else part of the statement will error.
         elif not isinstance(search_distance, dict):
             if isinstance(self.fov, dict):
                 warn("The mission has FoVs defined for {}, but only one search_radius has been supplied. You may "
-                     "wish to pass a dictionary of search radii.".format(", ".format(list(self.fov.keys()))),
+                     "wish to pass a dictionary of search radii.".format(", ".join(list(self.fov.keys()))),
                      stacklevel=2)
             # Make sure the values are as they should be
             if not isinstance(search_distance, Quantity):
@@ -769,7 +773,7 @@ class BaseMission(metaclass=ABCMeta):
             raise TypeError("The definition of {}'s field-of-view indicates that it does not have multiple "
                             "instruments with different field of views, so do not pass a dictionary "
                             "of search radii.".format(self.name))
-        elif isinstance(search_distance, dict) and not all([i in self.chosen_instruments for i in search_distance]):
+        elif isinstance(search_distance, dict) and not all([i in search_distance for i in self.chosen_instruments]):
             missing = [i for i in self.chosen_instruments if i not in search_distance]
             raise KeyError("The search_distance dictionary is missing entries for the following "
                            "instruments; {}".format(", ".join(missing)))
@@ -783,29 +787,33 @@ class BaseMission(metaclass=ABCMeta):
         else:
             raise TypeError("Please pass a Quantity, float, integer, or dictionary for search_distance.")
 
-        print(search_distance)
-        import sys
-        sys.exit()
+        # At this point the search_distance should either be a dictionary of quantities (with instrument names as
+        #  keys) or a single quantity. The quantities will be in degrees.
+        # In the case where we have only a single search, it is relatively simple, and rather than trying to make
+        #  this method more elegant by writing one generalised approach, we're just gonna use an if statement
+        if isinstance(search_distance, Quantity):
+            # Runs the 'catalogue matching' between all available observations and the input positions.
+            which_pos, which_obs, d2d, d3d = self.ra_decs.search_around_sky(positions, search_distance)
 
-        # Runs the 'catalogue matching' between all available observations and the input positions.
-        which_pos, which_obs, d2d, d3d = self.ra_decs.search_around_sky(positions, search_distance)
+            # Have to check whether any observations have actually been found, if not then we throw an error
+            if len(which_obs) == 0:
+                raise NoObsAfterFilterError("The positional search has returned no {} "
+                                            "observations.".format(self.pretty_name))
 
-        # Have to check whether any observations have actually been found, if not then we throw an error
-        if len(which_obs) == 0:
-            raise NoObsAfterFilterError("The positional search has returned no {} "
-                                        "observations.".format(self.pretty_name))
+            # Sets up a filter array that consists entirely of zeros initially (i.e. it would not let
+            #  any observations through).
+            pos_filter = np.zeros(self.filter_array.shape)
+            # The which_obs array indicates which of the entries in the table of observation info for this mission are
+            #  matching to one or more of the positions passed. The list(set()) setup is used to ensure that there are
+            #  no duplicates. These entries in the pos_filter are set to one, which will allow those observations through
+            pos_filter[np.array(list(set(which_obs)))] = 1
+            # Convert the array of ones and zeros to boolean, which is what the filter_array property setter wants
+            pos_filter = pos_filter.astype(bool)
+            # Create the combination of the existing filter array and the new position filter
+            new_filter = self.filter_array * pos_filter
+        else:
+            raise NotImplementedError("Haven't done this yet")
 
-        # Sets up a filter array that consists entirely of zeros initially (i.e. it would not let
-        #  any observations through).
-        pos_filter = np.zeros(self.filter_array.shape)
-        # The which_obs array indicates which of the entries in the table of observation info for this mission are
-        #  matching to one or more of the positions passed. The list(set()) setup is used to ensure that there are
-        #  no duplicates. These entries in the pos_filter are set to one, which will allow those observations through
-        pos_filter[np.array(list(set(which_obs)))] = 1
-        # Convert the array of ones and zeros to boolean, which is what the filter_array property setter wants
-        pos_filter = pos_filter.astype(bool)
-        # Create the combination of the existing filter array and the new position filter
-        new_filter = self.filter_array * pos_filter
         # And update the filter array
         self.filter_array = new_filter
 
