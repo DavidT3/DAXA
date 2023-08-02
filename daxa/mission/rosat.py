@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 19:25. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 19:27. Copyright (c) The Contributors
 
 import io
 import os
@@ -711,6 +711,24 @@ class ROSATAllSky(BaseMission):
         #  ROSAT target comprises all the datasets having the same prefix and ROR numbers.
         self._id_format = r'^(RS|rs)\d{6}[A-Z]\d{2}$'
         return self._id_format
+
+    @property
+    def fov(self) -> Union[Quantity, dict]:
+        """
+        Property getter for the approximate field of view set for this mission. This is the radius/half-side-length of
+        the field of view. In cases where the field of view is not square/circular, it is the half-side-length of
+        the longest side.
+
+        :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
+            then this may be a dictionary, with keys being instrument names.
+        :rtype: Union[Quantity, dict]
+        """
+        # The approximate field of view is defined here because I want to force implementation for each
+        #  new mission class.
+        # This isn't really the typical case as the field of view is artificial, based on the chunking of the data,
+        #  but as RASS is in 6x6 degree chunks I think this is what makes the most sense.
+        self._approx_fov = Quantity(180, 'arcmin')
+        return self._approx_fov
 
     @property
     def all_obs_info(self) -> pd.DataFrame:
