@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 19:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 20:45. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -707,7 +707,7 @@ class BaseMission(metaclass=ABCMeta):
 
     @_lock_check
     def filter_on_positions(self, positions: Union[list, np.ndarray, SkyCoord],
-                            search_distance: Union[Quantity, float, int]):
+                            search_distance: Union[Quantity, float, int, dict] = None):
         """
         This method allows you to filter the observations available for a mission based on a set of coordinates for
         which you wish to locate observations. The method searches for observations by the current mission that have
@@ -720,9 +720,14 @@ class BaseMission(metaclass=ABCMeta):
             can be passed either as a list or nested list (i.e. [r, d] OR [[r1, d1], [r2, d2]]), a numpy array, or
             an already defined SkyCoord. If a list or array is passed then the coordinates are assumed to be in
             degrees, and the default mission frame will be used.
-        :param Quantity/float/int search_distance: The distance within which to search for observations by this
-            mission. Distance may be specified as an Astropy Quantity that can be converted to degrees, or as a
-            float/integer that will be assumed to be in units of degrees.
+
+        :param Quantity/float/int/dict search_distance: The distance within which to search for observations by this
+            mission. Distance may be specified as an Astropy Quantity that can be converted to degrees, as a
+            float/integer that will be assumed to be in units of degrees, or as a dictionary of quantities/floats/ints
+            where the keys are names of different instruments (possibly with different field of views). The default
+            is None, in which case a value of 1.2 times the approximate field of view defined for each instrument
+            will be used; where different instruments have different FoVs, observation searches will be undertaken
+            on an instrument-by-instrument basis using the different field of views.
         """
 
         # Checks to see if a list/array of coordinates has been passed, in which case we convert it to a
@@ -739,13 +744,49 @@ class BaseMission(metaclass=ABCMeta):
             positions = SkyCoord([positions.ra, positions.ra], [positions.dec, positions.dec], unit=u.deg,
                                  frame=positions.frame)
 
+        # If the value is left as None, the default, then we use the defined FoV for this mission and multiply by 1.2
+        if search_distance is None and isinstance(self.fov, Quantity):
+            search_distance = self.fov * 1.2
+        # Also possible for different instruments to have different FoVs, so we have to take that into account - maybe
+        #  I should just have made .fov always return a dictionary but oh well
+        elif search_distance is None and isinstance(self.fov, dict):
+            search_distance = {i: v * 1.2 for i, v in self.fov.items()}
         # Checks to see whether a quantity has been passed, if not then the input is converted to an Astropy
         #  quantity in units of degrees. If a Quantity that cannot be converted to degrees is passed then the
         #  else part of the statement will error.
-        if not isinstance(search_distance, Quantity):
-            search_distance = Quantity(search_distance, 'deg')
+        elif not isinstance(search_distance, dict):
+            if isinstance(self.fov, dict):
+                warn("The mission has FoVs defined for {}, but only one search_radius has been supplied. You may "
+                     "wish to pass a dictionary of search radii.".format(", ".format(list(self.fov.keys()))),
+                     stacklevel=2)
+            # Make sure the values are as they should be
+            if not isinstance(search_distance, Quantity):
+                search_distance = Quantity(search_distance, 'deg')
+            else:
+                search_distance = search_distance.to('deg')
+        # If the user passes a dictionary of search radii, and the mission doesn't have multiple FoV definitions, then
+        #  something has probably gone awry, and we tell them so
+        elif isinstance(search_distance, dict) and not isinstance(self.fov, dict):
+            raise TypeError("The definition of {}'s field-of-view indicates that it does not have multiple "
+                            "instruments with different field of views, so do not pass a dictionary "
+                            "of search radii.".format(self.name))
+        elif isinstance(search_distance, dict) and not all([i in self.chosen_instruments for i in search_distance]):
+            missing = [i for i in self.chosen_instruments if i not in search_distance]
+            raise KeyError("The search_distance dictionary is missing entries for the following "
+                           "instruments; {}".format(", ".join(missing)))
+        elif isinstance(search_distance, dict) and not all([isinstance(v, (Quantity, int, float))
+                                                            for v in search_distance.values()]):
+            raise TypeError("The values in the search_distance dictionary must be either Astropy quantities, "
+                            "integers, or floats.")
+        elif isinstance(search_distance, dict):
+            search_distance = {i: d.to('deg') if isinstance(d, Quantity) else Quantity(d, 'deg')
+                               for i, d in search_distance.items()}
         else:
-            search_distance = search_distance.to('deg')
+            raise TypeError("Please pass a Quantity, float, integer, or dictionary for search_distance.")
+
+        print(search_distance)
+        import sys
+        sys.exit()
 
         # Runs the 'catalogue matching' between all available observations and the input positions.
         which_pos, which_obs, d2d, d3d = self.ra_decs.search_around_sky(positions, search_distance)
