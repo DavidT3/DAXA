@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/07/2023, 12:28. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 21:00. Copyright (c) The Contributors
 
 import io
 import os
@@ -17,6 +17,7 @@ from astropy.coordinates import BaseRADecFrame, FK5
 from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time
+from astropy.units import Quantity
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
@@ -199,6 +200,23 @@ class ROSATPointed(BaseMission):
         return self._id_format
 
     @property
+    def fov(self) -> Union[Quantity, dict]:
+        """
+        Property getter for the approximate field of view set for this mission. This is the radius/half-side-length of
+        the field of view. In cases where the field of view is not square/circular, it is the half-side-length of
+        the longest side.
+
+        :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
+            then this may be a dictionary, with keys being instrument names.
+        :rtype: Union[Quantity, dict]
+        """
+        # The approximate field of view is defined here because I want to force implementation for each
+        #  new mission class. Values taken from https://heasarc.gsfc.nasa.gov/docs/rosat/rosat.html
+        self._approx_fov = {'PSPCB': Quantity(60, 'arcmin'), 'PSPCC': Quantity(60, 'arcmin'),
+                            'HRI': Quantity(19, 'arcmin')}
+        return self._approx_fov
+
+    @property
     def all_obs_info(self) -> pd.DataFrame:
         """
         A property getter that returns the base dataframe containing information about all the observations available
@@ -242,12 +260,6 @@ class ROSATPointed(BaseMission):
         self.reset_filter()
 
         insts = super()._check_chos_insts(insts)
-
-        # Currently the HEASArc ROSMASTER table contains some entries with a generic 'PSPC' in the instruments
-        #  column, rather than PSPCB or PSPCC. I will email them about this (see issue #183), but for now this will
-        #  just include the generic ones if the user has selected either PSPC instrument
-        if 'PSPCB' in insts or 'PSPCC' in insts:
-            insts.append('PSPC')
 
         # If we've gotten through the super call then the instruments are acceptable, so now we filter the
         #  observation info table using them.
@@ -345,6 +357,12 @@ class ROSATPointed(BaseMission):
         #  are some observations with an exposure time (in the ROSMASTER table at least) of 0, so we'll mark them
         #  as not usable until I know better (see issue #185)
         full_ros['science_usable'] = full_ros['duration'].apply(lambda x: False if x <= np.timedelta64(0) else True)
+
+        # This step is necessary because some of the ROSAT Pointed observations are labelled as having instrument
+        #  'PSPC', rather than a specific 'PSPCB' or 'PSPCC'. These are, apparently, the finishing-up observations
+        #  for RASS, and even though they were all taken with PSPCB, they've just been generically labelled. This
+        #  is according to communications with HEASArc - as such I change them here
+        full_ros['instrument'] = full_ros['instrument'].apply(lambda x: x if x != 'PSPC' else 'PSPCB')
 
         # Here we translate the target categories to the DAXA taxonomy, which is shared between all DAXA missions
         # From the ROSMASTER catalogue page
@@ -687,6 +705,24 @@ class ROSATAllSky(BaseMission):
         #  ROSAT target comprises all the datasets having the same prefix and ROR numbers.
         self._id_format = r'^(RS|rs)\d{6}[A-Z]\d{2}$'
         return self._id_format
+
+    @property
+    def fov(self) -> Union[Quantity, dict]:
+        """
+        Property getter for the approximate field of view set for this mission. This is the radius/half-side-length of
+        the field of view. In cases where the field of view is not square/circular, it is the half-side-length of
+        the longest side.
+
+        :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
+            then this may be a dictionary, with keys being instrument names.
+        :rtype: Union[Quantity, dict]
+        """
+        # The approximate field of view is defined here because I want to force implementation for each
+        #  new mission class.
+        # This isn't really the typical case as the field of view is artificial, based on the chunking of the data,
+        #  but as RASS is in 6x6 degree chunks I think this is what makes the most sense.
+        self._approx_fov = Quantity(180, 'arcmin')
+        return self._approx_fov
 
     @property
     def all_obs_info(self) -> pd.DataFrame:

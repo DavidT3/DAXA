@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/07/2023, 13:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 22:00. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -126,6 +126,13 @@ class BaseMission(metaclass=ABCMeta):
         #  part of) knows whether or not the raw data have been processed.
         self._processed = False
 
+        # This attribute will be for the storage of an approximate field of view, ostensibly used to define a
+        #  default value the search radius of filtering methods. In cases where there are multiple instruments,
+        #  perhaps with different field of views, this attribute will be a dictionary.
+        # Will take the same approach as the name property, where it is defined as an abstract method so it must
+        #  be implemented for a new mission class
+        self._approx_fov = None
+
     # Defining properties first
     @property
     @abstractmethod
@@ -194,6 +201,31 @@ class BaseMission(metaclass=ABCMeta):
         #  the mission uses.
         self._id_format = None
         return self._id_format
+
+    @property
+    @abstractmethod
+    def fov(self) -> Union[Quantity, dict]:
+        """
+        Abstract property getter for the approximate field-of-view of this mission's instrument(s). In cases where
+        different instruments have different field-of-views this may be a dictionary (see ROSATPointed for an
+        example). Must be overwritten in any subclass. This is to ensure that any subclasses that people might
+        add will definitely set a FoV, which is not guaranteed by having it done in the init.
+
+        The convention will be that the value supplied is the radius/half-side-length of the field of view. In cases
+        where the field of view is not square/circular, it should be the half-side-length of the longest side.
+
+        A dictionary should ONLY be defined if the instruments have different field of views, and have their own
+        observations in the all_obs_info table (e.g. ROSAT's instruments are mutually exclusive and cannot have
+        multiple per observation).
+
+        :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
+            then this may be a dictionary, with keys being instrument names.
+        :rtype: Union[Quantity, dict]
+        """
+        # This is defined here (as well as in the init of BaseMission) because I want people to just copy this
+        #  property if they're making a new subclass, then replace None with the FoV for the mission
+        self._approx_fov = None
+        return self._approx_fov
 
     @property
     def all_mission_instruments(self) -> List[str]:
@@ -569,6 +601,9 @@ class BaseMission(metaclass=ABCMeta):
         """
         The abstract method (i.e. will be overridden in every subclass of BaseMission) that pulls basic information
         on all observations for a given mission down from whatever server it lives on.
+
+        NOTE - THE INDEX OF THE PANDAS DATAFRAME SHOULD BE RESET AT THE END OF EACH IMPLEMENTATION OF THIS
+        METHOD - e.g. obs_info_pd = obs_info_pd.reset_index(drop=True)
         """
         # self.all_obs_info = None
         pass
@@ -679,7 +714,7 @@ class BaseMission(metaclass=ABCMeta):
 
     @_lock_check
     def filter_on_positions(self, positions: Union[list, np.ndarray, SkyCoord],
-                            search_distance: Union[Quantity, float, int]):
+                            search_distance: Union[Quantity, float, int, dict] = None):
         """
         This method allows you to filter the observations available for a mission based on a set of coordinates for
         which you wish to locate observations. The method searches for observations by the current mission that have
@@ -692,9 +727,13 @@ class BaseMission(metaclass=ABCMeta):
             can be passed either as a list or nested list (i.e. [r, d] OR [[r1, d1], [r2, d2]]), a numpy array, or
             an already defined SkyCoord. If a list or array is passed then the coordinates are assumed to be in
             degrees, and the default mission frame will be used.
-        :param Quantity/float/int search_distance: The distance within which to search for observations by this
-            mission. Distance may be specified as an Astropy Quantity that can be converted to degrees, or as a
-            float/integer that will be assumed to be in units of degrees.
+        :param Quantity/float/int/dict search_distance: The distance within which to search for observations by this
+            mission. Distance may be specified as an Astropy Quantity that can be converted to degrees, as a
+            float/integer that will be assumed to be in units of degrees, or as a dictionary of quantities/floats/ints
+            where the keys are names of different instruments (possibly with different field of views). The default
+            is None, in which case a value of 1.2 times the approximate field of view defined for each instrument
+            will be used; where different instruments have different FoVs, observation searches will be undertaken
+            on an instrument-by-instrument basis using the different field of views.
         """
 
         # Checks to see if a list/array of coordinates has been passed, in which case we convert it to a
@@ -711,39 +750,125 @@ class BaseMission(metaclass=ABCMeta):
             positions = SkyCoord([positions.ra, positions.ra], [positions.dec, positions.dec], unit=u.deg,
                                  frame=positions.frame)
 
+        # If the value is left as None, the default, then we use the defined FoV for this mission and multiply by 1.2
+        if search_distance is None:
+            # This is read out because it can trigger a warning and I only want it to happen once
+            fov = self.fov
+            if isinstance(fov, Quantity):
+                search_distance = (fov * 1.2).to('deg')
+            # Also possible for different instruments to have different FoVs, so we have to take that into
+            #  account - maybe I should just have made .fov always return a dictionary but oh well
+            else:
+                search_distance = {i: (v * 1.2).to('deg') for i, v in fov.items()}
         # Checks to see whether a quantity has been passed, if not then the input is converted to an Astropy
         #  quantity in units of degrees. If a Quantity that cannot be converted to degrees is passed then the
         #  else part of the statement will error.
-        if not isinstance(search_distance, Quantity):
-            search_distance = Quantity(search_distance, 'deg')
+        elif not isinstance(search_distance, dict):
+            # This is read out because it can trigger a warning and I only want it to happen once
+            fov = self.fov
+            if isinstance(fov, dict):
+                warn("The mission has FoVs defined for {}, but only one search_radius has been supplied. You may "
+                     "wish to pass a dictionary of search radii.".format(", ".join(list(fov.keys()))),
+                     stacklevel=2)
+            # Make sure the values are as they should be
+            if not isinstance(search_distance, Quantity):
+                search_distance = Quantity(search_distance, 'deg')
+            else:
+                search_distance = search_distance.to('deg')
+        # If the user passes a dictionary of search radii, and the mission doesn't have multiple FoV definitions, then
+        #  something has probably gone awry, and we tell them so
+        elif isinstance(search_distance, dict) and not isinstance(self.fov, dict):
+            raise TypeError("The definition of {}'s field-of-view indicates that it does not have multiple "
+                            "instruments with different field of views, so do not pass a dictionary "
+                            "of search radii.".format(self.name))
+        elif isinstance(search_distance, dict) and not all([i in search_distance for i in self.chosen_instruments]):
+            missing = [i for i in self.chosen_instruments if i not in search_distance]
+            raise KeyError("The search_distance dictionary is missing entries for the following "
+                           "instruments; {}".format(", ".join(missing)))
+        elif isinstance(search_distance, dict) and not all([isinstance(v, (Quantity, int, float))
+                                                            for v in search_distance.values()]):
+            raise TypeError("The values in the search_distance dictionary must be either Astropy quantities, "
+                            "integers, or floats.")
+        elif isinstance(search_distance, dict):
+            search_distance = {i: d.to('deg') if isinstance(d, Quantity) else Quantity(d, 'deg')
+                               for i, d in search_distance.items()}
         else:
-            search_distance = search_distance.to('deg')
+            raise TypeError("Please pass a Quantity, float, integer, or dictionary for search_distance.")
 
-        # Runs the 'catalogue matching' between all available observations and the input positions.
-        which_pos, which_obs, d2d, d3d = self.ra_decs.search_around_sky(positions, search_distance)
+        # At this point the search_distance should either be a dictionary of quantities (with instrument names as
+        #  keys) or a single quantity. The quantities will be in degrees.
+        # In the case where we have only a single search, it is relatively simple, and rather than trying to make
+        #  this method more elegant by writing one generalised approach, we're just gonna use an if statement
+        if isinstance(search_distance, Quantity):
+            # Runs the 'catalogue matching' between all available observations and the input positions.
+            which_pos, which_obs, d2d, d3d = self.ra_decs.search_around_sky(positions, search_distance)
 
-        # Have to check whether any observations have actually been found, if not then we throw an error
-        if len(which_obs) == 0:
-            raise NoObsAfterFilterError("The positional search has returned no {} "
-                                        "observations.".format(self.pretty_name))
+            # Have to check whether any observations have actually been found, if not then we throw an error
+            if len(which_obs) == 0:
+                raise NoObsAfterFilterError("The positional search has returned no {} "
+                                            "observations.".format(self.pretty_name))
 
-        # Sets up a filter array that consists entirely of zeros initially (i.e. it would not let
-        #  any observations through).
-        pos_filter = np.zeros(self.filter_array.shape)
-        # The which_obs array indicates which of the entries in the table of observation info for this mission are
-        #  matching to one or more of the positions passed. The list(set()) setup is used to ensure that there are
-        #  no duplicates. These entries in the pos_filter are set to one, which will allow those observations through
-        pos_filter[np.array(list(set(which_obs)))] = 1
+            # Sets up a filter array that consists entirely of zeros initially (i.e. it would not let
+            #  any observations through).
+            pos_filter = np.zeros(self.filter_array.shape)
+            # The which_obs array indicates which of the entries in the table of observation info for this
+            #  mission are matching to one or more of the positions passed. The list(set()) setup is used to
+            #  ensure that there are no duplicates. These entries in the pos_filter are set to one, which will
+            #  allow those observations through
+            pos_filter[np.array(list(set(which_obs)))] = 1
+
+        else:
+            # Hopefully every mission class's all_obs_info table had its indices reset at the end of the method
+            #  that grabs all the information, but just in case it didn't I'll do it here, because it would royally
+            #  screw things up if it weren't reset
+            self.all_obs_info = self.all_obs_info.reset_index(drop=True)
+
+            # Sets up a filter array that consists entirely of zeros initially (i.e. it would not let
+            #  any observations through).
+            pos_filter = np.zeros(self.filter_array.shape)
+            for inst in search_distance:
+                cur_search_distance = search_distance[inst]
+
+                rel_rows = self.all_obs_info[self.all_obs_info['instrument'] == inst]
+                # These will be used to determine which coordinates to grab, and which entries in the pos_filter
+                #  must be updated
+                rel_row_inds = rel_rows.index.values
+                if len(rel_rows) == 0:
+                    raise KeyError("Somehow an invalid instrument name has been included in the "
+                                   "search_distance dictionary.")
+                # Grabs only those observation RA-Dec coordinates that are for the current instrument. Of course those
+                #  coordinates are in the table (all_obs_info), but the ra_decs property has them as an Astropy
+                #  SkyCoord
+                rel_radecs = self.ra_decs[rel_row_inds]
+                # Runs the 'catalogue matching' between all available observations and the input positions.
+                which_pos, which_obs, d2d, d3d = rel_radecs.search_around_sky(positions, cur_search_distance)
+
+                if len(which_obs) != 0:
+                    # This first converts the which_obs indices back to the indices relevant to the whole set
+                    #  of observations, using rel_row_inds, and then uses those values to set the pos filter. Only
+                    #  if there are any selected observations though!
+                    pos_filter[np.array(list(set(rel_row_inds[which_obs])))] = 1
+
+            # Have to check whether any observations have actually been found, if not then we throw an error. Very
+            #  similar to a check in the first part of the if statement, but here we only check at the end of the
+            #  for loops, because it is fine if some of the instruments don't have any observations selected at the
+            #  end, we only have to worry if NONE of them have observations selected
+            if pos_filter.sum() == 0:
+                raise NoObsAfterFilterError("The positional search has returned no {} "
+                                            "observations.".format(self.pretty_name))
+
         # Convert the array of ones and zeros to boolean, which is what the filter_array property setter wants
         pos_filter = pos_filter.astype(bool)
+
         # Create the combination of the existing filter array and the new position filter
         new_filter = self.filter_array * pos_filter
+
         # And update the filter array
         self.filter_array = new_filter
 
     @_lock_check
-    def filter_on_name(self, object_name: Union[str, List[str]], search_distance: Union[Quantity, float, int],
-                       parse_name: bool = False):
+    def filter_on_name(self, object_name: Union[str, List[str]],
+                       search_distance: Union[Quantity, float, int, dict] = None, parse_name: bool = False):
         """
         This method wraps the 'filter_on_positions' method, and allows you to filter the mission's observations so
         that it contains data on a single (or a list of) specific objects. The names are passed by the user, and
@@ -751,9 +876,13 @@ class BaseMission(metaclass=ABCMeta):
         then used to find observations that might be relevant.
 
         :param str/List[str] object_name: The name(s) of objects you would like to search for.
-        :param Quantity/float/int search_distance: The distance within which to search for observations by this
-            mission. Distance may be specified as an Astropy Quantity that can be converted to degrees, or as a
-            float/integer that will be assumed to be in units of degrees.
+        :param Quantity/float/int/dict search_distance: The distance within which to search for observations by this
+            mission. Distance may be specified as an Astropy Quantity that can be converted to degrees, as a
+            float/integer that will be assumed to be in units of degrees, or as a dictionary of quantities/floats/ints
+            where the keys are names of different instruments (possibly with different field of views). The default
+            is None, in which case a value of 1.2 times the approximate field of view defined for each instrument
+            will be used; where different instruments have different FoVs, observation searches will be undertaken
+            on an instrument-by-instrument basis using the different field of views.
         :param bool parse_name: Whether to attempt extracting the coordinates from the name by parsing with a regex.
             For objects catalog names that have J-coordinates embedded in their names, e.g.,
             'CRTS SSS100805 J194428-420209', this may be much faster than a Sesame query for the same object name.

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/07/2023, 13:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 21:09. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -16,6 +16,7 @@ from astropy.coordinates import BaseRADecFrame, ICRS
 from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time
+from astropy.units import Quantity
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
@@ -82,7 +83,7 @@ class Chandra(BaseMission):
 
         # TODO Remove this once HETG and LETG are supported
         if 'HETG' in insts or 'LETG' in insts:
-            raise NotImplementedError("The RGS and OM instruments are not currently supported by this class.")
+            raise NotImplementedError("The HETG and LETG gratings are not currently supported by this class.")
 
         # These are the allowed instruments for this mission - Chandra has two sets of instruments (HRC and
         #  ACIS), each with two sets of detectors (one for imaging one for grating spectroscopy). It also has
@@ -94,7 +95,7 @@ class Chandra(BaseMission):
         self.name
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = ['proprietary_end_date', 'target_category', 'detector', 'grating',
+        self._required_mission_specific_cols = ['proprietary_end_date', 'target_category', 'instrument', 'grating',
                                                 'data_mode', 'proprietary_usable']
 
         # Runs the method which fetches information on all available pointed Chandra observations and stores that
@@ -168,6 +169,32 @@ class Chandra(BaseMission):
         return self._miss_coord_frame
 
     @property
+    def fov(self) -> Union[Quantity, dict]:
+        """
+        Property getter for the approximate field of view set for this mission. This is the radius/half-side-length of
+        the field of view. In cases where the field of view is not square/circular, it is the half-side-length of
+        the longest side.
+
+        :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
+            then this may be a dictionary, with keys being instrument names.
+        :rtype: Union[Quantity, dict]
+        """
+        warn("Chandra FoV are difficult to define, as they can be strongly dependant on observation mode; as such take"
+             "these as very approximate.", stacklevel=2)
+        # The approximate field of view is defined here because I want to force implementation for each
+        #  new mission class
+        # This is extremely hand-wavey; ACIS info come from https://cxc.harvard.edu/cal/Acis/index.html, and I have
+        #  essentially taken the maximum side length (i.e. the length of ACIS-S, 50.6 arcmin), divided it by 2, and
+        #  then arbitrarily tacked on 10% to try and account for different aimpoints. Both ACIS instruments have this
+        #  same value
+        # HRC I just took the length of HRC-S (99 arcmin) and divided it by two, it's such a big number (relatively
+        #  speaking) that it should work okay as a catch-all.
+        # This isn't an ideal solution though
+        self._approx_fov = {'ACIS-I': Quantity(27.8, 'arcmin'), 'ACIS-S': Quantity(27.8, 'arcmin'),
+                            'HRC-I': Quantity(49.5, 'arcmin'), 'HRC-S': Quantity(49.5, 'arcmin')}
+        return self._approx_fov
+
+    @property
     def id_regex(self) -> str:
         """
         Property getter for the regular expression (regex) pattern for observation IDs of this mission.
@@ -236,9 +263,9 @@ class Chandra(BaseMission):
             val_gratings = ['NONE']
 
         # I considered removing any gratings entries from inst, but it doesn't matter because I will just check
-        #  which rows in the obs info table have detector entries in the insts list, doesn't matter that gratings
-        #  might be in there.
-        sel_inst_mask = (self._obs_info['detector'].isin(insts)) & (self._obs_info['grating'].isin(val_gratings))
+        #  which rows in the obs info table have instrument (i.e. detector) entries in the insts list, doesn't
+        #  matter that gratings might be in there.
+        sel_inst_mask = (self._obs_info['instrument'].isin(insts)) & (self._obs_info['grating'].isin(val_gratings))
 
         # I can't think of a way this would happen, but I will just quickly ensure that this filtering didn't
         #  return zero results
@@ -316,7 +343,7 @@ class Chandra(BaseMission):
         # Lower-casing all the column names (personal preference largely).
         rel_chandra = rel_chandra.rename(columns=str.lower)
         # Changing a few column names to match what BaseMission expects
-        rel_chandra = rel_chandra.rename(columns={'obsid': 'ObsID', 'time': 'start',
+        rel_chandra = rel_chandra.rename(columns={'obsid': 'ObsID', 'time': 'start', 'detector': 'instrument',
                                                   'public_date': 'proprietary_end_date',
                                                   'class': 'target_category', 'exposure': 'duration'})
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
@@ -380,7 +407,7 @@ class Chandra(BaseMission):
 
         # Re-ordering the table, and not including certain columns which have served their purpose
         rel_chandra = rel_chandra[['ra', 'dec', 'ObsID', 'science_usable', 'proprietary_usable', 'start', 'end',
-                                   'duration', 'proprietary_end_date', 'target_category', 'detector', 'grating',
+                                   'duration', 'proprietary_end_date', 'target_category', 'instrument', 'grating',
                                    'data_mode']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
