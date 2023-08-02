@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/07/2023, 13:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 19:49. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -16,6 +16,7 @@ from astropy.coordinates import BaseRADecFrame, ICRS
 from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time
+from astropy.units import Quantity
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
@@ -166,6 +167,32 @@ class Chandra(BaseMission):
         #  the BaseMission superclass
         self._miss_coord_frame = ICRS
         return self._miss_coord_frame
+
+    @property
+    def fov(self) -> Union[Quantity, dict]:
+        """
+        Property getter for the approximate field of view set for this mission. This is the radius/half-side-length of
+        the field of view. In cases where the field of view is not square/circular, it is the half-side-length of
+        the longest side.
+
+        :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
+            then this may be a dictionary, with keys being instrument names.
+        :rtype: Union[Quantity, dict]
+        """
+        warn("Chandra FoV are difficult to define, as they can be strongly dependant on observation mode; as such take"
+             "these as very approximate.", stacklevel=2)
+        # The approximate field of view is defined here because I want to force implementation for each
+        #  new mission class
+        # This is extremely hand-wavey; ACIS info come from https://cxc.harvard.edu/cal/Acis/index.html, and I have
+        #  essentially taken the maximum side length (i.e. the length of ACIS-S, 50.6 arcmin), divided it by 2, and
+        #  then arbitrarily tacked on 10% to try and account for different aimpoints. Both ACIS instruments have this
+        #  same value
+        # HRC I just took the length of HRC-S (99 arcmin) and divided it by two, it's such a big number (relatively
+        #  speaking) that it should work okay as a catch-all.
+        # This isn't an ideal solution though
+        self._approx_fov = {'ACIS-I': Quantity(27.8, 'arcmin'), 'ACIS-S': Quantity(27.8, 'arcmin'),
+                            'HRC-I': Quantity(49.5, 'arcmin'), 'HRC-S': Quantity(49.5, 'arcmin')}
+        return self._approx_fov
 
     @property
     def id_regex(self) -> str:
