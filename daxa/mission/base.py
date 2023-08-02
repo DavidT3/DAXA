@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 20:45. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 20:48. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -720,7 +720,6 @@ class BaseMission(metaclass=ABCMeta):
             can be passed either as a list or nested list (i.e. [r, d] OR [[r1, d1], [r2, d2]]), a numpy array, or
             an already defined SkyCoord. If a list or array is passed then the coordinates are assumed to be in
             degrees, and the default mission frame will be used.
-
         :param Quantity/float/int/dict search_distance: The distance within which to search for observations by this
             mission. Distance may be specified as an Astropy Quantity that can be converted to degrees, as a
             float/integer that will be assumed to be in units of degrees, or as a dictionary of quantities/floats/ints
@@ -811,8 +810,8 @@ class BaseMission(metaclass=ABCMeta):
         self.filter_array = new_filter
 
     @_lock_check
-    def filter_on_name(self, object_name: Union[str, List[str]], search_distance: Union[Quantity, float, int],
-                       parse_name: bool = False):
+    def filter_on_name(self, object_name: Union[str, List[str]],
+                       search_distance: Union[Quantity, float, int, dict] = None, parse_name: bool = False):
         """
         This method wraps the 'filter_on_positions' method, and allows you to filter the mission's observations so
         that it contains data on a single (or a list of) specific objects. The names are passed by the user, and
@@ -820,9 +819,13 @@ class BaseMission(metaclass=ABCMeta):
         then used to find observations that might be relevant.
 
         :param str/List[str] object_name: The name(s) of objects you would like to search for.
-        :param Quantity/float/int search_distance: The distance within which to search for observations by this
-            mission. Distance may be specified as an Astropy Quantity that can be converted to degrees, or as a
-            float/integer that will be assumed to be in units of degrees.
+        :param Quantity/float/int/dict search_distance: The distance within which to search for observations by this
+            mission. Distance may be specified as an Astropy Quantity that can be converted to degrees, as a
+            float/integer that will be assumed to be in units of degrees, or as a dictionary of quantities/floats/ints
+            where the keys are names of different instruments (possibly with different field of views). The default
+            is None, in which case a value of 1.2 times the approximate field of view defined for each instrument
+            will be used; where different instruments have different FoVs, observation searches will be undertaken
+            on an instrument-by-instrument basis using the different field of views.
         :param bool parse_name: Whether to attempt extracting the coordinates from the name by parsing with a regex.
             For objects catalog names that have J-coordinates embedded in their names, e.g.,
             'CRTS SSS100805 J194428-420209', this may be much faster than a Sesame query for the same object name.
