@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/07/2023, 06:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 19:53. Copyright (c) The Contributors
 
 import os
 import re
@@ -15,6 +15,7 @@ import pandas as pd
 import requests
 from astropy.coordinates import BaseRADecFrame, FK5
 from astropy.io import fits
+from astropy.units import Quantity
 from tqdm import tqdm
 
 from .base import BaseMission
@@ -146,6 +147,26 @@ class eROSITACalPV(BaseMission):
         #  the BaseMission superclass
         self._id_format = '^[0-9]{6}$'
         return self._id_format
+
+    @property
+    def fov(self) -> Union[Quantity, dict]:
+        """
+        Property getter for the approximate field of view set for this mission. This is the radius/half-side-length of
+        the field of view. In cases where the field of view is not square/circular, it is the half-side-length of
+        the longest side.
+
+        NOTE - THIS WILL ERROR FOR eROSITACalPV, BECAUSE OF THE WAY THE DATA ARE BOTH IN SLEW AND POINTING MODE
+
+        :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
+            then this may be a dictionary, with keys being instrument names.
+        :rtype: Union[Quantity, dict]
+        """
+        # The approximate field of view is defined here because I want to force implementation for each
+        #  new mission class.
+        raise NotImplementedError("A field-of-view cannot be easily defined for eROSITACalPV, you will have to make"
+                                  " your own judgement on a search distance.")
+        self._approx_fov = None
+        return self._approx_fov
 
     @property
     def all_obs_info(self) -> pd.DataFrame:
