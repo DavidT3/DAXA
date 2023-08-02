@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 19:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 21:09. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -83,7 +83,7 @@ class Chandra(BaseMission):
 
         # TODO Remove this once HETG and LETG are supported
         if 'HETG' in insts or 'LETG' in insts:
-            raise NotImplementedError("The RGS and OM instruments are not currently supported by this class.")
+            raise NotImplementedError("The HETG and LETG gratings are not currently supported by this class.")
 
         # These are the allowed instruments for this mission - Chandra has two sets of instruments (HRC and
         #  ACIS), each with two sets of detectors (one for imaging one for grating spectroscopy). It also has
@@ -95,7 +95,7 @@ class Chandra(BaseMission):
         self.name
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = ['proprietary_end_date', 'target_category', 'detector', 'grating',
+        self._required_mission_specific_cols = ['proprietary_end_date', 'target_category', 'instrument', 'grating',
                                                 'data_mode', 'proprietary_usable']
 
         # Runs the method which fetches information on all available pointed Chandra observations and stores that
@@ -263,9 +263,9 @@ class Chandra(BaseMission):
             val_gratings = ['NONE']
 
         # I considered removing any gratings entries from inst, but it doesn't matter because I will just check
-        #  which rows in the obs info table have detector entries in the insts list, doesn't matter that gratings
-        #  might be in there.
-        sel_inst_mask = (self._obs_info['detector'].isin(insts)) & (self._obs_info['grating'].isin(val_gratings))
+        #  which rows in the obs info table have instrument (i.e. detector) entries in the insts list, doesn't
+        #  matter that gratings might be in there.
+        sel_inst_mask = (self._obs_info['instrument'].isin(insts)) & (self._obs_info['grating'].isin(val_gratings))
 
         # I can't think of a way this would happen, but I will just quickly ensure that this filtering didn't
         #  return zero results
@@ -343,7 +343,7 @@ class Chandra(BaseMission):
         # Lower-casing all the column names (personal preference largely).
         rel_chandra = rel_chandra.rename(columns=str.lower)
         # Changing a few column names to match what BaseMission expects
-        rel_chandra = rel_chandra.rename(columns={'obsid': 'ObsID', 'time': 'start',
+        rel_chandra = rel_chandra.rename(columns={'obsid': 'ObsID', 'time': 'start', 'detector': 'instrument',
                                                   'public_date': 'proprietary_end_date',
                                                   'class': 'target_category', 'exposure': 'duration'})
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
@@ -407,7 +407,7 @@ class Chandra(BaseMission):
 
         # Re-ordering the table, and not including certain columns which have served their purpose
         rel_chandra = rel_chandra[['ra', 'dec', 'ObsID', 'science_usable', 'proprietary_usable', 'start', 'end',
-                                   'duration', 'proprietary_end_date', 'target_category', 'detector', 'grating',
+                                   'duration', 'proprietary_end_date', 'target_category', 'instrument', 'grating',
                                    'data_mode']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
