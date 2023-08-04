@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/04/2023, 13:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 19:05. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -10,6 +10,7 @@ from warnings import warn
 import numpy as np
 import pandas as pd
 from astropy.coordinates import BaseRADecFrame, FK5
+from astropy.units import Quantity
 from astroquery import log
 from astroquery.esa.xmm_newton import XMMNewton as AQXMMNewton
 from tqdm import tqdm
@@ -67,7 +68,7 @@ class XMMPointed(BaseMission):
         self.name
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = ['proprietary_end_date', 'usable_proprietary', 'usable_science',
+        self._required_mission_specific_cols = ['proprietary_end_date', 'proprietary_usable', 'science_usable',
                                                 'revolution']
 
         # Runs the method which fetches information on all available pointed XMM observations and stores that
@@ -121,12 +122,28 @@ class XMMPointed(BaseMission):
         return self._id_format
 
     @property
+    def fov(self) -> Union[Quantity, dict]:
+        """
+        Property getter for the approximate field of view set for this mission. This is the radius/half-side-length of
+        the field of view. In cases where the field of view is not square/circular, it is the half-side-length of
+        the longest side.
+
+        :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
+            then this may be a dictionary, with keys being instrument names.
+        :rtype: Union[Quantity, dict]
+        """
+        # The approximate field of view is defined here because I want to force implementation for each
+        #  new mission class
+        self._approx_fov = Quantity(15, 'arcmin')
+        return self._approx_fov
+
+    @property
     def all_obs_info(self) -> pd.DataFrame:
         """
         A property getter that returns the base dataframe containing information about all the observations available
         for an instance of a mission class.
 
-        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'usable_science',
+        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'science_usable',
             'start', 'duration'
         :rtype: pd.DataFrame
         """
@@ -184,11 +201,11 @@ class XMMPointed(BaseMission):
         # This adds a column that describes whether the data are out of their proprietary period, and thus
         #  usable by the general community. Can just use less than or equal to operator because everything involved
         #  is now a datetime object.
-        obs_info_pd['usable_proprietary'] = obs_info_pd['proprietary_end_date'].apply(
+        obs_info_pd['proprietary_usable'] = obs_info_pd['proprietary_end_date'].apply(
             lambda x: ((x <= today) & (pd.notnull(x)))).astype(bool)
 
         # Just renaming some of the columns
-        obs_info_pd = obs_info_pd.rename(columns={'observation_id': 'ObsID', 'with_science': 'usable_science',
+        obs_info_pd = obs_info_pd.rename(columns={'observation_id': 'ObsID', 'with_science': 'science_usable',
                                                   'start_utc': 'start'})
 
         # Converting the duration column to a timedelta object, which can then be directly added to the start column
@@ -208,10 +225,6 @@ class XMMPointed(BaseMission):
         #  than adding the radec_good column as another input to the usable column (see below) because having NaN
         #  positions really screws up the filter_on_positions method in BaseMission
         obs_info_pd = obs_info_pd[obs_info_pd['radec_good']]
-        # Create a combined usable column from usable_science and usable_proprietary - this overall usable column
-        #  is required by the BaseMission superclass and governs whether an observation will be considered from the
-        #  outset.
-        obs_info_pd['usable'] = obs_info_pd['usable_science'] * obs_info_pd['usable_proprietary']
         # Don't really care about this column now so remove.
         del obs_info_pd['radec_good']
 
@@ -282,7 +295,7 @@ class XMMPointed(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES):
+    def download(self, num_cores: int = NUM_CORES, credentials: Union[dict, str] = None):
         """
         A method to acquire and download the pointed XMM data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -291,8 +304,20 @@ class XMMPointed(BaseMission):
 
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
-            of the cores available on the current machine.
+            of the cores available on the current machine. The number of cores will be CAPPED AT 10 FOR XMM - we
+            have experienced reliably dropped connections when more than 10 download processes are created.
+        :param dict/str credentials: The path to an ini file containing credentials, a dictionary containing 'user'
+            and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
+            for providing different credentials for different observations.
         """
+
+        if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():
+            raise NotImplementedError("Support for credentials for proprietary data is not yet implemented.")
+        elif not self.filtered_obs_info['proprietary_usable'].all() and credentials is None:
+            warn("Proprietary data have been selected, but no credentials provided; as such the proprietary data have "
+                 "been excluded from download and further processing.", stacklevel=2)
+            new_filter = self.filter_array * self.all_obs_info['proprietary_usable'].values
+            self.filter_array = new_filter
 
         # Ensures that a directory to store the 'raw' pointed XMM data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
@@ -306,6 +331,15 @@ class XMMPointed(BaseMission):
         #  the _download_call method
         if all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in self.filtered_obs_ids]):
             self._download_done = True
+
+        # I have found that having more than 10 simultaneous XMM download processes tends to result in dropped
+        #  connections and having to re-run mission downloads, so I am going to enforce that on the num_cores
+        #  argument here for a better user experience
+        new_num_cores = min([num_cores, 10])
+        if new_num_cores != num_cores:
+            warn("The number of cores assigned to XMMPointed downloads has been capped at 10, this will minimise "
+                 "dropped connections.", stacklevel=2)
+            num_cores = new_num_cores
 
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
@@ -374,7 +408,7 @@ class XMMPointed(BaseMission):
             self._download_done = True
 
         else:
-            warn("The raw data for this mission have already been downloaded.")
+            warn("The raw data for this mission have already been downloaded.", stacklevel=2)
 
     def assess_process_obs(self, obs_info: dict) -> dict:
         """

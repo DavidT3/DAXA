@@ -5,12 +5,16 @@ from typing import List
 import re
 
 from astropy.io import fits
+from astropy.units import def_unit, ct, deg, s
 
 from daxa import NUM_CORES
 from daxa import BaseMission
 from daxa.archive.base import Archive
 
-def prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
+# Defining surface brightness rate astropy unit for use in flaregti to measure thresholds in 
+sb_rate = def_unit('sb_rate', ct / (deg**2 *s)) 
+
+def _prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
     """
     A function to be used with in the esass_call wrapper. This is called only
     if no erosita processing has taken place yet. It populates two dictionaries
@@ -21,7 +25,7 @@ def prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
 
     :param Archive archive: The Archive instance that has been parsed into the esass function 
         which esass_func wraps. 
-    :mission: The eROSITACalPV mission for which this information must be prepared.
+    :param BaseMission mission: The eROSITACalPV mission for which this information must be prepared.
     """
     def get_obs_path(mission: BaseMission, obs_id: str):
         """

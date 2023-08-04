@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 11:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 21:09. Copyright (c) The Contributors
+
 import gzip
 import io
 import os
@@ -15,6 +16,7 @@ from astropy.coordinates import BaseRADecFrame, ICRS
 from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time
+from astropy.units import Quantity
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
@@ -22,9 +24,12 @@ from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError, NoObsAfterFilterError
 from daxa.mission.base import BaseMission, _lock_check
 
-# Unlike NuSTAR, we should only need one directory to be present to download the unprocessed Chandra observations
-REQUIRED_DIRS = ['secondary/']
-GOOD_FILE_PATTERNS = ['evt1.fits', 'mtl1.fits', 'bias0.fits', 'pbk0.fits', 'flt1.fits', 'bpix1.fits', 'msk1.fits']
+# Unlike NuSTAR, we should only need one directory to be present to download the unprocessed Chandra observations, but
+#  if we're downloading 'standard' data distributions we shall check that primary AND secondary are present
+REQUIRED_DIRS = {'raw': ['secondary/'], 'standard': ['primary/', 'secondary/']}
+GOOD_FILE_PATTERNS = {'primary/': ['.fits.gz'],
+                      'secondary/': ['evt1.fits', 'mtl1.fits', 'bias0.fits', 'pbk0.fits', 'flt1.fits', 'bpix1.fits',
+                                     'msk1.fits', 'stat1.fits']}
 
 
 class Chandra(BaseMission):
@@ -76,9 +81,9 @@ class Chandra(BaseMission):
         # Makes sure everything is uppercase
         insts = [i.upper() for i in insts]
 
-        # TODO Remove this once RGS is supported, not sure OM should even be here tbh
+        # TODO Remove this once HETG and LETG are supported
         if 'HETG' in insts or 'LETG' in insts:
-            raise NotImplementedError("The RGS and OM instruments are not currently supported by this class.")
+            raise NotImplementedError("The HETG and LETG gratings are not currently supported by this class.")
 
         # These are the allowed instruments for this mission - Chandra has two sets of instruments (HRC and
         #  ACIS), each with two sets of detectors (one for imaging one for grating spectroscopy). It also has
@@ -90,10 +95,10 @@ class Chandra(BaseMission):
         self.name
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = ['proprietary_end_date', 'target_category', 'detector', 'grating',
-                                                'data_mode']
+        self._required_mission_specific_cols = ['proprietary_end_date', 'target_category', 'instrument', 'grating',
+                                                'data_mode', 'proprietary_usable']
 
-        # Runs the method which fetches information on all available pointed NuSTAR observations and stores that
+        # Runs the method which fetches information on all available pointed Chandra observations and stores that
         #  information in the all_obs_info property
         self._fetch_obs_info()
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
@@ -164,6 +169,32 @@ class Chandra(BaseMission):
         return self._miss_coord_frame
 
     @property
+    def fov(self) -> Union[Quantity, dict]:
+        """
+        Property getter for the approximate field of view set for this mission. This is the radius/half-side-length of
+        the field of view. In cases where the field of view is not square/circular, it is the half-side-length of
+        the longest side.
+
+        :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
+            then this may be a dictionary, with keys being instrument names.
+        :rtype: Union[Quantity, dict]
+        """
+        warn("Chandra FoV are difficult to define, as they can be strongly dependant on observation mode; as such take"
+             "these as very approximate.", stacklevel=2)
+        # The approximate field of view is defined here because I want to force implementation for each
+        #  new mission class
+        # This is extremely hand-wavey; ACIS info come from https://cxc.harvard.edu/cal/Acis/index.html, and I have
+        #  essentially taken the maximum side length (i.e. the length of ACIS-S, 50.6 arcmin), divided it by 2, and
+        #  then arbitrarily tacked on 10% to try and account for different aimpoints. Both ACIS instruments have this
+        #  same value
+        # HRC I just took the length of HRC-S (99 arcmin) and divided it by two, it's such a big number (relatively
+        #  speaking) that it should work okay as a catch-all.
+        # This isn't an ideal solution though
+        self._approx_fov = {'ACIS-I': Quantity(27.8, 'arcmin'), 'ACIS-S': Quantity(27.8, 'arcmin'),
+                            'HRC-I': Quantity(49.5, 'arcmin'), 'HRC-S': Quantity(49.5, 'arcmin')}
+        return self._approx_fov
+
+    @property
     def id_regex(self) -> str:
         """
         Property getter for the regular expression (regex) pattern for observation IDs of this mission.
@@ -182,7 +213,7 @@ class Chandra(BaseMission):
         A property getter that returns the base dataframe containing information about all the observations available
         for an instance of a mission class.
 
-        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'usable_science',
+        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'science_usable',
             'start', 'duration'
         :rtype: pd.DataFrame
         """
@@ -206,7 +237,7 @@ class Chandra(BaseMission):
 
     def _check_chos_insts(self, insts: Union[List[str], str]) -> List[str]:
         """
-        An internal function to perform some checks on the validity of chosen instrument names for a Chandra. This
+        An internal function to perform some checks on the validity of chosen instrument names for Chandra. This
         overwrites the version of this method declared in BaseMission, though it does call the super method. This
         sub-class of BaseMission re-implements this method so that setting chosen instruments becomes another
         filtering action, as Chandra has only one instrument per observation.
@@ -232,9 +263,9 @@ class Chandra(BaseMission):
             val_gratings = ['NONE']
 
         # I considered removing any gratings entries from inst, but it doesn't matter because I will just check
-        #  which rows in the obs info table have detector entries in the insts list, doesn't matter that gratings
-        #  might be in there.
-        sel_inst_mask = (self._obs_info['detector'].isin(insts)) & (self._obs_info['grating'].isin(val_gratings))
+        #  which rows in the obs info table have instrument (i.e. detector) entries in the insts list, doesn't
+        #  matter that gratings might be in there.
+        sel_inst_mask = (self._obs_info['instrument'].isin(insts)) & (self._obs_info['grating'].isin(val_gratings))
 
         # I can't think of a way this would happen, but I will just quickly ensure that this filtering didn't
         #  return zero results
@@ -263,7 +294,7 @@ class Chandra(BaseMission):
         # This returns the requested information in a FITS format - the idea being I will stream this into memory
         #  and then have a fits table that I can convert into a Pandas dataframe (which I much prefer working with).
         down_form = "&displaymode=FitsDisplay"
-        # This should mean unlimited, as we don't know how many NuSTAR observations there are, and the number will
+        # This should mean unlimited, as we don't know how many Chandra observations there are, and the number will
         #  increase with time (so long as the telescope doesn't break...)
         result_max = "&ResultMax=0"
         # This just tells the interface it's a query (I think?)
@@ -312,7 +343,7 @@ class Chandra(BaseMission):
         # Lower-casing all the column names (personal preference largely).
         rel_chandra = rel_chandra.rename(columns=str.lower)
         # Changing a few column names to match what BaseMission expects
-        rel_chandra = rel_chandra.rename(columns={'obsid': 'ObsID', 'time': 'start',
+        rel_chandra = rel_chandra.rename(columns={'obsid': 'ObsID', 'time': 'start', 'detector': 'instrument',
                                                   'public_date': 'proprietary_end_date',
                                                   'class': 'target_category', 'exposure': 'duration'})
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
@@ -337,11 +368,12 @@ class Chandra(BaseMission):
         # Grab the current date and time
         today = datetime.today()
         # Create a boolean column that describes whether the data are out of their proprietary period yet
-        rel_chandra['usable_proprietary'] = rel_chandra['proprietary_end_date'].apply(
+        rel_chandra['proprietary_usable'] = rel_chandra['proprietary_end_date'].apply(
             lambda x: ((x <= today) & (pd.notnull(x)))).astype(bool)
 
-        # Whether the data are public or not is the only criteria for acceptable Chandra data for DAXA at the moment
-        rel_chandra['usable'] = rel_chandra['usable_proprietary']
+        # Whether the data are public or not is the only criteria for acceptable Chandra data for DAXA at the
+        #  moment, so I will create the 'science_usable' column (required by BaseMission) and fill it with Trues
+        rel_chandra['science_usable'] = True
 
         # Convert the categories of target that are present in the dataframe to the DAXA taxonomy
         conv_dict = {'AGN UNCLASSIFIED': 'AGN', 'EXTENDED GALACTIC OR EXTRAGALACTIC': 'EGE', 'X-RAY BINARY': 'GS',
@@ -365,7 +397,7 @@ class Chandra(BaseMission):
         rel_chandra.loc[~type_recog, 'target_category'] = 'MISC'
 
         # Doing things slightly differently for Chandra - as it has a type of observation column and a lot of 'misc'
-        #  entries, I'm going to check to see if any of them can be labelled as calibration or Target of oppurtunity,
+        #  entries, I'm going to check to see if any of them can be labelled as calibration or Target of opportunity,
         #  just to give the user more to work with.
         misc_mask = rel_chandra['target_category'] == 'MISC'
         # For context, GO means General Observer, GTO means Guaranteed Time Observation, and CCT means Chandra
@@ -374,8 +406,9 @@ class Chandra(BaseMission):
             lambda x: x.target_category if x.type in ['GO', 'GTO', 'CCT'] else conv_dict[x.type], axis=1)
 
         # Re-ordering the table, and not including certain columns which have served their purpose
-        rel_chandra = rel_chandra[['ra', 'dec', 'ObsID', 'usable', 'start', 'end', 'duration',
-                                   'proprietary_end_date', 'target_category', 'detector', 'grating', 'data_mode']]
+        rel_chandra = rel_chandra[['ra', 'dec', 'ObsID', 'science_usable', 'proprietary_usable', 'start', 'end',
+                                   'duration', 'proprietary_end_date', 'target_category', 'instrument', 'grating',
+                                   'data_mode']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
         #  the user would expect from  a fresh dataframe
@@ -385,13 +418,16 @@ class Chandra(BaseMission):
         self.all_obs_info = rel_chandra
 
     @staticmethod
-    def _download_call(observation_id: str, raw_dir: str):
+    def _download_call(observation_id: str, raw_dir: str, download_standard: bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
 
         :param str observation_id: The ObsID of the observation to be downloaded.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
+        :param bool download_standard: Whether the 'standard' Chandra data distribution should be downloaded, with
+            'primary' and 'secondary' folders. This is False by default (in the download method) because DAXA
+            normally only wants the raw data.
         """
         # The Chandra data are stored in observatories that are named to correspond with the last digit of
         #  the particular observation's ObsID, so we shall extract that for later
@@ -401,73 +437,100 @@ class Chandra(BaseMission):
         obs_dir = "/FTP/chandra/data/byobsid/{ii}/{oid}/".format(ii=init_id, oid=observation_id)
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
 
-        # This opens a session that will persist - then a lot of the next session is for checking that the expected
-        #  directories are present.
+        # This defines the 'required' directories depending on the type of download that we're doing
+        if not download_standard:
+            req_dir = REQUIRED_DIRS['raw']
+        else:
+            req_dir = REQUIRED_DIRS['standard']
+
+        # This opens a session that will persist
         session = requests.Session()
 
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
         #  that the three directories that I need to download unprocessed Chandra data are present
         # The 'secondary' data products are the L1 unprocessed products that we want
         top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
-                    if en['href'] in REQUIRED_DIRS]
-        # If the lengths of top_data and REQUIRED_DIRS are different, then one or more of the expected dirs
+                    if en['href'] in req_dir]
+        # If the lengths of top_data and req_dir are different, then one or more of the expected dirs
         #  is not present
-        if len(top_data) != len(REQUIRED_DIRS):
+        if len(top_data) != len(req_dir):
             # This list comprehension figures out what directory is missing and reports it
-            missing = [rd for rd in REQUIRED_DIRS if rd not in top_data]
+            missing = [rd for rd in req_dir if rd not in top_data]
             raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
                                     "directories; {rq}".format(o=observation_id, rq=", ".join(missing)))
 
-        # The lower level URL of the directory we're currently looking at
-        rel_url = top_url + 'secondary/'
-        # This is the directory to which we will be saving this archive directories files
-        local_dir = raw_dir + '/'
-        # Make sure that the local directory is created
-        if not os.path.exists(local_dir):
-            os.makedirs(local_dir)
+        for rd in req_dir:
 
-        # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
-        #  are the files we shall be downloading
-        to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
-                   if '?' not in en['href'] and obs_dir not in en['href']]
+            # This is the directory to which we will be saving this archive directories files
+            local_dir = raw_dir + '/' + rd
+            # Make sure that the local directory is created
+            if not os.path.exists(local_dir):
+                os.makedirs(local_dir)
 
-        # This cleans the list of files further, down to only files matching the patterns defined in the constant
-        #  Those patterns are designed to grab the files that this page
-        #  (https://cxc.cfa.harvard.edu/ciao/data_products_guide/) claims we need for re-processing
-        to_down = [f for f in to_down for fp in GOOD_FILE_PATTERNS if fp in f]
+            # The lower level URL of the directory we're going to look at if we're just downloading the raw data
+            rel_url = top_url + rd
 
-        # Every file will need to be unzipped, as they all appear to be gunzipped when I've looked in
-        #  the HEASARC directories
+            # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
+            #  are the files we shall be downloading
+            to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
+                       if '?' not in en['href'] and obs_dir not in en['href']]
 
-        for down_file in to_down:
-            down_url = rel_url + down_file
-            with session.get(down_url, stream=True) as acquiro:
-                with open(local_dir + down_file, 'wb') as writo:
-                    copyfileobj(acquiro.raw, writo)
+            # This cleans the list of files further, down to only files matching the patterns defined in the constant
+            #  Those patterns are designed to grab the files that this page
+            #  (https://cxc.cfa.harvard.edu/ciao/data_products_guide/) claims we need for re-processing
+            to_down = [f for f in to_down for fp in GOOD_FILE_PATTERNS[rd] if fp in f]
 
-            # There are a few compressed fits files in each archive
-            if '.gz' in down_file:
-                # Open and decompress the events file
-                with gzip.open(local_dir + down_file, 'rb') as compresso:
-                    # Open a new file handler for the decompressed data, then funnel the decompressed events there
-                    with open(local_dir + down_file.split('.gz')[0], 'wb') as writo:
-                        copyfileobj(compresso, writo)
-                # Then remove the tarred file to minimise storage usage
-                os.remove(local_dir + down_file)
+            # Every file will need to be unzipped, as they all appear to be gunzipped when I've looked in
+            #  the HEASARC directories
+
+            for down_file in to_down:
+                down_url = rel_url + down_file
+                with session.get(down_url, stream=True) as acquiro:
+                    with open(local_dir + down_file, 'wb') as writo:
+                        copyfileobj(acquiro.raw, writo)
+
+                # There are a few compressed fits files in each archive
+                if '.gz' in down_file:
+                    # Open and decompress the events file
+                    with gzip.open(local_dir + down_file, 'rb') as compresso:
+                        # Open a new file handler for the decompressed data, then funnel the decompressed events there
+                        with open(local_dir + down_file.split('.gz')[0], 'wb') as writo:
+                            copyfileobj(compresso, writo)
+                    # Then remove the tarred file to minimise storage usage
+                    os.remove(local_dir + down_file)
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES):
+    def download(self, num_cores: int = NUM_CORES, credentials: Union[str, dict] = None,
+                 download_standard: bool = False):
         """
         A method to acquire and download the pointed Chandra data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
         property will be downloaded, which is set either on declaration of the class instance or by passing
         a new value to the chosen_instruments property.
 
+        If you're using DAXA only for data acquisition, and wish to use CIAO scripts for reprocessing (e.g.
+        'chandra_repro'), then set 'download_standard=True'.
+
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
+        :param dict/str credentials: The path to an ini file containing credentials, a dictionary containing 'user'
+            and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
+            for providing different credentials for different observations.
+        :param bool download_standard: Whether the 'standard' Chandra data structure should be downloaded (i.e. with
+            'primary' and 'secondary' directories. The default is False, as DAXA will do its own processing, but if
+            you just wish to use DAXA for data acquisition, and then use the CIAO scripts, this should be set to True.
         """
+
+        if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():
+            raise NotImplementedError("Support for credentials for proprietary data is not yet implemented.")
+        elif not self.filtered_obs_info['proprietary_usable'].all() and credentials is None:
+            warn("Proprietary data have been selected, but no credentials provided; as such the proprietary data have "
+                 "been excluded from download and further processing.", stacklevel=2)
+            new_filter = self.filter_array * self.all_obs_info['proprietary_usable'].values
+            self.filter_array = new_filter
+
         # Ensures that a directory to store the 'raw' Chandra data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
         if not os.path.exists(self.top_level_path + self.name + '_raw'):
@@ -486,8 +549,9 @@ class Chandra(BaseMission):
             if num_cores == 1:
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
                     for obs_id in self.filtered_obs_ids:
-                        # Use the internal static method I set up which both downloads and unpacks the XMM data
-                        self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id))
+                        # Use the internal static method I set up which both downloads and unpacks the Chandra data
+                        self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id),
+                                            download_standard=download_standard)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -529,7 +593,8 @@ class Chandra(BaseMission):
                     for obs_id in self.filtered_obs_ids:
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
-                                         kwds={'observation_id': obs_id, 'raw_dir': stor_dir + '{o}'.format(o=obs_id)},
+                                         kwds={'observation_id': obs_id, 'raw_dir': stor_dir + '{o}'.format(o=obs_id),
+                                               'download_standard': download_standard},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.

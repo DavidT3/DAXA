@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/03/2023, 11:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 19:10. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -15,6 +15,7 @@ from astropy.coordinates import BaseRADecFrame, FK5
 from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time
+from astropy.units import Quantity
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
@@ -80,7 +81,8 @@ class NuSTARPointed(BaseMission):
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
         self._required_mission_specific_cols = ['proprietary_end_date', 'exposure_a', 'exposure_b', 'ontime_a',
-                                                'ontime_b', 'nupsdout', 'issue_flag', 'target_category']
+                                                'ontime_b', 'nupsdout', 'issue_flag', 'target_category',
+                                                'proprietary_usable']
 
         # Runs the method which fetches information on all available pointed NuSTAR observations and stores that
         #  information in the all_obs_info property
@@ -133,12 +135,29 @@ class NuSTARPointed(BaseMission):
         return self._id_format
 
     @property
+    def fov(self) -> Union[Quantity, dict]:
+        """
+        Property getter for the approximate field of view set for this mission. This is the radius/half-side-length of
+        the field of view. In cases where the field of view is not square/circular, it is the half-side-length of
+        the longest side.
+
+        :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
+            then this may be a dictionary, with keys being instrument names.
+        :rtype: Union[Quantity, dict]
+        """
+        # The approximate field of view is defined here because I want to force implementation for each
+        #  new mission class - found conflicting values of either 12 or 13 arcmin across, so I went with half
+        #  of 13 to be on the safe side.
+        self._approx_fov = Quantity(6.5, 'arcmin')
+        return self._approx_fov
+
+    @property
     def all_obs_info(self) -> pd.DataFrame:
         """
         A property getter that returns the base dataframe containing information about all the observations available
         for an instance of a mission class.
 
-        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'usable_science',
+        :return: A pandas dataframe with (at minimum) the following columns; 'ra', 'dec', 'ObsID', 'science_usable',
             'start', 'duration'
         :rtype: pd.DataFrame
         """
@@ -248,14 +267,14 @@ class NuSTARPointed(BaseMission):
         # Grab the current date and time
         today = datetime.today()
         # Create a boolean column that describes whether the data are out of their proprietary period yet
-        rel_nustar['usable_proprietary'] = rel_nustar['proprietary_end_date'].apply(lambda x:
+        rel_nustar['proprietary_usable'] = rel_nustar['proprietary_end_date'].apply(lambda x:
                                                                                     ((x <= today) &
                                                                                      (pd.notnull(x)))).astype(bool)
 
         # I was going to use the 'issue_flag' column as a way of deciding scientific viability, but over 1500
         #  observations are marked '1' (for an issue) and I don't really want to exclude that many out of hand so
-        #  I will just make anything public usable for now.
-        rel_nustar['usable'] = rel_nustar['usable_proprietary']
+        #  I will just make everything scientifically usable for now.
+        rel_nustar['science_usable'] = True
 
         # Convert the categories of target that are present in the dataframe to the DAXA taxonomy
         conv_dict = {'Active galaxies and Quasars': 'AGN', 'Non-Proposal ToOs': 'TOO',
@@ -276,9 +295,9 @@ class NuSTARPointed(BaseMission):
         rel_nustar.loc[~type_recog, 'target_category'] = 'MISC'
 
         # Re-ordering the table, and not including certain columns which have served their purpose
-        rel_nustar = rel_nustar[['ra', 'dec', 'ObsID', 'usable', 'start', 'end', 'duration',
-                                 'proprietary_end_date', 'target_category', 'exposure_a', 'exposure_b', 'ontime_a',
-                                 'ontime_b', 'nupsdout', 'issue_flag']]
+        rel_nustar = rel_nustar[['ra', 'dec', 'ObsID', 'science_usable', 'proprietary_usable', 'start', 'end',
+                                 'duration', 'proprietary_end_date', 'target_category', 'exposure_a', 'exposure_b',
+                                 'ontime_a', 'ontime_b', 'nupsdout', 'issue_flag']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
         #  the user would expect from  a fresh dataframe
@@ -364,7 +383,7 @@ class NuSTARPointed(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES):
+    def download(self, num_cores: int = NUM_CORES, credentials: Union[str, dict] = None):
         """
         A method to acquire and download the pointed NuSTAR data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -374,7 +393,18 @@ class NuSTARPointed(BaseMission):
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
+        :param dict/str credentials: The path to an ini file containing credentials, a dictionary containing 'user'
+            and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
+            for providing different credentials for different observations.
         """
+
+        if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():
+            raise NotImplementedError("Support for credentials for proprietary data is not yet implemented.")
+        elif not self.filtered_obs_info['proprietary_usable'].all() and credentials is None:
+            warn("Proprietary data have been selected, but no credentials provided; as such the proprietary data have "
+                 "been excluded from download and further processing.", stacklevel=2)
+            new_filter = self.filter_array * self.all_obs_info['proprietary_usable'].values
+            self.filter_array = new_filter
 
         # Ensures that a directory to store the 'raw' pointed NuSTAR data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
@@ -394,7 +424,7 @@ class NuSTARPointed(BaseMission):
             if num_cores == 1:
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
                     for obs_id in self.filtered_obs_ids:
-                        # Use the internal static method I set up which both downloads and unpacks the XMM data
+                        # Use the internal static method I set up which both downloads and unpacks the NuSTAR data
                         self._download_call(obs_id, insts=self.chosen_instruments,
                                             raw_dir=stor_dir + '{o}'.format(o=obs_id))
                         # Update the progress bar
