@@ -203,7 +203,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
                                             "for any data in {mn}".format(miss.name))
 
     # This is just used for populating a progress bar during the process run
-    process_message = 'Cleaning eROSITA observations'
+    process_message = 'Generating final event lists'
 
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout, esass_in_docker
 
