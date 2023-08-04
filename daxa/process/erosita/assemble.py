@@ -9,6 +9,7 @@ from daxa import NUM_CORES
 from daxa.archive.base import Archive
 from daxa.process._cleanup import _last_process
 from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call, _is_valid_flag
+from daxa.exceptions import NoDependencyProcessError
 
 @_last_process(ALLOWED_EROSITA_MISSIONS, 1)
 @esass_call
@@ -144,49 +145,62 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
             #   and append it to the dict
             obs_info_dict[obs] = ''.join(ch for ch in insts if ch.isdigit())
 
+        # Counter for number of ObsIDs that flaregti has not been run succesfully on
+        bad_obs_counter = 0
         # We iterate through the valid identifying information
         for obs_id in obs_info_dict:
+            try:
+                # Checking that flaregti has been run successfully on this observation so that it can be cleaned
+                # then only writing a command for ObsIDs that have had flaregti sucessfully run on them
+                obs_archive.check_dependence_success(miss.name, obs_id, 'flaregti')
+                
+                # Getting the insts associated with this obs for file naming purposes 
+                insts = obs_info_dict[obs_id]
 
-            # Checking that flaregti has been run successfully on this observation so that it can be cleaned
-            if not obs_archive.process_success[miss.name]['flaregti'][obs_id]:
-                raise NoProcessingError("Flaregti must be run on {obs} before it may be cleaned.".format(obs_id))
+                # Search through the process_extra_info attribute of the archive to find the paths 
+                #   to the event lists
+                evt_list_file = obs_archive._process_extra_info[miss.name][obs_id]['path']
 
-            # Getting the insts associated with this obs for file naming purposes 
-            insts = obs_info_dict[obs_id]
+                # This path is guaranteed to exist, as it was set up in _esass_process_setup. This is where output
+                #  files will be written to.
+                dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+                # Set up a temporary directory to work in (probably not really necessary in this case, but will be
+                #  in other processing functions).
+                temp_name = "tempdir_{}".format(randint(0, 1e+8))
+                temp_dir = dest_dir + temp_name + "/"
 
-            # Search through the process_extra_info attribute of the archive to find the paths 
-            #   to the event lists
-            evt_list_file = obs_archive._process_extra_info[miss.name][obs_id]['path']
+                # Setting the paths to the output cleaned event list file
+                filt_evt_name = "{i}-{l}-{u}_clean.fits".format(i=insts, l=lo_en, u=hi_en)
+                filt_evt_path = dest_dir + filt_evt_name
 
-            # This path is guaranteed to exist, as it was set up in _esass_process_setup. This is where output
-            #  files will be written to.
-            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
-            # Set up a temporary directory to work in (probably not really necessary in this case, but will be
-            #  in other processing functions).
-            temp_name = "tempdir_{}".format(randint(0, 1e+8))
-            temp_dir = dest_dir + temp_name + "/"
+                # The path that needs to exist is the filtered event list 
+                final_paths = [filt_evt_path]
 
-            # Setting the paths to the output cleaned event list file
-            filt_evt_name = "{i}-{l}-{u}_clean.fits".format(i=insts, l=lo_en, u=hi_en)
-            filt_evt_path = dest_dir + filt_evt_name
+                # If it doesn't already exist then we will create commands to generate it
+                # TODO Need to decide which file to check for here to see whether the command has already been run
+                # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
+                
+                cmd = evtool_cmd.format(d=temp_dir, ef=evt_list_file, of=filt_evt_name, f=flag, fi=flag_invert, p=pattern,
+                    emin=lo_en, emax=hi_en, fep=filt_evt_path)
 
-            # The path that needs to exist is the filtered event list 
-            final_paths = [filt_evt_path]
-
-            # If it doesn't already exist then we will create commands to generate it
-            # TODO Need to decide which file to check for here to see whether the command has already been run
-            # Make the temporary directory (it shouldn't already exist but doing this to be safe)
-            if not os.path.exists(temp_dir):
-                os.makedirs(temp_dir)
-            
-            cmd = evtool_cmd.format(d=temp_dir, ef=evt_list_file, of=filt_evt_name, f=flag, fi=flag_invert, p=pattern,
-                emin=lo_en, emax=hi_en, fep=filt_evt_path)
-
-            # Now store the bash command, the path, and extra info in the dictionaries
-            miss_cmds[miss.name][obs_id] = cmd
-            miss_final_paths[miss.name][obs_id] = final_paths
-            miss_extras[miss.name][obs_id] = {'final_evt': filt_evt_path}
+                # Now store the bash command, the path, and extra info in the dictionaries
+                miss_cmds[miss.name][obs_id] = cmd
+                miss_final_paths[miss.name][obs_id] = final_paths
+                miss_extras[miss.name][obs_id] = {'final_evt': filt_evt_path}
+                
+            except NoDependencyProcessError:
+                # If archive.check_dependence_success raises this error, it means flaregti was not run
+                # sucessfully, and so a warning will be raised saying this observation has not been cleaned
+                bad_obs_counter += 1
+                pass
     
+        # If no observations have had flaregti run successfully, then no events can be cleaned
+        if bad_obs_counter == len(obs_info_dict):
+            raise NoDependencyProcessError("The required process flaregti has not been run successfully"
+                                            "for any data in {mn}".format(miss.name))
+
     # This is just used for populating a progress bar during the process run
     process_message = 'Cleaning eROSITA observations'
 
