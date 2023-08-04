@@ -188,7 +188,8 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][obs_id] = cmd
                 miss_final_paths[miss.name][obs_id] = final_paths
-                miss_extras[miss.name][obs_id] = {'final_evt': filt_evt_path}
+                miss_extras[miss.name][obs_id] = {'final_evt': filt_evt_path, 'flag': flag, 'flag_invert': flag_invert, 
+                                                  'pattern': pattern}
                 
             except NoDependencyProcessError:
                 # If archive.check_dependence_success raises this error, it means flaregti was not run
