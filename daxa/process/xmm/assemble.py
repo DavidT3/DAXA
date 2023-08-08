@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/08/2023, 20:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/08/2023, 21:05. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -308,7 +308,34 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
 @sas_call
 def rgs_events(obs_archive: Archive, process_unscheduled: bool = True,  num_cores: int = NUM_CORES,
                disable_progress: bool = False, timeout: Quantity = None):
+    """
+    This function runs the first step of the SAS RGS processing pipeline, rgsproc. This should prepare the RGS event
+    lists by calibrating and combining the separate CCD event lists into RGS events. This happens separately for RGS1
+    and RGS2, and for each sub-exposure of the two instruments.
 
+    None of the calculations performed in this step should be affected by the choice of source, the first step where
+    the choice of primary source should be taken into consideration is the next step, rgs_angles; though as DAXA
+    processes data to be generally useful we will not define a primary source, that is for the user in the future as
+    the aspect drift calculations can be re-run.
+
+    It is not necessary to define the spectral orders of interest at this stage.
+
+    :param Archive obs_archive: An Archive instance containing XMM mission instances with MOS observations for
+        which emchain should be run. This function will fail if no XMM missions are present in the archive.
+    :param bool process_unscheduled: Whether this function should also process sub-exposures marked 'U', for
+        unscheduled. Default is True, in which case they will be processed.
+    :param int num_cores: The number of cores to use, default is set to 90% of available.
+    :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire emchain process, but a timeout for individual
+        ObsID-subexposure processes.
+    :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
+        internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
+        bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
+        obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
+        f) whether the progress bar should be hidden or not.
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
+    """
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
     sas_version = _sas_process_setup(obs_archive)
@@ -339,7 +366,6 @@ def rgs_events(obs_archive: Archive, process_unscheduled: bool = True,  num_core
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
-        # TODO will this fall over if the user chooses R1 but not R2? And by extension would emchain fall over?
         # This method will fetch the valid data (ObsID, Instrument, and sub-exposure) that we need to process. When
         #  given R1 (for instance) as a search term only RGS1 identifiers will be returned. As this function needs to
         #  process RGS1 and RGS2 data, I just run it twice and add the results together
