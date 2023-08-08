@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/08/2023, 17:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/08/2023, 20:39. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -229,7 +229,7 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
         #  process MOS1 and MOS2 data, I just run it twice and add the results together
         # I prefer this to how I originally wrote this, as it saves multiple layers of for loops/if statements, which
         #  can be a little tricky to decipher.
-        # The checking of instruments is necessary because it is possible, if unlikely, that the user only selected
+        # The loop of instruments is necessary because it is possible, if unlikely, that the user only selected
         #  one of the MOS instruments when setting up the mission
         rel_obs_info = []
         for inst in [i for i in miss.chosen_instruments if i[0] == 'M']:
@@ -305,21 +305,23 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
-def rgs_events(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False,
-               timeout: Quantity = None):
+@sas_call
+def rgs_events(obs_archive: Archive, process_unscheduled: bool = True,  num_cores: int = NUM_CORES,
+               disable_progress: bool = False, timeout: Quantity = None):
+
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
     sas_version = _sas_process_setup(obs_archive)
 
     # Define the form of the rgsproc command that will be executed this function. This DAXA function, rgs_events, only
     #  deals with the first stage of processing, hence why entrystage and finalstage are both one.
-    rgp_cmd = "cd {d}; export SAS_CCF={ccf}; rgsproc entrystage=1 finalstage=1 odf={odf};"
-    #  mv *MIEVLI*.FIT ../; mv *ATTTSR*.FIT ../; cd ..; rm -r {d}
+    rgp_cmd = "cd {d}; export SAS_CCF={ccf}; export SAS_ODF={odf}; rgsproc entrystage=1:events finalstage=1:events " \
+              "withinstexpids=true instexpids={ei}; mv *.FIT ../; cd ..; rm -r {d}"
 
     # The event list name that we want to check for at the end of the process - the zeros at the end seem to always
-    #  be there for emchain-ed event lists, which is why I'm doing it this way rather than with a wildcard * at the
+    #  be there for rgsproc-ed event lists, which is why I'm doing it this way rather than with a wildcard * at the
     #  end (which DAXA does support in the sas_call stage).
-    # evt_list_name = "P{o}{i}{ei}MIEVLI0000.FIT"
+    evt_list_name = "P{o}{i}{ei}merged0000.FIT"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -339,20 +341,69 @@ def rgs_events(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
 
         # TODO will this fall over if the user chooses R1 but not R2? And by extension would emchain fall over?
         # This method will fetch the valid data (ObsID, Instrument, and sub-exposure) that we need to process. When
-        #  given M1 (for instance) as a search term only MOS1 identifiers will be returned. As this function needs to
+        #  given R1 (for instance) as a search term only RGS1 identifiers will be returned. As this function needs to
         #  process RGS1 and RGS2 data, I just run it twice and add the results together
         # I prefer this to how I originally wrote this, as it saves multiple layers of for loops/if statements, which
         #  can be a little tricky to decipher
-        rel_obs_info = obs_archive.get_obs_to_process(miss.name, 'R1') + obs_archive.get_obs_to_process(miss.name, 'R2')
+        # The loop of instruments is necessary because it is possible, if unlikely, that the user only selected
+        #  one of the RGS instruments when setting up the mission
+        rel_obs_info = []
+        for inst in [i for i in miss.chosen_instruments if i[0] == 'R']:
+            rel_obs_info += obs_archive.get_obs_to_process(miss.name, inst)
+
+        # Don't just launch straight into the loop however, as the user can choose NOT to process unscheduled
+        #  observations. In that case we clean that rel_obs_info list.
+        if not process_unscheduled:
+            # Select only those sub exposures that have an ident that doesn't start with a U
+            rel_obs_info = [roi for roi in rel_obs_info if roi[2][0] != 'U']
 
         # Here we check that the previous required processes ran, mainly to be consistent. I know that odf ingest
         #  worked if we have rel_obs_info data, because odf_ingest is what populated the information get_obs_to_process
         #  uses for XMM.
         good_odf = obs_archive.check_dependence_success(miss.name, [[roi[0]] for roi in rel_obs_info], 'odf_ingest')
 
-        print(good_odf)
+        # Now we start to cycle through the relevant data
+        for obs_info in np.array(rel_obs_info)[good_odf]:
+            # Unpack the observation information provided by the
+            obs_id, inst, exp_id = obs_info
 
-        raise NotImplementedError("Haven't gotten any further yet")
+            # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
+            #  files will be written to.
+            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            ccf_path = dest_dir + 'ccf.cif'
+
+            # Grab the path to the ODF directory, we shall need it
+            odf_dir = miss.raw_data_path + obs_id + '/'
+
+            # Set up a temporary directory to work in
+            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_dir = dest_dir + temp_name + "/"
+
+            # This is where the final output event list file will be stored
+            final_path = dest_dir + evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
+
+            # If it doesn't already exist then we will create commands to generate it - there are no options for
+            #  rgsproc that could be changed between runs (other than processing unscheduled, but we're looping
+            #  through those commands separately), so it's safe to take what has already been generated.
+            # Though actually the raw data could have changed, I shall have to reconsider this in the context of
+            #  updating an existing archive
+            if not os.path.exists(final_path):
+                # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
+
+                # Format the blank command string defined near the top of this function with information
+                #  particular to the current mission and ObsID
+                cmd = rgp_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=inst+exp_id)
+
+                # Now store the bash command, the path, and extra info in the dictionaries
+                miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
+                miss_final_paths[miss.name][obs_id + inst + exp_id] = final_path
+                miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_list': final_path}
+
+        # This is just used for populating a progress bar during generation
+    process_message = 'Assembling RGS event lists'
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
 @sas_call
