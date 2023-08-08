@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 19:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/08/2023, 15:34. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -28,7 +28,9 @@ class XMMPointed(BaseMission):
     and collected by instances of this class). The available observation information is fetched from the XMM Science
     Archive using AstroQuery, and data are downloaded with the same module.
 
-    :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
+    :param List[str]/str insts: The instruments that the user is choosing to download/process data from. The EPIC PN,
+        MOS1, and MOS2 instruments are selected by default. You may also select RGS1 (R1) and RGS2 (R2), though
+        as they less widely used they are not selected by default.
     """
     def __init__(self, insts: Union[List[str], str] = None):
         """
@@ -36,12 +38,14 @@ class XMMPointed(BaseMission):
         accessed and collected by instances of this class). The available observation information is fetched from
         the XMM Science Archive using AstroQuery, and data are downloaded with the same module.
 
-        :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
+        :param List[str]/str insts: The instruments that the user is choosing to download/process data from. The EPIC
+            PN, MOS1, and MOS2 instruments are selected by default. You may also select RGS1 (R1) and RGS2
+            (R2), though as they less widely used they are not selected by default.
         """
         # Call the init of parent class with the required information
         super().__init__()
 
-        # Sets the default instruments - #TODO Perhaps update these to include RGS and OM, once they're supported
+        # Sets the default instruments
         if insts is None:
             insts = ['M1', 'M2', 'PN']
         elif isinstance(insts, str):
@@ -51,8 +55,8 @@ class XMMPointed(BaseMission):
         # Makes sure everything is uppercase
         insts = [i.upper() for i in insts]
 
-        if 'R1' in insts or 'R2' in insts or 'OM' in insts:
-            raise NotImplementedError("The RGS and OM instruments are not currently supported by this class.")
+        if 'OM' in insts:
+            raise NotImplementedError("The OM instrument is not currently supported by this class.")
 
         self._miss_poss_insts = ['M1', 'M2', 'PN', 'OM', 'R1', 'R2']
         # The chosen_instruments property setter (see below) will use these to convert possible contractions
