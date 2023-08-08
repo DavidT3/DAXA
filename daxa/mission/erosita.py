@@ -94,7 +94,7 @@ class eROSITACalPV(BaseMission):
         #  property if they're making a new subclass, then replace None with the name of the mission.
         self._miss_name = "erosita_calpv"
         # Used for things like progress bar descriptions
-        self._pretty_miss_name = "eROSITA Calibration and Performance Verification"
+        self._pretty_miss_name = "eROSITACalPV"
         return self._miss_name
     
     @property

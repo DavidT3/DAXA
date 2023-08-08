@@ -219,13 +219,13 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     write_lightcurve = 'yes' 
 
     # Defining the command 
-    flaregti_cmd = "cd {d}; flaregti eventfile={ef} gtifile={gtif} pimin={pimi} pimax={pima} " \
-        "mask_pimin={mpimi} mask_pimax={mpima} xmin={xmi} xmax={xma} ymin={ymi} ymax={yma} " \
-        "gridsize={gs} binsize={bs} detml={dl} timebin={tb} source_size={ss} source_like={sl} " \
-        "fov_radius={fr} threshold={t} max_threshold={mt} write_mask={wm} mask={m} mask_iter={mit} " \
-        "write_lightcurve={wl} lightcurve={lcf} write_thresholdimg={wti} thresholdimg={tif}" \
-        "; mv {ogti} {gti}; mv {olc} {lc}; mv {oti} {ti}; mv {omi} {mi}" \
-        "; rm -r {d}"
+    flaregti_cmd = "cd {d}; flaregti eventfile={ef} pimin={pimi} pimax={pima} " \
+         "mask_pimin={mpimi} mask_pimax={mpima} xmin={xmi} xmax={xma} ymin={ymi} ymax={yma} " \
+         "gridsize={gs} binsize={bs} detml={dl} timebin={tb} source_size={ss} source_like={sl} " \
+         "fov_radius={fr} threshold={t} max_threshold={mt} write_mask={wm} mask={m} mask_iter={mit} " \
+         "write_lightcurve={wl} lightcurve={lcf} write_thresholdimg={wti} thresholdimg={tif}; " \
+         "mv {olc} {lc}; mv {oti} {ti}; mv {omi} {mi}" \
+         "; rm -r {d}"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -282,18 +282,16 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             temp_name = "tempdir_{}".format(randint(0, 1e+8))
             temp_dir = dest_dir + temp_name + "/"
 
-            # Setting up the paths to the gti file, lightcurve file, threshold image file, and mask image file
-            og_gti_name = "{i}-gti.fits".format(i=insts)
+            # Setting up the paths to the lightcurve file, threshold image file, and mask image file
             og_lc_name = "{i}-lc-{l}-{u}.fits".format(i=insts, l=pimin, u=pimax)
             og_thresholdimg_name = "{i}-thresholdimg-{l}-{u}.fits".format(i=insts, l=pimin, u=pimax)
             og_maskimg_name = "{i}-maskimg-{l}-{u}.fits".format(i=insts, l=mask_pimin, u=mask_pimax)
  
-            gti_path = dest_dir + og_gti_name
             lc_path = dest_dir + og_lc_name
             threshold_path = dest_dir + og_thresholdimg_name
             maskimg_path = dest_dir + og_maskimg_name
 
-            final_paths = [gti_path, lc_path, threshold_path, maskimg_path]
+            final_paths = [lc_path, threshold_path, maskimg_path]
 
             # If it doesn't already exist then we will create commands to generate it
             # TODO Need to decide which file to check for here to see whether the command has already been run
@@ -301,21 +299,21 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             if not os.path.exists(temp_dir):
                 os.makedirs(temp_dir)
 
-            cmd = flaregti_cmd.format(d=temp_dir, ef=evt_list_file, gtif=og_gti_name, pimi=pimin, pima=pimax,
+            cmd = flaregti_cmd.format(d=temp_dir, ef=evt_list_file, pimi=pimin, pima=pimax,
                                       mpimi=mask_pimin, mpima=mask_pimax, xmi=xmin, xma=xmax, ymi=ymin,
                                       yma=ymax, gs=gridsize, bs=binsize, dl=detml, tb=timebin, ss=source_size,
                                       sl=source_like, fr=fov_radius, t=threshold, mt=max_threshold, wm=write_mask,
                                       m=og_maskimg_name, mit=mask_iter, wl=write_lightcurve, lcf=og_lc_name,
-                                      wti=write_thresholdimg, tif=og_thresholdimg_name, ogti=og_gti_name,
-                                      gti=gti_path, olc=og_lc_name, lc=lc_path, oti=og_thresholdimg_name,
-                                      ti=threshold_path, omi=og_maskimg_name, mi=maskimg_path)
+                                      wti=write_thresholdimg, tif=og_thresholdimg_name, olc=og_lc_name, lc=lc_path, 
+                                      oti=og_thresholdimg_name, ti=threshold_path, omi=og_maskimg_name, mi=maskimg_path)
+
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][obs_id] = cmd
             miss_final_paths[miss.name][obs_id] = final_paths
-            miss_extras[miss.name][obs_id] = {'gti_path': gti_path, 'lc_path': lc_path, 'threshold_path': threshold_path,
+            miss_extras[miss.name][obs_id] = {'lc_path': lc_path, 'threshold_path': threshold_path,
                                               'maskimg_path': maskimg_path}
 
     # This is just used for populating a progress bar during the process run
-    process_message = 'Finding flares in eROSITA observations'
+    process_message = 'Finding flares in observations'
 
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout, esass_in_docker

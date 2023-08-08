@@ -7,7 +7,9 @@ import os.path
 from subprocess import Popen, PIPE
 from functools import wraps
 from multiprocessing.dummy import Pool
+from enum import Flag
 
+import itertools
 from astropy.units import UnitConversionError
 from tqdm import tqdm
 from exceptiongroup import ExceptionGroup
@@ -19,6 +21,85 @@ from daxa.process._backend_check import find_esass
 from daxa.process.erosita.setup import _prepare_erositacalpv_info
 
 ALLOWED_EROSITA_MISSIONS = ['erosita_calpv']
+
+class _eSASS_Flag(Flag):
+    """
+    This class was written by Toby Wallage found on Github @TobyWallage.
+    It throws a ValueError when an invalid eSASS Flag is declared with this class.
+    For use in the cleaned_evt_lists function to check the user input.
+
+    Class derived from Enum/Flag containing possible flags that can be used in
+    evtool.
+    
+    Descriptions found here:
+    https://erosita.mpe.mpg.de/edr/DataAnalysis/prod_descript/EventFiles_edr.html
+
+    Args
+        :param int value: An integer repesenting a valid flag value. The flag
+        value will determine which type of events will be discarded by the
+        cleaned_evt_lists function.
+    
+    Raises
+        :raises ValueError: If value is NOT a valid flag.
+        :raises TypeError: If value is not an integer or integer-like.
+
+    Examples
+
+        A flag may be constructed with a valid integer hexadecimal value
+        >>> some_flag = _eSASS_Flag(0xc0008000)
+
+        A flag may also be constructed from individual events
+        >>> some_new_flag = _eSASS_Flag.DEFAULT_FLAG | _eSASS_Flag.OUT_OF_FOV
+
+        These flags are identical
+    
+    """
+    # Values copied and pasted from eSASS docs
+    MPE_OWNER               = 0x1
+    IKI_OWNER               = 0x2
+    TRAILING_EVENT          = 0x10
+    NEXT_TO_BORDER          = 0x20
+    NEXT_TO_ONBOARD_BADPIX  = 0x100
+    NEXT_TO_BRIGHT_PIX      = 0x200
+    NEXT_TO_DEAD_PIX        = 0x400
+    NEXT_TO_FLICKERING      = 0x800
+    ON_FLICKERING           = 0x1000
+    ON_BADPIX               = 0x2000
+    ON_DEADPIX              = 0x4000
+    OUT_OF_FOV              = 0x8000
+    OUTSIDE_QUALGTI         = 0x10000
+    OUTSIDE_GTI             = 0x20000
+    PRECEDING_MIP           = 0x40000
+    MIP_ASSOCIATED          = 0x80000
+    PHA_QUALITY_1           = 0x1000000
+    PHA_QUALITY_2           = 0x2000000
+    PHA_QUALITY_3           = 0x4000000
+    CORRUPT_EVENT           = 0x40000000
+    CORRUPT_FRAME           = 0x80000000
+
+    # DEFAULT_FLAG is equivalent to 0xc0000000
+    DEFAULT_FLAG = CORRUPT_EVENT | CORRUPT_FRAME
+
+    def get_hex(self):
+        return hex(self.value)
+
+def _is_valid_flag(flag):
+    """
+    This function is to be called within the cleaned_evt_lists function to check that the user has
+    input a valid eSASS flag to filter event with. 
+
+    :param flag Flag: The user input of the flag parameter in the cleaned_evt_list function.
+        This may be in hexidecimal or its equivalent decimal format, both are accepted by evtool. 
+    :return: True for valid eSASS flags, and False for invalid. 
+    """
+    try:
+        # If the flag is valid then it will declare the class without an error
+        _eSASS_Flag(flag)
+        return True
+
+    except ValueError:
+        # If the flag is invalid then a ValueError is thrown
+        return False
 
 def _esass_process_setup(obs_archive: Archive) -> bool:
     """
@@ -188,7 +269,6 @@ def esass_call(esass_func):
 
         # I do not love this solution, but this will be what any python errors that are thrown during execute_cmd
         #  are stored in. In theory, because execute_cmd is so simple, there shouldn't be Python errors thrown.
-        #  SAS errors will be stored in process_parsed_stderrs
         python_errors = []
 
         # Iterating through the missions (there may only one but as the dictionary will have mission name as the top
@@ -236,12 +316,12 @@ def esass_call(esass_func):
 
                         # Just unpack the results in for clarity's sake
                         relevant_id, mission_name, does_file_exist, proc_out, proc_err, proc_extra_info = results_in
-
+                        
                         # TODO would like to parse and identify eSASS errors like we can with SAS
 
                         # We consider the task successful if all the final files exist and there are no entries in
                         #  the parsed std_err output
-                        if all(does_file_exist) == 0:
+                        if all(does_file_exist):
                             success_flags[mission_name][relevant_id] = True
                         else:
                             success_flags[mission_name][relevant_id] = False
@@ -287,7 +367,7 @@ def esass_call(esass_func):
             # This uses the new ExceptionGroup class to raise a set of python errors (if there are any raised
             #  during the execute_cmd function calls)
             if len(python_errors) != 0:
-                raise ExceptionGroup("Python errors raised during SAS commands", python_errors)
+                raise ExceptionGroup("Python errors raised during eSASS commands", python_errors)
 
         obs_archive.process_success = (esass_func.__name__, success_flags)
         obs_archive.raw_process_errors = (esass_func.__name__, process_raw_stderrs)
