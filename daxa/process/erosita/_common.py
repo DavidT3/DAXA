@@ -269,7 +269,6 @@ def esass_call(esass_func):
 
         # I do not love this solution, but this will be what any python errors that are thrown during execute_cmd
         #  are stored in. In theory, because execute_cmd is so simple, there shouldn't be Python errors thrown.
-        #  eSASS errors will be stored in process_parsed_stderrs
         python_errors = []
 
         # Iterating through the missions (there may only one but as the dictionary will have mission name as the top
