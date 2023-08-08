@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/04/2023, 10:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/08/2023, 17:00. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -228,8 +228,12 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
         #  given M1 (for instance) as a search term only MOS1 identifiers will be returned. As emchain needs to
         #  process MOS1 and MOS2 data, I just run it twice and add the results together
         # I prefer this to how I originally wrote this, as it saves multiple layers of for loops/if statements, which
-        #  can be a little tricky to decipher
-        rel_obs_info = obs_archive.get_obs_to_process(miss.name, 'M1') + obs_archive.get_obs_to_process(miss.name, 'M2')
+        #  can be a little tricky to decipher.
+        # The checking of instruments is necessary because it is possible, if unlikely, that the user only selected
+        #  one of the MOS instruments when setting up the mission
+        rel_obs_info = []
+        for inst in [i for i in miss.chosen_instruments if i[0] == 'M']:
+            rel_obs_info += obs_archive.get_obs_to_process(miss.name, inst)
 
         # Don't just launch straight into the loop however, as the user can choose NOT to process unscheduled
         #  observations. In that case we clean that rel_obs_info list.
@@ -299,6 +303,56 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     # This is just used for populating a progress bar during generation
     process_message = 'Assembling MOS event lists'
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
+
+
+def rgs_events(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False,
+               timeout: Quantity = None):
+    # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
+    #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
+    sas_version = _sas_process_setup(obs_archive)
+
+    # Define the form of the rgsproc command that will be executed this function. This DAXA function, rgs_events, only
+    #  deals with the first stage of processing, hence why entrystage and finalstage are both one.
+    rgp_cmd = "cd {d}; export SAS_CCF={ccf}; rgsproc entrystage=1 finalstage=1 odf={odf};"
+    #  mv *MIEVLI*.FIT ../; mv *ATTTSR*.FIT ../; cd ..; rm -r {d}
+
+    # The event list name that we want to check for at the end of the process - the zeros at the end seem to always
+    #  be there for emchain-ed event lists, which is why I'm doing it this way rather than with a wildcard * at the
+    #  end (which DAXA does support in the sas_call stage).
+    # evt_list_name = "P{o}{i}{ei}MIEVLI0000.FIT"
+
+    # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
+    #  extra information that might be useful to provide to the next step in the generation process
+    miss_cmds = {}
+    miss_final_paths = {}
+    miss_extras = {}
+
+    # Just grabs the XMM missions, we already know there will be at least one because otherwise _sas_process_setup
+    #  would have thrown an error
+    xmm_miss = [mission for mission in obs_archive if mission.name in ALLOWED_XMM_MISSIONS]
+    # We are iterating through XMM missions (options could include xmm_pointed and xmm_slew for instance).
+    for miss in xmm_miss:
+        # Sets up the top level keys (mission name) in our storage dictionaries
+        miss_cmds[miss.name] = {}
+        miss_final_paths[miss.name] = {}
+        miss_extras[miss.name] = {}
+
+        # TODO will this fall over if the user chooses R1 but not R2? And by extension would emchain fall over?
+        # This method will fetch the valid data (ObsID, Instrument, and sub-exposure) that we need to process. When
+        #  given M1 (for instance) as a search term only MOS1 identifiers will be returned. As this function needs to
+        #  process RGS1 and RGS2 data, I just run it twice and add the results together
+        # I prefer this to how I originally wrote this, as it saves multiple layers of for loops/if statements, which
+        #  can be a little tricky to decipher
+        rel_obs_info = obs_archive.get_obs_to_process(miss.name, 'R1') + obs_archive.get_obs_to_process(miss.name, 'R2')
+
+        # Here we check that the previous required processes ran, mainly to be consistent. I know that odf ingest
+        #  worked if we have rel_obs_info data, because odf_ingest is what populated the information get_obs_to_process
+        #  uses for XMM.
+        good_odf = obs_archive.check_dependence_success(miss.name, [[roi[0]] for roi in rel_obs_info], 'odf_ingest')
+
+        print(good_odf)
+
+        raise NotImplementedError("Haven't gotten any further yet")
 
 
 @sas_call
