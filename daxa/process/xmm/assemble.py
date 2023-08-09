@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/08/2023, 04:31. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/08/2023, 15:14. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -542,6 +542,11 @@ def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, d
     This function runs the third step of the SAS RGS processing pipeline, rgsproc. Here we filter the events to only
     those which should be useful for scientific analysis. The attitude and house-keeping GTIs are also applied. This
     happens separately for RGS1 and RGS2, and for each sub-exposure of the two instruments.
+
+    Unfortunately it seems that combining sub-exposure event lists for a given ObsID-Instrument combo is not
+    supported/recommended, combinations of data are generally done after spectrum generation, and even then they
+    don't exactly recommend it - of course spectrum generation doesn't get done in DAXA. As such this function
+    will produce individual event lists for RGS sub-exposures.
 
     :param Archive obs_archive: An Archive instance containing XMM mission instances with RGS observations for
         which RGS processing should be run. This function will fail if no XMM missions are present in the archive.
