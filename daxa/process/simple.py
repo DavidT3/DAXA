@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/08/2023, 03:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/08/2023, 04:40. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
@@ -44,6 +44,15 @@ def full_process_xmm(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quanti
     #  for each observation
     odf_ingest(obs_archive, num_cores=num_cores, timeout=timeout)
 
+    # It is very much not a given that there will be RGS data to process, so we try to do it, and if it raises
+    #  a value error because there are no RGS data then we move on
+    try:
+        rgs_events(obs_archive, process_unscheduled, num_cores=num_cores, timeout=timeout)
+        rgs_angles(obs_archive, num_cores=num_cores, timeout=timeout)
+        cleaned_rgs_event_lists(obs_archive, num_cores=num_cores, timeout=timeout)
+    except ValueError:
+        pass
+
     # We try to process EPIC PN data, but we use a try-except because it is possible that none will have been
     #  selected when the mission was defined
     try:
@@ -59,15 +68,6 @@ def full_process_xmm(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quanti
         em_data = True
     except ValueError:
         em_data = False
-
-    # It is very much not a given that there will be RGS data to process, so we try to do it, and if it raises
-    #  a value error because there are no RGS data then we move on
-    try:
-        rgs_events(obs_archive, process_unscheduled, num_cores=num_cores, timeout=timeout)
-        rgs_angles(obs_archive, num_cores=num_cores, timeout=timeout)
-        cleaned_rgs_event_lists(obs_archive, num_cores=num_cores, timeout=timeout)
-    except ValueError:
-        pass
 
     # The user can choose whether this state is run, if it isn't then cleaned_evt_lists should automatically
     #  turn off its filtering based on anomolous state codes. Also if there are actually MOS data to use
