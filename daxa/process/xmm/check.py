@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 11:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/08/2023, 04:26. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, List
@@ -72,9 +72,11 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
-        # This method will fetch the valid data (ObsID, Instrument, and sub-exposure) that can be processed - then we
-        #  can narrow it down to only those observations that had emchain run successfully
-        rel_obs_info = obs_archive.get_obs_to_process(miss.name, 'M1') + obs_archive.get_obs_to_process(miss.name, 'M2')
+        # The loop of instruments is necessary because it is possible, if unlikely, that the user only selected
+        #  one of the MOS instruments when setting up the mission
+        rel_obs_info = []
+        for inst in [i for i in miss.chosen_instruments if i[0] == 'M']:
+            rel_obs_info += obs_archive.get_obs_to_process(miss.name, inst)
 
         # Here we check that emchain ran - if it didn't then we can hardly search the MOS event lists for a badly
         #  behaved CCD!

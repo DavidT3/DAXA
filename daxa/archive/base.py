@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 27/04/2023, 22:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/08/2023, 16:49. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -982,7 +982,7 @@ class Archive:
             if search_ident not in self._missions[mission_name].filtered_obs_ids \
                     and search_ident not in self._missions[mission_name].chosen_instruments:
                 raise ValueError("The passed search ident ({si}) should be either an ObsID associated with the "
-                                 "mission, or a mission instrument enabled for this archive; otherwise it must be"
+                                 "mission, or a mission instrument enabled for this archive; otherwise it must be "
                                  "set to None.".format(si=search_ident))
 
         # Using dict_search and iterating (as it as a generator) - I know this method isn't super well explained, but
