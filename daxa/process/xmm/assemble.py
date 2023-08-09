@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/08/2023, 03:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/08/2023, 04:31. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -764,29 +764,35 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
-        # This method will fetch the valid data M1/2 (ObsID, Instrument, and sub-exposure) that can be
-        #  processed - fetching instruments separately because the user might want to exclude MOS anom CCD
-        #  states, in which case I need to check for past processes separately (that doesn't run on PN).
-        rel_m_obs = obs_archive.get_obs_to_process(miss.name, 'M1') + obs_archive.get_obs_to_process(miss.name, 'M2')
+        # This method will fetch the valid data M1/2 and PN (ObsID, Instrument, and sub-exposure) that can be
+        #  processed - then we can narrow it down to only those observations that had em/epchain run successfully
+        # The loop of instruments is necessary because it is possible, if unlikely, that the user selected a subset
+        #  of the PN, MOS1, or MOS2 instruments that this function can be used on. We select instruments beginning
+        #  with M or P, not R (which would indicate RGS, which cannot be used with this function).
+        rel_obs_info = []
+        for inst in miss.chosen_instruments:
+            if inst[0] == 'P':
+                rel_p_obs = obs_archive.get_obs_to_process(miss.name, inst)
+                # This checks that espfilt ran successfully for the PN data
+                ef_pn_good = obs_archive.check_dependence_success(miss.name, rel_p_obs, 'espfilt',
+                                                                  no_success_error=False)
+                rel_obs_info.append(np.array(rel_p_obs)[ef_pn_good])
 
-        # PN valid data identifiers are fetched separately, as I may need to check MOS for previous runs of emanom (if
-        #  the user wants that).
-        rel_p_obs = obs_archive.get_obs_to_process(miss.name, 'PN')
+            elif inst[0] == 'M':
+                rel_m_obs = obs_archive.get_obs_to_process(miss.name, inst)
+                # This is why we're treating PN and MOS separately here, if the user wants to exclude certain CCD states
+                #  then we have to make sure that emanom was run (and run successfully) for the MOS data.
+                if filt_mos_anom_state:
+                    ef_mos_good = obs_archive.check_dependence_success(miss.name, rel_m_obs, ['emanom', 'espfilt'],
+                                                                       no_success_error=False)
+                else:
+                    ef_mos_good = obs_archive.check_dependence_success(miss.name, rel_m_obs, 'espfilt',
+                                                                       no_success_error=False)
+                rel_obs_info.append(np.array(rel_m_obs)[ef_mos_good])
 
-        # This checks that espfilt ran successfully for the PN data
-        ef_pn_good = obs_archive.check_dependence_success(miss.name, rel_p_obs, 'espfilt', no_success_error=False)
-
-        # This is why we're treating PN and MOS separately here, if the user wants to exclude certain CCD states
-        #  then we have to make sure that emanom was run (and run successfully) for the MOS data.
-        if filt_mos_anom_state:
-            ef_mos_good = obs_archive.check_dependence_success(miss.name, rel_m_obs, ['emanom', 'espfilt'],
-                                                               no_success_error=False)
-        else:
-            ef_mos_good = obs_archive.check_dependence_success(miss.name, rel_m_obs, 'espfilt',
-                                                               no_success_error=False)
-
-        # Now we construct the array of observation identifiers that should be cleaned
-        all_obs_info = np.vstack([np.array(rel_p_obs)[ef_pn_good], np.array(rel_m_obs)[ef_mos_good]])
+        # We combine the obs information for PN and MOS, taking only those that we have confirmed have had successful
+        #  emchain or epchain runs
+        all_obs_info = np.vstack(rel_obs_info)
 
         # We check to see if any data remain in all_obs_info - normally check_dependence_success would raise an error
         #  if there weren't any, but as we're checking PN and MOS separately (and I want cleaned_evt_lists to run
