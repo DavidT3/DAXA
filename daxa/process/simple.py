@@ -1,11 +1,12 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 17:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/08/2023, 03:42. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
-from daxa.process.xmm.assemble import epchain, emchain, cleaned_evt_lists, merge_subexposures
+from daxa.process.xmm.assemble import epchain, emchain, cleaned_evt_lists, merge_subexposures, rgs_events, rgs_angles, \
+    cleaned_rgs_event_lists
 from daxa.process.xmm.check import emanom
 from daxa.process.xmm.clean import espfilt
 from daxa.process.xmm.generate import generate_images_expmaps
@@ -42,14 +43,35 @@ def full_process_xmm(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quanti
     # Prepares the summary files for the XMM observations - used by processes to determine what data there are
     #  for each observation
     odf_ingest(obs_archive, num_cores=num_cores, timeout=timeout)
-    # This step combines the separate CCD data for any EPIC-PN observations
-    epchain(obs_archive, process_unscheduled, num_cores=num_cores, timeout=timeout)
-    # This step does much the same but for EPIC-MOS observations
-    emchain(obs_archive, process_unscheduled, num_cores=num_cores, timeout=timeout)
+
+    # We try to process EPIC PN data, but we use a try-except because it is possible that none will have been
+    #  selected when the mission was defined
+    try:
+        # This step combines the separate CCD data for any EPIC-PN observations
+        epchain(obs_archive, process_unscheduled, num_cores=num_cores, timeout=timeout)
+    except ValueError:
+        pass
+    # Same deal but for the MOS data - all the succeeding steps should handle this by themselves, checking for
+    #  the data that are present
+    try:
+        # This step does much the same but for EPIC-MOS observations
+        emchain(obs_archive, process_unscheduled, num_cores=num_cores, timeout=timeout)
+        em_data = True
+    except ValueError:
+        em_data = False
+
+    # It is very much not a given that there will be RGS data to process, so we try to do it, and if it raises
+    #  a value error because there are no RGS data then we move on
+    try:
+        rgs_events(obs_archive, process_unscheduled, num_cores=num_cores, timeout=timeout)
+        rgs_angles(obs_archive, num_cores=num_cores, timeout=timeout)
+        cleaned_rgs_event_lists(obs_archive, num_cores=num_cores, timeout=timeout)
+    except ValueError:
+        pass
 
     # The user can choose whether this state is run, if it isn't then cleaned_evt_lists should automatically
-    #  turn off its filtering based on anomolous state codes.
-    if find_mos_anom_state:
+    #  turn off its filtering based on anomolous state codes. Also if there are actually MOS data to use
+    if find_mos_anom_state and em_data:
         # This checks for anomalous CCD states in MOS observations - this step isn't obligatory but is
         #  probably a good idea
         emanom(obs_archive, num_cores=num_cores, timeout=timeout)
