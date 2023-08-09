@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/08/2023, 22:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/08/2023, 03:18. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -531,11 +531,131 @@ def rgs_angles(obs_archive: Archive,  num_cores: int = NUM_CORES, disable_progre
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
             # There are no file outputs from this stage, it just modifies the existing event list
-            miss_final_paths[miss.name][obs_id + inst + exp_id] = ''
+            miss_final_paths[miss.name][obs_id + inst + exp_id] = []
             miss_extras[miss.name][obs_id + inst + exp_id] = {}
 
         # This is just used for populating a progress bar during generation
     process_message = 'Correcting RGS for aspect drift'
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
+
+
+@sas_call
+def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, disable_progress: bool = False,
+                            timeout: Quantity = None):
+    """
+    This function runs (effectively) the third step of the SAS RGS processing pipeline, rgsproc.
+
+    This happens separately for RGS1 and RGS2, and for each sub-exposure of the two instruments.
+
+    It is not necessary to define the spectral orders of interest at this stage.
+
+    NEED TO ADD SOME CHECKS FOR WHETHER SOFT PROTON FILTERING HAS BEEN PERFORMED FOR RGS AT SOME POINT MAYBE? AFTER
+    I ADD SOFT PROTON FILTERING FOR RGS THAT IS.
+
+    :param Archive obs_archive: An Archive instance containing XMM mission instances with RGS observations for
+        which RGS processing should be run. This function will fail if no XMM missions are present in the archive.
+    :param int num_cores: The number of cores to use, default is set to 90% of available.
+    :param bool disable_progress: Setting this to true will turn off the SAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire rgs_events process, but a timeout for individual
+        ObsID-subexposure processes.
+    :return: Information required by the SAS decorator that will run commands. Top level keys of any dictionaries are
+        internal DAXA mission names, next level keys are ObsIDs. The return is a tuple containing a) a dictionary of
+        bash commands, b) a dictionary of final output paths to check, c) a dictionary of extra info (in this case
+        obs and analysis dates), d) a generation message for the progress bar, e) the number of cores allowed, and
+        f) whether the progress bar should be hidden or not.
+    :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
+    """
+
+    # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
+    #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
+    sas_version = _sas_process_setup(obs_archive)
+
+    # Define the form of the rgsproc command that will be executed this function. This DAXA
+    #  function, cleaned_rgs_event_lists, only deals with the first stage of processing, hence why entrystage
+    #  and finalstage are both three.
+    # As we are effectively splitting up an existing pipeline, I actually leave the temporary directories (and final
+    #  files) in place until later in the chain
+    rgp_cmd = "cd {d}; export SAS_CCF={ccf}; export SAS_ODF={odf}; rgsproc entrystage=3:filter finalstage=3:filter " \
+              "withinstexpids=true instexpids={ei}; mv *.FIT ../; cd ..; rm -r {d}"
+
+    # The event list name that we want to check for at the end of the process - a copy of the original event list
+    #  but with the filtering of events applied
+    evt_list_name = "P{o}{i}{ei}EVENLI0000.FIT"
+
+    # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
+    #  extra information that might be useful to provide to the next step in the generation process
+    miss_cmds = {}
+    miss_final_paths = {}
+    miss_extras = {}
+
+    # Just grabs the XMM missions, we already know there will be at least one because otherwise _sas_process_setup
+    #  would have thrown an error
+    xmm_miss = [mission for mission in obs_archive if mission.name in ALLOWED_XMM_MISSIONS]
+    # We are iterating through XMM missions (options could include xmm_pointed and xmm_slew for instance).
+    for miss in xmm_miss:
+        # Sets up the top level keys (mission name) in our storage dictionaries
+        miss_cmds[miss.name] = {}
+        miss_final_paths[miss.name] = {}
+        miss_extras[miss.name] = {}
+
+        # This method will fetch the valid data (ObsID, Instrument, and sub-exposure) that we need to process. When
+        #  given R1 (for instance) as a search term only RGS1 identifiers will be returned. As this function needs to
+        #  process RGS1 and RGS2 data, I just run it twice and add the results together
+        # I prefer this to how I originally wrote this, as it saves multiple layers of for loops/if statements, which
+        #  can be a little tricky to decipher
+        # The loop of instruments is necessary because it is possible, if unlikely, that the user only selected
+        #  one of the RGS instruments when setting up the mission
+        rel_obs_info = []
+        for inst in [i for i in miss.chosen_instruments if i[0] == 'R']:
+            rel_obs_info += obs_archive.get_obs_to_process(miss.name, inst)
+
+        # Here we check that the previous required processes ran, mainly to be consistent. I know that odf ingest
+        #  worked if we have rel_obs_info data, because odf_ingest is what populated the information get_obs_to_process
+        #  uses for XMM.
+        good_odf = obs_archive.check_dependence_success(miss.name, rel_obs_info, 'rgs_angles')
+
+        # Now we start to cycle through the relevant data
+        for obs_info in np.array(rel_obs_info)[good_odf]:
+            # Unpack the observation information provided by the
+            obs_id, inst, exp_id = obs_info
+
+            # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
+            #  files will be written to.
+            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            ccf_path = dest_dir + 'ccf.cif'
+
+            # Grab the path to the ODF directory, we shall need it
+            odf_dir = miss.raw_data_path + obs_id + '/'
+
+            # We don't need to set-up a temporary directory, as we use the one from the first step of RGS processing
+            temp_dir = obs_archive.process_extra_info[miss.name]['rgs_events'][obs_id + inst + exp_id]['temp_dir']
+
+            # This is where the final output event list file will be stored
+            final_path = dest_dir + evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
+
+            # If it doesn't already exist then we will create commands to generate it - there are no options for
+            #  rgsproc that could be changed between runs (other than processing unscheduled, but we're looping
+            #  through those commands separately), so it's safe to take what has already been generated.
+            # Though actually the raw data could have changed, I shall have to reconsider this in the context of
+            #  updating an existing archive
+            if not os.path.exists(final_path):
+                # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
+
+                # Format the blank command string defined near the top of this function with information
+                #  particular to the current mission and ObsID
+                cmd = rgp_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=inst + exp_id)
+
+                # Now store the bash command, the path, and extra info in the dictionaries
+                miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
+                # There are no file outputs from this stage, it just modifies the existing event list
+                miss_final_paths[miss.name][obs_id + inst + exp_id] = final_path
+                miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_clean_path': final_path}
+
+        # This is just used for populating a progress bar during generation
+    process_message = 'Cleaning RGS event lists'
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
