@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/08/2023, 03:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/08/2023, 03:24. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -318,8 +318,6 @@ def rgs_events(obs_archive: Archive, process_unscheduled: bool = True,  num_core
     processes data to be generally useful we will not define a primary source, that is for the user in the future as
     the aspect drift calculations can be re-run.
 
-    It is not necessary to define the spectral orders of interest at this stage.
-
     :param Archive obs_archive: An Archive instance containing XMM mission instances with RGS observations for
         which RGS processing should be run. This function will fail if no XMM missions are present in the archive.
     :param bool process_unscheduled: Whether this function should also process sub-exposures marked 'U', for
@@ -447,8 +445,6 @@ def rgs_angles(obs_archive: Archive,  num_cores: int = NUM_CORES, disable_progre
     corrections for some 'uninformative' source, and should likely be refined later when these data are used to analyse
     a specific source. This happens separately for RGS1 and RGS2, and for each sub-exposure of the two instruments.
 
-    It is not necessary to define the spectral orders of interest at this stage.
-
     :param Archive obs_archive: An Archive instance containing XMM mission instances with RGS observations for
         which RGS processing should be run. This function will fail if no XMM missions are present in the archive.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
@@ -543,14 +539,9 @@ def rgs_angles(obs_archive: Archive,  num_cores: int = NUM_CORES, disable_progre
 def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, disable_progress: bool = False,
                             timeout: Quantity = None):
     """
-    This function runs (effectively) the third step of the SAS RGS processing pipeline, rgsproc.
-
-    This happens separately for RGS1 and RGS2, and for each sub-exposure of the two instruments.
-
-    It is not necessary to define the spectral orders of interest at this stage.
-
-    NEED TO ADD SOME CHECKS FOR WHETHER SOFT PROTON FILTERING HAS BEEN PERFORMED FOR RGS AT SOME POINT MAYBE? AFTER
-    I ADD SOFT PROTON FILTERING FOR RGS THAT IS.
+    This function runs the third step of the SAS RGS processing pipeline, rgsproc. Here we filter the events to only
+    those which should be useful for scientific analysis. The attitude and house-keeping GTIs are also applied. This
+    happens separately for RGS1 and RGS2, and for each sub-exposure of the two instruments.
 
     :param Archive obs_archive: An Archive instance containing XMM mission instances with RGS observations for
         which RGS processing should be run. This function will fail if no XMM missions are present in the archive.
@@ -566,6 +557,8 @@ def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, d
         f) whether the progress bar should be hidden or not.
     :rtype: Tuple[dict, dict, dict, str, int, bool, Quantity]
     """
+
+    # TODO allow the application of soft proton filtering somehow
 
     # Run the setup for SAS processes, which checks that SAS is installed, checks that the archive has at least
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
