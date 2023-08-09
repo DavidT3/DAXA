@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/05/2023, 22:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/08/2023, 04:25. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
@@ -231,22 +231,28 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
-        # This method will fetch the valid data M1/2 (ObsID, Instrument, and sub-exposure) that can be
-        #  processed - then we can narrow it down to only those observations that had emchain run successfully
-        rel_m_obs = obs_archive.get_obs_to_process(miss.name, 'M1') + obs_archive.get_obs_to_process(miss.name, 'M2')
-
-        # PN valid data identifiers are fetched separately, as next we need to check that epchain ran rather
-        #  than emchain for these
-        rel_p_obs = obs_archive.get_obs_to_process(miss.name, 'PN')
-
-        # Here we check that emchain ran - if it didn't then we won't be cleaning event lists for those observations
-        good_em = obs_archive.check_dependence_success(miss.name, rel_m_obs, 'emchain', no_success_error=False)
-        # Same deal for the PN data
-        good_ep = obs_archive.check_dependence_success(miss.name, rel_p_obs, 'epchain', no_success_error=False)
+        # This method will fetch the valid data M1/2 and PN (ObsID, Instrument, and sub-exposure) that can be
+        #  processed - then we can narrow it down to only those observations that had em/epchain run successfully
+        # The loop of instruments is necessary because it is possible, if unlikely, that the user selected a subset
+        #  of the PN, MOS1, or MOS2 instruments that this function can be used on. We select instruments beginning
+        #  with M or P, not R (which would indicate RGS, which cannot be used with this function).
+        rel_obs_info = []
+        for inst in miss.chosen_instruments:
+            if inst[0] == 'P':
+                rel_p_obs = obs_archive.get_obs_to_process(miss.name, inst)
+                # Same deal for the PN data
+                good_ep = obs_archive.check_dependence_success(miss.name, rel_p_obs, 'epchain', no_success_error=False)
+                rel_obs_info.append(np.array(rel_p_obs)[good_ep])
+            elif inst[0] == 'M':
+                rel_m_obs = obs_archive.get_obs_to_process(miss.name, inst)
+                # Here we check that emchain ran - if it didn't then we won't be cleaning event lists for those
+                #  observations
+                good_em = obs_archive.check_dependence_success(miss.name, rel_m_obs, 'emchain', no_success_error=False)
+                rel_obs_info.append(np.array(rel_m_obs)[good_em])
 
         # We combine the obs information for PN and MOS, taking only those that we have confirmed have had successful
         #  emchain or epchain runs
-        all_obs_info = np.vstack([np.array(rel_m_obs)[good_em], np.array(rel_p_obs)[good_ep]])
+        all_obs_info = np.vstack(rel_obs_info)
 
         # We check to see if any data remain in all_obs_info - normally check_dependence_success would raise an error
         #  if there weren't any, but as we're checking PN and MOS separately (and I want espfilt to run even if all
