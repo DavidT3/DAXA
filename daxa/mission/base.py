@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/08/2023, 16:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/08/2023, 20:29. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -762,8 +762,8 @@ class BaseMission(metaclass=ABCMeta):
         #  etc., but here we just check to see whether the input distance is non-scalar, which means that there
         #  should one entry per coordinate.
         if search_distance is not None and not isinstance(search_distance, dict) and \
-                (isinstance(search_distance, (list, tuple) or (isinstance(search_distance, Quantity)
-                                                               and not search_distance.isscalar))):
+                ((type(search_distance) == Quantity and not search_distance.isscalar) or
+                 isinstance(search_distance, (list, tuple)) or type(search_distance) == np.ndarray):
             # That ugly if statement is essentially checking that the search distance is not None, is not a
             #  dictionary (which allows the user to pass one search radius per instrument of the mission), and isn't
             #  just a single value. Here we wish to examine search_distance only if it is non-scalar, as it should
