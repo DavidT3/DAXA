@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 22:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/08/2023, 16:18. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -714,7 +714,7 @@ class BaseMission(metaclass=ABCMeta):
 
     @_lock_check
     def filter_on_positions(self, positions: Union[list, np.ndarray, SkyCoord],
-                            search_distance: Union[Quantity, float, int, dict] = None):
+                            search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None):
         """
         This method allows you to filter the observations available for a mission based on a set of coordinates for
         which you wish to locate observations. The method searches for observations by the current mission that have
@@ -727,13 +727,16 @@ class BaseMission(metaclass=ABCMeta):
             can be passed either as a list or nested list (i.e. [r, d] OR [[r1, d1], [r2, d2]]), a numpy array, or
             an already defined SkyCoord. If a list or array is passed then the coordinates are assumed to be in
             degrees, and the default mission frame will be used.
-        :param Quantity/float/int/dict search_distance: The distance within which to search for observations by this
-            mission. Distance may be specified as an Astropy Quantity that can be converted to degrees, as a
-            float/integer that will be assumed to be in units of degrees, or as a dictionary of quantities/floats/ints
-            where the keys are names of different instruments (possibly with different field of views). The default
-            is None, in which case a value of 1.2 times the approximate field of view defined for each instrument
-            will be used; where different instruments have different FoVs, observation searches will be undertaken
-            on an instrument-by-instrument basis using the different field of views.
+
+        :param Quantity/float/int/list/np.ndarray/dict search_distance: The distance within which to search for
+            observations by this mission. Distance may be specified either as an Astropy Quantity that can be
+            converted to degrees (a float/integer will be assumed to be in units of degrees), as a dictionary of
+            quantities/floats/ints where the keys are names of different instruments (possibly with different field
+            of views), or as a non-scalar Quantity, list, or numpy array with one entry per set of coordinates (for
+            when you wish to use different search distances for each object). The default is None, in which case a
+            value of 1.2 times the approximate field of view defined for each instrument will be used; where different
+            instruments have different FoVs, observation searches will be undertaken on an instrument-by-instrument
+            basis using the different field of views.
         """
 
         # Checks to see if a list/array of coordinates has been passed, in which case we convert it to a
@@ -746,9 +749,32 @@ class BaseMission(metaclass=ABCMeta):
         #  coordinate is being searched around I just duplicate it to placate the method. This won't produce
         #  any ill effects because I just care about which observations are nearby, not which coordinates are
         #  specifically matched to which observation.
+        # We do also create a boolean flag to tell later checks (if necessary) that there is actually only one
+        #  position
+        single_pos = False
         if positions.isscalar:
             positions = SkyCoord([positions.ra, positions.ra], [positions.dec, positions.dec], unit=u.deg,
                                  frame=positions.frame)
+            # This flag tells later checks that there is actually only one unique position
+            single_pos = True
+
+        # The next lot of if statements really checks that the input search distances are in the correct format
+        #  etc., but here we just check to see whether the input distance is non-scalar, which means that there
+        #  should one entry per coordinate.
+        if search_distance is not None and not isinstance(search_distance, dict) and \
+                (isinstance(search_distance, (list, tuple) or (isinstance(search_distance, Quantity)
+                                                               and not search_distance.isscalar))):
+            # That ugly if statement is essentially checking that the search distance is not None, is not a
+            #  dictionary (which allows the user to pass one search radius per instrument of the mission), and isn't
+            #  just a single value. Here we wish to examine search_distance only if it is non-scalar, as it should
+            #  contain one entry per coordinate.
+            if single_pos:
+                raise ValueError("Only a single set of coordinates has been passed, but {} search distances have been"
+                                 " passed.".format(len(search_distance)))
+            elif len(search_distance) != len(positions):
+                raise ValueError("If a set of search distances ({sdl}) are supplied, there must be the same number as "
+                                 "there are search coordinates ({pl}).".format(sdl=len(search_distance),
+                                                                               pl=len(positions)))
 
         # If the value is left as None, the default, then we use the defined FoV for this mission and multiply by 1.2
         if search_distance is None:
