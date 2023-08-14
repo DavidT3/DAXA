@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/08/2023, 20:45. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/08/2023, 20:48. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -862,10 +862,11 @@ class BaseMission(metaclass=ABCMeta):
                 #  the current search distance for that position.
                 which_pos, which_obs, d2d, d3d = self.ra_decs.search_around_sky(rel_pos, sd)
 
-                # This works essentially identically to the if statement above, in that the filter array is just
-                #  updated to reflect which observations make it through - just here it happens on an object by
-                #  object basis
-                pos_filter[np.array(list(set(which_obs)))] = 1
+                if len(which_obs) != 0:
+                    # This works essentially identically to the if statement above, in that the filter array is just
+                    #  updated to reflect which observations make it through - just here it happens on an object by
+                    #  object basis
+                    pos_filter[np.array(list(set(which_obs)))] = 1
 
         else:
             # Hopefully every mission class's all_obs_info table had its indices reset at the end of the method
