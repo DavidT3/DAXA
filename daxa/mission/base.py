@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/08/2023, 20:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/08/2023, 20:43. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -825,7 +825,7 @@ class BaseMission(metaclass=ABCMeta):
         #  keys) or a single quantity. The quantities will be in degrees.
         # In the case where we have only a single search, it is relatively simple, and rather than trying to make
         #  this method more elegant by writing one generalised approach, we're just gonna use an if statement
-        if isinstance(search_distance, Quantity):
+        if isinstance(search_distance, Quantity) and search_distance.isscalar:
             # Runs the 'catalogue matching' between all available observations and the input positions.
             which_pos, which_obs, d2d, d3d = self.ra_decs.search_around_sky(positions, search_distance)
 
@@ -842,6 +842,27 @@ class BaseMission(metaclass=ABCMeta):
             #  ensure that there are no duplicates. These entries in the pos_filter are set to one, which will
             #  allow those observations through
             pos_filter[np.array(list(set(which_obs)))] = 1
+
+        elif isinstance(search_distance, Quantity) and not search_distance.isscalar:
+            # Sets up a filter array that consists entirely of zeros initially (i.e. it would not let
+            #  any observations through).
+            pos_filter = np.zeros(self.filter_array.shape)
+
+            # This is the reason that we have to have a separate part of the if statement for cases where the search
+            #  distance is non-scalar, because of the way search_around_sky is built it can't handle non-scalar
+            #  search distance values. That means we search for each position separately, updating the pos_filter
+            #  as we go.
+            for sd_ind, sd in enumerate(search_distance):
+                rel_pos = positions[sd_ind]
+
+                # Runs the 'catalogue matching' between all available observations and the current input position, with
+                #  the current search distance for that position.
+                which_pos, which_obs, d2d, d3d = self.ra_decs.search_around_sky(rel_pos, sd)
+
+                # This works essentially identically to the if statement above, in that the filter array is just
+                #  updated to reflect which observations make it through - just here it happens on an object by
+                #  object basis
+                pos_filter[np.array(list(set(which_obs)))] = 1
 
         else:
             # Hopefully every mission class's all_obs_info table had its indices reset at the end of the method
