@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/08/2023, 20:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/08/2023, 20:45. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -854,6 +854,9 @@ class BaseMission(metaclass=ABCMeta):
             #  as we go.
             for sd_ind, sd in enumerate(search_distance):
                 rel_pos = positions[sd_ind]
+                # We have to use the same trick as earlier to make search_around_sky work with a single position
+                rel_pos = SkyCoord([rel_pos.ra, rel_pos.ra], [rel_pos.dec, rel_pos.dec], unit=u.deg,
+                                   frame=positions.frame)
 
                 # Runs the 'catalogue matching' between all available observations and the current input position, with
                 #  the current search distance for that position.
