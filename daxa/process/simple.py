@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/08/2023, 04:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/08/2023, 15:06. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
@@ -50,7 +50,7 @@ def full_process_xmm(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quanti
         rgs_events(obs_archive, process_unscheduled, num_cores=num_cores, timeout=timeout)
         rgs_angles(obs_archive, num_cores=num_cores, timeout=timeout)
         cleaned_rgs_event_lists(obs_archive, num_cores=num_cores, timeout=timeout)
-    except ValueError:
+    except (ValueError, IndexError):
         pass
 
     # We try to process EPIC PN data, but we use a try-except because it is possible that none will have been
