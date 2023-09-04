@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/09/2023, 15:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/09/2023, 15:45. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -26,7 +26,7 @@ from daxa.mission.base import BaseMission
 # Don't require that the event_cl directory be present (cleaned events), as we download the level-1 data (event_uf)
 #  and process it ourselves - THAT IS UNLESS the user wants to download the processed data
 REQUIRED_DIRS = {'raw': ['auxil/', 'event_uf/', 'hk/'],
-                 'processed': ['auxil/', 'event_uf/', 'hk/']}
+                 'processed': ['auxil/', 'event_uf/', 'event_cl/', 'hk/']}
 
 
 class NuSTARPointed(BaseMission):
