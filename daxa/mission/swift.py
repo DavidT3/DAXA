@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 06/10/2023, 15:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 06/10/2023, 16:04. Copyright (c) The Contributors
 
 from typing import List, Union
 
@@ -22,27 +22,27 @@ class Swift(BaseMission):
     the HEASArc https access to their FTP server. Proprietary data are not currently supported by this class.
 
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
-            pass either a single string value or a list of strings. They may include XRT, BAT, and UVOT (the default
-            is both).
+        pass either a single string value or a list of strings. They may include XRT, BAT, and UVOT (the default
+        is both XRT and BAT).
     """
 
     def __init__(self, insts: Union[List[str], str] = None):
         """
-        The mission class for pointed NuSTAR observations (i.e. slewing observations are NOT included in the data
-        accessed and collected by instances of this class), nor are observations for which the spacecraft mode was
-        'STELLAR'. The available observation information is fetched from the HEASArc NuMASTER table, and data are
-        downloaded from the HEASArc https access to their FTP server. Proprietary data are not currently supported
-        by this class.
+        The mission class for observations by the Neil Gehrels Swift Observatory observations.
+        The available observation information is fetched from the HEASArc SWIFTMASTR table, and data are downloaded
+        from the HEASArc https access to their FTP server. Proprietary data are not currently supported by this class.
 
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
-            pass either a single string value or a list of strings. They may include FPMA and FPMB (the default
-            is both).
+            pass either a single string value or a list of strings. They may include XRT, BAT, and UVOT (the default
+            is both XRT and BAT).
         """
         super().__init__()
 
-        # Sets the default instruments - both instruments that are on NuSTAR
+        # Sets the default instruments - the two X-ray (though BAT sort of tends towards low energy gamma rays as
+        #  well) instruments on Swift.
+        # TODO decide whether UV data should be acquired as default considering this module focuses on X-rays
         if insts is None:
-            insts = ['FPMA', 'FPMB']
+            insts = ['XRT', 'BAT']
         elif isinstance(insts, str):
             # Makes sure that, if a single instrument is passed as a string, the insts variable is a list for the
             #  rest of the work done using it
@@ -50,13 +50,12 @@ class Swift(BaseMission):
         # Makes sure everything is uppercase
         insts = [i.upper() for i in insts]
 
-        # These are the allowed instruments for this mission - NuSTAR has two telescopes, and each has its own
-        #  Focal Plane Module (FPMx)
-        self._miss_poss_insts = ['FPMA', 'FPMB']
-        # The chosen_instruments property setter (see below) will use these to convert possible contractions
-        #  of NuSTAR names to the names that the module expects. I'm not that familiar with NuSTAR currently, so
-        #  I've just put in FA and FB without any real expectation that anyone would use them.
-        self._alt_miss_inst_names = {'FA': 'FPMA', 'FB': 'FPMB'}
+        # These are the allowed instruments for this mission - Swift has a focusing X-ray telescope (XRT), the burst
+        #  alert telescope (BAT) which observes in the hard X-ray (15-150keV) and up to 500keV for non-imaging
+        #  studies, and a UV telescope very similar to the optical monitor on XMM (but designed better).
+        self._miss_poss_insts = ['XRT', 'BAT', 'UVOT']
+        # As far as I know there aren't any other common names for the instruments on Swift
+        self._alt_miss_inst_names = {}
 
         # Deliberately using the property setter, because it calls the internal _check_chos_insts function
         #  to make sure the input instruments are allowed
@@ -66,11 +65,13 @@ class Swift(BaseMission):
         self.name
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = ['proprietary_end_date', 'exposure_a', 'exposure_b', 'ontime_a',
-                                                'ontime_b', 'nupsdout', 'issue_flag', 'target_category',
-                                                'proprietary_usable']
+        self._required_mission_specific_cols = []
 
-        # Runs the method which fetches information on all available pointed NuSTAR observations and stores that
+        # 'proprietary_end_date', 'exposure_a', 'exposure_b', 'ontime_a',
+        # 'ontime_b', 'nupsdout', 'issue_flag', 'target_category',
+        # 'proprietary_usable'
+
+        # Runs the method which fetches information on all available Swift observations and stores that
         #  information in the all_obs_info property
         self._fetch_obs_info()
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
@@ -88,9 +89,9 @@ class Swift(BaseMission):
         # The name is defined here because this is the pattern for this property defined in
         #  the BaseMission superclass. Suggest keeping this in a format that would be good for a unix
         #  directory name (i.e. lowercase + underscores), because it will be used as a directory name
-        self._miss_name = "nustar_pointed"
+        self._miss_name = "swift"
         # This won't be used to name directories, but will be used for things like progress bar descriptions
-        self._pretty_miss_name = "NuSTAR Pointed"
+        self._pretty_miss_name = "Swift"
         return self._miss_name
 
     @property
@@ -115,8 +116,8 @@ class Swift(BaseMission):
         :rtype: str
         """
         # The ObsID regular expression is defined here because this is the pattern for this property defined in
-        #  the BaseMission superclass - NuSTAR observations have a unique 11-digit ObsID, the construction of
-        #  which is discussed here (https://heasarc.gsfc.nasa.gov/W3Browse/nustar/numaster.html#obsid)
+        #  the BaseMission superclass - Swift observations have a unique 11-digit ObsID, the construction of
+        #  which is discussed here (https://heasarc.gsfc.nasa.gov/w3browse/swift/swiftmastr.html#ObsID)
         self._id_format = '^[0-9]{11}$'
         return self._id_format
 
@@ -132,7 +133,12 @@ class Swift(BaseMission):
         :rtype: Union[Quantity, dict]
         """
         # The approximate field of view is defined here because I want to force implementation for each
-        #  new mission class - found conflicting values of either 12 or 13 arcmin across, so I went with half
-        #  of 13 to be on the safe side.
-        self._approx_fov = Quantity(6.5, 'arcmin')
+        #  new mission class. XRT is described here (https://swift.gsfc.nasa.gov/about_swift/xrt_desc.html),
+        #  UVOT is described here (https://swift.gsfc.nasa.gov/about_swift/uvot_desc.html), and BAT is described
+        #  here (https://swift.gsfc.nasa.gov/about_swift/bat_desc.html).
+        # BAT is somewhat complicated, because the half-coded region (which can do imaging) has a 100x60deg FoV, so I
+        #  have gone with half the long side
+        self._approx_fov = {'XRT': Quantity(11.8, 'arcmin'), 'BAT': Quantity(50, 'arcmin'),
+                            'UVOT': Quantity(8.5, 'arcmin')}
         return self._approx_fov
+
