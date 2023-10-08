@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 06/10/2023, 17:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/10/2023, 19:39. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -80,7 +80,7 @@ class Swift(BaseMission):
         self.name
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = []
+        self._required_mission_specific_cols = ['target_category', 'xrt_exposure', 'bat_exposure', 'uvot_exposure']
 
         # 'proprietary_end_date', 'exposure_a', 'exposure_b', 'ontime_a',
         # 'ontime_b', 'nupsdout', 'issue_flag', 'target_category',
@@ -233,19 +233,16 @@ class Swift(BaseMission):
                 for col in full_swift.select_dtypes(['object']).columns:
                     full_swift[col] = full_swift[col].apply(lambda x: x.strip())
 
-        # print(full_swift[(full_swift['XRT_EXPOSURE'] == 0) & (full_swift['UVOT_EXPOSURE'] == 0) &
-        # (full_swift['BAT_EXPOSURE'] == 0)])
-        # TODO maybe whittle down the DF given our knowledge of what instruments the user is interested in
-        rel_swift = full_swift
-
-        # TODO See if there is an equivalent to this that I need to do
-        # Important first step, select only 'science mode' observations, slew observations will be dealt with in
-        #  another class - this includes excluding observations with 'STELLAR' spacecraft mode, as they are likely
-        #  rotating. Also select only those observations which have actually been taken (this table contains
-        #  planned observations as well).
-        # rel_nustar = full_nustar[(full_nustar['OBSERVATION_MODE'] == 'SCIENCE') &
-        #                          (full_nustar['SPACECRAFT_MODE'] == 'INERTIAL') &
-        #                          (full_nustar['STATUS'].isin(['processed', 'archived']))]
+        # Important first step, making any global cuts to the dataframe to remove entries that are not going to be
+        #  useful. For Swift, as information in the table is pretty limited, I have elected to remove any ObsID with
+        #  zero exposure in all three instruments - further cuts may be made later.
+        rel_swift = full_swift[(full_swift['XRT_EXPOSURE'] != 0.0) | (full_swift['BAT_EXPOSURE'] != 0.0) |
+                               (full_swift['UVOT_EXPOSURE'] != 0.0)]
+        # We throw a warning that some number of the Swift observations are dropped because it doesn't seem that they
+        #  will be at all useful
+        if len(rel_swift) != len(full_swift):
+            warn("{ta} of the {tot} observations located for Swift have been removed due to all instrument exposures "
+                 "being zero.".format(ta=len(full_swift)-len(rel_swift), tot=len(full_swift), stacklevel=2))
 
         # Lower-casing all the column names (personal preference largely).
         rel_swift = rel_swift.rename(columns=str.lower)
@@ -254,12 +251,14 @@ class Swift(BaseMission):
 
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
         #  BaseMission time selection methods expect
-        rel_swift['start'] = pd.to_datetime(Time(rel_swift['start'].values, format='mjd', scale='utc').to_datetime())
-        rel_swift['end'] = pd.to_datetime(Time(rel_swift['end'].values, format='mjd', scale='utc').to_datetime())
-        # Then make a duration column by subtracting one from t'other - there are also exposure and ontime columns
-        #  which I've acquired, but I think total duration is what I will go with here.
-        # rel_nustar['duration'] = rel_nustar['end']-rel_nustar['start']
-
+        rel_swift['start'] = pd.to_datetime(Time(rel_swift['start'].values.astype(float), format='mjd',
+                                                 scale='utc').to_datetime())
+        rel_swift['end'] = pd.to_datetime(Time(rel_swift['end'].values.astype(float), format='mjd',
+                                               scale='utc').to_datetime())
+        # Then make a duration column by subtracting the start MJD from the end MJD - not an exposure time but just
+        #  how long the observation window was
+        rel_swift['duration'] = rel_swift['end'] - rel_swift['start']
+        # Cycle through the exposure columns and make sure that they are time objects
         for col in rel_swift.columns[rel_swift.columns.str.contains('exposure')]:
             rel_swift[col] = pd.to_timedelta(rel_swift[col], 's')
 
@@ -271,7 +270,7 @@ class Swift(BaseMission):
         rel_swift['target_category'] = 'MISC'
 
         # Re-ordering the table, and not including certain columns which have served their purpose
-        rel_swift = rel_swift[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end',  'target_category',
+        rel_swift = rel_swift[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration',  'target_category',
                                'xrt_exposure', 'bat_exposure', 'uvot_exposure']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
