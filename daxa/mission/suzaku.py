@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 16:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 16:48. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -390,8 +390,9 @@ class Suzaku(BaseMission):
                         copyfileobj(acquiro.raw, writo)
 
                 # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
-                #  event lists, as they're more likely to be used
-                if 'evt.gz' in down_file:
+                #  event lists, as they're more likely to be used - also decompress the gifs so people can have a quick
+                #  look if they so desire
+                if 'evt.gz' in down_file or 'gif.gz' in down_file:
                     # Open and decompress the events file
                     with gzip.open(local_dir + down_file, 'rb') as compresso:
                         # Open a new file handler for the decompressed data, then funnel the decompressed events there
