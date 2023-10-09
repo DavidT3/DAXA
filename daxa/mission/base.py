@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/10/2023, 20:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/10/2023, 20:39. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -793,7 +793,7 @@ class BaseMission(metaclass=ABCMeta):
                 #  choose the largest field of view that is relevant to the chosen instruments
                 warn("There are multiple chosen instruments {ci} for {mn} with different FoVs, but they observe "
                      "simultaneously. As such the search distance has been set to the largest FoV of the chosen"
-                     " instruments.".format(ci=", ".join(self.chosen_instruments), mn=self.name))
+                     " instruments.".format(ci=", ".join(self.chosen_instruments), mn=self.name), stacklevel=2)
                 search_distance = max(list({i: (v * 1.2).to('deg') for i, v in fov.items()
                                             if i in self.chosen_instruments}.values()))
         # Checks to see whether a quantity has been passed, if not then the input is converted to an Astropy
