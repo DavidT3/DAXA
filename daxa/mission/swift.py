@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 13:22. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 13:45. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -35,7 +35,7 @@ REQUIRED_DIRS = {'all': ['auxil/'],
                  'raw': {'uvot': ['hk/', 'event/', 'image/'],
                          'xrt': ['event/', 'hk/', 'image/'],
                          'bat': ['event/', 'rate/', 'survey/']},
-                 'processed': {'uvot': ['hk/', 'event/', 'image/'],
+                 'processed': {'uvot': ['hk/', 'event/', 'image/', 'products/'],
                                'xrt': ['event/', 'hk/', 'image/', 'products/'],
                                'bat': ['event/', 'rate/', 'survey/']}}
 
