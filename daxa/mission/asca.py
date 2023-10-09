@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 17:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 18:02. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -256,11 +256,15 @@ class ASCA(BaseMission):
         # No clear way of defining this from the tables, so we're going to assume that they all are
         rel_asca['science_usable'] = True
 
+        # print(rel_asca['target_category'].value_counts().index.values)
+        # stop
+
         # Convert the categories of target that are present in the dataframe to the DAXA taxonomy
         # The ASCA categories are here:
         #  https://heasarc.gsfc.nasa.gov/W3Browse/asca/ascamaster.html#Subject_category
         # These translations are pretty hand-wavey honestly
-        conv_dict = {'SUPERNOVA REMNANTS AND GALACTIC DIFFUSE EMISSION': 'SNR',
+        conv_dict = {'AGN': 'AGN',
+                     'SUPERNOVA REMNANTS AND GALACTIC DIFFUSE EMISSION': 'SNR',
                      'CLUSTERS OF GALAXIES AND SUPERCLUSTERS': 'GCL',
                      'STARS': 'GS',
                      'NORMAL STARS': 'GS',
@@ -278,7 +282,6 @@ class ASCA(BaseMission):
         # Now I set any unrecognized target category descriptions to MISC - there are none at the time of writing,
         #  but that could well change
         rel_asca.loc[~type_recog, 'target_category'] = 'MISC'
-
         # Re-ordering the table, and not including certain columns which have served their purpose
         rel_asca = rel_asca[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category',
                              'sis_exposure', 'gis_exposure']]
