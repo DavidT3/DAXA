@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 16:06. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 16:18. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -327,7 +327,7 @@ class Swift(BaseMission):
         else:
             dir_lookup = REQUIRED_DIRS['raw']
 
-        # The data on HEASArc are stored in sub-directories named after the year-month that they were taken, so
+        # The data on HEASArc are stored in subdirectories named after the year-month that they were taken, so
         #  we first need to construct that to setup the URL we need
         date_id = start_year + '_' + start_month.zfill(2)
 
@@ -394,8 +394,8 @@ class Swift(BaseMission):
                     else:
                         files = []
 
-                    # If the current sub-directory of the current instrument of the current ObsID has got files that
-                    #  we want to download, then we make sure that the sub-directory exists
+                    # If the current subdirectory of the current instrument of the current ObsID has got files that
+                    #  we want to download, then we make sure that the subdirectory exists locally
                     if len(files) != 0 and not os.path.exists(local_dir + en['href']):
                         os.makedirs(local_dir + en['href'])
                     # And add the current list of files to the overall downloading list for this instrument

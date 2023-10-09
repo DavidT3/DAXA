@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 15:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 16:18. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -23,10 +23,13 @@ from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
 
-
-# https://heasarc.gsfc.nasa.gov/docs/suzaku/analysis/abc/node6.html#SECTION00610000000000000000
-# REQUIRED_DIRS = {'raw': ['auxil/', 'event_uf/', 'hk/'],
-#                  'processed': ['auxil/', 'event_uf/', 'event_cl/', 'hk/']}
+# As we're only supporting XIS with the Suzaku mission class, I add that top level directory into all - but the
+#  sub-directories of XIS that we wish to download depend on whether the user wants pre-processed data or not
+# I'm using this - https://heasarc.gsfc.nasa.gov/docs/suzaku/analysis/abc/node6.html#SECTION00610000000000000000 -
+#  guide to determine which directories are needed
+REQUIRED_DIRS = {'all': ['auxil/', 'xis/'],
+                 'raw': {'xis': ['event_uf/', 'hk/', 'products/']},
+                 'processed': {'xis': ['event_uf/', 'event_cl/', 'hk/', 'products/']}}
 
 
 class Suzaku(BaseMission):
@@ -300,21 +303,19 @@ class Suzaku(BaseMission):
             and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
             raw data.
         """
+        insts = [inst.lower() for inst in insts]
+
+        req_dir = REQUIRED_DIRS['all']
         if download_processed:
-            req_dir = REQUIRED_DIRS['processed']
+            dir_lookup = REQUIRED_DIRS['processed']
         else:
-            req_dir = REQUIRED_DIRS['raw']
+            dir_lookup = REQUIRED_DIRS['raw']
 
-        # This two digit code identifies the program type (00 assigned to the first 2-year primary mission, and
-        #  then 01, 02, 03 ... increment for each additional year of observations. Useful here to get to the
-        #  correct directory to find our ObsID
-        prog_id = observation_id[1:3]
-
-        # This identifies the type of source that was being observed, useful here to get to the right directory
-        src_cat = observation_id[0]
+        # The data on HEASArc are stored in subdirectories that have the first digit of the ObsID as their name
+        cat_id = observation_id[0]
 
         # This is the path to the HEASArc data directory for this ObsID
-        obs_dir = "/FTP/nustar/data/obs/{pid}/{sc}/{oid}/".format(pid=prog_id, sc=src_cat, oid=observation_id)
+        obs_dir = "/FTP/suzaku/data/obs/{cid}/{oid}/".format(cid=cat_id, oid=observation_id)
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
 
         # This opens a session that will persist - then a lot of the next session is for checking that the expected
@@ -322,9 +323,10 @@ class Suzaku(BaseMission):
         session = requests.Session()
 
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
-        #  that the three directories that I need to download unprocessed NuStar data are present
+        #  that the directories that I need to download unprocessed Swift data are present
         top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
                     if en['href'] in req_dir]
+
         # If the lengths of top_data and REQUIRED_DIRS are different, then one or more of the expected dirs
         #  is not present
         if len(top_data) != len(req_dir):
@@ -335,24 +337,47 @@ class Suzaku(BaseMission):
 
         for dat_dir in top_data:
             # The lower level URL of the directory we're currently looking at
-            rel_url = top_url + dat_dir + '/'
+            rel_url = top_url + dat_dir
             # This is the directory to which we will be saving this archive directories files
-            local_dir = raw_dir + '/' + dat_dir + '/'
+            local_dir = raw_dir + '/' + dat_dir
             # Make sure that the local directory is created
             if not os.path.exists(local_dir):
                 os.makedirs(local_dir)
 
-            # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
-            #  are the files we shall be downloading
-            to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
-                       if '?' not in en['href'] and obs_dir not in en['href']]
+            if dat_dir == 'auxil/':
+                # All the files in the auxiliary directory are downloaded
+                to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
+                           if '?' not in en['href'] and obs_dir not in en['href']]
+            else:
+                # The way the Suzaku archives are laid out, XIS has its own directory, and sub-directories that we
+                #  need to decide whether to download or not
+                rel_req_dir = dir_lookup[dat_dir[:-1]]
+                to_down = []
+                # Here we cycle through the directories that we have found at the instrument URL for this ObsID
+                for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a"):
+                    # We have to check that the 'en' isn't some HTML guff that we don't need, and that the
+                    #  sub-directories actually should be downloaded (i.e. we won't download event_cl and products
+                    #  when the user doesn't want pre-processed data).
+                    if '?' not in en['href'] and obs_dir not in en['href'] and en['href'] in rel_req_dir:
+                        low_rel_url = rel_url + en['href']
+                        files = [en['href'] + '/' + fil['href']
+                                 for fil in BeautifulSoup(session.get(low_rel_url).text, "html.parser").find_all("a")
+                                 if '?' not in fil['href'] and obs_dir not in fil['href']]
+                        # All instrument files are in the same directories in this archive, so we need to quickly
+                        #  sweep through and check the files are for the instruments the user has chosen. Though
+                        #  why they would decide to remove some of the XIS I don't know
+                        files = [fil for fil in files for inst in insts if inst in fil]
+                    else:
+                        files = []
 
-            # As we allow the user to select a single instrument, if they don't want both (though goodness knows why
-            #  on earth anyone would do that), the event_uf directory gets an extra check. The last character of
-            #  the instrument is either A or B, and that is what I am using to identify the relevant event lists.
-            if dat_dir == 'event_uf/':
-                to_down = [td for td in to_down for inst in insts if observation_id + inst[-1] + "_uf" in td]
+                    # If the current subdirectory has got files that  we want to download, then we make sure that
+                    #  the subdirectory exists locally
+                    if len(files) != 0 and not os.path.exists(local_dir + en['href']):
+                        os.makedirs(local_dir + en['href'])
+                    # And add the current list of files to the overall downloading list for this instrument
+                    to_down += files
 
+            # Now we cycle through the files and download them
             for down_file in to_down:
                 down_url = rel_url + down_file
                 with session.get(down_url, stream=True) as acquiro:
@@ -372,10 +397,9 @@ class Suzaku(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, credentials: Union[str, dict] = None,
-                 download_processed: bool = False):
+    def download(self, num_cores: int = NUM_CORES, download_processed: bool = False):
         """
-        A method to acquire and download the pointed NuSTAR data that have not been filtered out (if a filter
+        A method to acquire and download the Suzaku data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
         property will be downloaded, which is set either on declaration of the class instance or by passing
         a new value to the chosen_instruments property.
@@ -383,23 +407,12 @@ class Suzaku(BaseMission):
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
-        :param dict/str credentials: The path to an ini file containing credentials, a dictionary containing 'user'
-            and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
-            for providing different credentials for different observations.
         :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
             and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
             raw data.
         """
 
-        if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():
-            raise NotImplementedError("Support for credentials for proprietary data is not yet implemented.")
-        elif not self.filtered_obs_info['proprietary_usable'].all() and credentials is None:
-            warn("Proprietary data have been selected, but no credentials provided; as such the proprietary data have "
-                 "been excluded from download and further processing.", stacklevel=2)
-            new_filter = self.filter_array * self.all_obs_info['proprietary_usable'].values
-            self.filter_array = new_filter
-
-        # Ensures that a directory to store the 'raw' pointed NuSTAR data in exists - once downloaded and unpacked
+        # Ensures that a directory to store the 'raw' pointed Suzaku data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
         if not os.path.exists(self.top_level_path + self.name + '_raw'):
             os.makedirs(self.top_level_path + self.name + '_raw')
@@ -485,7 +498,7 @@ class Suzaku(BaseMission):
 
     def assess_process_obs(self, obs_info: dict):
         """
-        A slightly unusual method which will allow the NuSTARPointed mission to assess the information on a particular
+        A slightly unusual method which will allow the Suzaku mission to assess the information on a particular
         observation that has been put together by an Archive (the archive assembles it because sometimes this
         detailed information only becomes available at the first stages of processing), and make a decision on whether
         that particular observation-instrument should be processed further for scientific use.
@@ -496,7 +509,7 @@ class Suzaku(BaseMission):
         :param dict obs_info: The multi-level dictionary containing available observation information for an
             observation.
         """
-        raise NotImplementedError("The check_process_obs method has not yet been implemented for NuSTARPointed, as "
+        raise NotImplementedError("The check_process_obs method has not yet been implemented for Suzaku, as "
                                   "we need to see what detailed information are available once processing downloaded "
                                   "data has begun.")
 
