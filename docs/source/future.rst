@@ -11,7 +11,7 @@ Planned DAXA Features
 
 * **ROSAT Data** - Data can be acquired and downloaded, but not processed yet. Archived data products (images/exposure maps) can also be downloaded.
 
-* **Swift Data** - Not actively being planned, but under consideration, is support for Swift - please get in touch if you're interested in contributing.
+* **Swift Data** - Data can be acquired and downloaded, but not processed yet. Archived data products (images/exposure maps) can also be downloaded.
 
 * **Suzaku Data** - Not actively being planned, but under consideration, is support for Swift - please get in touch if you're interested in contributing.
 
