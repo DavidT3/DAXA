@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/10/2023, 19:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/10/2023, 20:19. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -9,6 +9,7 @@ from shutil import copyfileobj
 from typing import List, Union, Any
 from warnings import warn
 
+import numpy as np
 import pandas as pd
 import requests
 from astropy.coordinates import BaseRADecFrame, FK5
@@ -242,7 +243,20 @@ class Swift(BaseMission):
         #  will be at all useful
         if len(rel_swift) != len(full_swift):
             warn("{ta} of the {tot} observations located for Swift have been removed due to all instrument exposures "
-                 "being zero.".format(ta=len(full_swift)-len(rel_swift), tot=len(full_swift), stacklevel=2))
+                 "being zero.".format(ta=len(full_swift)-len(rel_swift), tot=len(full_swift)), stacklevel=2)
+
+        # This removes any ObsIDs that have zero exposure time for the currently selected instruments - if all three
+        #  instruments are selected then this won't do anything because it is the same as what we did a couple of
+        #  lines up - but if a subset have been selected then it might well do something
+        pre_inst_exp_check_num = len(rel_swift)
+        rel_swift = rel_swift[np.logical_or.reduce([rel_swift[inst+'_EXPOSURE'] != 0
+                                                    for inst in self.chosen_instruments])]
+        # I warn the user if their chosen instruments have observations that have been removed because the chosen
+        #  instruments are all zero exposure
+        if len(rel_swift) != pre_inst_exp_check_num:
+            warn("{ta} of the {tot} observations located for Swift have been removed due to all chosen instrument "
+                 "({ci}) exposures being zero.".format(ta=pre_inst_exp_check_num-len(rel_swift), tot=len(full_swift),
+                                                       ci=", ".join(self.chosen_instruments)), stacklevel=2)
 
         # Lower-casing all the column names (personal preference largely).
         rel_swift = rel_swift.rename(columns=str.lower)
