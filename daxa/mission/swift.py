@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 14:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 15:26. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -245,7 +245,7 @@ class Swift(BaseMission):
         # Important first step, making any global cuts to the dataframe to remove entries that are not going to be
         #  useful. For Swift, as information in the table is pretty limited, I have elected to remove any ObsID with
         #  zero exposure in all three instruments - further cuts may be made later.
-        rel_swift = full_swift[(full_swift['XRT_EXPOSURE'] != 0.0) | (full_swift['BAT_EXPOSURE'] != 0.0) |
+        rel_swift = full_swift[(full_swift['XRT_EXPOSURE'] != 0.0) & (full_swift['BAT_EXPOSURE'] != 0.0) &
                                (full_swift['UVOT_EXPOSURE'] != 0.0)]
         # We throw a warning that some number of the Swift observations are dropped because it doesn't seem that they
         #  will be at all useful
