@@ -40,3 +40,19 @@ mission.nustar module
    :members:
    :undoc-members:
    :show-inheritance:
+
+mission.rosat module
+----------------------
+
+.. automodule:: daxa.mission.rosat
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+mission.swift module
+----------------------
+
+.. automodule:: daxa.mission.swift
+   :members:
+   :undoc-members:
+   :show-inheritance:
