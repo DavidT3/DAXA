@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 15:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 16:06. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -28,7 +28,7 @@ from daxa.mission.base import BaseMission
 #  bat) - those will be added to the required dirs list at the download phase, depending on what the user has selected.
 # Not all the directories will always be present, as it depends on observing modes etc.
 # I'm using this - https://swift.gsfc.nasa.gov/archive/archiveguide1/node5.html#SECTION00521000000000000000 - guide
-#  to determine which directories are possible
+#  to determine which directories are needed
 # Some directories (e.g. events) hold the cleaned and uncleaned event lists, so download method filtering of files
 #  will have to be done there
 REQUIRED_DIRS = {'all': ['auxil/'],
