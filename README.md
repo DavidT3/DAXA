@@ -33,6 +33,7 @@ limited. Support for more telescopes is either currently under development or be
 * **_[Under Development - data acquisition implemented]_** Chandra
 * **_[Under Development - RASS/pointed data acquisition implemented]_** ROSAT
 * **_[Under Development - XRT/BAT/UVOT data acquisition implemented]_** Swift
+* **_[Under Development - data acquisition implemented]_** Suzaku
 
 _If you would like to help with any of the telescopes above, or adding another X-ray telescope, please get in contact!_
 

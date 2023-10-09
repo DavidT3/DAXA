@@ -56,3 +56,11 @@ mission.swift module
    :members:
    :undoc-members:
    :show-inheritance:
+
+mission.suzaku module
+----------------------
+
+.. automodule:: daxa.mission.suzaku
+   :members:
+   :undoc-members:
+   :show-inheritance:

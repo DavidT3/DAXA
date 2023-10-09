@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 16:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 16:48. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -9,7 +9,6 @@ from shutil import copyfileobj
 from typing import List, Union, Any
 from warnings import warn
 
-import numpy as np
 import pandas as pd
 import requests
 from astropy.coordinates import BaseRADecFrame, FK5
@@ -24,50 +23,44 @@ from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
 
-# The Swift directories have their data split into directories named the same as the instruments (i.e. uvot, xrt,
-#  bat) - those will be added to the required dirs list at the download phase, depending on what the user has selected.
-# Not all the directories will always be present, as it depends on observing modes etc.
-# I'm using this - https://swift.gsfc.nasa.gov/archive/archiveguide1/node5.html#SECTION00521000000000000000 - guide
-#  to determine which directories are needed
-# Some directories (e.g. events) hold the cleaned and uncleaned event lists, so download method filtering of files
-#  will have to be done there
-REQUIRED_DIRS = {'all': ['auxil/'],
-                 'raw': {'uvot': ['hk/', 'event/', 'image/'],
-                         'xrt': ['event/', 'hk/', 'image/'],
-                         'bat': ['event/', 'rate/', 'survey/']},
-                 'processed': {'uvot': ['hk/', 'event/', 'image/', 'products/'],
-                               'xrt': ['event/', 'hk/', 'image/', 'products/'],
-                               'bat': ['event/', 'rate/', 'survey/']}}
+# As we're only supporting XIS with the Suzaku mission class, I add that top level directory into all - but the
+#  sub-directories of XIS that we wish to download depend on whether the user wants pre-processed data or not
+# I'm using this - https://heasarc.gsfc.nasa.gov/docs/suzaku/analysis/abc/node6.html#SECTION00610000000000000000 -
+#  guide to determine which directories are needed
+REQUIRED_DIRS = {'all': ['auxil/', 'xis/'],
+                 'raw': {'xis': ['event_uf/', 'hk/', 'products/']},
+                 'processed': {'xis': ['event_uf/', 'event_cl/', 'hk/', 'products/']}}
 
 
-class Swift(BaseMission):
+class Suzaku(BaseMission):
     """
-    The mission class for observations by the Neil Gehrels Swift Observatory.
-    The available observation information is fetched from the HEASArc SWIFTMASTR table, and data are downloaded from
-    the HEASArc https access to their FTP server. Proprietary data are not currently supported by this class.
+    The mission class for Suzaku observations, specifically those from the XIS instruments, as XRS' cooling system
+    was damaged soon after launch, and HXD was not an imaging instrument.
+    The available observation information is fetched from the HEASArc SUZAMASTER table, and data are downloaded from
+    the HEASArc https access to their FTP server.
 
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
-        pass either a single string value or a list of strings. They may include XRT, BAT, and UVOT (the default
-        is both XRT and BAT).
+            pass either a single string value or a list of strings. They may include XIS0, XIS1, XIS2, and XIS3 (the
+            default is all of them).
     """
 
     def __init__(self, insts: Union[List[str], str] = None):
         """
-        The mission class for observations by the Neil Gehrels Swift Observatory.
-        The available observation information is fetched from the HEASArc SWIFTMASTR table, and data are downloaded
-        from the HEASArc https access to their FTP server. Proprietary data are not currently supported by this class.
+        The mission class for Suzaku observations, specifically those from the XIS instruments, as XRS' cooling system
+        was damaged soon after launch, and HXD was not an imaging instrument.
+        The available observation information is fetched from the HEASArc SUZAMASTER table, and data are downloaded
+        from the HEASArc https access to their FTP server.
 
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
-            pass either a single string value or a list of strings. They may include XRT, BAT, and UVOT (the default
-            is both XRT and BAT).
-        """
+            pass either a single string value or a list of strings. They may include XIS0, XIS1, XIS2, and XIS3 (the
+            default is all of them).
+    """
         super().__init__()
 
-        # Sets the default instruments - the two X-ray (though BAT sort of tends towards low energy gamma rays as
-        #  well) instruments on Swift.
-        # TODO decide whether UV data should be acquired as default considering this module focuses on X-rays
+        # Sets the default instruments - all the imaging spectrometers on Suzaku, and the only instruments supported
+        #  by DAXA
         if insts is None:
-            insts = ['XRT', 'BAT']
+            insts = ['XIS0', 'XIS1', 'XIS2', 'XIS3']
         elif isinstance(insts, str):
             # Makes sure that, if a single instrument is passed as a string, the insts variable is a list for the
             #  rest of the work done using it
@@ -75,12 +68,12 @@ class Swift(BaseMission):
         # Makes sure everything is uppercase
         insts = [i.upper() for i in insts]
 
-        # These are the allowed instruments for this mission - Swift has a focusing X-ray telescope (XRT), the burst
-        #  alert telescope (BAT) which observes in the hard X-ray (15-150keV) and up to 500keV for non-imaging
-        #  studies, and a UV telescope very similar to the optical monitor on XMM (but designed better).
-        self._miss_poss_insts = ['XRT', 'BAT', 'UVOT']
-        # As far as I know there aren't any other common names for the instruments on Swift
-        self._alt_miss_inst_names = {}
+        # These are the allowed instruments for this mission - the XIS instruments all had their own telescopes
+        self._miss_poss_insts = ['XIS0', 'XIS1', 'XIS2', 'XIS3']
+        # The chosen_instruments property setter (see below) will use these to convert possible contractions
+        #  to the names that the module expects. I'm not that familiar with Suzaku currently, so
+        #  I've just put in X0, X1, ... without any real expectation that anyone would use them.
+        self._alt_miss_inst_names = {'X0': 'XIS0', 'X1': 'XIS1', 'X2': 'XIS2', 'X3': 'XIS3'}
 
         # Deliberately using the property setter, because it calls the internal _check_chos_insts function
         #  to make sure the input instruments are allowed
@@ -90,13 +83,9 @@ class Swift(BaseMission):
         self.name
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = ['target_category', 'xrt_exposure', 'bat_exposure', 'uvot_exposure']
+        self._required_mission_specific_cols = []
 
-        # 'proprietary_end_date', 'exposure_a', 'exposure_b', 'ontime_a',
-        # 'ontime_b', 'nupsdout', 'issue_flag', 'target_category',
-        # 'proprietary_usable'
-
-        # Runs the method which fetches information on all available Swift observations and stores that
+        # Runs the method which fetches information on all available pointed Suzaku observations and stores that
         #  information in the all_obs_info property
         self._fetch_obs_info()
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
@@ -114,9 +103,9 @@ class Swift(BaseMission):
         # The name is defined here because this is the pattern for this property defined in
         #  the BaseMission superclass. Suggest keeping this in a format that would be good for a unix
         #  directory name (i.e. lowercase + underscores), because it will be used as a directory name
-        self._miss_name = "swift"
+        self._miss_name = "suzaku"
         # This won't be used to name directories, but will be used for things like progress bar descriptions
-        self._pretty_miss_name = "Swift"
+        self._pretty_miss_name = "Suzaku"
         return self._miss_name
 
     @property
@@ -141,9 +130,9 @@ class Swift(BaseMission):
         :rtype: str
         """
         # The ObsID regular expression is defined here because this is the pattern for this property defined in
-        #  the BaseMission superclass - Swift observations have a unique 11-digit ObsID, the construction of
-        #  which is discussed here (https://heasarc.gsfc.nasa.gov/w3browse/swift/swiftmastr.html#ObsID)
-        self._id_format = '^[0-9]{11}$'
+        #  the BaseMission superclass - Suzaku observations seem to have a unique 9-digit ObsID, though I can find
+        #  no discussion of whether there is extra information in the ObsID (i.e. target type).
+        self._id_format = '^[0-9]{9}$'
         return self._id_format
 
     @property
@@ -158,13 +147,10 @@ class Swift(BaseMission):
         :rtype: Union[Quantity, dict]
         """
         # The approximate field of view is defined here because I want to force implementation for each
-        #  new mission class. XRT is described here (https://swift.gsfc.nasa.gov/about_swift/xrt_desc.html),
-        #  UVOT is described here (https://swift.gsfc.nasa.gov/about_swift/uvot_desc.html), and BAT is described
-        #  here (https://swift.gsfc.nasa.gov/about_swift/bat_desc.html).
-        # BAT is somewhat complicated, because the half-coded region (which can do imaging) has a 100x60deg FoV, so I
-        #  have gone with half the long side
-        self._approx_fov = {'XRT': Quantity(11.8, 'arcmin'), 'BAT': Quantity(50, 'arcmin'),
-                            'UVOT': Quantity(8.5, 'arcmin')}
+        #  new mission class - found slightly conflicting values for this, but went with the HEASArc info page's
+        #  number of 19'x19' (https://heasarc.gsfc.nasa.gov/docs/suzaku/about/overview.html). Only need one value
+        #  here because we're just supporting the XIS instruments for this mission
+        self._approx_fov = Quantity(9.5, 'arcmin')
         return self._approx_fov
 
     @property
@@ -198,9 +184,9 @@ class Swift(BaseMission):
     def _fetch_obs_info(self):
         """
         This method adapts the 'browse_extract.pl' script (a copy of which can be found in daxa/files for the proper
-        credit) to acquire the 'swiftmastr' table from HEASArc - this method is much simpler, as it doesn't need to be
+        credit) to acquire the 'suzamaster' table from HEASArc - this method is much simpler, as it doesn't need to be
         dynamic and accept different arguments, and we will filter observations locally. This table describes the
-        available Swift observations, with important information such as pointing coordinates, ObsIDs, and exposure.
+        available Suzaku observations, with important information such as pointing coordinates, ObsIDs, and exposure.
         """
         # This is the web interface for querying NASA HEASArc catalogues
         host_url = "https://heasarc.gsfc.nasa.gov/db-perl/W3Browse/w3query.pl?"
@@ -208,20 +194,21 @@ class Swift(BaseMission):
         # This returns the requested information in a FITS format - the idea being I will stream this into memory
         #  and then have a fits table that I can convert into a Pandas dataframe (which I much prefer working with).
         down_form = "&displaymode=FitsDisplay"
-        # This should mean unlimited, as we don't know how many Swift observations there are, and the number will
+        # This should mean unlimited, as we don't know how many NuSTAR observations there are, and the number will
         #  increase with time (so long as the telescope doesn't break...)
         result_max = "&ResultMax=0"
         # This just tells the interface it's a query (I think?)
         action = "&Action=Query"
-        # Tells the interface that I want to retrieve from the swiftmastr (Swift Master) catalogue
-        table_head = "tablehead=name=BATCHRETRIEVALCATALOG_2.0%20swiftmastr"
+        # Tells the interface that I want to retrieve from the suzamaster (Suzaku Master) catalogue
+        table_head = "tablehead=name=BATCHRETRIEVALCATALOG_2.0%20suzamaster"
 
         # The definition of all of these fields can be found here:
-        #  (https://heasarc.gsfc.nasa.gov/w3browse/swift/swiftmastr.html)
-
-        # Could poll the individual instrument observing times for different modes to determine the mode of the
-        #  instrument - but that would be a LOT of columns
-        which_cols = ['RA', 'DEC', 'ObsID', 'Start_Time', 'Stop_Time', 'XRT_Exposure', 'UVOT_Exposure', 'BAT_Exposure']
+        #  (https://heasarc.gsfc.nasa.gov/W3Browse/suzaku/suzamaster.html)
+        # All the proprietary periods for Suzaku data have passed, so we don't need to download them at this point
+        #  like we do with some other missions
+        which_cols = ['RA', 'DEC', 'OBSID', 'TIME', 'STOP_TIME', 'Category_Code',
+                      'XIS0_Expo', 'XIS0_Num_Modes', 'XIS1_Expo', 'XIS1_Num_Modes', 'XIS2_Expo', 'XIS2_Num_Modes',
+                      'XIS3_Expo', 'XIS3_Num_Modes']
         # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
         #  but I curated it to only those I think might be useful for DAXA
         fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
@@ -235,104 +222,100 @@ class Swift(BaseMission):
             #  first so that fits.open can access it as an already opened file handler).
             with fits.open(io.BytesIO(urlo.content)) as full_fits:
                 # Then convert the data in that fits file just into an astropy table object, and from there to a DF
-                full_swift = Table(full_fits[1].data).to_pandas()
+                full_suzaku = Table(full_fits[1].data).to_pandas()
                 # This cycles through any column with the 'object' data type (string in this instance), and
                 #  strips it of white space (I noticed there was extra whitespace on the end of a lot of the
                 #  string data).
-                for col in full_swift.select_dtypes(['object']).columns:
-                    full_swift[col] = full_swift[col].apply(lambda x: x.strip())
+                for col in full_suzaku.select_dtypes(['object']).columns:
+                    full_suzaku[col] = full_suzaku[col].apply(lambda x: x.strip())
 
         # Important first step, making any global cuts to the dataframe to remove entries that are not going to be
-        #  useful. For Swift, as information in the table is pretty limited, I have elected to remove any ObsID with
-        #  zero exposure in all three instruments - further cuts may be made later.
-        rel_swift = full_swift[(full_swift['XRT_EXPOSURE'] != 0.0) | (full_swift['BAT_EXPOSURE'] != 0.0) |
-                               (full_swift['UVOT_EXPOSURE'] != 0.0)]
-        # We throw a warning that some number of the Swift observations are dropped because it doesn't seem that they
+        #  useful. For Suzaku I have elected to remove any ObsID with zero exposure in all four XIS instruments
+        rel_suzaku = full_suzaku[(full_suzaku['XIS0_EXPO'] != 0.0) | (full_suzaku['XIS1_EXPO'] != 0.0) |
+                                 (full_suzaku['XIS2_EXPO'] != 0.0) | (full_suzaku['XIS3_EXPO'] != 0.0)]
+        # We throw a warning that some number of the Suzaku observations are dropped because it doesn't seem that they
         #  will be at all useful
-        if len(rel_swift) != len(full_swift):
-            warn("{ta} of the {tot} observations located for Swift have been removed due to all instrument exposures "
-                 "being zero.".format(ta=len(full_swift)-len(rel_swift), tot=len(full_swift)), stacklevel=2)
-
-        # This removes any ObsIDs that have zero exposure time for the currently selected instruments - if all three
-        #  instruments are selected then this won't do anything because it is the same as what we did a couple of
-        #  lines up - but if a subset have been selected then it might well do something
-        pre_inst_exp_check_num = len(rel_swift)
-        rel_swift = rel_swift[np.logical_or.reduce([rel_swift[inst+'_EXPOSURE'] != 0
-                                                    for inst in self.chosen_instruments])]
-        # I warn the user if their chosen instruments have observations that have been removed because the chosen
-        #  instruments are all zero exposure
-        if len(rel_swift) != pre_inst_exp_check_num:
-            warn("{ta} of the {tot} observations located for Swift have been removed due to all chosen instrument "
-                 "({ci}) exposures being zero.".format(ta=pre_inst_exp_check_num-len(rel_swift), tot=len(full_swift),
-                                                       ci=", ".join(self.chosen_instruments)), stacklevel=2)
+        if len(rel_suzaku) != len(full_suzaku):
+            warn("{ta} of the {tot} observations located for Suzaku have been removed due to all instrument exposures "
+                 "being zero.".format(ta=len(full_suzaku) - len(rel_suzaku), tot=len(full_suzaku)), stacklevel=2)
 
         # Lower-casing all the column names (personal preference largely).
-        rel_swift = rel_swift.rename(columns=str.lower)
+        rel_suzaku = rel_suzaku.rename(columns=str.lower)
         # Changing a few column names to match what BaseMission expects
-        rel_swift = rel_swift.rename(columns={'obsid': 'ObsID', 'start_time': 'start', 'stop_time': 'end'})
+        rel_suzaku = rel_suzaku.rename(columns={'obsid': 'ObsID', 'time': 'start', 'stop_time': 'end',
+                                                'category_code': 'target_category'})
 
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
         #  BaseMission time selection methods expect
-        rel_swift['start'] = pd.to_datetime(Time(rel_swift['start'].values.astype(float), format='mjd',
-                                                 scale='utc').to_datetime())
-        rel_swift['end'] = pd.to_datetime(Time(rel_swift['end'].values.astype(float), format='mjd',
-                                               scale='utc').to_datetime())
-        # Then make a duration column by subtracting the start MJD from the end MJD - not an exposure time but just
-        #  how long the observation window was
-        rel_swift['duration'] = rel_swift['end'] - rel_swift['start']
-        # Cycle through the exposure columns and make sure that they are time objects
-        for col in rel_swift.columns[rel_swift.columns.str.contains('exposure')]:
-            rel_swift[col] = pd.to_timedelta(rel_swift[col], 's')
+        rel_suzaku['start'] = pd.to_datetime(Time(rel_suzaku['start'].values.astype(float), format='mjd',
+                                                  scale='utc').to_datetime())
+        rel_suzaku['end'] = pd.to_datetime(Time(rel_suzaku['end'].values.astype(float), format='mjd',
+                                                scale='utc').to_datetime())
+        # Then make a duration column by subtracting one from t'other - there are also exposure and ontime columns
+        #  which I've acquired, but I think total duration is what I will go with here.
+        rel_suzaku['duration'] = rel_suzaku['end'] - rel_suzaku['start']
 
-        # Not really much information in the table that I can use to decide how to populate this
-        rel_swift['science_usable'] = True
+        # Converting the exposure times to Pandas time deltas
+        for col in rel_suzaku.columns[rel_suzaku.columns.str.contains('expo')]:
+            rel_suzaku[col] = pd.to_timedelta(rel_suzaku[col], 's')
 
-        # There are no Swift target categories in the catalogue unfortunately
+        # No clear way of defining this from the tables, so we're going to assume that they all are
+        rel_suzaku['science_usable'] = True
+
+        # Convert the categories of target that are present in the dataframe to the DAXA taxonomy
+        # The Suzaku category codes are here:
+        #  https://heasarc.gsfc.nasa.gov/W3Browse/suzaku/suzamaster.html#category_code
+        # These translations are pretty hand-wavey honestly
+        conv_dict = {0: 'MISC', 1: 'CAL', 4: 'GS', 5: 'GS', 7: 'EGS', 8: 'GCL', 9: 'TOO'}
+
+        # I construct a mask that tells me which entries have a recognised description - any that don't will be set
+        #  to the 'MISC' code
+        type_recog = rel_suzaku['target_category'].isin(list(conv_dict.keys()))
         # The recognized target category descriptions are converted to DAXA taxonomy
-        rel_swift['target_category'] = 'MISC'
+        rel_suzaku.loc[type_recog, 'target_category'] = rel_suzaku.loc[type_recog, 'target_category'].apply(
+            lambda x: conv_dict[x])
+        # Now I set any unrecognized target category descriptions to MISC - there are none at the time of writing,
+        #  but that could well change
+        rel_suzaku.loc[~type_recog, 'target_category'] = 'MISC'
 
         # Re-ordering the table, and not including certain columns which have served their purpose
-        rel_swift = rel_swift[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration',  'target_category',
-                               'xrt_exposure', 'bat_exposure', 'uvot_exposure']]
+        rel_suzaku = rel_suzaku[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category',
+                                 'xis0_expo', 'xis0_num_modes', 'xis1_expo', 'xis1_num_modes',
+                                 'xis2_expo', 'xis2_num_modes', 'xis3_expo', 'xis3_num_modes']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
         #  the user would expect from  a fresh dataframe
-        rel_swift = rel_swift.reset_index(drop=True)
+        rel_suzaku = rel_suzaku.reset_index(drop=True)
 
         # Use the setter for all_obs_info to actually add this information to the instance
-        self.all_obs_info = rel_swift
+        self.all_obs_info = rel_suzaku
 
     @staticmethod
-    def _download_call(observation_id: str, insts: List[str], start_year: str, start_month: str, raw_dir: str,
-                       download_processed: bool):
+    def _download_call(observation_id: str, insts: List[str], raw_dir: str, download_processed: bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
 
         :param str observation_id: The ObsID of the observation to be downloaded.
         :param List[str] insts: The instruments which the user wishes to acquire data for.
-        :param str start_year: The start year of the observation to be downloaded - this is necessary as
-            the HEASArc Swift data are split into yyyy-mm directories.
-        :param str start_month: The start month of the observation to be downloaded - this is necessary as
-            the HEASArc Swift data are split into yyyy-mm directories.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
         :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
             and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
             raw data.
         """
         insts = [inst.lower() for inst in insts]
-        req_dir = REQUIRED_DIRS['all'] + [inst + '/' for inst in insts]
+
+        req_dir = REQUIRED_DIRS['all']
         if download_processed:
             dir_lookup = REQUIRED_DIRS['processed']
         else:
             dir_lookup = REQUIRED_DIRS['raw']
 
-        # The data on HEASArc are stored in subdirectories named after the year-month that they were taken, so
-        #  we first need to construct that to setup the URL we need
-        date_id = start_year + '_' + start_month.zfill(2)
+        # The data on HEASArc are stored in subdirectories that have the first digit of the ObsID as their name
+        cat_id = observation_id[0]
 
         # This is the path to the HEASArc data directory for this ObsID
-        obs_dir = "/FTP/swift/data/obs/{did}/{oid}/".format(did=date_id, oid=observation_id)
+        obs_dir = "/FTP/suzaku/data/obs/{cid}/{oid}/".format(cid=cat_id, oid=observation_id)
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
 
         # This opens a session that will persist - then a lot of the next session is for checking that the expected
@@ -340,7 +323,7 @@ class Swift(BaseMission):
         session = requests.Session()
 
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
-        #  that the directories that I need to download unprocessed Swift data are present
+        #  that the directories that I need to download unprocessed Suzaku data are present
         top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
                     if en['href'] in req_dir]
 
@@ -366,36 +349,34 @@ class Swift(BaseMission):
                 to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
                            if '?' not in en['href'] and obs_dir not in en['href']]
             else:
-                # The way the Swift archives are laid out, each instrument directory has subdirectories that
-                #  we need to decide whether to download or not - we also need to make some distinctions on
-                #  a file level (i.e. cleaned event lists won't be downloaded if the user doesn't want to download
-                #  pre-processed data).
+                # The way the Suzaku archives are laid out, XIS has its own directory, and sub-directories that we
+                #  need to decide whether to download or not
                 rel_req_dir = dir_lookup[dat_dir[:-1]]
                 to_down = []
                 # Here we cycle through the directories that we have found at the instrument URL for this ObsID
                 for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a"):
-                    # This is what happens in most cases for a genuine directory - we don't deal with any
-                    #  directory named 'event' here though
-                    if '?' not in en['href'] and obs_dir not in en['href'] and en['href'] in rel_req_dir and \
-                            en['href'] != 'event/':
+                    # We have to check that the 'en' isn't some HTML guff that we don't need, and that the
+                    #  subdirectories actually should be downloaded (i.e. we won't download event_cl and products
+                    #  when the user doesn't want pre-processed data).
+                    if '?' not in en['href'] and obs_dir not in en['href'] and en['href'] in rel_req_dir:
                         low_rel_url = rel_url + en['href']
-                        files = [en['href'] + '/' + fil['href'] for fil in BeautifulSoup(session.get(low_rel_url).text,
-                                                                                         "html.parser").find_all("a")
+                        files = [en['href'] + '/' + fil['href']
+                                 for fil in BeautifulSoup(session.get(low_rel_url).text, "html.parser").find_all("a")
                                  if '?' not in fil['href'] and obs_dir not in fil['href']]
-                    # 'event' directories get their own treatment because we have to decide whether to download
-                    #  cleaned event lists or not, depending whether the user has requested them
-                    elif '?' not in en['href'] and obs_dir not in en['href'] and en['href'] in rel_req_dir and \
-                            en['href'] == 'event/':
-                        low_rel_url = rel_url + en['href']
-                        files = [en['href'] + '/' + fil['href'] for fil in BeautifulSoup(session.get(low_rel_url).text,
-                                                                                         "html.parser").find_all("a")
-                                 if '?' not in fil['href'] and obs_dir not in fil['href'] and
-                                 ('cl.evt' not in fil['href'] or download_processed)]
+
+                        if en['href'] != 'hk/':
+                            # All instrument files are in the same directories in this archive, so we need to quickly
+                            #  sweep through and check the files are for the instruments the user has chosen. Though
+                            #  why they would decide to remove some of the XIS I don't know
+                            # Also add another entry to catch the gif images that they make with a slightly different
+                            #  naming scheme
+                            short_inst = ['xi' + inst[-1] for inst in insts if inst] + ['xis']
+                            files = [fil for fil in files for inst in short_inst if inst in fil]
                     else:
                         files = []
 
-                    # If the current subdirectory of the current instrument of the current ObsID has got files that
-                    #  we want to download, then we make sure that the subdirectory exists locally
+                    # If the current subdirectory has got files that  we want to download, then we make sure that
+                    #  the subdirectory exists locally
                     if len(files) != 0 and not os.path.exists(local_dir + en['href']):
                         os.makedirs(local_dir + en['href'])
                     # And add the current list of files to the overall downloading list for this instrument
@@ -409,8 +390,9 @@ class Swift(BaseMission):
                         copyfileobj(acquiro.raw, writo)
 
                 # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
-                #  event lists, as they're more likely to be used
-                if 'evt.gz' in down_file:
+                #  event lists, as they're more likely to be used - also decompress the gifs so people can have a quick
+                #  look if they so desire
+                if 'evt.gz' in down_file or 'gif.gz' in down_file:
                     # Open and decompress the events file
                     with gzip.open(local_dir + down_file, 'rb') as compresso:
                         # Open a new file handler for the decompressed data, then funnel the decompressed events there
@@ -423,7 +405,7 @@ class Swift(BaseMission):
 
     def download(self, num_cores: int = NUM_CORES, download_processed: bool = False):
         """
-        A method to acquire and download the Swift data that have not been filtered out (if a filter
+        A method to acquire and download the Suzaku data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
         property will be downloaded, which is set either on declaration of the class instance or by passing
         a new value to the chosen_instruments property.
@@ -436,7 +418,7 @@ class Swift(BaseMission):
             raw data.
         """
 
-        # Ensures that a directory to store the 'raw' Swift data in exists - once downloaded and unpacked
+        # Ensures that a directory to store the 'raw' pointed Suzaku data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
         if not os.path.exists(self.top_level_path + self.name + '_raw'):
             os.makedirs(self.top_level_path + self.name + '_raw')
@@ -453,11 +435,9 @@ class Swift(BaseMission):
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
             if num_cores == 1:
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
-                    for row_ind, row in self.filtered_obs_info.iterrows():
-                        obs_id = row['ObsID']
-                        # Use the internal static method I set up which both downloads and unpacks the Swift data
-                        self._download_call(obs_id, insts=self.chosen_instruments, start_year=str(row['start'].year),
-                                            start_month=str(row['start'].month),
+                    for obs_id in self.filtered_obs_ids:
+                        # Use the internal static method I set up which both downloads and unpacks the NuSTAR data
+                        self._download_call(obs_id, insts=self.chosen_instruments,
                                             raw_dir=stor_dir + '{o}'.format(o=obs_id),
                                             download_processed=download_processed)
                         # Update the progress bar
@@ -498,13 +478,10 @@ class Swift(BaseMission):
                         download_prog.update(1)
 
                     # Again nested for loop through ObsIDs and instruments
-                    for row_ind, row in self.filtered_obs_info.iterrows():
-                        obs_id = row['ObsID']
+                    for obs_id in self.filtered_obs_ids:
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
                                          kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
-                                               'start_year': str(row['start'].year),
-                                               'start_month': str(row['start'].month),
                                                'raw_dir': stor_dir + '{o}'.format(o=obs_id),
                                                'download_processed': download_processed},
                                          error_callback=err_callback, callback=callback)
@@ -527,7 +504,7 @@ class Swift(BaseMission):
 
     def assess_process_obs(self, obs_info: dict):
         """
-        A slightly unusual method which will allow the Swift mission to assess the information on a particular
+        A slightly unusual method which will allow the Suzaku mission to assess the information on a particular
         observation that has been put together by an Archive (the archive assembles it because sometimes this
         detailed information only becomes available at the first stages of processing), and make a decision on whether
         that particular observation-instrument should be processed further for scientific use.
@@ -538,6 +515,7 @@ class Swift(BaseMission):
         :param dict obs_info: The multi-level dictionary containing available observation information for an
             observation.
         """
-        raise NotImplementedError("The check_process_obs method has not yet been implemented for Swift, as "
+        raise NotImplementedError("The check_process_obs method has not yet been implemented for Suzaku, as "
                                   "we need to see what detailed information are available once processing downloaded "
                                   "data has begun.")
+
