@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 16:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 17:27. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -54,7 +54,7 @@ class Suzaku(BaseMission):
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
             pass either a single string value or a list of strings. They may include XIS0, XIS1, XIS2, and XIS3 (the
             default is all of them).
-    """
+        """
         super().__init__()
 
         # Sets the default instruments - all the imaging spectrometers on Suzaku, and the only instruments supported
