@@ -1,10 +1,9 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 14:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 15:54. Copyright (c) The Contributors
 
 import gzip
 import io
 import os
-from datetime import datetime
 from multiprocessing import Pool
 from shutil import copyfileobj
 from typing import List, Union, Any
@@ -23,6 +22,7 @@ from tqdm import tqdm
 from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
+
 
 # https://heasarc.gsfc.nasa.gov/docs/suzaku/analysis/abc/node6.html#SECTION00610000000000000000
 # REQUIRED_DIRS = {'raw': ['auxil/', 'event_uf/', 'hk/'],
@@ -161,4 +161,342 @@ class Suzaku(BaseMission):
         :rtype: pd.DataFrame
         """
         return self._obs_info
+
+    @all_obs_info.setter
+    def all_obs_info(self, new_info: pd.DataFrame):
+        """
+        Property setter that allows the setting of a new all-observation-information dataframe. This is the dataframe
+        that contains information on every possible observation for a mission.
+
+        :param pd.DataFrame new_info: The new dataframe to update the all observation information.
+        """
+        # Frankly I'm not really sure why I made this an abstract method, but possibly because I thought some
+        #  missions might need extra checks run on their observation information dataframes?
+        # This _obs_info_checks method is defined in BaseMission, and uses the ObsID regex defined near the top of
+        #  this class to ensure that the dataframe's ObsID column contains legal values.
+        self._obs_info_checks(new_info)
+        self._obs_info = new_info
+        self.reset_filter()
+
+    def _fetch_obs_info(self):
+        """
+        This method adapts the 'browse_extract.pl' script (a copy of which can be found in daxa/files for the proper
+        credit) to acquire the 'suzamaster' table from HEASArc - this method is much simpler, as it doesn't need to be
+        dynamic and accept different arguments, and we will filter observations locally. This table describes the
+        available Suzaku observations, with important information such as pointing coordinates, ObsIDs, and exposure.
+        """
+        # This is the web interface for querying NASA HEASArc catalogues
+        host_url = "https://heasarc.gsfc.nasa.gov/db-perl/W3Browse/w3query.pl?"
+
+        # This returns the requested information in a FITS format - the idea being I will stream this into memory
+        #  and then have a fits table that I can convert into a Pandas dataframe (which I much prefer working with).
+        down_form = "&displaymode=FitsDisplay"
+        # This should mean unlimited, as we don't know how many NuSTAR observations there are, and the number will
+        #  increase with time (so long as the telescope doesn't break...)
+        result_max = "&ResultMax=0"
+        # This just tells the interface it's a query (I think?)
+        action = "&Action=Query"
+        # Tells the interface that I want to retrieve from the suzamaster (Suzaku Master) catalogue
+        table_head = "tablehead=name=BATCHRETRIEVALCATALOG_2.0%20suzamaster"
+
+        # The definition of all of these fields can be found here:
+        #  (https://heasarc.gsfc.nasa.gov/W3Browse/suzaku/suzamaster.html)
+        # All the proprietary periods for Suzaku data have passed, so we don't need to download them at this point
+        #  like we do with some other missions
+        which_cols = ['RA', 'DEC', 'OBSID', 'TIME', 'STOP_TIME', 'Category_Code',
+                      'XIS0_Expo', 'XIS0_Num_Modes', 'XIS1_Expo', 'XIS1_Num_Modes', 'XIS2_Expo', 'XIS2_Num_Modes',
+                      'XIS3_Expo', 'XIS3_Num_Modes']
+        # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
+        #  but I curated it to only those I think might be useful for DAXA
+        fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
+
+        # The full URL that we will pull the data from, with all the components we have previously defined
+        fetch_url = host_url + table_head + action + result_max + down_form + fields
+
+        # Opening that URL, we can access the results of our request!
+        with requests.get(fetch_url, stream=True) as urlo:
+            # This opens the data as using the astropy fits interface (using io.BytesIO() to stream it into memory
+            #  first so that fits.open can access it as an already opened file handler).
+            with fits.open(io.BytesIO(urlo.content)) as full_fits:
+                # Then convert the data in that fits file just into an astropy table object, and from there to a DF
+                full_suzaku = Table(full_fits[1].data).to_pandas()
+                # This cycles through any column with the 'object' data type (string in this instance), and
+                #  strips it of white space (I noticed there was extra whitespace on the end of a lot of the
+                #  string data).
+                for col in full_suzaku.select_dtypes(['object']).columns:
+                    full_suzaku[col] = full_suzaku[col].apply(lambda x: x.strip())
+
+        # Important first step, making any global cuts to the dataframe to remove entries that are not going to be
+        #  useful. For Suzaku I have elected to remove any ObsID with zero exposure in all four XIS instruments
+        rel_suzaku = full_suzaku[(full_suzaku['XIS0_EXPO'] != 0.0) | (full_suzaku['XIS1_EXPO'] != 0.0) |
+                                 (full_suzaku['XIS2_EXPO'] != 0.0) | (full_suzaku['XIS3_EXPO'] != 0.0)]
+        # We throw a warning that some number of the Swift observations are dropped because it doesn't seem that they
+        #  will be at all useful
+        if len(rel_suzaku) != len(full_suzaku):
+            warn("{ta} of the {tot} observations located for Suzaku have been removed due to all instrument exposures "
+                 "being zero.".format(ta=len(full_suzaku) - len(rel_suzaku), tot=len(full_suzaku)), stacklevel=2)
+
+        # Lower-casing all the column names (personal preference largely).
+        rel_suzaku = rel_suzaku.rename(columns=str.lower)
+        # Changing a few column names to match what BaseMission expects
+        rel_suzaku = rel_suzaku.rename(columns={'obsid': 'ObsID', 'time': 'start', 'stop_time': 'end',
+                                                'category_code': 'target_category'})
+
+        # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
+        #  BaseMission time selection methods expect
+        rel_suzaku['start'] = pd.to_datetime(Time(rel_suzaku['start'].values.astype(float), format='mjd',
+                                                  scale='utc').to_datetime())
+        rel_suzaku['end'] = pd.to_datetime(Time(rel_suzaku['end'].values.astype(float), format='mjd',
+                                                scale='utc').to_datetime())
+        # Then make a duration column by subtracting one from t'other - there are also exposure and ontime columns
+        #  which I've acquired, but I think total duration is what I will go with here.
+        rel_suzaku['duration'] = rel_suzaku['end'] - rel_suzaku['start']
+
+        # Converting the exposure times to Pandas time deltas
+        for col in rel_suzaku.columns[rel_suzaku.columns.str.contains('expo')]:
+            rel_suzaku[col] = pd.to_timedelta(rel_suzaku[col], 's')
+
+        # No clear way of defining this from the tables, so we're going to assume that they all are
+        rel_suzaku['science_usable'] = True
+
+        # Convert the categories of target that are present in the dataframe to the DAXA taxonomy
+        # The Suzaku category codes are here:
+        #  https://heasarc.gsfc.nasa.gov/W3Browse/suzaku/suzamaster.html#category_code
+        # These translations are pretty hand-wavey honestly
+        conv_dict = {0: 'MISC', 1: 'CAL', 4: 'GS', 5: 'GS', 7: 'EGS', 8: 'GCL', 9: 'TOO'}
+
+        # I construct a mask that tells me which entries have a recognised description - any that don't will be set
+        #  to the 'MISC' code
+        type_recog = rel_suzaku['target_category'].isin(list(conv_dict.keys()))
+        # The recognized target category descriptions are converted to DAXA taxonomy
+        rel_suzaku.loc[type_recog, 'target_category'] = rel_suzaku.loc[type_recog, 'target_category'].apply(
+            lambda x: conv_dict[x])
+        # Now I set any unrecognized target category descriptions to MISC - there are none at the time of writing,
+        #  but that could well change
+        rel_suzaku.loc[~type_recog, 'target_category'] = 'MISC'
+
+        # Re-ordering the table, and not including certain columns which have served their purpose
+        rel_suzaku = rel_suzaku[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category',
+                                 'xis0_expo', 'xis0_num_modes', 'xis1_expo', 'xis1_num_modes',
+                                 'xis2_expo', 'xis2_num_modes', 'xis3_expo', 'xis3_num_modes']]
+
+        # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
+        #  the user would expect from  a fresh dataframe
+        rel_suzaku = rel_suzaku.reset_index(drop=True)
+
+        # Use the setter for all_obs_info to actually add this information to the instance
+        self.all_obs_info = rel_suzaku
+
+    @staticmethod
+    def _download_call(observation_id: str, insts: List[str], raw_dir: str, download_processed: bool):
+        """
+        The internal method called (in a couple of different possible ways) by the download method. This will check
+        the availability of, acquire, and decompress the specified observation.
+
+        :param str observation_id: The ObsID of the observation to be downloaded.
+        :param List[str] insts: The instruments which the user wishes to acquire data for.
+        :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
+        :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
+            and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
+            raw data.
+        """
+        if download_processed:
+            req_dir = REQUIRED_DIRS['processed']
+        else:
+            req_dir = REQUIRED_DIRS['raw']
+
+        # This two digit code identifies the program type (00 assigned to the first 2-year primary mission, and
+        #  then 01, 02, 03 ... increment for each additional year of observations. Useful here to get to the
+        #  correct directory to find our ObsID
+        prog_id = observation_id[1:3]
+
+        # This identifies the type of source that was being observed, useful here to get to the right directory
+        src_cat = observation_id[0]
+
+        # This is the path to the HEASArc data directory for this ObsID
+        obs_dir = "/FTP/nustar/data/obs/{pid}/{sc}/{oid}/".format(pid=prog_id, sc=src_cat, oid=observation_id)
+        top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
+
+        # This opens a session that will persist - then a lot of the next session is for checking that the expected
+        #  directories are present.
+        session = requests.Session()
+
+        # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
+        #  that the three directories that I need to download unprocessed NuStar data are present
+        top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
+                    if en['href'] in req_dir]
+        # If the lengths of top_data and REQUIRED_DIRS are different, then one or more of the expected dirs
+        #  is not present
+        if len(top_data) != len(req_dir):
+            # This list comprehension figures out what directory is missing and reports it
+            missing = [rd for rd in req_dir if rd not in top_data]
+            raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
+                                    "directories; {rq}".format(o=observation_id, rq=", ".join(missing)))
+
+        for dat_dir in top_data:
+            # The lower level URL of the directory we're currently looking at
+            rel_url = top_url + dat_dir + '/'
+            # This is the directory to which we will be saving this archive directories files
+            local_dir = raw_dir + '/' + dat_dir + '/'
+            # Make sure that the local directory is created
+            if not os.path.exists(local_dir):
+                os.makedirs(local_dir)
+
+            # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
+            #  are the files we shall be downloading
+            to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
+                       if '?' not in en['href'] and obs_dir not in en['href']]
+
+            # As we allow the user to select a single instrument, if they don't want both (though goodness knows why
+            #  on earth anyone would do that), the event_uf directory gets an extra check. The last character of
+            #  the instrument is either A or B, and that is what I am using to identify the relevant event lists.
+            if dat_dir == 'event_uf/':
+                to_down = [td for td in to_down for inst in insts if observation_id + inst[-1] + "_uf" in td]
+
+            for down_file in to_down:
+                down_url = rel_url + down_file
+                with session.get(down_url, stream=True) as acquiro:
+                    with open(local_dir + down_file, 'wb') as writo:
+                        copyfileobj(acquiro.raw, writo)
+
+                # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
+                #  event lists, as they're more likely to be used
+                if 'evt.gz' in down_file:
+                    # Open and decompress the events file
+                    with gzip.open(local_dir + down_file, 'rb') as compresso:
+                        # Open a new file handler for the decompressed data, then funnel the decompressed events there
+                        with open(local_dir + down_file.split('.gz')[0], 'wb') as writo:
+                            copyfileobj(compresso, writo)
+                    # Then remove the tarred file to minimise storage usage
+                    os.remove(local_dir + down_file)
+
+        return None
+
+    def download(self, num_cores: int = NUM_CORES, credentials: Union[str, dict] = None,
+                 download_processed: bool = False):
+        """
+        A method to acquire and download the pointed NuSTAR data that have not been filtered out (if a filter
+        has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
+        property will be downloaded, which is set either on declaration of the class instance or by passing
+        a new value to the chosen_instruments property.
+
+        :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
+            the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
+            of the cores available on the current machine.
+        :param dict/str credentials: The path to an ini file containing credentials, a dictionary containing 'user'
+            and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
+            for providing different credentials for different observations.
+        :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
+            and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
+            raw data.
+        """
+
+        if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():
+            raise NotImplementedError("Support for credentials for proprietary data is not yet implemented.")
+        elif not self.filtered_obs_info['proprietary_usable'].all() and credentials is None:
+            warn("Proprietary data have been selected, but no credentials provided; as such the proprietary data have "
+                 "been excluded from download and further processing.", stacklevel=2)
+            new_filter = self.filter_array * self.all_obs_info['proprietary_usable'].values
+            self.filter_array = new_filter
+
+        # Ensures that a directory to store the 'raw' pointed NuSTAR data in exists - once downloaded and unpacked
+        #  this data will be processed into a DAXA 'archive' and stored elsewhere.
+        if not os.path.exists(self.top_level_path + self.name + '_raw'):
+            os.makedirs(self.top_level_path + self.name + '_raw')
+        # Grabs the raw data storage path
+        stor_dir = self.raw_data_path
+
+        # A very unsophisticated way of checking whether raw data have been downloaded before (see issue #30)
+        #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
+        #  the _download_call method
+        if all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in self.filtered_obs_ids]):
+            self._download_done = True
+
+        if not self._download_done:
+            # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
+            if num_cores == 1:
+                with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
+                    for obs_id in self.filtered_obs_ids:
+                        # Use the internal static method I set up which both downloads and unpacks the NuSTAR data
+                        self._download_call(obs_id, insts=self.chosen_instruments,
+                                            raw_dir=stor_dir + '{o}'.format(o=obs_id),
+                                            download_processed=download_processed)
+                        # Update the progress bar
+                        download_prog.update(1)
+
+            elif num_cores > 1:
+                # List to store any errors raised during download tasks
+                raised_errors = []
+
+                # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
+                with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) \
+                        as download_prog, Pool(num_cores) as pool:
+
+                    # The callback function is what is called on the successful completion of a _download_call
+                    def callback(download_conf: Any):
+                        """
+                        Callback function for the apply_async pool method, gets called when a download task finishes
+                        without error.
+
+                        :param Any download_conf: The Null value confirming the operation is over.
+                        """
+                        nonlocal download_prog  # The progress bar will need updating
+                        download_prog.update(1)
+
+                    # The error callback function is what happens when an exception is thrown during a _download_call
+                    def err_callback(err):
+                        """
+                        The callback function for errors that occur inside a download task running in the pool.
+
+                        :param err: An error that occurred inside a task.
+                        """
+                        nonlocal raised_errors
+                        nonlocal download_prog
+
+                        if err is not None:
+                            # Rather than throwing an error straight away I append them all to a list for later.
+                            raised_errors.append(err)
+                        download_prog.update(1)
+
+                    # Again nested for loop through ObsIDs and instruments
+                    for obs_id in self.filtered_obs_ids:
+                        # Add each download task to the pool
+                        pool.apply_async(self._download_call,
+                                         kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
+                                               'raw_dir': stor_dir + '{o}'.format(o=obs_id),
+                                               'download_processed': download_processed},
+                                         error_callback=err_callback, callback=callback)
+                    pool.close()  # No more tasks can be added to the pool
+                    pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+
+                # Raise all the download errors at once, if there are any
+                if len(raised_errors) != 0:
+                    raise DAXADownloadError(str(raised_errors))
+
+            else:
+                raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
+
+            # This is set to True once the download is done, and is used by archives to tell if data have been
+            #  downloaded for a particular mission or not
+            self._download_done = True
+
+        else:
+            warn("The raw data for this mission have already been downloaded.")
+
+    def assess_process_obs(self, obs_info: dict):
+        """
+        A slightly unusual method which will allow the NuSTARPointed mission to assess the information on a particular
+        observation that has been put together by an Archive (the archive assembles it because sometimes this
+        detailed information only becomes available at the first stages of processing), and make a decision on whether
+        that particular observation-instrument should be processed further for scientific use.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param dict obs_info: The multi-level dictionary containing available observation information for an
+            observation.
+        """
+        raise NotImplementedError("The check_process_obs method has not yet been implemented for NuSTARPointed, as "
+                                  "we need to see what detailed information are available once processing downloaded "
+                                  "data has begun.")
 
