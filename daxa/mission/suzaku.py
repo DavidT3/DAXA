@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 16:31. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 16:40. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -356,7 +356,7 @@ class Suzaku(BaseMission):
                 # Here we cycle through the directories that we have found at the instrument URL for this ObsID
                 for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a"):
                     # We have to check that the 'en' isn't some HTML guff that we don't need, and that the
-                    #  sub-directories actually should be downloaded (i.e. we won't download event_cl and products
+                    #  subdirectories actually should be downloaded (i.e. we won't download event_cl and products
                     #  when the user doesn't want pre-processed data).
                     if '?' not in en['href'] and obs_dir not in en['href'] and en['href'] in rel_req_dir:
                         low_rel_url = rel_url + en['href']
@@ -368,7 +368,9 @@ class Suzaku(BaseMission):
                             # All instrument files are in the same directories in this archive, so we need to quickly
                             #  sweep through and check the files are for the instruments the user has chosen. Though
                             #  why they would decide to remove some of the XIS I don't know
-                            short_inst = ['xi' + inst[-1] for inst in insts if inst]
+                            # Also add another entry to catch the gif images that they make with a slightly different
+                            #  naming scheme
+                            short_inst = ['xi' + inst[-1] for inst in insts if inst] + ['xis']
                             files = [fil for fil in files for inst in short_inst if inst in fil]
                     else:
                         files = []
