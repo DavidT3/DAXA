@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 14:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 14:54. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -200,8 +200,7 @@ class Swift(BaseMission):
         This method adapts the 'browse_extract.pl' script (a copy of which can be found in daxa/files for the proper
         credit) to acquire the 'swiftmastr' table from HEASArc - this method is much simpler, as it doesn't need to be
         dynamic and accept different arguments, and we will filter observations locally. This table describes the
-        available, proprietary, and scheduled Swift observations, with important information such as pointing
-        coordinates, ObsIDs, and exposure.
+        available Swift observations, with important information such as pointing coordinates, ObsIDs, and exposure.
         """
         # This is the web interface for querying NASA HEASArc catalogues
         host_url = "https://heasarc.gsfc.nasa.gov/db-perl/W3Browse/w3query.pl?"
