@@ -25,6 +25,7 @@ limited. Support for more telescopes is either currently under development or be
     * [Under Development - data acquisition implemented] Chandra
     * [Under Development - RASS/pointed data acquisition implemented] ROSAT
     * [Under Development - XRT/BAT/UVOT data acquisition implemented] Swift
+    * [Under Development - data acquisition implemented] Suzaku
 
 *If you wish to help with implementation of Chandra, NuSTAR, or some other mission, please get in contact!*
 
