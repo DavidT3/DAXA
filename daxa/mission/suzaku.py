@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 16:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 16:31. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -233,7 +233,7 @@ class Suzaku(BaseMission):
         #  useful. For Suzaku I have elected to remove any ObsID with zero exposure in all four XIS instruments
         rel_suzaku = full_suzaku[(full_suzaku['XIS0_EXPO'] != 0.0) | (full_suzaku['XIS1_EXPO'] != 0.0) |
                                  (full_suzaku['XIS2_EXPO'] != 0.0) | (full_suzaku['XIS3_EXPO'] != 0.0)]
-        # We throw a warning that some number of the Swift observations are dropped because it doesn't seem that they
+        # We throw a warning that some number of the Suzaku observations are dropped because it doesn't seem that they
         #  will be at all useful
         if len(rel_suzaku) != len(full_suzaku):
             warn("{ta} of the {tot} observations located for Suzaku have been removed due to all instrument exposures "
@@ -323,7 +323,7 @@ class Suzaku(BaseMission):
         session = requests.Session()
 
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
-        #  that the directories that I need to download unprocessed Swift data are present
+        #  that the directories that I need to download unprocessed Suzaku data are present
         top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
                     if en['href'] in req_dir]
 
@@ -363,10 +363,13 @@ class Suzaku(BaseMission):
                         files = [en['href'] + '/' + fil['href']
                                  for fil in BeautifulSoup(session.get(low_rel_url).text, "html.parser").find_all("a")
                                  if '?' not in fil['href'] and obs_dir not in fil['href']]
-                        # All instrument files are in the same directories in this archive, so we need to quickly
-                        #  sweep through and check the files are for the instruments the user has chosen. Though
-                        #  why they would decide to remove some of the XIS I don't know
-                        files = [fil for fil in files for inst in insts if inst in fil]
+
+                        if en['href'] != 'hk/':
+                            # All instrument files are in the same directories in this archive, so we need to quickly
+                            #  sweep through and check the files are for the instruments the user has chosen. Though
+                            #  why they would decide to remove some of the XIS I don't know
+                            short_inst = ['xi' + inst[-1] for inst in insts if inst]
+                            files = [fil for fil in files for inst in short_inst if inst in fil]
                     else:
                         files = []
 
