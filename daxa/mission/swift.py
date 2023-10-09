@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 13:06. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 13:21. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -347,9 +347,6 @@ class Swift(BaseMission):
         top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
                     if en['href'] in req_dir]
 
-        # req_dir += [en for inst in insts for en in REQUIRED_DIRS['processed'][inst]]
-        # req_dir += [en for inst in insts for en in REQUIRED_DIRS['raw'][inst]]
-
         # If the lengths of top_data and REQUIRED_DIRS are different, then one or more of the expected dirs
         #  is not present
         if len(top_data) != len(req_dir):
@@ -368,21 +365,28 @@ class Swift(BaseMission):
                 os.makedirs(local_dir)
 
             if dat_dir == 'auxil/':
-                # We explore the contents of said directory, making sure to clean any useless HTML guff left
-                #  over - these are the files we shall be downloading
+                # All the files in the auxiliary directory are downloaded
                 to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
                            if '?' not in en['href'] and obs_dir not in en['href']]
             else:
+                # The way the Swift archives are laid out, each instrument directory has subdirectories that
+                #  we need to decide whether to download or not - we also need to make some distinctions on
+                #  a file level (i.e. cleaned event lists won't be downloaded if the user doesn't want to download
+                #  pre-processed data).
                 rel_req_dir = dir_lookup[dat_dir[:-1]]
                 to_down = []
+                # Here we cycle through the directories that we have found at the instrument URL for this ObsID
                 for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a"):
+                    # This is what happens in most cases for a genuine directory - we don't deal with any
+                    #  directory named 'event' here though
                     if '?' not in en['href'] and obs_dir not in en['href'] and en['href'] in rel_req_dir and \
                             en['href'] != 'event/':
                         low_rel_url = rel_url + en['href']
                         files = [en['href'] + '/' + fil['href'] for fil in BeautifulSoup(session.get(low_rel_url).text,
                                                                                          "html.parser").find_all("a")
                                  if '?' not in fil['href'] and obs_dir not in fil['href']]
-
+                    # 'event' directories get their own treatment because we have to decide whether to download
+                    #  cleaned event lists or not, depending whether the user has requested them
                     elif '?' not in en['href'] and obs_dir not in en['href'] and en['href'] in rel_req_dir and \
                             en['href'] == 'event/':
                         low_rel_url = rel_url + en['href']
@@ -393,13 +397,14 @@ class Swift(BaseMission):
                     else:
                         files = []
 
+                    # If the current sub-directory of the current instrument of the current ObsID has got files that
+                    #  we want to download, then we make sure that the sub-directory exists
                     if len(files) != 0 and not os.path.exists(local_dir + en['href']):
                         os.makedirs(local_dir + en['href'])
-
+                    # And add the current list of files to the overall downloading list for this instrument
                     to_down += files
-                # print(to_down)
-                # print('\n\n')
 
+            # Now we cycle through the files and download them
             for down_file in to_down:
                 down_url = rel_url + down_file
                 with session.get(down_url, stream=True) as acquiro:
