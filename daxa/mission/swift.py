@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 13:45. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 14:44. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -42,7 +42,7 @@ REQUIRED_DIRS = {'all': ['auxil/'],
 
 class Swift(BaseMission):
     """
-    The mission class for observations by the Neil Gehrels Swift Observatory observations.
+    The mission class for observations by the Neil Gehrels Swift Observatory.
     The available observation information is fetched from the HEASArc SWIFTMASTR table, and data are downloaded from
     the HEASArc https access to their FTP server. Proprietary data are not currently supported by this class.
 
@@ -53,7 +53,7 @@ class Swift(BaseMission):
 
     def __init__(self, insts: Union[List[str], str] = None):
         """
-        The mission class for observations by the Neil Gehrels Swift Observatory observations.
+        The mission class for observations by the Neil Gehrels Swift Observatory.
         The available observation information is fetched from the HEASArc SWIFTMASTR table, and data are downloaded
         from the HEASArc https access to their FTP server. Proprietary data are not currently supported by this class.
 
@@ -341,7 +341,7 @@ class Swift(BaseMission):
         session = requests.Session()
 
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
-        #  that the three directories that I need to download unprocessed NuStar data are present
+        #  that the directories that I need to download unprocessed Swift data are present
         top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
                     if en['href'] in req_dir]
 
@@ -528,7 +528,7 @@ class Swift(BaseMission):
 
     def assess_process_obs(self, obs_info: dict):
         """
-        A slightly unusual method which will allow the NuSTARPointed mission to assess the information on a particular
+        A slightly unusual method which will allow the Swift mission to assess the information on a particular
         observation that has been put together by an Archive (the archive assembles it because sometimes this
         detailed information only becomes available at the first stages of processing), and make a decision on whether
         that particular observation-instrument should be processed further for scientific use.
@@ -539,6 +539,6 @@ class Swift(BaseMission):
         :param dict obs_info: The multi-level dictionary containing available observation information for an
             observation.
         """
-        raise NotImplementedError("The check_process_obs method has not yet been implemented for NuSTARPointed, as "
+        raise NotImplementedError("The check_process_obs method has not yet been implemented for Swift, as "
                                   "we need to see what detailed information are available once processing downloaded "
                                   "data has begun.")
