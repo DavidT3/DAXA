@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/08/2023, 20:52. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/10/2023, 20:36. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -783,8 +783,19 @@ class BaseMission(metaclass=ABCMeta):
                 search_distance = (fov * 1.2).to('deg')
             # Also possible for different instruments to have different FoVs, so we have to take that into
             #  account - maybe I should just have made .fov always return a dictionary but oh well
-            else:
+            # If there is an instrument column that will mean that one observation has one instrument, and we can
+            #  safely search using different field of views
+            elif 'instrument' in self.all_obs_info:
                 search_distance = {i: (v * 1.2).to('deg') for i, v in fov.items()}
+            else:
+                # If there is no instrument columns it means that multiple simultaneous instruments with different
+                #  field of views exist - as there isn't currently an elegant way of dealing with this, I will just
+                #  choose the largest field of view that is relevant to the chosen instruments
+                warn("There are multiple chosen instruments {ci} for {mn} with different FoVs, but they observe "
+                     "simultaneously. As such the search distance has been set to the largest FoV of the chosen"
+                     " instruments.".format(ci=", ".join(self.chosen_instruments), mn=self.name))
+                search_distance = max(list({i: (v * 1.2).to('deg') for i, v in fov.items()
+                                            if i in self.chosen_instruments}.values()))
         # Checks to see whether a quantity has been passed, if not then the input is converted to an Astropy
         #  quantity in units of degrees. If a Quantity that cannot be converted to degrees is passed then the
         #  else part of the statement will error.
