@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 18:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 20:35. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -23,11 +23,13 @@ from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
 
-
-# As
-# REQUIRED_DIRS = {'all': ['auxil/', 'xis/'],
-#                  'raw': {'xis': ['event_uf/', 'hk/', 'products/']},
-#                  'processed': {'xis': ['event_uf/', 'event_cl/', 'hk/', 'products/']}}
+# There are a lot of directories in the ASCA archives it would seem. There also isn't a great explanation of them
+#  that I can find anywhere. This is the best I found:
+#  https://heasarc.gsfc.nasa.gov/docs/asca/abc/node3.html#SECTION00350000000000000000
+# I am very much erring on the side of caution and downloading more rather than less here
+REQUIRED_DIRS = {'raw': ['aux/', 'calib/', 'telem/', 'unscreened/'],
+                 'processed': ['aux/', 'calib/', 'telem/', 'unscreened/', 'images/', 'spectra/', 'lcurves/',
+                               'screened/']}
 
 
 class ASCA(BaseMission):
