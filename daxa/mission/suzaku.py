@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 17:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 20:48. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -87,7 +87,7 @@ class Suzaku(BaseMission):
                                                 'xis1_num_modes', 'xis2_expo', 'xis2_num_modes', 'xis3_expo',
                                                 'xis3_num_modes']
 
-        # Runs the method which fetches information on all available pointed Suzaku observations and stores that
+        # Runs the method which fetches information on all available Suzaku observations and stores that
         #  information in the all_obs_info property
         self._fetch_obs_info()
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
@@ -419,7 +419,7 @@ class Suzaku(BaseMission):
             raw data.
         """
 
-        # Ensures that a directory to store the 'raw' pointed Suzaku data in exists - once downloaded and unpacked
+        # Ensures that a directory to store the 'raw' Suzaku data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
         if not os.path.exists(self.top_level_path + self.name + '_raw'):
             os.makedirs(self.top_level_path + self.name + '_raw')
