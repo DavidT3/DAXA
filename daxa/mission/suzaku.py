@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 16:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 20:48. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -54,7 +54,7 @@ class Suzaku(BaseMission):
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
             pass either a single string value or a list of strings. They may include XIS0, XIS1, XIS2, and XIS3 (the
             default is all of them).
-    """
+        """
         super().__init__()
 
         # Sets the default instruments - all the imaging spectrometers on Suzaku, and the only instruments supported
@@ -83,9 +83,11 @@ class Suzaku(BaseMission):
         self.name
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = []
+        self._required_mission_specific_cols = ['target_category', 'xis0_expo', 'xis0_num_modes', 'xis1_expo',
+                                                'xis1_num_modes', 'xis2_expo', 'xis2_num_modes', 'xis3_expo',
+                                                'xis3_num_modes']
 
-        # Runs the method which fetches information on all available pointed Suzaku observations and stores that
+        # Runs the method which fetches information on all available Suzaku observations and stores that
         #  information in the all_obs_info property
         self._fetch_obs_info()
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
@@ -194,8 +196,7 @@ class Suzaku(BaseMission):
         # This returns the requested information in a FITS format - the idea being I will stream this into memory
         #  and then have a fits table that I can convert into a Pandas dataframe (which I much prefer working with).
         down_form = "&displaymode=FitsDisplay"
-        # This should mean unlimited, as we don't know how many NuSTAR observations there are, and the number will
-        #  increase with time (so long as the telescope doesn't break...)
+        # This should mean unlimited
         result_max = "&ResultMax=0"
         # This just tells the interface it's a query (I think?)
         action = "&Action=Query"
@@ -418,7 +419,7 @@ class Suzaku(BaseMission):
             raw data.
         """
 
-        # Ensures that a directory to store the 'raw' pointed Suzaku data in exists - once downloaded and unpacked
+        # Ensures that a directory to store the 'raw' Suzaku data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
         if not os.path.exists(self.top_level_path + self.name + '_raw'):
             os.makedirs(self.top_level_path + self.name + '_raw')
@@ -436,7 +437,7 @@ class Suzaku(BaseMission):
             if num_cores == 1:
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
                     for obs_id in self.filtered_obs_ids:
-                        # Use the internal static method I set up which both downloads and unpacks the NuSTAR data
+                        # Use the internal static method I set up which both downloads and unpacks the Suzaku data
                         self._download_call(obs_id, insts=self.chosen_instruments,
                                             raw_dir=stor_dir + '{o}'.format(o=obs_id),
                                             download_processed=download_processed)

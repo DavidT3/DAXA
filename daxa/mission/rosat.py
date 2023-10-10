@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 21:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 17:35. Copyright (c) The Contributors
 
 import io
 import os
@@ -292,7 +292,7 @@ class ROSATPointed(BaseMission):
         # This returns the requested information in a FITS format - the idea being I will stream this into memory
         #  and then have a fits table that I can convert into a Pandas dataframe (which I much prefer working with).
         down_form = "&displaymode=FitsDisplay"
-        # This should mean unlimited, as though we could hard code how many RASS observations there are (there aren't
+        # This should mean unlimited, as though we could hard code how many ROSAT observations there are (there aren't
         #  going to be any more...) we should still try to avoid that
         result_max = "&ResultMax=0"
         # This just tells the interface it's a query (I think?)
