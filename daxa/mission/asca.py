@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 20:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 20:52. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -287,6 +287,9 @@ class ASCA(BaseMission):
         # Re-ordering the table, and not including certain columns which have served their purpose
         rel_asca = rel_asca[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category',
                              'sis_exposure', 'gis_exposure']]
+
+        # As it stands, the ObsID column is an integer, but we want them as strings!
+        rel_asca['ObsID'] = rel_asca['ObsID'].astype(str)
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
         #  the user would expect from  a fresh dataframe
