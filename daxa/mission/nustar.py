@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/09/2023, 15:45. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 20:40. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -368,9 +368,9 @@ class NuSTARPointed(BaseMission):
                        if '?' not in en['href'] and obs_dir not in en['href']]
 
             # As we allow the user to select a single instrument, if they don't want both (though goodness knows why
-            #  on earth anyone would do that), the event_uf directory gets an extra check. The last character of
+            #  on earth anyone would do that), the event_uf/cl directory gets an extra check. The last character of
             #  the instrument is either A or B, and that is what I am using to identify the relevant event lists.
-            if dat_dir == 'event_uf/':
+            if dat_dir == 'event_uf/' or dat_dir == 'event_cl/':
                 to_down = [td for td in to_down for inst in insts if observation_id+inst[-1]+"_uf" in td]
 
             for down_file in to_down:
