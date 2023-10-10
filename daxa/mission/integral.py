@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 00:26. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 10:23. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -24,15 +24,20 @@ from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
 
-
-# The
-# REQUIRED_DIRS = {'all': ['auxil/'],
-#                  'raw': {'uvot': ['hk/', 'event/', 'image/'],
-#                          'xrt': ['event/', 'hk/', 'image/'],
-#                          'bat': ['event/', 'rate/', 'survey/']},
-#                  'processed': {'uvot': ['hk/', 'event/', 'image/', 'products/'],
-#                                'xrt': ['event/', 'hk/', 'image/', 'products/'],
-#                                'bat': ['event/', 'rate/', 'survey/']}}
+# The HEASArc archive SCW directories don't have any subdirectories, so that is simpler. There are a bunch of files
+#  in there that I can't really find a definition of anywhere unfortunately, but the limited mention of the SCW
+#  storage structure that I could find is here:
+#  https://www.isdc.unige.ch/integral/download/osa/doc/11.2/osa_um_intro/node28.html
+# I don't know if excluding certain instrument's files is going to be a problem, but we'll try it in the initial
+#  implementation, and when I try to actually use INTEGRAL again later I'll see if it works.
+# Here I define patterns for the required files, for all cases and for specific instruments (because apparently
+#  I'm going to implement this differently for every single mission...)
+REQUIRED_FILES = {'all': ['_scw.txt', 'sc_', 'swg.fits'],
+                  'jemx1': ['jmx1'],
+                  'jemx2': ['jmx2'],
+                  'isgri': ['isgri', 'ibis', 'compton'],
+                  'picsit': ['picsit', 'ibis', 'compton'],
+                  'spi': ['spi']}
 
 
 class INTEGRALPointed(BaseMission):
@@ -231,7 +236,7 @@ class INTEGRALPointed(BaseMission):
         # Could poll the individual instrument observing times for different modes to determine the mode of the
         #  instrument - but that would be a LOT of columns
         which_cols = ['RA', 'DEC', 'ScW_ID', 'Start_Date', 'End_Date', 'SPI_mode', 'Good_JEMX1', 'Good_JEMX2',
-                      'Good_ISGRI', 'Good_PICSIT', 'Good_SPI', 'Data_In_HEASARC']
+                      'Good_ISGRI', 'Good_PICSIT', 'Good_SPI', 'Data_In_HEASARC', 'ScW_Ver']
         # Might add these at some point:
         # Obs_Type, 'JEMX1_mode', 'JEMX2_mode', 'IBIS_Mode'
 
@@ -317,7 +322,7 @@ class INTEGRALPointed(BaseMission):
         # Re-ordering the table, and not including certain columns which have served their purpose
         rel_integral = rel_integral[['ra', 'dec', 'ObsID', 'science_usable', 'proprietary_usable', 'start', 'end',
                                      'duration', 'target_category', 'jemx1_exposure', 'jemx2_exposure',
-                                     'isgri_exposure', 'picsit_exposure', 'spi_exposure']]
+                                     'isgri_exposure', 'picsit_exposure', 'spi_exposure', 'scw_ver']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
         #  the user would expect from  a fresh dataframe
@@ -327,132 +332,77 @@ class INTEGRALPointed(BaseMission):
         self.all_obs_info = rel_integral
 
     @staticmethod
-    def _download_call(observation_id: str, insts: List[str], raw_dir: str, download_processed: bool):
+    def _download_call(observation_id: str, insts: List[str], scw_ver: str, raw_dir: str):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
-        the availability of, acquire, and decompress the specified observation.
+        the availability of, acquire, and decompress the specified observation. There is no download_processed option
+        here because there are no pre-generated products (i.e. images/spectra) to download, though the event lists
+        etc. have gone through some form of processing.
 
         :param str observation_id: The ObsID of the observation to be downloaded.
         :param List[str] insts: The instruments which the user wishes to acquire data for.
+        :param str scw_ver: The string representing the version of the science window, which needs to be added to
+            the observation_id (i.e. scw id in normal INTEGRAL parlance) to construct the HEASArc directory. The
+            most common value for this is 001.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
-        :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
-            and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
-            raw data.
         """
         insts = [inst.lower() for inst in insts]
-        req_dir = REQUIRED_DIRS['all'] + [inst + '/' for inst in insts]
-        if download_processed:
-            dir_lookup = REQUIRED_DIRS['processed']
-        else:
-            dir_lookup = REQUIRED_DIRS['raw']
+        req_files = list(set(REQUIRED_FILES['all'] + [file for inst in insts for file in REQUIRED_FILES[inst]]))
 
         # The data on HEASArc are stored in subdirectories named after the orbital revolution that they were taken
         #  in; this can be extracted from the ObsID (what we refer to the SCWID as), as they are the first four digits
         rev_id = observation_id[:4]
 
         # This is the path to the HEASArc data directory for this ObsID
-        obs_dir = "/FTP/integral/data/scw/{rid}/{oid}/".format(rid=rev_id, oid=observation_id)
+        obs_dir = "/FTP/integral/data/scw/{rid}/{oid}.{scv}/".format(rid=rev_id, oid=observation_id, scv=scw_ver)
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
 
         # This opens a session that will persist - then a lot of the next session is for checking that the expected
         #  directories are present.
         session = requests.Session()
 
-        # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
-        #  that the directories that I need to download unprocessed Swift data are present
-        top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
-                    if en['href'] in req_dir]
+        # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to narrow
+        #  down the files to download for the selected instruments
+        to_down = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
+                   for rf_patt in req_files if rf_patt in en['href']]
 
-        # If the lengths of top_data and REQUIRED_DIRS are different, then one or more of the expected dirs
-        #  is not present
-        if len(top_data) != len(req_dir):
-            # This list comprehension figures out what directory is missing and reports it
-            missing = [rd for rd in req_dir if rd not in top_data]
-            raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
-                                    "directories; {rq}".format(o=observation_id, rq=", ".join(missing)))
-
-        for dat_dir in top_data:
-            # The lower level URL of the directory we're currently looking at
-            rel_url = top_url + dat_dir
-            # This is the directory to which we will be saving this archive directories files
-            local_dir = raw_dir + '/' + dat_dir
-            # Make sure that the local directory is created
-            if not os.path.exists(local_dir):
-                os.makedirs(local_dir)
-
-            if dat_dir == 'auxil/':
-                # All the files in the auxiliary directory are downloaded
-                to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
-                           if '?' not in en['href'] and obs_dir not in en['href']]
-            else:
-                # The way the Swift archives are laid out, each instrument directory has subdirectories that
-                #  we need to decide whether to download or not - we also need to make some distinctions on
-                #  a file level (i.e. cleaned event lists won't be downloaded if the user doesn't want to download
-                #  pre-processed data).
-                rel_req_dir = dir_lookup[dat_dir[:-1]]
-                to_down = []
-                # Here we cycle through the directories that we have found at the instrument URL for this ObsID
-                for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a"):
-                    # This is what happens in most cases for a genuine directory - we don't deal with any
-                    #  directory named 'event' here though
-                    if '?' not in en['href'] and obs_dir not in en['href'] and en['href'] in rel_req_dir and \
-                            en['href'] != 'event/':
-                        low_rel_url = rel_url + en['href']
-                        files = [en['href'] + '/' + fil['href'] for fil in BeautifulSoup(session.get(low_rel_url).text,
-                                                                                         "html.parser").find_all("a")
-                                 if '?' not in fil['href'] and obs_dir not in fil['href']]
-                    # 'event' directories get their own treatment because we have to decide whether to download
-                    #  cleaned event lists or not, depending whether the user has requested them
-                    elif '?' not in en['href'] and obs_dir not in en['href'] and en['href'] in rel_req_dir and \
-                            en['href'] == 'event/':
-                        low_rel_url = rel_url + en['href']
-                        files = [en['href'] + '/' + fil['href'] for fil in BeautifulSoup(session.get(low_rel_url).text,
-                                                                                         "html.parser").find_all("a")
-                                 if '?' not in fil['href'] and obs_dir not in fil['href'] and
-                                 ('cl.evt' not in fil['href'] or download_processed)]
-                    else:
-                        files = []
-
-                    # If the current subdirectory of the current instrument of the current ObsID has got files that
-                    #  we want to download, then we make sure that the subdirectory exists locally
-                    if len(files) != 0 and not os.path.exists(local_dir + en['href']):
-                        os.makedirs(local_dir + en['href'])
-                    # And add the current list of files to the overall downloading list for this instrument
-                    to_down += files
+        # Make sure the ObsID directory is created locally - otherwise we have nowhere to download stuff too
+        if len(to_down) != 0:
+            os.makedirs(raw_dir)
 
             # Now we cycle through the files and download them
             for down_file in to_down:
-                down_url = rel_url + down_file
+                down_url = top_url + down_file
                 with session.get(down_url, stream=True) as acquiro:
-                    with open(local_dir + down_file, 'wb') as writo:
+                    with open(raw_dir + '/' + down_file, 'wb') as writo:
                         copyfileobj(acquiro.raw, writo)
 
                 # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
                 #  event lists, as they're more likely to be used
                 if 'evt.gz' in down_file:
                     # Open and decompress the events file
-                    with gzip.open(local_dir + down_file, 'rb') as compresso:
+                    with gzip.open(raw_dir + '/' + down_file, 'rb') as compresso:
                         # Open a new file handler for the decompressed data, then funnel the decompressed events there
-                        with open(local_dir + down_file.split('.gz')[0], 'wb') as writo:
+                        with open(raw_dir + '/' + down_file.split('.gz')[0], 'wb') as writo:
                             copyfileobj(compresso, writo)
                     # Then remove the tarred file to minimise storage usage
-                    os.remove(local_dir + down_file)
+                    os.remove(raw_dir + '/' + down_file)
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, download_processed: bool = False):
+    def download(self, num_cores: int = NUM_CORES):
         """
         A method to acquire and download the pointed INTEGRAL data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
         property will be downloaded, which is set either on declaration of the class instance or by passing
         a new value to the chosen_instruments property.
 
+        There is no download_processed option here because there are no pre-generated products (i.e. images/spectra)
+        to download, though the event lists etc. have gone through some form of processing.
+
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
-        :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
-            and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
-            raw data.
         """
 
         if not self.filtered_obs_info['proprietary_usable'].all():
@@ -481,9 +431,8 @@ class INTEGRALPointed(BaseMission):
                     for row_ind, row in self.filtered_obs_info.iterrows():
                         obs_id = row['ObsID']
                         # Use the internal static method I set up which both downloads and unpacks the Swift data
-                        self._download_call(obs_id, insts=self.chosen_instruments,
-                                            raw_dir=stor_dir + '{o}'.format(o=obs_id),
-                                            download_processed=download_processed)
+                        self._download_call(obs_id, insts=self.chosen_instruments, scw_ver=str(row['scw_ver']),
+                                            raw_dir=stor_dir + '{o}'.format(o=obs_id))
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -527,8 +476,8 @@ class INTEGRALPointed(BaseMission):
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
                                          kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
-                                               'raw_dir': stor_dir + '{o}'.format(o=obs_id),
-                                               'download_processed': download_processed},
+                                               "scw_ver": str(row['scw_ver']),
+                                               'raw_dir': stor_dir + '{o}'.format(o=obs_id)},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
