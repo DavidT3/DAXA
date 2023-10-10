@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 10:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 19:17. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -331,6 +331,8 @@ class INTEGRALPointed(BaseMission):
         # Use the setter for all_obs_info to actually add this information to the instance
         self.all_obs_info = rel_integral
 
+    # def _rev_download_call(self, rev_id: str, sc):
+
     @staticmethod
     def _download_call(observation_id: str, insts: List[str], scw_ver: str, raw_dir: str):
         """
@@ -366,6 +368,10 @@ class INTEGRALPointed(BaseMission):
         to_down = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
                    for rf_patt in req_files if rf_patt in en['href']]
 
+        # For some reason raw_dir isn't actually just the base dir it has observation ID already in as well and uuurgh
+        #  inconsistent design but rather than sort it I'm bodging it - to try to make this compatible with how the
+        #  inflexible OSA software seems to want the data laid out I am storing the SCW in revolution subdirectories
+        raw_dir = raw_dir.split(observation_id)[0] + rev_id + '/' + observation_id + '/'
         # Make sure the ObsID directory is created locally - otherwise we have nowhere to download stuff too
         if len(to_down) != 0:
             os.makedirs(raw_dir)
