@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 19:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 19:42. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -331,7 +331,28 @@ class INTEGRALPointed(BaseMission):
         # Use the setter for all_obs_info to actually add this information to the instance
         self.all_obs_info = rel_integral
 
-    # def _rev_download_call(self, rev_id: str, sc):
+    @staticmethod
+    def _rev_download_call(rev_id: str, raw_dir: str):
+        rev_dir = "/FTP/integral/data/scw/{rid}/rev.001/".format(rid=rev_id)
+        rev_top_url = "https://heasarc.gsfc.nasa.gov" + rev_dir
+
+        aux_dir = "/FTP/integral/data/aux/adp/{rid}.001/".format(rid=rev_id)
+        aux_rev_top_url = "https://heasarc.gsfc.nasa.gov" + aux_dir
+
+        # This opens a session that will persist - then a lot of the next session is for checking that the expected
+        #  directories are present.
+        session = requests.Session()
+
+        # This uses the beautiful soup module to parse the HTML of the revolution and aux revolution directories -
+        #  essentially just to check that they have entries, and then we'll download them. First the rev.001 directory
+        #  that is in the SCW revolution ID subdirectories
+        rev_to_down = [en['href'] for en in BeautifulSoup(session.get(rev_top_url).text, "html.parser").find_all("a")]
+        aux_rev_to_down = [en['href'] for en in BeautifulSoup(session.get(aux_rev_top_url).text,
+                                                              "html.parser").find_all("a")]
+
+        print(rev_to_down)
+        print('\n\n')
+        print(aux_rev_to_down)
 
     @staticmethod
     def _download_call(observation_id: str, insts: List[str], scw_ver: str, raw_dir: str):
@@ -431,8 +452,22 @@ class INTEGRALPointed(BaseMission):
             self._download_done = True
 
         if not self._download_done:
+            # INTEGRAL is slightly different to the other missions, in that it seems you are strongly encouraged to
+            #  download revolution (i.e. orbit number) level data to accompany the science windows. As such there are
+            #  TWO download phases, the first of which downloads the rev data. As such we need to know which
+            #  revolutions are relevant, which we can find from the first four digits of the ObsIDs (or rather SCWIDS)
+            rev_ids = list(set(self.filtered_obs_info['ObsID'].apply(lambda x: x[:4]).values))
+
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
             if num_cores == 1:
+                # Revolution data has to be downloaded for INTEGRAL (apparently...), so we're doing that first!
+                with tqdm(total=len(rev_ids), desc='Downloading {} revolution data'.format(self._pretty_miss_name)) \
+                        as download_prog:
+                    for rev_id in rev_ids:
+                        self._rev_download_call(rev_id, raw_dir=stor_dir)
+                        download_prog.update(1)
+
+                # Then we run the more standard _download_call, to grab the actual data archives
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
                     for row_ind, row in self.filtered_obs_info.iterrows():
                         obs_id = row['ObsID']
@@ -446,35 +481,47 @@ class INTEGRALPointed(BaseMission):
                 # List to store any errors raised during download tasks
                 raised_errors = []
 
+                # The callback function is what is called on the successful completion of a _download_call
+                def callback(download_conf: Any):
+                    """
+                    Callback function for the apply_async pool method, gets called when a download task finishes
+                    without error.
+
+                    :param Any download_conf: The Null value confirming the operation is over.
+                    """
+                    nonlocal download_prog  # The progress bar will need updating
+                    download_prog.update(1)
+
+                # The error callback function is what happens when an exception is thrown during a _download_call
+                def err_callback(err):
+                    """
+                    The callback function for errors that occur inside a download task running in the pool.
+
+                    :param err: An error that occurred inside a task.
+                    """
+                    nonlocal raised_errors
+                    nonlocal download_prog
+
+                    if err is not None:
+                        # Rather than throwing an error straight away I append them all to a list for later.
+                        raised_errors.append(err)
+                    download_prog.update(1)
+
+                # Revolution data has to be downloaded for INTEGRAL (apparently...), so we're doing that first!
+                with tqdm(total=len(rev_ids), desc='Downloading {} revolution data'.format(self._pretty_miss_name)) \
+                        as download_prog, Pool(num_cores) as pool:
+                    for rev_id in rev_ids:
+                        self._rev_download_call(rev_id, raw_dir=stor_dir)
+                        pool.apply_async(self._rev_download_call,
+                                         kwds={'rev_id': rev_id,
+                                               'raw_dir': stor_dir},
+                                         error_callback=err_callback, callback=callback)
+                        pool.close()  # No more tasks can be added to the pool
+                        pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+
                 # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) \
                         as download_prog, Pool(num_cores) as pool:
-
-                    # The callback function is what is called on the successful completion of a _download_call
-                    def callback(download_conf: Any):
-                        """
-                        Callback function for the apply_async pool method, gets called when a download task finishes
-                        without error.
-
-                        :param Any download_conf: The Null value confirming the operation is over.
-                        """
-                        nonlocal download_prog  # The progress bar will need updating
-                        download_prog.update(1)
-
-                    # The error callback function is what happens when an exception is thrown during a _download_call
-                    def err_callback(err):
-                        """
-                        The callback function for errors that occur inside a download task running in the pool.
-
-                        :param err: An error that occurred inside a task.
-                        """
-                        nonlocal raised_errors
-                        nonlocal download_prog
-
-                        if err is not None:
-                            # Rather than throwing an error straight away I append them all to a list for later.
-                            raised_errors.append(err)
-                        download_prog.update(1)
 
                     # Again nested for loop through ObsIDs and instruments
                     for row_ind, row in self.filtered_obs_info.iterrows():
