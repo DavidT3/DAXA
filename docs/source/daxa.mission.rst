@@ -64,3 +64,11 @@ mission.suzaku module
    :members:
    :undoc-members:
    :show-inheritance:
+
+mission.asca module
+----------------------
+
+.. automodule:: daxa.mission.asca
+   :members:
+   :undoc-members:
+   :show-inheritance:
