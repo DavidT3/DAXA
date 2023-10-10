@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 00:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 00:26. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -327,18 +327,13 @@ class INTEGRALPointed(BaseMission):
         self.all_obs_info = rel_integral
 
     @staticmethod
-    def _download_call(observation_id: str, insts: List[str], start_year: str, start_month: str, raw_dir: str,
-                       download_processed: bool):
+    def _download_call(observation_id: str, insts: List[str], raw_dir: str, download_processed: bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
 
         :param str observation_id: The ObsID of the observation to be downloaded.
         :param List[str] insts: The instruments which the user wishes to acquire data for.
-        :param str start_year: The start year of the observation to be downloaded - this is necessary as
-            the HEASArc Swift data are split into yyyy-mm directories.
-        :param str start_month: The start month of the observation to be downloaded - this is necessary as
-            the HEASArc Swift data are split into yyyy-mm directories.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
         :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
             and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
@@ -351,12 +346,12 @@ class INTEGRALPointed(BaseMission):
         else:
             dir_lookup = REQUIRED_DIRS['raw']
 
-        # The data on HEASArc are stored in subdirectories named after the year-month that they were taken, so
-        #  we first need to construct that to setup the URL we need
-        date_id = start_year + '_' + start_month.zfill(2)
+        # The data on HEASArc are stored in subdirectories named after the orbital revolution that they were taken
+        #  in; this can be extracted from the ObsID (what we refer to the SCWID as), as they are the first four digits
+        rev_id = observation_id[:4]
 
         # This is the path to the HEASArc data directory for this ObsID
-        obs_dir = "/FTP/swift/data/obs/{did}/{oid}/".format(did=date_id, oid=observation_id)
+        obs_dir = "/FTP/integral/data/scw/{rid}/{oid}/".format(rid=rev_id, oid=observation_id)
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
 
         # This opens a session that will persist - then a lot of the next session is for checking that the expected
@@ -447,7 +442,7 @@ class INTEGRALPointed(BaseMission):
 
     def download(self, num_cores: int = NUM_CORES, download_processed: bool = False):
         """
-        A method to acquire and download the Swift data that have not been filtered out (if a filter
+        A method to acquire and download the pointed INTEGRAL data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
         property will be downloaded, which is set either on declaration of the class instance or by passing
         a new value to the chosen_instruments property.
@@ -459,6 +454,12 @@ class INTEGRALPointed(BaseMission):
             and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
             raw data.
         """
+
+        if not self.filtered_obs_info['proprietary_usable'].all():
+            warn("Proprietary data have been selected, but cannot be downloaded with DAXA; as such the proprietary "
+                 "data have been excluded from download and further processing.", stacklevel=2)
+            new_filter = self.filter_array * self.all_obs_info['proprietary_usable'].values
+            self.filter_array = new_filter
 
         # Ensures that a directory to store the 'raw' Swift data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
@@ -480,8 +481,7 @@ class INTEGRALPointed(BaseMission):
                     for row_ind, row in self.filtered_obs_info.iterrows():
                         obs_id = row['ObsID']
                         # Use the internal static method I set up which both downloads and unpacks the Swift data
-                        self._download_call(obs_id, insts=self.chosen_instruments, start_year=str(row['start'].year),
-                                            start_month=str(row['start'].month),
+                        self._download_call(obs_id, insts=self.chosen_instruments,
                                             raw_dir=stor_dir + '{o}'.format(o=obs_id),
                                             download_processed=download_processed)
                         # Update the progress bar
@@ -527,8 +527,6 @@ class INTEGRALPointed(BaseMission):
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
                                          kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
-                                               'start_year': str(row['start'].year),
-                                               'start_month': str(row['start'].month),
                                                'raw_dir': stor_dir + '{o}'.format(o=obs_id),
                                                'download_processed': download_processed},
                                          error_callback=err_callback, callback=callback)
@@ -551,7 +549,7 @@ class INTEGRALPointed(BaseMission):
 
     def assess_process_obs(self, obs_info: dict):
         """
-        A slightly unusual method which will allow the Swift mission to assess the information on a particular
+        A slightly unusual method which will allow the INTEGRALPointed mission to assess the information on a particular
         observation that has been put together by an Archive (the archive assembles it because sometimes this
         detailed information only becomes available at the first stages of processing), and make a decision on whether
         that particular observation-instrument should be processed further for scientific use.
@@ -562,6 +560,6 @@ class INTEGRALPointed(BaseMission):
         :param dict obs_info: The multi-level dictionary containing available observation information for an
             observation.
         """
-        raise NotImplementedError("The check_process_obs method has not yet been implemented for Swift, as "
+        raise NotImplementedError("The check_process_obs method has not yet been implemented for INTEGRALPointed, as "
                                   "we need to see what detailed information are available once processing downloaded "
                                   "data has begun.")
