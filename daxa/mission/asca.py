@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 21:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 21:17. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -354,17 +354,15 @@ class ASCA(BaseMission):
 
             # As we allow the user to select a single instrument we have to check event list and product files
             #  for matching names, so we only download for those instruments the user has chosen
-            if dat_dir in ['unscreened/', 'images/', 'spectra/', 'lcurves/', 'screened/']:
+            if dat_dir in ['unscreened/', 'spectra/', 'lcurves/', 'screened/']:
                 # Unhelpfully some of the products have shortened versions of the individual instrument
                 #  IDs in the file names
                 short_inst = [inst[0]+inst[-1] for inst in insts]
-                print(short_inst)
                 to_down = [td for td in to_down for inst in short_inst if observation_id + inst in td]
             elif dat_dir == 'images/':
                 # Unhelpfully some of the products don't have the individual instrument IDs in the names, just the
                 #  'GIS' or 'SIS' type
-                just_inst_type = [inst[:-1] for inst in insts]
-                print(just_inst_type)
+                just_inst_type = list(set([inst[:-1] for inst in insts]))
                 to_down = [td for td in to_down for inst in just_inst_type if observation_id + inst in td]
 
             for down_file in to_down:
