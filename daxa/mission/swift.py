@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 23:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 00:12. Copyright (c) The Contributors
 
 import gzip
 import io
