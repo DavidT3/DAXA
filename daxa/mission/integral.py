@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 20:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 20:59. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -569,8 +569,8 @@ class INTEGRALPointed(BaseMission):
                                          kwds={'rev_id': rev_id,
                                                'raw_dir': stor_dir},
                                          error_callback=err_callback, callback=callback)
-                        pool.close()  # No more tasks can be added to the pool
-                        pool.join()  # Joins the pool, the code will only move on once the pool is empty.
+                    pool.close()  # No more tasks can be added to the pool
+                    pool.join()  # Joins the pool, the code will only move on once the pool is empty.
 
                 # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) \
