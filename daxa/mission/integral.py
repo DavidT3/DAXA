@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 19:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 20:46. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -333,6 +333,15 @@ class INTEGRALPointed(BaseMission):
 
     @staticmethod
     def _rev_download_call(rev_id: str, raw_dir: str):
+        """
+        A download call function particular to the INTEGRAL mission, meant to download the revolution data that
+        we seem to be strongly encouraged to download by HEASArc. Specifically the rev.001 directories that accompany
+        science windows, and the aux/adp/{rev_id}.001 directories containing auxiliary revolution data.
+
+        :param str rev_id: The ID (i.e. orbit number) for the revolution and auxiliary revolution data that
+            we wish to download.
+        :param str raw_dir: The raw data directory in which to store the downloaded revolution data.
+        """
         rev_dir = "/FTP/integral/data/scw/{rid}/rev.001/".format(rid=rev_id)
         rev_top_url = "https://heasarc.gsfc.nasa.gov" + rev_dir
 
@@ -346,13 +355,57 @@ class INTEGRALPointed(BaseMission):
         # This uses the beautiful soup module to parse the HTML of the revolution and aux revolution directories -
         #  essentially just to check that they have entries, and then we'll download them. First the rev.001 directory
         #  that is in the SCW revolution ID subdirectories
-        rev_to_down = [en['href'] for en in BeautifulSoup(session.get(rev_top_url).text, "html.parser").find_all("a")]
+        rev_dirs = [en['href'] for en in BeautifulSoup(session.get(rev_top_url).text, "html.parser").find_all("a")
+                    if '?' not in en['href'] and rev_id not in en['href']]
         aux_rev_to_down = [en['href'] for en in BeautifulSoup(session.get(aux_rev_top_url).text,
-                                                              "html.parser").find_all("a")]
+                                                              "html.parser").find_all("a")
+                           if 'fits' in en['href'] and '?' not in en['href']]
 
-        print(rev_to_down)
-        print('\n\n')
-        print(aux_rev_to_down)
+        # This is the local directory where the revolution data are stored - these directories also have the science
+        #  window downloaded in them eventually - I'm trying to follow the structure of the HEASArc archive
+        local_rev_dir = raw_dir + rev_id + '/rev.001/'
+        # Make sure that the local directory is created
+        if not os.path.exists(local_rev_dir):
+            os.makedirs(local_rev_dir)
+
+        for dat_dir in rev_dirs:
+            # The lower level URL of the directory we're currently looking at
+            rel_url = rev_top_url + dat_dir
+
+            # The list of files to download from the current data directory in the revolution data directory
+            rev_to_down = []
+
+            # Here we cycle through the directories in the revolution data directory
+            for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a"):
+                # We have to check that the 'en' isn't some HTML guff that we don't need
+                if '?' not in en['href'] and '{}/rev.001/'.format(rev_id) not in en['href']:
+                    rev_to_down.append(dat_dir + en['href'])
+
+            if len(rev_to_down) != 0 and not os.path.exists(local_rev_dir + dat_dir):
+                os.makedirs(local_rev_dir + dat_dir)
+
+            # Now we cycle through the revolution files and download them
+            for down_file in rev_to_down:
+                down_url = rev_top_url + down_file
+                with session.get(down_url, stream=True) as acquiro:
+                    with open(local_rev_dir + down_file, 'wb') as writo:
+                        copyfileobj(acquiro.raw, writo)
+
+        # This is where the auxiliary revolution information lives
+        local_aux_rev_dir = raw_dir + 'aux/adp/{}.001/'.format(rev_id)
+        # Make sure the auxiliary revolution directory is created locally - otherwise we have nowhere to
+        #  download stuff too
+        if len(aux_rev_to_down) != 0 and not os.path.exists(local_aux_rev_dir):
+            os.makedirs(local_aux_rev_dir)
+
+        # Now we cycle through the auxiliary revolution files and download them
+        for down_file in aux_rev_to_down:
+            down_url = aux_rev_top_url + down_file
+            with session.get(down_url, stream=True) as acquiro:
+                with open(local_aux_rev_dir + down_file, 'wb') as writo:
+                    copyfileobj(acquiro.raw, writo)
+
+        return None
 
     @staticmethod
     def _download_call(observation_id: str, insts: List[str], scw_ver: str, raw_dir: str):
@@ -394,26 +447,26 @@ class INTEGRALPointed(BaseMission):
         #  inflexible OSA software seems to want the data laid out I am storing the SCW in revolution subdirectories
         raw_dir = raw_dir.split(observation_id)[0] + rev_id + '/' + observation_id + '/'
         # Make sure the ObsID directory is created locally - otherwise we have nowhere to download stuff too
-        if len(to_down) != 0:
+        if len(to_down) != 0 and not os.path.exists(raw_dir):
             os.makedirs(raw_dir)
 
-            # Now we cycle through the files and download them
-            for down_file in to_down:
-                down_url = top_url + down_file
-                with session.get(down_url, stream=True) as acquiro:
-                    with open(raw_dir + '/' + down_file, 'wb') as writo:
-                        copyfileobj(acquiro.raw, writo)
+        # Now we cycle through the files and download them
+        for down_file in to_down:
+            down_url = top_url + down_file
+            with session.get(down_url, stream=True) as acquiro:
+                with open(raw_dir + '/' + down_file, 'wb') as writo:
+                    copyfileobj(acquiro.raw, writo)
 
-                # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
-                #  event lists, as they're more likely to be used
-                if 'evt.gz' in down_file:
-                    # Open and decompress the events file
-                    with gzip.open(raw_dir + '/' + down_file, 'rb') as compresso:
-                        # Open a new file handler for the decompressed data, then funnel the decompressed events there
-                        with open(raw_dir + '/' + down_file.split('.gz')[0], 'wb') as writo:
-                            copyfileobj(compresso, writo)
-                    # Then remove the tarred file to minimise storage usage
-                    os.remove(raw_dir + '/' + down_file)
+            # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
+            #  event lists, as they're more likely to be used
+            if 'evt.gz' in down_file:
+                # Open and decompress the events file
+                with gzip.open(raw_dir + '/' + down_file, 'rb') as compresso:
+                    # Open a new file handler for the decompressed data, then funnel the decompressed events there
+                    with open(raw_dir + '/' + down_file.split('.gz')[0], 'wb') as writo:
+                        copyfileobj(compresso, writo)
+                # Then remove the tarred file to minimise storage usage
+                os.remove(raw_dir + '/' + down_file)
 
         return None
 
