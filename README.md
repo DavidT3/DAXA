@@ -35,6 +35,7 @@ limited. Support for more telescopes is either currently under development or be
 * **_[Under Development - XRT/BAT/UVOT data acquisition implemented]_** Swift
 * **_[Under Development - data acquisition implemented]_** Suzaku
 * **_[Under Development - data acquisition implemented]_** ASCA
+* **_[Under Development - data acquisition implemented]_** INTEGRAL
 
 _If you would like to help with any of the telescopes above, or adding another X-ray telescope, please get in contact!_
 

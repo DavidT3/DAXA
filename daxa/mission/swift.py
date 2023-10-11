@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 16:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 00:12. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -91,10 +91,6 @@ class Swift(BaseMission):
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
         self._required_mission_specific_cols = ['target_category', 'xrt_exposure', 'bat_exposure', 'uvot_exposure']
-
-        # 'proprietary_end_date', 'exposure_a', 'exposure_b', 'ontime_a',
-        # 'ontime_b', 'nupsdout', 'issue_flag', 'target_category',
-        # 'proprietary_usable'
 
         # Runs the method which fetches information on all available Swift observations and stores that
         #  information in the all_obs_info property

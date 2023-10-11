@@ -72,3 +72,11 @@ mission.asca module
    :members:
    :undoc-members:
    :show-inheritance:
+
+mission.integral module
+----------------------
+
+.. automodule:: daxa.mission.integral
+   :members:
+   :undoc-members:
+   :show-inheritance:
