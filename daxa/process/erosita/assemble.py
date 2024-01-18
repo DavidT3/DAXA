@@ -14,7 +14,7 @@ from daxa.exceptions import NoDependencyProcessError
 @_last_process(ALLOWED_EROSITA_MISSIONS, 1)
 @esass_call
 def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV'), hi_en: Quantity = Quantity(10, 'keV'),
-                      flag: int = 0xc0000000, flag_invert: bool = False, pattern: int = 15, num_cores: int = NUM_CORES,
+                      flag: int = 0xc0000000, flag_invert: bool = True, pattern: int = 15, num_cores: int = NUM_CORES,
                       disable_progress: bool = False, timeout: Quantity = None):
 
     """
@@ -200,7 +200,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
         # If no observations have had flaregti run successfully, then no events can be cleaned
         if bad_obs_counter == len(obs_info_dict):
             raise NoDependencyProcessError("The required process flaregti has not been run successfully"
-                                            "for any data in {mn}".format(miss.name))
+                                            "for any data in {mn}".format(mn=miss.name))
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Generating final event lists'
