@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/08/2023, 16:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 19/01/2024, 14:30. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -1065,7 +1065,7 @@ class Archive:
 
         # I also want to normalise the obs_ident input as either a single set of identifying information, or
         #  multiple sets, can be passed to this method. Thus everything must become a list of lists
-        if isinstance(obs_ident, list) and isinstance(obs_ident[0], str):
+        if isinstance(obs_ident, list) and len(obs_ident) != 0 and isinstance(obs_ident[0], str):
             obs_ident = [obs_ident]
         # If just a string is passed I will assume it is the overall ObsID and double wrap it in a list, one because
         #  identifiers are expected to be in lists of [ObsID, Inst, SubExp (depending on mission)], and the second
