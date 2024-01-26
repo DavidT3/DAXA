@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/08/2023, 16:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 26/01/2024, 14:51. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -1045,7 +1045,7 @@ class Archive:
             though does also support just an ObsID.
         :param str/List[str] dep_proc: The name(s) of the process(es) that have to have been run for further
             processing steps to be successful.
-        :param bool no_success_error: If none of the specified previous processing steps have been
+        :param bool no_success_error: If none of the specified previous processing steps have been run
             successfully, should a NoDependencyProcessError be raised. Default is True, but if set to False the
             error will not be raised and the return will be an all-False array. This will NOT override the
             error raised if a previous process hasn't been run at all.
@@ -1058,6 +1058,12 @@ class Archive:
             raise ValueError("The mission {mn} is not associated with this archive. Available missions are "
                              "{am}".format(mn=mission_name, am=', '.join(self.mission_names)))
 
+        # This doesn't often happen when dealing with many observations assigned to a mission, but I did notice it
+        #  happen - this should never be triggered by DAXA functions as I've put checks to ensure that zero length
+        #  lists are never passed
+        if isinstance(obs_ident, list) and len(obs_ident) == 0:
+            raise ValueError("If 'obs_ident' is a list, it cannot be zero-length.")
+
         # Normalising the input so that dep_proc can always be iterated through. I imagine most of the time this
         #  method is used it will be for individual process checking, but you never know.
         if isinstance(dep_proc, str):
@@ -1065,14 +1071,13 @@ class Archive:
 
         # I also want to normalise the obs_ident input as either a single set of identifying information, or
         #  multiple sets, can be passed to this method. Thus everything must become a list of lists
-        if isinstance(obs_ident, list) and isinstance(obs_ident[0], str):
+        if isinstance(obs_ident, list) and len(obs_ident) != 0 and isinstance(obs_ident[0], str):
             obs_ident = [obs_ident]
         # If just a string is passed I will assume it is the overall ObsID and double wrap it in a list, one because
         #  identifiers are expected to be in lists of [ObsID, Inst, SubExp (depending on mission)], and the second
         #  to make it overall a list of lists
         elif isinstance(obs_ident, str):
             obs_ident = [[obs_ident]]
-
         # Setting up an empty array of Trues, one for each observation identifier. This way we can just multiply
         #  the boolean success value for each process for each obs by what's in the array - this works for
         #  multiple processes

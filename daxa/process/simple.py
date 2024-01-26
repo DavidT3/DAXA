@@ -1,10 +1,11 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/08/2023, 15:06. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 26/01/2024, 14:39. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
+from daxa.process.xmm._common import ALLOWED_XMM_MISSIONS
 from daxa.process.xmm.assemble import epchain, emchain, cleaned_evt_lists, merge_subexposures, rgs_events, rgs_angles, \
     cleaned_rgs_event_lists
 from daxa.process.xmm.check import emanom
@@ -44,14 +45,20 @@ def full_process_xmm(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quanti
     #  for each observation
     odf_ingest(obs_archive, num_cores=num_cores, timeout=timeout)
 
-    # It is very much not a given that there will be RGS data to process, so we try to do it, and if it raises
-    #  a value error because there are no RGS data then we move on
-    try:
-        rgs_events(obs_archive, process_unscheduled, num_cores=num_cores, timeout=timeout)
-        rgs_angles(obs_archive, num_cores=num_cores, timeout=timeout)
-        cleaned_rgs_event_lists(obs_archive, num_cores=num_cores, timeout=timeout)
-    except (ValueError, IndexError):
-        pass
+    # It is very much not a given that there will be RGS data to process, so we first check to see if any of the
+    #  XMM missions have actually had RGS data selected
+    with_rgs = any(['R1' in mission.chosen_instruments or 'R2' in mission.chosen_instruments for mission in obs_archive
+                    if mission.name in ALLOWED_XMM_MISSIONS])
+
+    # If RGS has been selected then we will try to process it, but in case there are no actual data we do put a
+    #  try-except
+    if with_rgs:
+        try:
+            rgs_events(obs_archive, process_unscheduled, num_cores=num_cores, timeout=timeout)
+            rgs_angles(obs_archive, num_cores=num_cores, timeout=timeout)
+            cleaned_rgs_event_lists(obs_archive, num_cores=num_cores, timeout=timeout)
+        except (ValueError, IndexError):
+            pass
 
     # We try to process EPIC PN data, but we use a try-except because it is possible that none will have been
     #  selected when the mission was defined

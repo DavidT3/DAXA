@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/08/2023, 04:25. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 26/01/2024, 14:54. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
@@ -240,11 +240,19 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
         for inst in miss.chosen_instruments:
             if inst[0] == 'P':
                 rel_p_obs = obs_archive.get_obs_to_process(miss.name, inst)
+                # Have to ensure that there are actually some observations for this instrument - if there aren't then
+                #  we'll skip over it
+                if len(rel_p_obs) == 0:
+                    continue
                 # Same deal for the PN data
                 good_ep = obs_archive.check_dependence_success(miss.name, rel_p_obs, 'epchain', no_success_error=False)
                 rel_obs_info.append(np.array(rel_p_obs)[good_ep])
             elif inst[0] == 'M':
                 rel_m_obs = obs_archive.get_obs_to_process(miss.name, inst)
+                # Have to ensure that there are actually some observations for this instrument - if there aren't then
+                #  we'll skip over it
+                if len(rel_m_obs) == 0:
+                    continue
                 # Here we check that emchain ran - if it didn't then we won't be cleaning event lists for those
                 #  observations
                 good_em = obs_archive.check_dependence_success(miss.name, rel_m_obs, 'emchain', no_success_error=False)
