@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/10/2023, 20:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 26/01/2024, 18:17. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -52,10 +52,12 @@ def _lock_check(change_func):
         # The first argument will be 'self' for any class method, so we check its 'locked' property
         if not args[0].locked:
             # If not locked then we can execute that method without any worries
-            change_func(*args, **kwargs)
+            any_ret = change_func(*args, **kwargs)
         else:
             # If the mission is locked then we have to throw an error
             raise MissionLockedError("This mission instance has been locked, and is now immutable.")
+
+        return any_ret
 
     return wrapper
 
@@ -714,7 +716,8 @@ class BaseMission(metaclass=ABCMeta):
 
     @_lock_check
     def filter_on_positions(self, positions: Union[list, np.ndarray, SkyCoord],
-                            search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None):
+                            search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
+                            return_ind_with_data: bool = False):
         """
         This method allows you to filter the observations available for a mission based on a set of coordinates for
         which you wish to locate observations. The method searches for observations by the current mission that have
@@ -736,6 +739,8 @@ class BaseMission(metaclass=ABCMeta):
             value of 1.2 times the approximate field of view defined for each instrument will be used; where different
             instruments have different FoVs, observation searches will be undertaken on an instrument-by-instrument
             basis using the different field of views.
+        :param bool return_ind_with_data: Allows this method to return the indices of passed positions that were
+            identified as being associated with an observation. Default is False.
         """
 
         # Checks to see if a list/array of coordinates has been passed, in which case we convert it to a
@@ -835,6 +840,8 @@ class BaseMission(metaclass=ABCMeta):
         #  keys) or a single quantity. The quantities will be in degrees.
         # In the case where we have only a single search, it is relatively simple, and rather than trying to make
         #  this method more elegant by writing one generalised approach, we're just gonna use an if statement
+        # This will store all those position indices that have been identified as being associated with an observation
+        pos_with_data_ind = []
         if isinstance(search_distance, Quantity) and search_distance.isscalar:
             # Runs the 'catalogue matching' between all available observations and the input positions.
             which_pos, which_obs, d2d, d3d = self.ra_decs.search_around_sky(positions, search_distance)
@@ -852,6 +859,10 @@ class BaseMission(metaclass=ABCMeta):
             #  ensure that there are no duplicates. These entries in the pos_filter are set to one, which will
             #  allow those observations through
             pos_filter[np.array(list(set(which_obs)))] = 1
+
+            # This is the simplest case - non-scalar positions and one search distance. In this case the positions
+            #  associated with ObsIDs are just one of the returns from the search_around_sky method
+            pos_with_data_ind = which_pos
 
         elif isinstance(search_distance, Quantity) and not search_distance.isscalar:
             # Sets up a filter array that consists entirely of zeros initially (i.e. it would not let
@@ -877,6 +888,9 @@ class BaseMission(metaclass=ABCMeta):
                     #  updated to reflect which observations make it through - just here it happens on an object by
                     #  object basis
                     pos_filter[np.array(list(set(which_obs)))] = 1
+                    # Each position is dealt with separately here, so we just append the successful position indices
+                    #  to our list that keeps track of the positions which are associated with observations
+                    pos_with_data_ind.append(sd_ind)
 
         else:
             # Hopefully every mission class's all_obs_info table had its indices reset at the end of the method
@@ -909,6 +923,10 @@ class BaseMission(metaclass=ABCMeta):
                     #  of observations, using rel_row_inds, and then uses those values to set the pos filter. Only
                     #  if there are any selected observations though!
                     pos_filter[np.array(list(set(rel_row_inds[which_obs])))] = 1
+                    # In this case we are likely to be iterating through different search distances, so we'll append
+                    #  each 'which_pos' to our list and sort it out at the end to find the unique indices that
+                    #  describe which positions are associated with data.
+                    pos_with_data_ind.append(which_pos)
 
             # Have to check whether any observations have actually been found, if not then we throw an error. Very
             #  similar to a check in the first part of the if statement, but here we only check at the end of the
@@ -918,6 +936,14 @@ class BaseMission(metaclass=ABCMeta):
                 raise NoObsAfterFilterError("The positional search has returned no {} "
                                             "observations.".format(self.pretty_name))
 
+        # This makes sure that, particularly in the case where each instrument has a different field of view, we
+        #  combine the pos_with_dat_ind list into a single, 1D, array
+        pos_with_data_ind = np.unique(np.hstack(pos_with_data_ind))
+        # If we were passed just one position, we did a little cheesy thing to make sure the searches always worked
+        #  the same, so we have to account for the fact that the position is in the pos_with_data_ind array twice
+        if single_pos:
+            pos_with_data_ind = np.array([pos_with_data_ind[0]])
+
         # Convert the array of ones and zeros to boolean, which is what the filter_array property setter wants
         pos_filter = pos_filter.astype(bool)
 
@@ -926,6 +952,10 @@ class BaseMission(metaclass=ABCMeta):
 
         # And update the filter array
         self.filter_array = new_filter
+
+        # And we only return the position indices with data if the user asked for it
+        if return_ind_with_data:
+            return pos_with_data_ind
 
     @_lock_check
     def filter_on_name(self, object_name: Union[str, List[str]],
