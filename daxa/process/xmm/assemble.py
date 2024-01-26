@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/08/2023, 15:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 26/01/2024, 15:47. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -778,6 +778,10 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         for inst in miss.chosen_instruments:
             if inst[0] == 'P':
                 rel_p_obs = obs_archive.get_obs_to_process(miss.name, inst)
+                # Have to ensure that there are actually some observations for this instrument - if there aren't then
+                #  we'll skip over it
+                if len(rel_p_obs) == 0:
+                    continue
                 # This checks that espfilt ran successfully for the PN data
                 ef_pn_good = obs_archive.check_dependence_success(miss.name, rel_p_obs, 'espfilt',
                                                                   no_success_error=False)
@@ -785,6 +789,10 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
 
             elif inst[0] == 'M':
                 rel_m_obs = obs_archive.get_obs_to_process(miss.name, inst)
+                # Have to ensure that there are actually some observations for this instrument - if there aren't then
+                #  we'll skip over it
+                if len(rel_m_obs) == 0:
+                    continue
                 # This is why we're treating PN and MOS separately here, if the user wants to exclude certain CCD states
                 #  then we have to make sure that emanom was run (and run successfully) for the MOS data.
                 if filt_mos_anom_state:
