@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 20:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 21:03. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -1061,7 +1061,7 @@ class BaseMission(metaclass=ABCMeta):
         self.filter_on_positions(coords, search_distance)
 
     @_lock_check
-    def filter_on_time(self, start_datetime: datetime, end_datetime: datetime, over_run: bool = False):
+    def filter_on_time(self, start_datetime: datetime, end_datetime: datetime, over_run: bool = True):
         """
         This method allows you to filter observations for this mission based on when they were taken. A start
         and end time are passed by the user, and observations that fall within that window are allowed through
@@ -1077,15 +1077,18 @@ class BaseMission(metaclass=ABCMeta):
         :param bool over_run: This controls whether selected observations have to be entirely within the passed
             time window or whether either a start or end time can be within the search window. If set
             to True then observations with a start or end within the search window will be selected, but if False
-            then only observations with a start AND end within the window are selected.
+            then only observations with a start AND end within the window are selected. Default is True.
         """
         # This just selects the exact behaviour of whether an observation is allowed through the filter or not.
         if not over_run:
             time_filter = (self.all_obs_info['start'] >= start_datetime) & (self.all_obs_info['end'] <= end_datetime)
         else:
-            time_filter = ((self.all_obs_info['start'] >= start_datetime) &
-                           (self.all_obs_info['start'] <= end_datetime)) | \
-                          ((self.all_obs_info['end'] >= start_datetime) & (self.all_obs_info['end'] <= end_datetime))
+            time_filter = (((self.all_obs_info['start'] >= start_datetime) &
+                            (self.all_obs_info['start'] <= end_datetime)) |
+                           ((self.all_obs_info['end'] >= start_datetime) &
+                            (self.all_obs_info['end'] <= end_datetime)) |
+                           ((self.all_obs_info['start'] <= start_datetime) &
+                            (self.all_obs_info['end'] >= end_datetime)))
 
         # Have to check whether any observations have actually been found, if not then we throw an error
         if time_filter.sum() == 0:
@@ -1144,6 +1147,18 @@ class BaseMission(metaclass=ABCMeta):
         new_filter = self.filter_array * sel_obs_mask
         # Then we set the filter array property with that updated mask
         self.filter_array = new_filter
+
+    @_lock_check
+    def filter_on_positions_at_time(self, positions: Union[list, np.ndarray, SkyCoord], start_datetime: datetime,
+                                    end_datetime: datetime,
+                                    search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
+                                    return_pos_obs_info: bool = False, over_run: bool = True):
+
+        cur_filt = self.filter_array.copy()
+
+        rel_obs_info = self.filter_on_positions(positions, search_distance, True)
+
+
 
     def info(self):
         print("\n-----------------------------------------------------")
