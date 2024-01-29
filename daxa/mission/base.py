@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/01/2024, 13:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/01/2024, 15:42. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -660,10 +660,17 @@ class BaseMission(metaclass=ABCMeta):
             raise ValueError("One or more ObsID passed into this method does not match the expected pattern "
                              "for ObsIDs of this mission. The following are not compliant; "
                              "{}".format(', '.join(oid_check)))
-
+        
         # Uses the Pandas isin functionality to find the rows of the overall observation table that match the input
         #  ObsIDs. This outputs a boolean array.
-        sel_obs_mask = self._obs_info['ObsID'].isin(allowed_obs_ids)
+        sel_obs_mask = self._obs_info['ObsID'].isin(allowed_obs_ids).values
+
+        # A check to make sure that some ObsIDs made it past the filtering
+        if (self.filter_array * sel_obs_mask).sum() == 0:
+            self.filter_array = np.full(self.filter_array.shape, False)
+            raise NoObsAfterFilterError("ObsID search has resulted in there being no observations associated "
+                                        "with this mission.")
+        
         # Said boolean array can be multiplied with the existing filter array (by default all ones, which means
         #  all observations are let through) to produce an updated filter.
         new_filter = self.filter_array * sel_obs_mask
@@ -977,10 +984,13 @@ class BaseMission(metaclass=ABCMeta):
 
         # This makes sure that, particularly in the case where each instrument has a different field of view, we
         #  combine the pos_with_dat_ind list into a single, 1D, array
-        pos_with_data_ind = np.unique(np.hstack(pos_with_data_ind))
+        if len(pos_with_data_ind) != 0:
+            pos_with_data_ind = np.unique(np.hstack(pos_with_data_ind))
+        else:
+            pos_with_data_ind = np.array([])
         # If we were passed just one position, we did a little cheesy thing to make sure the searches always worked
         #  the same, so we have to account for the fact that the position is in the pos_with_data_ind array twice
-        if single_pos:
+        if single_pos and len(pos_with_data_ind) != 0:
             pos_with_data_ind = np.array([pos_with_data_ind[0]])
 
         # Convert the array of ones and zeros to boolean, which is what the filter_array property setter wants
