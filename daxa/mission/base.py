@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 22:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 23:09. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -1234,7 +1234,12 @@ class BaseMission(metaclass=ABCMeta):
 
             # Set up a temporary filter that only includes those ObsIDs that are relevant to the current position
             #  that we are considering
-            temp_filt = self._obs_info['ObsID'].isin(rel_obs_ids)
+            temp_filt = self._obs_info['ObsID'].isin(rel_obs_ids).values
+
+            # It is possible that all the ObsIDs selected are not science usable, so we do just check the
+            #  sum of the array we're going to be assigning to the 'filter_array' property
+            if (after_pos_filt*temp_filt).sum() == 0:
+                continue
             # Then make sure we assign that array to the actual current filter (this is why we made a copy of it
             #  earlier, so we can reset it after we modified it in each iteration).
             self.filter_array = after_pos_filt*temp_filt
