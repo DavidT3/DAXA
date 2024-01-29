@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 26/01/2024, 18:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 19:43. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -546,11 +546,11 @@ class BaseMission(metaclass=ABCMeta):
         # Just makes sure we can iterate across instrument(s), regardless of how many there are
         if not isinstance(insts, list):
             insts = [insts]
-        
+
         # Raising and error if the input is not Union[List[str], str]
         if not all(isinstance(inst, str) for inst in insts):
             raise TypeError("Instruments must be input as a string or a list of strings.")
-        
+
         # Making sure the input is capitalised for compatibilty with the rest of the module
         insts = [i.upper() for i in insts]
 
@@ -717,7 +717,7 @@ class BaseMission(metaclass=ABCMeta):
     @_lock_check
     def filter_on_positions(self, positions: Union[list, np.ndarray, SkyCoord],
                             search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
-                            return_ind_with_data: bool = False):
+                            return_pos_obs_info: bool = False):
         """
         This method allows you to filter the observations available for a mission based on a set of coordinates for
         which you wish to locate observations. The method searches for observations by the current mission that have
@@ -739,8 +739,9 @@ class BaseMission(metaclass=ABCMeta):
             value of 1.2 times the approximate field of view defined for each instrument will be used; where different
             instruments have different FoVs, observation searches will be undertaken on an instrument-by-instrument
             basis using the different field of views.
-        :param bool return_ind_with_data: Allows this method to return the indices of passed positions that were
-            identified as being associated with an observation. Default is False.
+        :param bool return_pos_obs_info: Allows this method to return information (in the form of a Pandas dataframe)
+            which identifies the positions which have been associated with observations, and the observations they have
+            been associated with. Default is False.
         """
 
         # Checks to see if a list/array of coordinates has been passed, in which case we convert it to a
@@ -860,14 +861,25 @@ class BaseMission(metaclass=ABCMeta):
             #  allow those observations through
             pos_filter[np.array(list(set(which_obs)))] = 1
 
-            # This is the simplest case - non-scalar positions and one search distance. In this case the positions
-            #  associated with ObsIDs are just one of the returns from the search_around_sky method
-            pos_with_data_ind = which_pos
+            # We only bother doing this if the user actually wants the information
+            if return_pos_obs_info:
+                # This is the simplest case - non-scalar positions and one search distance. In this case the positions
+                #  associated with ObsIDs are just one of the returns from the search_around_sky method
+                pos_with_data_ind = which_pos
+                # This unfortunate one-liner connects position indices with specific ObsIDs that they were matched to,
+                #  and will be processed into a dataframe at the end
+                which_pos_which_obs = {pos_ind: [self.obs_ids[obs_ind] for
+                                                 obs_ind in which_obs[np.where(which_pos == pos_ind)[0]]]
+                                       for pos_ind in np.unique(which_pos)}
 
         elif isinstance(search_distance, Quantity) and not search_distance.isscalar:
             # Sets up a filter array that consists entirely of zeros initially (i.e. it would not let
             #  any observations through).
             pos_filter = np.zeros(self.filter_array.shape)
+
+            # Used to store information on which position indices are connected with which ObsIDs, if the user
+            #  has requested that that information be returned
+            which_pos_which_obs = {}
 
             # This is the reason that we have to have a separate part of the if statement for cases where the search
             #  distance is non-scalar, because of the way search_around_sky is built it can't handle non-scalar
@@ -888,15 +900,24 @@ class BaseMission(metaclass=ABCMeta):
                     #  updated to reflect which observations make it through - just here it happens on an object by
                     #  object basis
                     pos_filter[np.array(list(set(which_obs)))] = 1
-                    # Each position is dealt with separately here, so we just append the successful position indices
-                    #  to our list that keeps track of the positions which are associated with observations
-                    pos_with_data_ind.append(sd_ind)
+
+                    # We only bother doing this if the user actually wants the information
+                    if return_pos_obs_info:
+                        # Each position is dealt with separately here, so we just append the successful position indices
+                        #  to our list that keeps track of the positions which are associated with observations
+                        pos_with_data_ind.append(sd_ind)
+                        # Store the ObsIDs relevant to this position
+                        which_pos_which_obs[sd_ind] = list(self.obs_ids[which_obs])
 
         else:
             # Hopefully every mission class's all_obs_info table had its indices reset at the end of the method
             #  that grabs all the information, but just in case it didn't I'll do it here, because it would royally
             #  screw things up if it weren't reset
             self.all_obs_info = self.all_obs_info.reset_index(drop=True)
+
+            # Used to store information on which position indices are connected with which ObsIDs, if the user
+            #  has requested that that information be returned
+            which_pos_which_obs = {}
 
             # Sets up a filter array that consists entirely of zeros initially (i.e. it would not let
             #  any observations through).
@@ -928,6 +949,17 @@ class BaseMission(metaclass=ABCMeta):
                     #  describe which positions are associated with data.
                     pos_with_data_ind.append(which_pos)
 
+                    # This deeply unfortunate one-liner connects position indices with specific ObsIDs that they
+                    #  were matched to, and will be processed into a dataframe at the end - this has to account for
+                    #  the possibility that there may already be a pos_ind entry in the dictionary whose information
+                    #  we don't want to remove - definitely should have been a for loop for readability but oh well
+                    to_add = {pos_ind: [self.obs_ids[obs_ind] for obs_ind in which_obs[
+                        np.where(which_pos == pos_ind)[0]]] if pos_ind not in which_pos_which_obs else
+                    which_pos_which_obs[pos_ind] + [self.obs_ids[obs_ind] for obs_ind in
+                                                    which_obs[np.where(which_pos == pos_ind)[0]]] for pos_ind in
+                              np.unique(which_pos)}
+                    which_pos_which_obs.update(to_add)
+
             # Have to check whether any observations have actually been found, if not then we throw an error. Very
             #  similar to a check in the first part of the if statement, but here we only check at the end of the
             #  for loops, because it is fine if some of the instruments don't have any observations selected at the
@@ -954,8 +986,14 @@ class BaseMission(metaclass=ABCMeta):
         self.filter_array = new_filter
 
         # And we only return the position indices with data if the user asked for it
-        if return_ind_with_data:
-            return pos_with_data_ind
+        if return_pos_obs_info:
+            pos_with_data = positions[pos_with_data_ind]
+            rel_obs_ids = np.array([",".join(obs_ids) for pos_ind, obs_ids in which_pos_which_obs.items()])
+            ret_df_cols = ['pos_ind', 'pos_ra', 'pos_dec', 'ObsIDs']
+            ret_df_data = np.concatenate([pos_with_data_ind, pos_with_data.ra.value, pos_with_data.dec.value,
+                                          rel_obs_ids])
+
+            return pd.DataFrame(ret_df_data, columns=ret_df_cols)
 
     @_lock_check
     def filter_on_name(self, object_name: Union[str, List[str]],
