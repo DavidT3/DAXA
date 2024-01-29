@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/01/2024, 09:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/01/2024, 13:51. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -1084,17 +1084,19 @@ class BaseMission(metaclass=ABCMeta):
         """
         # This just selects the exact behaviour of whether an observation is allowed through the filter or not.
         if not over_run:
-            time_filter = (self.all_obs_info['start'] >= start_datetime) & (self.all_obs_info['end'] <= end_datetime)
+            time_filter = ((self.all_obs_info['start'] >= start_datetime) &
+                           (self.all_obs_info['end'] <= end_datetime)).values
         else:
             time_filter = (((self.all_obs_info['start'] >= start_datetime) &
                             (self.all_obs_info['start'] <= end_datetime)) |
                            ((self.all_obs_info['end'] >= start_datetime) &
                             (self.all_obs_info['end'] <= end_datetime)) |
                            ((self.all_obs_info['start'] <= start_datetime) &
-                            (self.all_obs_info['end'] >= end_datetime)))
+                            (self.all_obs_info['end'] >= end_datetime))).values
 
         # Have to check whether any observations have actually been found, if not then we throw an error
-        if time_filter.sum() == 0:
+        if (self.filter_array * time_filter).sum() == 0:
+            self.filter_array = np.full(self.filter_array.shape, False)
             raise NoObsAfterFilterError("The temporal search has returned no {} "
                                         "observations.".format(self.pretty_name))
 
@@ -1250,7 +1252,7 @@ class BaseMission(metaclass=ABCMeta):
                 self.filter_on_time(start_time, end_time, over_run)
                 # If we get this far then there are matching data - so we add the current filter (which has been
                 #  modified by the filter_on_time method) to the cumulative filter
-                cumu_filt += self.filter_array
+                cumu_filt += self._filter_allowed
                 rel_obs_info.loc[rel_df_ind, 'ObsIDs'] = ",".join(self.filtered_obs_info['ObsID'].values)
                 any_rel_data[rel_df_ind] = True
             except NoObsAfterFilterError:
