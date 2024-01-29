@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 19:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 20:21. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -926,6 +926,9 @@ class BaseMission(metaclass=ABCMeta):
                 cur_search_distance = search_distance[inst]
 
                 rel_rows = self.all_obs_info[self.all_obs_info['instrument'] == inst]
+                # Extract the ObsIDs for later use in constructing a dataframe of the observations that are relevant
+                #  to the positions passed in by the user (if the user wants that).
+                rel_obs_ids = rel_rows['ObsID'].values
                 # These will be used to determine which coordinates to grab, and which entries in the pos_filter
                 #  must be updated
                 rel_row_inds = rel_rows.index.values
@@ -953,11 +956,12 @@ class BaseMission(metaclass=ABCMeta):
                     #  were matched to, and will be processed into a dataframe at the end - this has to account for
                     #  the possibility that there may already be a pos_ind entry in the dictionary whose information
                     #  we don't want to remove - definitely should have been a for loop for readability but oh well
-                    to_add = {pos_ind: [self.obs_ids[obs_ind] for obs_ind in which_obs[
-                        np.where(which_pos == pos_ind)[0]]] if pos_ind not in which_pos_which_obs else
-                    which_pos_which_obs[pos_ind] + [self.obs_ids[obs_ind] for obs_ind in
-                                                    which_obs[np.where(which_pos == pos_ind)[0]]] for pos_ind in
-                              np.unique(which_pos)}
+                    to_add = {pos_ind: [rel_obs_ids[obs_ind] for obs_ind in
+                                        which_obs[np.where(which_pos == pos_ind)[0]]]
+                    if pos_ind not in which_pos_which_obs
+                    else which_pos_which_obs[pos_ind] + [rel_obs_ids[obs_ind]
+                                                         for obs_ind in which_obs[np.where(which_pos == pos_ind)[0]]]
+                              for pos_ind in np.unique(which_pos)}
                     which_pos_which_obs.update(to_add)
 
             # Have to check whether any observations have actually been found, if not then we throw an error. Very
@@ -988,10 +992,10 @@ class BaseMission(metaclass=ABCMeta):
         # And we only return the position indices with data if the user asked for it
         if return_pos_obs_info:
             pos_with_data = positions[pos_with_data_ind]
-            rel_obs_ids = np.array([",".join(obs_ids) for pos_ind, obs_ids in which_pos_which_obs.items()])
+            rel_obs_ids = np.array([",".join(which_pos_which_obs[pos_ind]) for pos_ind in pos_with_data_ind])
             ret_df_cols = ['pos_ind', 'pos_ra', 'pos_dec', 'ObsIDs']
-            ret_df_data = np.concatenate([pos_with_data_ind, pos_with_data.ra.value, pos_with_data.dec.value,
-                                          rel_obs_ids])
+            ret_df_data = np.vstack([pos_with_data_ind, pos_with_data.ra.value, pos_with_data.dec.value,
+                                     rel_obs_ids]).T
 
             return pd.DataFrame(ret_df_data, columns=ret_df_cols)
 
