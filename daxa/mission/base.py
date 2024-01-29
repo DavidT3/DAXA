@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/10/2023, 20:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 23:09. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -52,10 +52,12 @@ def _lock_check(change_func):
         # The first argument will be 'self' for any class method, so we check its 'locked' property
         if not args[0].locked:
             # If not locked then we can execute that method without any worries
-            change_func(*args, **kwargs)
+            any_ret = change_func(*args, **kwargs)
         else:
             # If the mission is locked then we have to throw an error
             raise MissionLockedError("This mission instance has been locked, and is now immutable.")
+
+        return any_ret
 
     return wrapper
 
@@ -544,11 +546,11 @@ class BaseMission(metaclass=ABCMeta):
         # Just makes sure we can iterate across instrument(s), regardless of how many there are
         if not isinstance(insts, list):
             insts = [insts]
-        
+
         # Raising and error if the input is not Union[List[str], str]
         if not all(isinstance(inst, str) for inst in insts):
             raise TypeError("Instruments must be input as a string or a list of strings.")
-        
+
         # Making sure the input is capitalised for compatibilty with the rest of the module
         insts = [i.upper() for i in insts]
 
@@ -714,7 +716,8 @@ class BaseMission(metaclass=ABCMeta):
 
     @_lock_check
     def filter_on_positions(self, positions: Union[list, np.ndarray, SkyCoord],
-                            search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None):
+                            search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
+                            return_pos_obs_info: bool = False) -> Union[None, pd.DataFrame]:
         """
         This method allows you to filter the observations available for a mission based on a set of coordinates for
         which you wish to locate observations. The method searches for observations by the current mission that have
@@ -736,6 +739,12 @@ class BaseMission(metaclass=ABCMeta):
             value of 1.2 times the approximate field of view defined for each instrument will be used; where different
             instruments have different FoVs, observation searches will be undertaken on an instrument-by-instrument
             basis using the different field of views.
+        :param bool return_pos_obs_info: Allows this method to return information (in the form of a Pandas dataframe)
+            which identifies the positions which have been associated with observations, and the observations they have
+            been associated with. Default is False.
+        :return: If return_pos_obs_info is True, then a dataframe containing information on which ObsIDs are relevant
+            to which positions will be returned. If return_pos_obs_info is False, then None will be returned.
+        :rtype: Union[None,pd.DataFrame]
         """
 
         # Checks to see if a list/array of coordinates has been passed, in which case we convert it to a
@@ -835,6 +844,8 @@ class BaseMission(metaclass=ABCMeta):
         #  keys) or a single quantity. The quantities will be in degrees.
         # In the case where we have only a single search, it is relatively simple, and rather than trying to make
         #  this method more elegant by writing one generalised approach, we're just gonna use an if statement
+        # This will store all those position indices that have been identified as being associated with an observation
+        pos_with_data_ind = []
         if isinstance(search_distance, Quantity) and search_distance.isscalar:
             # Runs the 'catalogue matching' between all available observations and the input positions.
             which_pos, which_obs, d2d, d3d = self.ra_decs.search_around_sky(positions, search_distance)
@@ -853,10 +864,25 @@ class BaseMission(metaclass=ABCMeta):
             #  allow those observations through
             pos_filter[np.array(list(set(which_obs)))] = 1
 
+            # We only bother doing this if the user actually wants the information
+            if return_pos_obs_info:
+                # This is the simplest case - non-scalar positions and one search distance. In this case the positions
+                #  associated with ObsIDs are just one of the returns from the search_around_sky method
+                pos_with_data_ind = which_pos
+                # This unfortunate one-liner connects position indices with specific ObsIDs that they were matched to,
+                #  and will be processed into a dataframe at the end
+                which_pos_which_obs = {pos_ind: [self.obs_ids[obs_ind] for
+                                                 obs_ind in which_obs[np.where(which_pos == pos_ind)[0]]]
+                                       for pos_ind in np.unique(which_pos)}
+
         elif isinstance(search_distance, Quantity) and not search_distance.isscalar:
             # Sets up a filter array that consists entirely of zeros initially (i.e. it would not let
             #  any observations through).
             pos_filter = np.zeros(self.filter_array.shape)
+
+            # Used to store information on which position indices are connected with which ObsIDs, if the user
+            #  has requested that that information be returned
+            which_pos_which_obs = {}
 
             # This is the reason that we have to have a separate part of the if statement for cases where the search
             #  distance is non-scalar, because of the way search_around_sky is built it can't handle non-scalar
@@ -878,11 +904,23 @@ class BaseMission(metaclass=ABCMeta):
                     #  object basis
                     pos_filter[np.array(list(set(which_obs)))] = 1
 
+                    # We only bother doing this if the user actually wants the information
+                    if return_pos_obs_info:
+                        # Each position is dealt with separately here, so we just append the successful position indices
+                        #  to our list that keeps track of the positions which are associated with observations
+                        pos_with_data_ind.append(sd_ind)
+                        # Store the ObsIDs relevant to this position
+                        which_pos_which_obs[sd_ind] = list(self.obs_ids[which_obs])
+
         else:
             # Hopefully every mission class's all_obs_info table had its indices reset at the end of the method
             #  that grabs all the information, but just in case it didn't I'll do it here, because it would royally
             #  screw things up if it weren't reset
             self.all_obs_info = self.all_obs_info.reset_index(drop=True)
+
+            # Used to store information on which position indices are connected with which ObsIDs, if the user
+            #  has requested that that information be returned
+            which_pos_which_obs = {}
 
             # Sets up a filter array that consists entirely of zeros initially (i.e. it would not let
             #  any observations through).
@@ -891,6 +929,9 @@ class BaseMission(metaclass=ABCMeta):
                 cur_search_distance = search_distance[inst]
 
                 rel_rows = self.all_obs_info[self.all_obs_info['instrument'] == inst]
+                # Extract the ObsIDs for later use in constructing a dataframe of the observations that are relevant
+                #  to the positions passed in by the user (if the user wants that).
+                rel_obs_ids = rel_rows['ObsID'].values
                 # These will be used to determine which coordinates to grab, and which entries in the pos_filter
                 #  must be updated
                 rel_row_inds = rel_rows.index.values
@@ -909,6 +950,22 @@ class BaseMission(metaclass=ABCMeta):
                     #  of observations, using rel_row_inds, and then uses those values to set the pos filter. Only
                     #  if there are any selected observations though!
                     pos_filter[np.array(list(set(rel_row_inds[which_obs])))] = 1
+                    # In this case we are likely to be iterating through different search distances, so we'll append
+                    #  each 'which_pos' to our list and sort it out at the end to find the unique indices that
+                    #  describe which positions are associated with data.
+                    pos_with_data_ind.append(which_pos)
+
+                    # This deeply unfortunate one-liner connects position indices with specific ObsIDs that they
+                    #  were matched to, and will be processed into a dataframe at the end - this has to account for
+                    #  the possibility that there may already be a pos_ind entry in the dictionary whose information
+                    #  we don't want to remove - definitely should have been a for loop for readability but oh well
+                    to_add = {pos_ind: [rel_obs_ids[obs_ind] for obs_ind in
+                                        which_obs[np.where(which_pos == pos_ind)[0]]]
+                    if pos_ind not in which_pos_which_obs
+                    else which_pos_which_obs[pos_ind] + [rel_obs_ids[obs_ind]
+                                                         for obs_ind in which_obs[np.where(which_pos == pos_ind)[0]]]
+                              for pos_ind in np.unique(which_pos)}
+                    which_pos_which_obs.update(to_add)
 
             # Have to check whether any observations have actually been found, if not then we throw an error. Very
             #  similar to a check in the first part of the if statement, but here we only check at the end of the
@@ -918,6 +975,14 @@ class BaseMission(metaclass=ABCMeta):
                 raise NoObsAfterFilterError("The positional search has returned no {} "
                                             "observations.".format(self.pretty_name))
 
+        # This makes sure that, particularly in the case where each instrument has a different field of view, we
+        #  combine the pos_with_dat_ind list into a single, 1D, array
+        pos_with_data_ind = np.unique(np.hstack(pos_with_data_ind))
+        # If we were passed just one position, we did a little cheesy thing to make sure the searches always worked
+        #  the same, so we have to account for the fact that the position is in the pos_with_data_ind array twice
+        if single_pos:
+            pos_with_data_ind = np.array([pos_with_data_ind[0]])
+
         # Convert the array of ones and zeros to boolean, which is what the filter_array property setter wants
         pos_filter = pos_filter.astype(bool)
 
@@ -926,6 +991,16 @@ class BaseMission(metaclass=ABCMeta):
 
         # And update the filter array
         self.filter_array = new_filter
+
+        # And we only return the position indices with data if the user asked for it
+        if return_pos_obs_info:
+            pos_with_data = positions[pos_with_data_ind]
+            rel_obs_ids = np.array([",".join(which_pos_which_obs[pos_ind]) for pos_ind in pos_with_data_ind])
+            ret_df_cols = ['pos_ind', 'pos_ra', 'pos_dec', 'ObsIDs']
+            ret_df_data = np.vstack([pos_with_data_ind, pos_with_data.ra.value, pos_with_data.dec.value,
+                                     rel_obs_ids]).T
+
+            return pd.DataFrame(ret_df_data, columns=ret_df_cols)
 
     @_lock_check
     def filter_on_name(self, object_name: Union[str, List[str]],
@@ -989,7 +1064,7 @@ class BaseMission(metaclass=ABCMeta):
         self.filter_on_positions(coords, search_distance)
 
     @_lock_check
-    def filter_on_time(self, start_datetime: datetime, end_datetime: datetime, over_run: bool = False):
+    def filter_on_time(self, start_datetime: datetime, end_datetime: datetime, over_run: bool = True):
         """
         This method allows you to filter observations for this mission based on when they were taken. A start
         and end time are passed by the user, and observations that fall within that window are allowed through
@@ -1005,15 +1080,18 @@ class BaseMission(metaclass=ABCMeta):
         :param bool over_run: This controls whether selected observations have to be entirely within the passed
             time window or whether either a start or end time can be within the search window. If set
             to True then observations with a start or end within the search window will be selected, but if False
-            then only observations with a start AND end within the window are selected.
+            then only observations with a start AND end within the window are selected. Default is True.
         """
         # This just selects the exact behaviour of whether an observation is allowed through the filter or not.
         if not over_run:
             time_filter = (self.all_obs_info['start'] >= start_datetime) & (self.all_obs_info['end'] <= end_datetime)
         else:
-            time_filter = ((self.all_obs_info['start'] >= start_datetime) &
-                           (self.all_obs_info['start'] <= end_datetime)) | \
-                          ((self.all_obs_info['end'] >= start_datetime) & (self.all_obs_info['end'] <= end_datetime))
+            time_filter = (((self.all_obs_info['start'] >= start_datetime) &
+                            (self.all_obs_info['start'] <= end_datetime)) |
+                           ((self.all_obs_info['end'] >= start_datetime) &
+                            (self.all_obs_info['end'] <= end_datetime)) |
+                           ((self.all_obs_info['start'] <= start_datetime) &
+                            (self.all_obs_info['end'] >= end_datetime)))
 
         # Have to check whether any observations have actually been found, if not then we throw an error
         if time_filter.sum() == 0:
@@ -1072,6 +1150,128 @@ class BaseMission(metaclass=ABCMeta):
         new_filter = self.filter_array * sel_obs_mask
         # Then we set the filter array property with that updated mask
         self.filter_array = new_filter
+
+    @_lock_check
+    def filter_on_positions_at_time(self, positions: Union[list, np.ndarray, SkyCoord],
+                                    start_datetimes: np.ndarray, end_datetimes: np.ndarray,
+                                    search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
+                                    return_obs_info: bool = False, over_run: bool = True):
+        """
+
+        This method allows you to filter the observations available for a mission based on a set of coordinates for
+        which you wish to locate observations that were taken within a certain time frame. The method spatially
+        searches for observations that have central coordinates within the distance set by the search_distance
+        argument, and temporally by start and end times passed by the user; and observations that fall within that
+        window are allowed through the filter.
+
+        The exact behaviour of the temporal filtering method is controlled by the over_run argument, if set
+        to True then observations with a start or end within the search window will be selected, but if False
+        then only observations with a start AND end within the window are selected.
+
+        Please be aware that filtering methods are cumulative, so running another method will not remove the
+        filtering that has already been applied, you can use the reset_filter method for that.
+
+        :param list/np.ndarray/SkyCoord positions: The positions for which you wish to search for observations. They
+            can be passed either as a list or nested list (i.e. [r, d] OR [[r1, d1], [r2, d2]]), a numpy array, or
+            an already defined SkyCoord. If a list or array is passed then the coordinates are assumed to be in
+            degrees, and the default mission frame will be used.
+        :param np.array(datetime) start_datetimes: The beginnings of time windows in which to search for
+            observations. There should be one entry per position passed.
+        :param datetime end_datetimes: The endings of time windows in which to search for observations. There should
+            be one entry per position passed.
+        :param Quantity/float/int/list/np.ndarray/dict search_distance: The distance within which to search for
+            observations by this mission. Distance may be specified either as an Astropy Quantity that can be
+            converted to degrees (a float/integer will be assumed to be in units of degrees), as a dictionary of
+            quantities/floats/ints where the keys are names of different instruments (possibly with different field
+            of views), or as a non-scalar Quantity, list, or numpy array with one entry per set of coordinates (for
+            when you wish to use different search distances for each object). The default is None, in which case a
+            value of 1.2 times the approximate field of view defined for each instrument will be used; where different
+            instruments have different FoVs, observation searches will be undertaken on an instrument-by-instrument
+            basis using the different field of views.
+        :param bool return_obs_info: Allows this method to return information (in the form of a Pandas dataframe)
+            which identifies the positions which have been associated with observations, in the specified time
+            frame, and the observations they have been associated with. Default is False.
+        :param bool over_run: This controls whether selected observations have to be entirely within the passed
+            time window or whether either a start or end time can be within the search window. If set
+            to True then observations with a start or end within the search window will be selected, but if False
+            then only observations with a start AND end within the window are selected. Default is True.
+        """
+        # We initially check that the arguments we will be basing the time filtering on are of the right length,
+        #  i.e. every position must have corresponding start and end times
+        if len(start_datetimes) != len(positions) or len(end_datetimes) != len(positions):
+            raise ValueError("The 'start_datetimes' (len={sd}) and 'end_datetimes' (len={ed}) arguments must have one "
+                             "entry per position specified by the 'positions' (len={p}) "
+                             "arguments.".format(sd=len(start_datetimes), ed=len(end_datetimes), p=len(positions)))
+
+        # Now we can use the filter on positions method to search for any observations that might be applicable to
+        #  the search that the user wants to perform - we will also return the dataframe that
+        rel_obs_info = self.filter_on_positions(positions, search_distance, True)
+        # We save a copy of the filter as it was after the positional filtering - we'll need it later as we're going
+        #  to be messing around with the filter array a bit
+        after_pos_filt = self.filter_array.copy()
+
+        # This array will build up into something that we will construct the final filter array from as we iterate
+        #  through all the positions that have some data
+        cumu_filt = np.zeros(len(self._obs_info))
+        # This is a separate filtering array that will allow us to cut the 'rel_obs_info' dataframe down to only
+        #  those entries that have relevant temporal and spatial data
+        any_rel_data = np.full(len(rel_obs_info), False)
+        # We essentially iterate through each of the user supplied positions which have some sort of observations
+        #  that are SPATIALLY relevant - now we have to determine if any of those observations fit our temporal
+        #  criteria
+        for rel_df_ind, pos_ind in enumerate(rel_obs_info['pos_ind'].values):
+            # Retrieve the relevant row in the dataframe we asked to be returned from the filter_on_positions method
+            rel_row = rel_obs_info[rel_obs_info['pos_ind'] == pos_ind].iloc[0]
+            # Turn the joined string of ObsIDs back into a list of ObsIDs
+            rel_obs_ids = rel_row['ObsIDs'].split(',')
+
+            # Just make sure that 'pos_ind' is an integer at this point, as we want to address some arrays with it
+            pos_ind = int(pos_ind)
+            # Get the start and end time that the user specified for the current position, we shall need them to
+            #  do the time filtering
+            start_time = start_datetimes[pos_ind]
+            end_time = end_datetimes[pos_ind]
+
+            # Set up a temporary filter that only includes those ObsIDs that are relevant to the current position
+            #  that we are considering
+            temp_filt = self._obs_info['ObsID'].isin(rel_obs_ids).values
+
+            # It is possible that all the ObsIDs selected are not science usable, so we do just check the
+            #  sum of the array we're going to be assigning to the 'filter_array' property
+            if (after_pos_filt*temp_filt).sum() == 0:
+                continue
+            # Then make sure we assign that array to the actual current filter (this is why we made a copy of it
+            #  earlier, so we can reset it after we modified it in each iteration).
+            self.filter_array = after_pos_filt*temp_filt
+
+            # Then we try the filter_on_time method, which will now only be searching the observations that are
+            #  relevant to the current position - if something is found then no exception will be thrown
+            try:
+                self.filter_on_time(start_time, end_time, over_run)
+                # If we get this far then there are matching data - so we add the current filter (which has been
+                #  modified by the filter_on_time method) to the cumulative filter
+                cumu_filt += self.filter_array
+                rel_obs_info.loc[rel_df_ind, 'ObsIDs'] = ",".join(self.filtered_obs_info['ObsID'].values)
+                any_rel_data[rel_df_ind] = True
+            except NoObsAfterFilterError:
+                pass
+
+        # As we were adding the time filters (when they were successful) to what was originally a big array of zeros,
+        #  this array is clearly not yet in the format we want for the filter array - hence we just check for anywhere
+        #  the value is greater than zero - these will be set to True and False, which we want for the filter array
+        cumu_filt = cumu_filt > 0
+
+        # Have to check whether any observations have actually been found, if not then we throw an error
+        if cumu_filt.sum() == 0:
+            raise NoObsAfterFilterError("The spatio-temporal search has returned no {} "
+                                        "observations.".format(self.pretty_name))
+
+        self.filter_array = after_pos_filt * cumu_filt
+
+        # If the user wants a summary dataframe at the end, then we return one which is cut down to only those entries
+        #  that represent positions with both temporal and spatial matches
+        if return_obs_info:
+            return rel_obs_info[any_rel_data]
 
     def info(self):
         print("\n-----------------------------------------------------")

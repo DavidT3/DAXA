@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 21:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 21:56. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -180,7 +180,7 @@ class Chandra(BaseMission):
         :rtype: Union[Quantity, dict]
         """
         warn("Chandra FoV are difficult to define, as they can be strongly dependant on observation mode; as such take"
-             "these as very approximate.", stacklevel=2)
+             " these as very approximate.", stacklevel=2)
         # The approximate field of view is defined here because I want to force implementation for each
         #  new mission class
         # This is extremely hand-wavey; ACIS info come from https://cxc.harvard.edu/cal/Acis/index.html, and I have
