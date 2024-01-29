@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/01/2024, 09:38. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/01/2024, 09:40. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -1263,6 +1263,7 @@ class BaseMission(metaclass=ABCMeta):
 
         # Have to check whether any observations have actually been found, if not then we throw an error
         if cumu_filt.sum() == 0:
+            self.filter_array = cumu_filt
             raise NoObsAfterFilterError("The spatio-temporal search has returned no {} "
                                         "observations.".format(self.pretty_name))
 
