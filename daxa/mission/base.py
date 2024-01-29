@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 22:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 22:43. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -1246,7 +1246,7 @@ class BaseMission(metaclass=ABCMeta):
                 # If we get this far then there are matching data - so we add the current filter (which has been
                 #  modified by the filter_on_time method) to the cumulative filter
                 cumu_filt += self.filter_array
-                rel_obs_info['ObsIDs'] = ",".join(self.filtered_obs_info['ObsID'].values)
+                rel_obs_info.loc[rel_df_ind, 'ObsIDs'] = ",".join(self.filtered_obs_info['ObsID'].values)
                 any_rel_data[rel_df_ind] = True
             except NoObsAfterFilterError:
                 pass
