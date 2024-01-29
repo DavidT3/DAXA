@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 21:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 22:17. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -717,7 +717,7 @@ class BaseMission(metaclass=ABCMeta):
     @_lock_check
     def filter_on_positions(self, positions: Union[list, np.ndarray, SkyCoord],
                             search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
-                            return_pos_obs_info: bool = False):
+                            return_pos_obs_info: bool = False) -> Union[None, pd.DataFrame]:
         """
         This method allows you to filter the observations available for a mission based on a set of coordinates for
         which you wish to locate observations. The method searches for observations by the current mission that have
@@ -742,6 +742,9 @@ class BaseMission(metaclass=ABCMeta):
         :param bool return_pos_obs_info: Allows this method to return information (in the form of a Pandas dataframe)
             which identifies the positions which have been associated with observations, and the observations they have
             been associated with. Default is False.
+        :return: If return_pos_obs_info is True, then a dataframe containing information on which ObsIDs are relevant
+            to which positions will be returned. If return_pos_obs_info is False, then None will be returned.
+        :rtype: Union[None,pd.DataFrame]
         """
 
         # Checks to see if a list/array of coordinates has been passed, in which case we convert it to a
@@ -1149,16 +1152,111 @@ class BaseMission(metaclass=ABCMeta):
         self.filter_array = new_filter
 
     @_lock_check
-    def filter_on_positions_at_time(self, positions: Union[list, np.ndarray, SkyCoord], start_datetime: datetime,
-                                    end_datetime: datetime,
+    def filter_on_positions_at_time(self, positions: Union[list, np.ndarray, SkyCoord],
+                                    start_datetimes: np.ndarray, end_datetimes: np.ndarray,
                                     search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
                                     return_pos_obs_info: bool = False, over_run: bool = True):
+        """
 
-        cur_filt = self.filter_array.copy()
+        This method allows you to filter the observations available for a mission based on a set of coordinates for
+        which you wish to locate observations that were taken within a certain time frame. The method spatially
+        searches for observations that have central coordinates within the distance set by the search_distance
+        argument, and temporally by start and end times passed by the user; and observations that fall within that
+        window are allowed through the filter.
 
+        The exact behaviour of the temporal filtering method is controlled by the over_run argument, if set
+        to True then observations with a start or end within the search window will be selected, but if False
+        then only observations with a start AND end within the window are selected.
+
+        Please be aware that filtering methods are cumulative, so running another method will not remove the
+        filtering that has already been applied, you can use the reset_filter method for that.
+
+        :param list/np.ndarray/SkyCoord positions: The positions for which you wish to search for observations. They
+            can be passed either as a list or nested list (i.e. [r, d] OR [[r1, d1], [r2, d2]]), a numpy array, or
+            an already defined SkyCoord. If a list or array is passed then the coordinates are assumed to be in
+            degrees, and the default mission frame will be used.
+        :param np.array(datetime) start_datetimes: The beginnings of time windows in which to search for
+            observations. There should be one entry per position passed.
+        :param datetime end_datetimes: The endings of time windows in which to search for observations. There should
+            be one entry per position passed.
+        :param Quantity/float/int/list/np.ndarray/dict search_distance: The distance within which to search for
+            observations by this mission. Distance may be specified either as an Astropy Quantity that can be
+            converted to degrees (a float/integer will be assumed to be in units of degrees), as a dictionary of
+            quantities/floats/ints where the keys are names of different instruments (possibly with different field
+            of views), or as a non-scalar Quantity, list, or numpy array with one entry per set of coordinates (for
+            when you wish to use different search distances for each object). The default is None, in which case a
+            value of 1.2 times the approximate field of view defined for each instrument will be used; where different
+            instruments have different FoVs, observation searches will be undertaken on an instrument-by-instrument
+            basis using the different field of views.
+        :param bool return_pos_obs_info: Allows this method to return information (in the form of a Pandas dataframe)
+            which identifies the positions which have been associated with observations, and the observations they have
+            been associated with. Default is False.
+        :param bool over_run: This controls whether selected observations have to be entirely within the passed
+            time window or whether either a start or end time can be within the search window. If set
+            to True then observations with a start or end within the search window will be selected, but if False
+            then only observations with a start AND end within the window are selected. Default is True.
+        """
+        # We initially check that the arguments we will be basing the time filtering on are of the right length,
+        #  i.e. every position must have corresponding start and end times
+        if len(start_datetimes) != len(positions) or len(end_datetimes) != len(positions):
+            raise ValueError("The 'start_datetimes' (len={sd}) and 'end_datetimes' (len={ed}) arguments must have one "
+                             "entry per position specified by the 'positions' (len={p}) "
+                             "arguments.".format(sd=len(start_datetimes), ed=len(end_datetimes), p=len(positions)))
+
+        # Now we can use the filter on positions method to search for any observations that might be applicable to
+        #  the search that the user wants to perform - we will also return the dataframe that
         rel_obs_info = self.filter_on_positions(positions, search_distance, True)
+        # We save a copy of the filter as it was after the positional filtering - we'll need it later as we're going
+        #  to be messing around with the filter array a bit
+        after_pos_filt = self.filter_array.copy()
 
+        # This array will build up into something that we will construct the final filter array from as we iterate
+        #  through all the positions that have some data
+        cumu_filt = np.zeros(len(self._obs_info))
+        # We essentially iterate through each of the user supplied positions which have some sort of observations
+        #  that are SPATIALLY relevant - now we have to determine if any of those observations fit our temporal
+        #  criteria
+        for pos_ind in rel_obs_info['pos_ind'].values:
+            # Retrieve the relevant row in the dataframe we asked to be returned from the filter_on_positions method
+            rel_row = rel_obs_info[rel_obs_info['pos_ind'] == pos_ind].iloc[0]
+            # Turn the joined string of ObsIDs back into a list of ObsIDs
+            rel_obs_ids = rel_row['ObsIDs'].split(',')
 
+            # Just make sure that 'pos_ind' is an integer at this point, as we want to address some arrays with it
+            pos_ind = int(pos_ind)
+            # Get the start and end time that the user specified for the current position, we shall need them to
+            #  do the time filtering
+            start_time = start_datetimes[pos_ind]
+            end_time = end_datetimes[pos_ind]
+
+            # Set up a temporary filter that only includes those ObsIDs that are relevant to the current position
+            #  that we are considering
+            temp_filt = self._obs_info['ObsID'].isin(rel_obs_ids)
+            # Then make sure we assign that array to the actual current filter (this is why we made a copy of it
+            #  earlier, so we can reset it after we modified it in each iteration).
+            self.filter_array = after_pos_filt*temp_filt
+
+            # Then we try the filter_on_time method, which will now only be searching the observations that are
+            #  relevant to the current position - if something is found then no exception will be thrown
+            try:
+                self.filter_on_time(start_time, end_time, over_run)
+                # If we get this far then there are matching data - so we add the current filter (which has been
+                #  modified by the filter_on_time method) to the cumulative filter
+                cumu_filt += self.filter_array
+            except NoObsAfterFilterError:
+                pass
+
+        # As we were adding the time filters (when they were successful) to what was originally a big array of zeros,
+        #  this array is clearly not yet in the format we want for the filter array - hence we just check for anywhere
+        #  the value is greater than zero - these will be set to True and False, which we want for the filter array
+        cumu_filt = cumu_filt > 0
+
+        # Have to check whether any observations have actually been found, if not then we throw an error
+        if cumu_filt.sum() == 0:
+            raise NoObsAfterFilterError("The spatio-temporal search has returned no {} "
+                                        "observations.".format(self.pretty_name))
+
+        self.filter_array = after_pos_filt * cumu_filt
 
     def info(self):
         print("\n-----------------------------------------------------")
