@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 23:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/01/2024, 15:50. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -332,13 +332,13 @@ class BaseMission(metaclass=ABCMeta):
                              " all observation information for this mission ({la}).".format(lf=len(new_filter_array),
                                                                                             la=len(self._obs_info)))
         elif new_filter_array.sum() == 0:
-            raise NoObsAfterFilterError("Every value in the filter array is False, meaning that no observations "
-                                        "remain. As such the new filter array has not been accepted")
-        else:
-            self._filter_allowed = new_filter_array
-            # If the filter changes then we make sure download done is set to False so that any changes
-            #  in observation selection are reflected in the download call
-            self._download_done = False
+            warn("Every value in the filter array is False, meaning that no observations remain.", stacklevel=2)
+
+        # Assign the filter array to the appropriate attribute
+        self._filter_allowed = new_filter_array
+        # If the filter changes then we make sure download done is set to False so that any changes
+        #  in observation selection are reflected in the download call
+        self._download_done = False
 
     @property
     @abstractmethod
@@ -660,10 +660,17 @@ class BaseMission(metaclass=ABCMeta):
             raise ValueError("One or more ObsID passed into this method does not match the expected pattern "
                              "for ObsIDs of this mission. The following are not compliant; "
                              "{}".format(', '.join(oid_check)))
-
+        
         # Uses the Pandas isin functionality to find the rows of the overall observation table that match the input
         #  ObsIDs. This outputs a boolean array.
-        sel_obs_mask = self._obs_info['ObsID'].isin(allowed_obs_ids)
+        sel_obs_mask = self._obs_info['ObsID'].isin(allowed_obs_ids).values
+
+        # A check to make sure that some ObsIDs made it past the filtering
+        if (self.filter_array * sel_obs_mask).sum() == 0:
+            self.filter_array = np.full(self.filter_array.shape, False)
+            raise NoObsAfterFilterError("ObsID search has resulted in there being no observations associated "
+                                        "with this mission.")
+        
         # Said boolean array can be multiplied with the existing filter array (by default all ones, which means
         #  all observations are let through) to produce an updated filter.
         new_filter = self.filter_array * sel_obs_mask
@@ -703,11 +710,12 @@ class BaseMission(metaclass=ABCMeta):
             upper_right = SkyCoord(*upper_right, unit=u.deg, frame=self.coord_frame)
 
         # Creates a filter based on a rectangular region defined by the input coordinates
-        box_filter = (self.ra_decs.ra >= lower_left.ra) & (self.ra_decs.ra <= upper_right.ra) & \
-                     (self.ra_decs.dec >= lower_left.dec) & (self.ra_decs.dec <= upper_right.dec)
+        box_filter = ((self.ra_decs.ra >= lower_left.ra) & (self.ra_decs.ra <= upper_right.ra) &
+                      (self.ra_decs.dec >= lower_left.dec) & (self.ra_decs.dec <= upper_right.dec))
 
         # Have to check whether any observations have actually been found, if not then we throw an error
-        if box_filter.sum() == 0:
+        if (self.filter_array*box_filter).sum() == 0:
+            self.filter_array = np.full(self.filter_array.shape, False)
             raise NoObsAfterFilterError("The box search has returned no {} observations.".format(self.pretty_name))
 
         # Updates the filter array
@@ -977,10 +985,13 @@ class BaseMission(metaclass=ABCMeta):
 
         # This makes sure that, particularly in the case where each instrument has a different field of view, we
         #  combine the pos_with_dat_ind list into a single, 1D, array
-        pos_with_data_ind = np.unique(np.hstack(pos_with_data_ind))
+        if len(pos_with_data_ind) != 0:
+            pos_with_data_ind = np.unique(np.hstack(pos_with_data_ind))
+        else:
+            pos_with_data_ind = np.array([])
         # If we were passed just one position, we did a little cheesy thing to make sure the searches always worked
         #  the same, so we have to account for the fact that the position is in the pos_with_data_ind array twice
-        if single_pos:
+        if single_pos and len(pos_with_data_ind) != 0:
             pos_with_data_ind = np.array([pos_with_data_ind[0]])
 
         # Convert the array of ones and zeros to boolean, which is what the filter_array property setter wants
@@ -1084,17 +1095,19 @@ class BaseMission(metaclass=ABCMeta):
         """
         # This just selects the exact behaviour of whether an observation is allowed through the filter or not.
         if not over_run:
-            time_filter = (self.all_obs_info['start'] >= start_datetime) & (self.all_obs_info['end'] <= end_datetime)
+            time_filter = ((self.all_obs_info['start'] >= start_datetime) &
+                           (self.all_obs_info['end'] <= end_datetime)).values
         else:
             time_filter = (((self.all_obs_info['start'] >= start_datetime) &
                             (self.all_obs_info['start'] <= end_datetime)) |
                            ((self.all_obs_info['end'] >= start_datetime) &
                             (self.all_obs_info['end'] <= end_datetime)) |
                            ((self.all_obs_info['start'] <= start_datetime) &
-                            (self.all_obs_info['end'] >= end_datetime)))
+                            (self.all_obs_info['end'] >= end_datetime))).values
 
         # Have to check whether any observations have actually been found, if not then we throw an error
-        if time_filter.sum() == 0:
+        if (self.filter_array * time_filter).sum() == 0:
+            self.filter_array = np.full(self.filter_array.shape, False)
             raise NoObsAfterFilterError("The temporal search has returned no {} "
                                         "observations.".format(self.pretty_name))
 
@@ -1250,7 +1263,7 @@ class BaseMission(metaclass=ABCMeta):
                 self.filter_on_time(start_time, end_time, over_run)
                 # If we get this far then there are matching data - so we add the current filter (which has been
                 #  modified by the filter_on_time method) to the cumulative filter
-                cumu_filt += self.filter_array
+                cumu_filt += self._filter_allowed
                 rel_obs_info.loc[rel_df_ind, 'ObsIDs'] = ",".join(self.filtered_obs_info['ObsID'].values)
                 any_rel_data[rel_df_ind] = True
             except NoObsAfterFilterError:
@@ -1263,6 +1276,7 @@ class BaseMission(metaclass=ABCMeta):
 
         # Have to check whether any observations have actually been found, if not then we throw an error
         if cumu_filt.sum() == 0:
+            self.filter_array = cumu_filt
             raise NoObsAfterFilterError("The spatio-temporal search has returned no {} "
                                         "observations.".format(self.pretty_name))
 
