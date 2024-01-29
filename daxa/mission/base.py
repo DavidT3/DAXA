@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 22:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 22:24. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -1155,7 +1155,7 @@ class BaseMission(metaclass=ABCMeta):
     def filter_on_positions_at_time(self, positions: Union[list, np.ndarray, SkyCoord],
                                     start_datetimes: np.ndarray, end_datetimes: np.ndarray,
                                     search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
-                                    return_pos_obs_info: bool = False, over_run: bool = True):
+                                    return_obs_info: bool = False, over_run: bool = True):
         """
 
         This method allows you to filter the observations available for a mission based on a set of coordinates for
@@ -1188,9 +1188,9 @@ class BaseMission(metaclass=ABCMeta):
             value of 1.2 times the approximate field of view defined for each instrument will be used; where different
             instruments have different FoVs, observation searches will be undertaken on an instrument-by-instrument
             basis using the different field of views.
-        :param bool return_pos_obs_info: Allows this method to return information (in the form of a Pandas dataframe)
-            which identifies the positions which have been associated with observations, and the observations they have
-            been associated with. Default is False.
+        :param bool return_obs_info: Allows this method to return information (in the form of a Pandas dataframe)
+            which identifies the positions which have been associated with observations, in the specified time
+            frame, and the observations they have been associated with. Default is False.
         :param bool over_run: This controls whether selected observations have to be entirely within the passed
             time window or whether either a start or end time can be within the search window. If set
             to True then observations with a start or end within the search window will be selected, but if False
@@ -1213,10 +1213,13 @@ class BaseMission(metaclass=ABCMeta):
         # This array will build up into something that we will construct the final filter array from as we iterate
         #  through all the positions that have some data
         cumu_filt = np.zeros(len(self._obs_info))
+        # This is a separate filtering array that will allow us to cut the 'rel_obs_info' dataframe down to only
+        #  those entries that have relevant temporal and spatial data
+        any_rel_data = np.full(len(rel_obs_info), False)
         # We essentially iterate through each of the user supplied positions which have some sort of observations
         #  that are SPATIALLY relevant - now we have to determine if any of those observations fit our temporal
         #  criteria
-        for pos_ind in rel_obs_info['pos_ind'].values:
+        for rel_df_ind, pos_ind in enumerate(rel_obs_info['pos_ind'].values):
             # Retrieve the relevant row in the dataframe we asked to be returned from the filter_on_positions method
             rel_row = rel_obs_info[rel_obs_info['pos_ind'] == pos_ind].iloc[0]
             # Turn the joined string of ObsIDs back into a list of ObsIDs
@@ -1243,6 +1246,8 @@ class BaseMission(metaclass=ABCMeta):
                 # If we get this far then there are matching data - so we add the current filter (which has been
                 #  modified by the filter_on_time method) to the cumulative filter
                 cumu_filt += self.filter_array
+                rel_obs_info['ObsIDs'] = ",".join(self.filtered_obs_info['ObsID'].values)
+                any_rel_data[rel_df_ind] = True
             except NoObsAfterFilterError:
                 pass
 
@@ -1257,6 +1262,11 @@ class BaseMission(metaclass=ABCMeta):
                                         "observations.".format(self.pretty_name))
 
         self.filter_array = after_pos_filt * cumu_filt
+
+        # If the user wants a summary dataframe at the end, then we return one which is cut down to only those entries
+        #  that represent positions with both temporal and spatial matches
+        if return_obs_info:
+            return rel_obs_info[any_rel_data]
 
     def info(self):
         print("\n-----------------------------------------------------")
