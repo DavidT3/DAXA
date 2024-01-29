@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/01/2024, 15:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/01/2024, 15:50. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -710,11 +710,12 @@ class BaseMission(metaclass=ABCMeta):
             upper_right = SkyCoord(*upper_right, unit=u.deg, frame=self.coord_frame)
 
         # Creates a filter based on a rectangular region defined by the input coordinates
-        box_filter = (self.ra_decs.ra >= lower_left.ra) & (self.ra_decs.ra <= upper_right.ra) & \
-                     (self.ra_decs.dec >= lower_left.dec) & (self.ra_decs.dec <= upper_right.dec)
+        box_filter = ((self.ra_decs.ra >= lower_left.ra) & (self.ra_decs.ra <= upper_right.ra) &
+                      (self.ra_decs.dec >= lower_left.dec) & (self.ra_decs.dec <= upper_right.dec))
 
         # Have to check whether any observations have actually been found, if not then we throw an error
-        if box_filter.sum() == 0:
+        if (self.filter_array*box_filter).sum() == 0:
+            self.filter_array = np.full(self.filter_array.shape, False)
             raise NoObsAfterFilterError("The box search has returned no {} observations.".format(self.pretty_name))
 
         # Updates the filter array
