@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 23:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/01/2024, 09:38. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -332,13 +332,13 @@ class BaseMission(metaclass=ABCMeta):
                              " all observation information for this mission ({la}).".format(lf=len(new_filter_array),
                                                                                             la=len(self._obs_info)))
         elif new_filter_array.sum() == 0:
-            raise NoObsAfterFilterError("Every value in the filter array is False, meaning that no observations "
-                                        "remain. As such the new filter array has not been accepted")
-        else:
-            self._filter_allowed = new_filter_array
-            # If the filter changes then we make sure download done is set to False so that any changes
-            #  in observation selection are reflected in the download call
-            self._download_done = False
+            warn("Every value in the filter array is False, meaning that no observations remain.", stacklevel=2)
+
+        # Assign the filter array to the appropriate attribute
+        self._filter_allowed = new_filter_array
+        # If the filter changes then we make sure download done is set to False so that any changes
+        #  in observation selection are reflected in the download call
+        self._download_done = False
 
     @property
     @abstractmethod
