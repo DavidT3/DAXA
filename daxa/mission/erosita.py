@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/01/2024, 14:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/01/2024, 16:12. Copyright (c) The Contributors
 
 import os
 import re
@@ -21,8 +21,12 @@ from tqdm import tqdm
 from .base import BaseMission
 from .base import _lock_check
 from .. import NUM_CORES
-from ..config import EROSITA_CALPV_INFO
+from ..config import EROSITA_CALPV_INFO, ERASS_DE_DR1_INFO
 from ..exceptions import DAXADownloadError
+
+
+# TODO Make sure the properties, internal methods, and user-facing methods are in the 'right' order for this project.
+#  Perhaps replace the '_get_evlist_path_from_obs' method?
 
 
 class eROSITACalPV(BaseMission):
@@ -80,6 +84,13 @@ class eROSITACalPV(BaseMission):
         self.chosen_instruments = insts
         # Call the name property to set up the name and pretty name attributes
         self.name
+
+        # Runs the method which fetches information on all available RASS observations and stores that
+        #  information in the all_obs_info property
+        self._fetch_obs_info()
+        # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
+        #  column of all_obs_info, rather than the initial None value
+        self.reset_filter()
 
     # Defining properties first
     @property
@@ -812,7 +823,7 @@ class eROSITACalPV(BaseMission):
         return to_return
 
 
-class eRASSDE1(BaseMission):
+class eRASS1DE(BaseMission):
     """
     The mission class for the first data release of the German half of the eROSITA All-Sky Survey
 
@@ -848,6 +859,13 @@ class eRASSDE1(BaseMission):
         self.chosen_instruments = insts
         # Call the name property to set up the name and pretty name attributes
         self.name
+
+        # Runs the method which fetches information on all available RASS observations and stores that
+        #  information in the all_obs_info property
+        self._fetch_obs_info()
+        # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
+        #  column of all_obs_info, rather than the initial None value
+        self.reset_filter()
 
     # Defining properties first
     @property
@@ -1045,25 +1063,24 @@ class eRASSDE1(BaseMission):
     # Then define user-facing methods
     def _fetch_obs_info(self):
         """
-        This method uses the hard coded csv file to pull information on all eROSITACalPV observations.
+        This method uses the hard coded csv file to pull information on all German eRASS:1 observations.
         The data are processed into a Pandas dataframe and stored.
         """
+        # TODO This may all be nonsense tomorrow when we wake to see the eROSITA data website!
         # Hard coded this information and saved it to the erass_de_dr1_info.csv file in /files
-        # Making a copy so that EROSITA_CALPV_INFO remains unchanged
-        erass_dr1_copy = EROSITA_CALPV_INFO
+        # Making a copy so that ERASS_DE_DR1_INFO remains unchanged
+        erass_dr1_copy = ERASS_DE_DR1_INFO.copy()
 
-        # Need to split the times since they go to milisecond precision,
-        #  which is a pain to translate to a datetime object, and is superfluous information anyway
-        calpv_copy['start'] = [str(time).split('.', 1)[0] for time in calpv_copy['start']]
-        calpv_copy['end'] = [str(time).split('.', 1)[0] for time in calpv_copy['end']]
-        calpv_copy['start'] = pd.to_datetime(calpv_copy['start'], utc=False, format="%Y-%m-%dT%H:%M:%S",
-                                             errors='coerce')
-        calpv_copy['end'] = pd.to_datetime(calpv_copy['end'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
+        # Converting the start and end time columns to datetimes - the .%f accounts for the presence of milliseconds
+        #  in the times - probably somewhat superfluous
+        erass_dr1_copy['start'] = pd.to_datetime(erass_dr1_copy['start'], utc=False, format="%Y-%m-%dT%H:%M:%S.%f",
+                                                 errors='coerce')
+        erass_dr1_copy['end'] = pd.to_datetime(erass_dr1_copy['end'], utc=False, format="%Y-%m-%dT%H:%M:%S.%f",
+                                               errors='coerce')
 
         # Including the relevant information for the final all_obs_info DataFrame
-        obs_info_pd = calpv_copy[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'Field_Name',
-                                  'Field_Type']]
-
+        obs_info_pd = erass_dr1_copy[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration']]
+        # Finally, setting the all_obs_info property with our dataframe
         self.all_obs_info = obs_info_pd
 
     @staticmethod
@@ -1118,6 +1135,7 @@ class eRASSDE1(BaseMission):
         :return: A None value.
         :rtype: Any
         """
+        # TODO This will almost certainly have to be rewritten when we get a look at the eRASS:1 website
         # Since you can't download a single observation for a field, you have to download them all in one tar file,
         #  I am making a temporary directories to download the tar file and unpack it in, then move the observations
         #  to their own directory afterwards in the _directory_formatting function
@@ -1149,8 +1167,9 @@ class eRASSDE1(BaseMission):
         directory structure for consistency with other missions in DAXA. To be called after the initial
         download of the fields has been completed.
         """
+        # TODO This will almost certainly have to be rewritten when we get a look at the eRASS:1 website
 
-        # Moving the eventlist for each obs_id from its downloaded path to the path DAXA expects
+        # Moving the event list for each obs_id from its downloaded path to the path DAXA expects
         for obs_id in self.filtered_obs_ids:
             # The field the obs_id was downloaded with
             field_name = EROSITA_CALPV_INFO["Field_Name"].loc[EROSITA_CALPV_INFO["ObsID"] == obs_id].values[0]
@@ -1159,7 +1178,7 @@ class eRASSDE1(BaseMission):
             # Only executing the method if new data has been downloaded,
             #  can check if new data is there if there is a temp_download_{fieldname} directory
             if os.path.exists(field_dir):
-                # The path to the obs_id directory (ie. the final DAXA constistent format)
+                # The path to the obs_id directory (i.e. the final DAXA consistent format)
                 obs_dir = os.path.join(self.raw_data_path, obs_id)
                 # Making the new ObsID directory
                 if not os.path.exists(obs_dir):
@@ -1177,7 +1196,7 @@ class eRASSDE1(BaseMission):
                         field_dir = os.path.join(field_dir, second_field_dir)
 
                         # Some of the fields are in another folder, so need to perform the same check again (pretty
-                        #  sure this only applies to efeds and eta cha)
+                        #  sure this only applies to eFEDS and eta cha)
                         if len(all_files) == 1:
                             third_field_dir = all_files[0]
                             # Redefining all_files, so it lists the files in the folder
@@ -1222,10 +1241,8 @@ class eRASSDE1(BaseMission):
 
     def download(self, num_cores: int = NUM_CORES):
         """
-        A method to acquire and download the eROSITA Calibration and Performance Validation data that
+        A method to acquire and download the German eROSITA All-Sky Survey DR1 data that
         have not been filtered out (if a filter has been applied, otherwise all data will be downloaded).
-        Fields (or field types) specified by the chosen_fields property will be downloaded, which is set
-        either on declaration of the class instance or by passing a new value to the chosen_fields property.
         Downloaded data is then filtered according to Instruments specified by the chosen_instruments property
         (set in the same manner as chosen_fields).
 
@@ -1233,7 +1250,9 @@ class eRASSDE1(BaseMission):
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
         """
-        # Ensures that a directory to store the 'raw' eROSITACalPV data in exists - once downloaded and unpacked
+        # TODO Again will need re-doing when we see the eRASS 1 website I think
+
+        # Ensures that a directory to store the 'raw' eRASS1DE data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
         if not os.path.exists(self.raw_data_path):
             os.makedirs(self.raw_data_path)
@@ -1246,7 +1265,9 @@ class eRASSDE1(BaseMission):
         if all([os.path.exists(stor_dir + o) for o in self.filtered_obs_ids]):
             self._download_done = True
 
-        # Getting all the obs_ids that havent already been downloaded
+        raise NotImplementedError("We can't download eRASS:1DE data yet")
+
+        # Getting all the obs_ids that haven't already been downloaded
         obs_to_download = list(set(self.filtered_obs_ids) - set(os.listdir(stor_dir)))
         # Getting all the unique download links (since the CalPV data is downloaded in whole fields, rather than
         #  individual obs_ids)
@@ -1314,6 +1335,7 @@ class eRASSDE1(BaseMission):
             else:
                 raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
 
+            # TODO Why does this exist as a separate method and not just as part of the _download_call method?
             # Rearranging the obs_id event lists into the directory format DAXA expects
             self._directory_formatting()
 
@@ -1390,7 +1412,7 @@ class eRASSDE1(BaseMission):
 
     def assess_process_obs(self, obs_info: dict):
         """
-        A slightly unusual method which will allow the eROSITACalPV mission to assess the information on a particular
+        A slightly unusual method which will allow the eRASS1DE mission to assess the information on a particular
         observation that has been put together by an Archive (the archive assembles it because sometimes this
         detailed information only becomes available at the first stages of processing), and make a decision on whether
         that particular observation-instrument should be processed further for scientific use.
