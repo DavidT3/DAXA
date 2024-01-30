@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/01/2024, 15:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/01/2024, 14:18. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -539,7 +539,8 @@ class BaseMission(metaclass=ABCMeta):
         """
         An internal function to perform some checks on the validity of chosen instrument names for a given mission.
 
-        :param List[str]/str insts:
+        :param List[str]/str insts: Instrument names that are to be checked for the current mission, either a single
+            name or a list of names.
         :return: The list of instruments (possibly altered to match formats expected by this module).
         :rtype: List
         """
