@@ -1,27 +1,25 @@
-# This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-# Last modified by David J Turner (turne540@msu.edu) Thu Apr 13 2023, 15:16. Copyright (c) The Contributors
+#  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
+#  Last modified by David J Turner (turne540@msu.edu) 30/01/2024, 16:14. Copyright (c) The Contributors
 import glob
-from typing import Tuple, List
-from warnings import warn
 import os.path
-from subprocess import Popen, PIPE
+from enum import Flag
 from functools import wraps
 from multiprocessing.dummy import Pool
-from enum import Flag
+from subprocess import Popen, PIPE
+from typing import Tuple, List
+from warnings import warn
 
-import itertools
 from astropy.units import UnitConversionError
-from tqdm import tqdm
 from exceptiongroup import ExceptionGroup
+from tqdm import tqdm
 
 from daxa.archive.base import Archive
 from daxa.exceptions import NoEROSITAMissionsError
 from daxa.process._backend_check import find_esass
 
-from daxa.process.erosita.setup import _prepare_erositacalpv_info
+ALLOWED_EROSITA_MISSIONS = ['erosita_calpv', 'erosita_all_sky_de_dr1']
 
-ALLOWED_EROSITA_MISSIONS = ['erosita_calpv']
-
+# TODO Make this compliant with how I normall do docstrings
 class _eSASS_Flag(Flag):
     """
     This class was written by Toby Wallage found on Github @TobyWallage.
