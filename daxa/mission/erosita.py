@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/08/2023, 21:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 30/01/2024, 12:55. Copyright (c) The Contributors
 
 import os
 import re
@@ -46,7 +46,7 @@ class eROSITACalPV(BaseMission):
 
         # All the allowed names of fields 
         self._miss_poss_fields = CALPV_INFO["Field_Name"].tolist()
-        # All the allowed types of field, ie. survey, magellanic cloud, galactic field, extragalactic field
+        # All the allowed types of field, i.e. survey, magellanic cloud, galactic field, extragalactic field
         self._miss_poss_field_types = CALPV_INFO["Field_Type"].unique().tolist()
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
@@ -383,7 +383,8 @@ class eROSITACalPV(BaseMission):
         #  which is a pain to translate to a datetime object, and is superfluous information anyway
         calpv_copy['start'] = [str(time).split('.', 1)[0] for time in calpv_copy['start']]
         calpv_copy['end'] = [str(time).split('.', 1)[0] for time in calpv_copy['end']]
-        calpv_copy['start'] = pd.to_datetime(calpv_copy['start'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
+        calpv_copy['start'] = pd.to_datetime(calpv_copy['start'], utc=False, format="%Y-%m-%dT%H:%M:%S",
+                                             errors='coerce')
         calpv_copy['end'] = pd.to_datetime(calpv_copy['end'], utc=False, format="%Y-%m-%dT%H:%M:%S", errors='coerce')
 
         # Including the relevant information for the final all_obs_info DataFrame
@@ -414,7 +415,7 @@ class eROSITACalPV(BaseMission):
         #  with underscores to match the entries in CALPV_INFO 
         fields = [re.sub("[-()+/. ]", "_", field.upper()) for field in fields]
 
-        # In case people use roman numerals or dont include the brackets in their input
+        # In case people use roman numerals or don't include the brackets in their input
         # Lovely and hard coded but not sure if there is any better way to do this
         poss_alt_field_names = {"IGR_J13020_6359": "IGR_J13020_6359__2RXP_J130159_635806_", 
                                 "HR_3165": "HR_3165__ZET_PUP_", "CRAB_I": "CRAB_1", "CRAB_II": "CRAB_2",
@@ -424,22 +425,24 @@ class eROSITACalPV(BaseMission):
         
         # Finding if any of the fields entries are not valid CalPV field names or types
         bad_fields = [f for f in fields if f not in poss_alt_field_names and f not in self._miss_poss_fields
-                     and f not in self._miss_poss_field_types and f != 'CRAB']
+                      and f not in self._miss_poss_field_types and f != 'CRAB']
         if len(bad_fields) != 0:
-            raise ValueError("Some field names or field types {bf} are not associated with this mission, please"
-                            " choose from the following fields; {gf} or field types; {gft}".format(
-                            bf=",".join(bad_fields), gf=",".join(self._miss_poss_fields), gft=",".join(self._miss_poss_field_types)))
+            raise ValueError("Some field names or field types {bf} are not associated with this mission, please "
+                             "choose from the following fields; {gf} or field types; "
+                             "{gft}".format(bf=",".join(bad_fields),
+                                            gf=",".join(self._miss_poss_fields),
+                                            gft=",".join(self._miss_poss_field_types)))
         
         # Extracting the alt_fields from fields
         alt_fields = [field for field in fields if field in poss_alt_field_names]
-        #Making a list of the alt_fields DAXA compatible name
+        # Making a list of the alt_fields DAXA compatible name
         alt_fields_proper_name = [poss_alt_field_names[field] for field in alt_fields]
         # Seeing if someone just input 'crab' into the fields argument
         if 'CRAB' in fields:
             crab = ['CRAB_1', 'CRAB_2', 'CRAB_3', 'CRAB_4']
         else:
             crab = []
-        #Then the extracting the field_types
+        # Then the extracting the field_types
         field_types = [field for field in fields if field in self._miss_poss_field_types]
         # Turning the field_types into field_names
         field_types_proper_name = CALPV_INFO.loc[CALPV_INFO["Field_Type"].isin(field_types), "Field_Name"].tolist()
@@ -486,10 +489,10 @@ class eROSITACalPV(BaseMission):
                 # Getting the indexes of events with the chosen insts
                 gd_insts_indx = np.where(np.isin(t_col, gd_insts))[0]
                 
-                # Filtering the data on those tscopes
+                # Filtering the data on those telescopes
                 filtered_data = data[gd_insts_indx]
 
-                # Replacing unfiltered eventlist in the fits file with the new ones
+                # Replacing unfiltered event list in the fits file with the new ones
                 fits_file[1].data = filtered_data
 
                 # Writing this to a new file (the if is for instrument filtered)
@@ -523,11 +526,11 @@ class eROSITACalPV(BaseMission):
             with open(field_dir + "{f}.tar.gz".format(f=field_name), "wb") as writo:
                 copyfileobj(r.raw, writo)
 
-        # unzipping the tar file
-        tarname = field_dir + "{f}.tar.gz".format(f=field_name)
-        with tarfile.open(tarname, "r:gz") as tar:
+        # Unzipping the tar file
+        tar_name = field_dir + "{f}.tar.gz".format(f=field_name)
+        with tarfile.open(tar_name, "r:gz") as tar:
             tar.extractall(field_dir)
-            os.remove(tarname)
+            os.remove(tar_name)
 
         return None
     
@@ -559,20 +562,23 @@ class eROSITACalPV(BaseMission):
                     if len(all_files) == 1:
                         second_field_dir = all_files[0]
                         # redefining all_files so it lists the files in the folder
-                        all_files = [f for f in os.listdir(os.path.join(field_dir, second_field_dir)) if not f.startswith('.')]
-                        #redefining field_dir so in the later block, the source is correct
+                        all_files = [f for f in os.listdir(os.path.join(field_dir, second_field_dir))
+                                     if not f.startswith('.')]
+                        # Redefining field_dir so in the later block, the source is correct
                         field_dir = os.path.join(field_dir, second_field_dir)
 
-                        # Some of the fields are in another folder, so need to perform the same check again (pretty sure this only applies to efeds and eta cha)
+                        # Some of the fields are in another folder, so need to perform the same check again (pretty
+                        #  sure this only applies to efeds and eta cha)
                         if len(all_files) == 1:
                             third_field_dir = all_files[0]
-                            # redefining all_files so it lists the files in the folder
+                            # Redefining all_files, so it lists the files in the folder
                             all_files = os.listdir(os.path.join(field_dir, third_field_dir))
-                            #redefining field_dir so in the later block, the source is correct
+                            # Redefining field_dir so in the later block, the source is correct
                             field_dir = os.path.join(field_dir, third_field_dir)
 
-                    # Selecting the eventlist for the obs_id
-                    obs_file_name =  [obs_file for obs_file in all_files if obs_id in obs_file and "eRO" not in obs_file ][0]
+                    # Selecting the event list for the obs_id
+                    obs_file_name = [obs_file for obs_file in all_files
+                                     if obs_id in obs_file and "eRO" not in obs_file ][0]
                     source = os.path.join(field_dir, obs_file_name)
                     dest = os.path.join(obs_dir, obs_file_name)
                     shutil.move(source, dest)
@@ -581,24 +587,24 @@ class eROSITACalPV(BaseMission):
                 pass
 
         # Deleting temp_download directory containing the field_name directories that contained
-        #  extra files that were not the obs_id eventlists
+        #  extra files that were not the obs_id event lists
         temp_dir = os.path.join(self.raw_data_path, "temp_download")
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
 
     def _get_evlist_path_from_obs(self, obs: str):
-        '''
+        """
         Internal method to get the unfiltered, downloaded event list path for a given
-        obs id, for use in the download method. 
+        obs id, for use in the download method.
 
         :param str obs: The obs id for the event list required.
         :return: The path of the event list.
         :rtype: str
-        '''
+        """
         all_files = os.listdir(os.path.join(self.raw_data_path + obs))
 
-         # This directory could have instrument filtered files in as well as the eventlist
-         #  so selecting the eventlist by chosing the one with 4 hyphens in
+        # This directory could have instrument filtered files in as well as the event list so
+        #  selecting the event list by choosing the one with 4 hyphens in
         file_name = [file for file in all_files if len(re.findall('_', file)) == 4][0]
 
         ev_list_path = os.path.join(self.raw_data_path + obs, file_name)
@@ -611,7 +617,7 @@ class eROSITACalPV(BaseMission):
         have not been filtered out (if a filter has been applied, otherwise all data will be downloaded). 
         Fields (or field types) specified by the chosen_fields property will be downloaded, which is set 
         either on declaration of the class instance or by passing a new value to the chosen_fields property. 
-        Donwloaded data is then filtered according to Instruments specified by the chosen_instruments property 
+        Downloaded data is then filtered according to Instruments specified by the chosen_instruments property
         (set in the same manner as chosen_fields).
 
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
@@ -633,15 +639,18 @@ class eROSITACalPV(BaseMission):
 
         # Getting all the obs_ids that havent already been downloaded
         obs_to_download = list(set(self.filtered_obs_ids) - set(os.listdir(stor_dir)))
-        # Getting all the unique download links (since the CalPV data is downloaded in whole fields, rather than individual obs_ids)
+        # Getting all the unique download links (since the CalPV data is downloaded in whole fields, rather than
+        #  individual obs_ids)
         download_links = list(set(CALPV_INFO.loc[CALPV_INFO['ObsID'].isin(obs_to_download), 'download']))
     
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
             if num_cores == 1:
-                with tqdm(total=len(download_links), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
+                with (tqdm(total=len(download_links), desc="Downloading {} data".format(self._pretty_miss_name))
+                      as download_prog):
                     for link in download_links:
-                        # Use the internal static method I set up which both downloads and unpacks the eROSITACalPV data
+                        # Use the internal static method I set up which both downloads and unpacks the
+                        #  eROSITACalPV data
                         self._download_call(raw_data_path=self.raw_data_path, link=link)
                         # Update the progress bar
                         download_prog.update(1)
@@ -725,8 +734,8 @@ class eROSITACalPV(BaseMission):
                         # The callback function is what is called on the successful completion of a _download_call
                         def callback(download_conf: Any):
                             """
-                            Callback function for the apply_async pool method, gets called when a download task finishes
-                            without error.
+                            Callback function for the apply_async pool method, gets called when a download task
+                            finishes without error.
 
                             :param Any download_conf: The Null value confirming the operation is over.
                             """
@@ -768,7 +777,7 @@ class eROSITACalPV(BaseMission):
             self._download_done = True
         
         else:
-            warn("The raw data for this mission have already been downloaded.")
+            warn("The raw data for this mission have already been downloaded.", stacklevel=2)
 
     def assess_process_obs(self, obs_info: dict):
         """
