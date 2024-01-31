@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/01/2024, 15:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/01/2024, 11:35. Copyright (c) The Contributors
 
 import os
 from configparser import ConfigParser
@@ -79,4 +79,6 @@ EROSITA_CALPV_INFO = pd.read_csv(pkg_resources.resource_filename(__name__, "file
 #  a bad way of doing it
 # Then doing the same thing, but for the German eRASS:1 release
 ERASS_DE_DR1_INFO = pd.read_csv(pkg_resources.resource_filename(__name__, "files/erass_de_dr1_info.csv"),
-                                header="infer", dtype={'ObsID': str})
+                                header="infer", dtype={'ObsID': str, 'FIELD1': str, 'FIELD2': str, 'FIELD3': str,
+                                                       'FIELD4': str, 'FIELD5': str, 'FIELD6': str, 'FIELD7': str,
+                                                       'FIELD8': str, 'FIELD9': str})
