@@ -1,6 +1,7 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/01/2024, 11:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/01/2024, 18:12. Copyright (c) The Contributors
 
+import gzip
 import os
 import re
 import shutil
@@ -16,6 +17,7 @@ import requests
 from astropy.coordinates import BaseRADecFrame, FK5
 from astropy.io import fits
 from astropy.units import Quantity
+from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 from .base import BaseMission
@@ -24,6 +26,12 @@ from .. import NUM_CORES
 from ..config import EROSITA_CALPV_INFO, ERASS_DE_DR1_INFO
 from ..exceptions import DAXADownloadError
 
+# So these are the style of directory names that we need - as I'm writing this the directory names are actually
+#  EXP_010 and DET_010, but the numbers there refer to the pipeline that they were processed with, so I don't know
+#  if that will stay forever - I am going to try and make it resilient to possible changes and let the user choose
+#  the pipeline version when downloading
+REQUIRED_DIRS = {'erosita_all_sky_de_dr1': {'all': ['EXP'],
+                                            'products': ['EXP', 'DET']}}
 
 # TODO Make sure the properties, internal methods, and user-facing methods are in the 'right' order for this project.
 #  Perhaps replace the '_get_evlist_path_from_obs' method?
@@ -474,8 +482,8 @@ class eROSITACalPV(BaseMission):
         Method to filter event lists for eROSITACalPV data based on instrument choice.
         
         :param List[str] insts: The self.chosen_instruments attribute.
-        :param str evlist_path: This is the file path to the raw eventlist for a certain ObsID
-         that has NOT been filtered for the users instrument choice yet.
+        :param str evlist_path: This is the file path to the raw event list for a certain ObsID
+            that has NOT been filtered for the users instrument choice yet.
         """
 
         # Getting a string of TM numbers to add to the end of the file name
@@ -510,15 +518,14 @@ class eROSITACalPV(BaseMission):
                 fits_file.writeto(evlist_path[:-5] + '_if_{}.fits'.format(insts_str))
         
     @staticmethod
-    def _download_call(raw_data_path: str, link: str):
+    def _download_call(raw_dir: str, link: str):
         """
         This internal static method is purely to enable parallelised downloads of data, as defining
         an internal function within download causes issues with pickling for multiprocessing.
 
-        :param str raw_data_path: This is the self.raw_data_path attribute.
+        :param str raw_dir: The raw data directory in which to create an ObsID directory and store
+            the downloaded data.
         :param str link: The download_link of the particular field to be downloaded.
-        :return: A None value.
-        :rtype: Any
         """
         # Since you can't download a single observation for a field, you have to download them all in one tar file,
         #  I am making a temporary directories to download the tar file and unpack it in, then move the observations 
@@ -527,7 +534,7 @@ class eROSITACalPV(BaseMission):
         # Getting the field name associated with the download link for directory naming purposes
         field_name = EROSITA_CALPV_INFO.loc[EROSITA_CALPV_INFO['download'].isin([link]), 'Field_Name'].tolist()[0]
         # The temporary 
-        temp_dir = os.path.join(raw_data_path, "temp_download", field_name)
+        temp_dir = os.path.join(raw_dir, "temp_download", field_name)
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir)
         # Download the requested data
@@ -648,11 +655,12 @@ class eROSITACalPV(BaseMission):
         if all([os.path.exists(stor_dir + o) for o in self.filtered_obs_ids]):
             self._download_done = True
 
-        # Getting all the obs_ids that havent already been downloaded
+        # Getting all the obs_ids that haven't already been downloaded
         obs_to_download = list(set(self.filtered_obs_ids) - set(os.listdir(stor_dir)))
         # Getting all the unique download links (since the CalPV data is downloaded in whole fields, rather than
         #  individual obs_ids)
-        download_links = list(set(EROSITA_CALPV_INFO.loc[EROSITA_CALPV_INFO['ObsID'].isin(obs_to_download), 'download']))
+        download_links = list(set(EROSITA_CALPV_INFO.loc[EROSITA_CALPV_INFO['ObsID'].isin(
+            obs_to_download), 'download']))
     
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
@@ -662,7 +670,7 @@ class eROSITACalPV(BaseMission):
                     for link in download_links:
                         # Use the internal static method I set up which both downloads and unpacks the
                         #  eROSITACalPV data
-                        self._download_call(raw_data_path=self.raw_data_path, link=link)
+                        self._download_call(raw_dir=self.raw_data_path, link=link)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -704,7 +712,7 @@ class eROSITACalPV(BaseMission):
                     for link in download_links:
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
-                                            kwds={'raw_data_path': self.raw_data_path, 'link': link},
+                                            kwds={'raw_dir': self.raw_data_path, 'link': link},
                                             error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
@@ -1109,11 +1117,11 @@ class eRASS1DE(BaseMission):
     @staticmethod
     def _inst_filtering(insts: List[str], evlist_path: str):
         """
-        Method to filter event lists for eROSITACalPV data based on instrument choice.
+        Method to filter event lists for eRASS1DE data based on instrument choice.
 
         :param List[str] insts: The self.chosen_instruments attribute.
-        :param str evlist_path: This is the file path to the raw eventlist for a certain ObsID
-         that has NOT been filtered for the users instrument choice yet.
+        :param str evlist_path: This is the file path to the raw event list for a certain ObsID
+            that has NOT been filtered for the users instrument choice yet.
         """
 
         # Getting a string of TM numbers to add to the end of the file name
@@ -1148,100 +1156,111 @@ class eRASS1DE(BaseMission):
                 fits_file.writeto(evlist_path[:-5] + '_if_{}.fits'.format(insts_str))
 
     @staticmethod
-    def _download_call(raw_data_path: str, link: str):
+    def _download_call(obs_id: str, raw_dir: str, download_products: bool, pipeline_version: str = None):
         """
         This internal static method is purely to enable parallelised downloads of data, as defining
         an internal function within download causes issues with pickling for multiprocessing.
 
-        :param str raw_data_path: This is the self.raw_data_path attribute.
-        :param str link: The download_link of the particular field to be downloaded.
-        :return: A None value.
-        :rtype: Any
+        :param str obs_id: The ObsID (RRRDDD, where RRR is an integer representation of the central RA, and DDD is an
+            integer representation of the central Dec) of the eROSITA All-Sky Survey 1 data to be downloaded.
+        :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
+        :param bool download_products: Controls whether pre-generated images and exposure maps are included in the
+            download of this eRASS1DE ObsID data.
+        :param str pipeline_version: The processing pipeline version used to generate the data that is to be
+            downloaded. The default is None, in which case the latest available will be used.
         """
-        # TODO This will almost certainly have to be rewritten when we get a look at the eRASS:1 website
-        # Since you can't download a single observation for a field, you have to download them all in one tar file,
-        #  I am making a temporary directories to download the tar file and unpack it in, then move the observations
-        #  to their own directory afterwards in the _directory_formatting function
 
-        # Getting the field name associated with the download link for directory naming purposes
-        field_name = EROSITA_CALPV_INFO.loc[EROSITA_CALPV_INFO['download'].isin([link]), 'Field_Name'].tolist()[0]
-        # The temporary
-        temp_dir = os.path.join(raw_data_path, "temp_download", field_name)
-        if not os.path.exists(temp_dir):
-            os.makedirs(temp_dir)
-        # Download the requested data
-        with requests.get(link, stream=True) as r:
-            field_dir = os.path.join(temp_dir, field_name)
-            os.makedirs(field_dir)
-            with open(field_dir + "{f}.tar.gz".format(f=field_name), "wb") as writo:
-                copyfileobj(r.raw, writo)
+        # This, once formatted, is the link to the top-level directory of the specified ObsID - that directory
+        #  contains sub-directories with various other processed products that people might want to download.
+        top_url = 'https://erosita.mpe.mpg.de/dr1/erodat/data/download/{D}/{R}/'
 
-        # Unzipping the tar file
-        tar_name = field_dir + "{f}.tar.gz".format(f=field_name)
-        with tarfile.open(tar_name, "r:gz") as tar:
-            tar.extractall(field_dir)
-            os.remove(tar_name)
+        # Splitting the ObsID into the RA and Dec components, we shall need them for the link
+        rrr = obs_id[:3]
+        ddd = obs_id[3:]
+
+        # The populated link, the directory it leads too should contain the following subdirectories;
+        #  DET_010/ EXP_010/ SOU_010/ UPP_010/
+        obs_url = top_url.format(D=ddd, R=rrr)
+
+        # Relevant directories that we check for are defined here, by the choice of whether to download products\
+        if not download_products:
+            req_dir = REQUIRED_DIRS['erosita_all_sky_de_dr1']['all']
+        else:
+            req_dir = REQUIRED_DIRS['erosita_all_sky_de_dr1']['products']
+
+        # This opens a session that will persist - then a lot of the next session is for checking that the expected
+        #  directories are present.
+        session = requests.Session()
+
+        # This uses the beautiful soup module to parse the HTML of the top level archive directory
+        all_web_data = [en['href'] for en in BeautifulSoup(session.get(obs_url).text, "html.parser").find_all("a")]
+        top_data = [en for en in all_web_data if any([rd in en for rd in req_dir])]
+
+        # The directory names indicate the version of the processing pipeline that was used to generate the data, and
+        #  as the user can specify the version (and as we want to use the latest version if they didn't) we need to
+        #  see what is available
+        vers = list(set([td.split('_')[-1].replace('/', '') for td in top_data]))
+
+        if pipeline_version is not None and pipeline_version not in vers:
+            raise ValueError("The specified pipeline version ({p}) is not available for "
+                             "{oi}".format(p=pipeline_version, oi=obs_id))
+        else:
+            pipeline_version = vers[np.argmax([int(pv) for pv in vers])]
+
+        # Final check that the online archive directory that we're pointing at does actually contain the data
+        #  directories we expect it too. Every mission I've implemented I seem to have done this in a slightly
+        #  different way, but as eROSITA is an active project things are more liable to change and I think this
+        #  should be able to fail fairly informatively if that does happen
+        req_dir = [(rd + '_' + pipeline_version + '/') for rd in req_dir]
+        req_dir_missing = [rd for rd in req_dir if rd not in all_web_data]
+        if len(req_dir_missing) > 0:
+            raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
+                                    "directories; {rq}".format(o=obs_id, rq=", ".join(req_dir_missing)))
+
+        for rd in req_dir:
+            if 'EXP_' in rd and not download_products:
+                down_patt = ['_EventList_']
+            elif 'EXP_' in rd:
+                down_patt = ['_EventList_', '_Image_']
+            elif 'DET_' in rd:
+                down_patt = ['_ExposureMap_']
+
+            # This is the directory to which we will be saving this archive directories files
+            local_dir = raw_dir + '/{}/'.format(obs_id) + rd
+            # Make sure that the local directory is created
+            if not os.path.exists(local_dir):
+                os.makedirs(local_dir)
+
+            # Set up the url for the current required directory
+            cur_url = obs_url + rd + '/'
+
+            # Then use beautiful soup to find out what files are present at that directory, and reduce those entries
+            #  to just things with 'fits' in
+            all_files = [en['href'] for en in BeautifulSoup(session.get(cur_url).text, "html.parser").find_all("a")
+                         if 'fits' in en['href']]
+
+            # Finally we strip anything that doesn't match the file pattern defined by whether the user wants
+            #  pre-generated products or not
+            to_down = [f for patt in down_patt for f in all_files if patt in f]
+
+            # Now we cycle through the files and download them
+            for down_file in to_down:
+                down_url = cur_url + down_file
+                with session.get(down_url, stream=True) as acquiro:
+                    with open(local_dir + down_file, 'wb') as writo:
+                        copyfileobj(acquiro.raw, writo)
+
+                # There are a few compressed fits files in each archive
+                if '.gz' in down_file:
+                    # Open and decompress the events file
+                    with gzip.open(local_dir + down_file, 'rb') as compresso:
+                        # Open a new file handler for the decompressed data, then funnel the decompressed events there
+                        with open(local_dir + down_file.split('.gz')[0], 'wb') as writo:
+                            copyfileobj(compresso, writo)
+                    # Then remove the tarred file to minimize storage usage
+                    os.remove(local_dir + down_file)
 
         return None
-
-    def _directory_formatting(self):
-        """
-        Internal method to rearrange the downloaded files from field names into the Obs_ID top layer
-        directory structure for consistency with other missions in DAXA. To be called after the initial
-        download of the fields has been completed.
-        """
-        # TODO This will almost certainly have to be rewritten when we get a look at the eRASS:1 website
-
-        # Moving the event list for each obs_id from its downloaded path to the path DAXA expects
-        for obs_id in self.filtered_obs_ids:
-            # The field the obs_id was downloaded with
-            field_name = EROSITA_CALPV_INFO["Field_Name"].loc[EROSITA_CALPV_INFO["ObsID"] == obs_id].values[0]
-            # The path to where the obs_id was initially downloaded
-            field_dir = os.path.join(self.raw_data_path, "temp_download", field_name)
-            # Only executing the method if new data has been downloaded,
-            #  can check if new data is there if there is a temp_download_{fieldname} directory
-            if os.path.exists(field_dir):
-                # The path to the obs_id directory (i.e. the final DAXA consistent format)
-                obs_dir = os.path.join(self.raw_data_path, obs_id)
-                # Making the new ObsID directory
-                if not os.path.exists(obs_dir):
-                    os.makedirs(obs_dir)
-                    # Not including hidden files in this list
-                    all_files = [f for f in os.listdir(field_dir) if not f.startswith('.')]
-                    # Some fields are in a folder, some are just the files not in a folder
-                    # If they are in a folder, there will only be one file in all files
-                    if len(all_files) == 1:
-                        second_field_dir = all_files[0]
-                        # redefining all_files so it lists the files in the folder
-                        all_files = [f for f in os.listdir(os.path.join(field_dir, second_field_dir))
-                                     if not f.startswith('.')]
-                        # Redefining field_dir so in the later block, the source is correct
-                        field_dir = os.path.join(field_dir, second_field_dir)
-
-                        # Some of the fields are in another folder, so need to perform the same check again (pretty
-                        #  sure this only applies to eFEDS and eta cha)
-                        if len(all_files) == 1:
-                            third_field_dir = all_files[0]
-                            # Redefining all_files, so it lists the files in the folder
-                            all_files = os.listdir(os.path.join(field_dir, third_field_dir))
-                            # Redefining field_dir so in the later block, the source is correct
-                            field_dir = os.path.join(field_dir, third_field_dir)
-
-                    # Selecting the event list for the obs_id
-                    obs_file_name = [obs_file for obs_file in all_files
-                                     if obs_id in obs_file and "eRO" not in obs_file][0]
-                    source = os.path.join(field_dir, obs_file_name)
-                    dest = os.path.join(obs_dir, obs_file_name)
-                    shutil.move(source, dest)
-
-            else:
-                pass
-
-        # Deleting temp_download directory containing the field_name directories that contained
-        #  extra files that were not the obs_id event lists
-        temp_dir = os.path.join(self.raw_data_path, "temp_download")
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
 
     def _get_evlist_path_from_obs(self, obs: str):
         """
@@ -1262,7 +1281,7 @@ class eRASS1DE(BaseMission):
 
         return ev_list_path
 
-    def download(self, num_cores: int = NUM_CORES):
+    def download(self, num_cores: int = NUM_CORES, download_products: bool = False, pipeline_version: int = None):
         """
         A method to acquire and download the German eROSITA All-Sky Survey DR1 data that
         have not been filtered out (if a filter has been applied, otherwise all data will be downloaded).
@@ -1272,9 +1291,11 @@ class eRASS1DE(BaseMission):
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
+        :param bool download_products: This controls whether the data downloaded include the images and exposure maps
+            generated by the eROSITA team and included in the first data release. The default is False.
+        :param int pipeline_version: The processing pipeline version used to generate the data that is to be
+            downloaded. The default is None, in which case the latest available will be used.
         """
-        # TODO Again will need re-doing when we see the eRASS 1 website I think
-
         # Ensures that a directory to store the 'raw' eRASS1DE data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
         if not os.path.exists(self.raw_data_path):
@@ -1288,23 +1309,17 @@ class eRASS1DE(BaseMission):
         if all([os.path.exists(stor_dir + o) for o in self.filtered_obs_ids]):
             self._download_done = True
 
-        raise NotImplementedError("We can't download eRASS:1DE data yet")
-
         # Getting all the obs_ids that haven't already been downloaded
         obs_to_download = list(set(self.filtered_obs_ids) - set(os.listdir(stor_dir)))
-        # Getting all the unique download links (since the CalPV data is downloaded in whole fields, rather than
-        #  individual obs_ids)
-        download_links = list(set(EROSITA_CALPV_INFO.loc[EROSITA_CALPV_INFO['ObsID'].isin(obs_to_download), 'download']))
 
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
             if num_cores == 1:
-                with (tqdm(total=len(download_links), desc="Downloading {} data".format(self._pretty_miss_name))
+                with (tqdm(total=len(obs_to_download), desc="Downloading {} data".format(self._pretty_miss_name))
                       as download_prog):
-                    for link in download_links:
-                        # Use the internal static method I set up which both downloads and unpacks the
-                        #  eROSITACalPV data
-                        self._download_call(raw_data_path=self.raw_data_path, link=link)
+                    for obs_id in obs_to_download:
+                        self._download_call(obs_id=obs_id, raw_dir=self.raw_data_path,
+                                            download_products=download_products, pipeline_version=pipeline_version)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -1313,7 +1328,7 @@ class eRASS1DE(BaseMission):
                 raised_errors = []
 
                 # This time, as we want to use multiple cores, I also set up a Pool to add download tasks too
-                with tqdm(total=len(download_links), desc="Downloading {} data".format(self._pretty_miss_name)) \
+                with tqdm(total=len(obs_to_download), desc="Downloading {} data".format(self._pretty_miss_name)) \
                         as download_prog, Pool(num_cores) as pool:
 
                     # The callback function is what is called on the successful completion of a _download_call
@@ -1343,10 +1358,12 @@ class eRASS1DE(BaseMission):
                         download_prog.update(1)
 
                     # Again nested for loop through ObsIDs and instruments
-                    for link in download_links:
+                    for obs_id in obs_to_download:
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
-                                         kwds={'raw_data_path': self.raw_data_path, 'link': link},
+                                         kwds={'raw_dir': self.raw_data_path, 'obs_id': obs_id,
+                                               'download_products': download_products,
+                                               'pipeline_version': pipeline_version},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
@@ -1357,10 +1374,6 @@ class eRASS1DE(BaseMission):
 
             else:
                 raise ValueError("The value of NUM_CORES must be greater than or equal to 1.")
-
-            # TODO Why does this exist as a separate method and not just as part of the _download_call method?
-            # Rearranging the obs_id event lists into the directory format DAXA expects
-            self._directory_formatting()
 
             # Only doing the instrument filtering step if not all the instruments have been chosen
             if len(self.chosen_instruments) != 7:
