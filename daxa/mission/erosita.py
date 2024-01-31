@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/01/2024, 11:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/01/2024, 11:37. Copyright (c) The Contributors
 
 import os
 import re
@@ -839,7 +839,7 @@ class eRASS1DE(BaseMission):
         super().__init__()
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = []
+        self._required_mission_specific_cols = ['ra_min', 'ra_max', 'dec_min', 'dec_max', 'neigh_obs']
 
         # Runs the method which fetches information on all available eROSITACalPV observations and stores that
         #  information in the all_obs_info property
@@ -1065,10 +1065,14 @@ class eRASS1DE(BaseMission):
         This method uses the hard coded csv file to pull information on all German eRASS:1 observations.
         The data are processed into a Pandas dataframe and stored.
         """
-        # TODO This may all be nonsense tomorrow when we wake to see the eROSITA data website!
         # Hard coded this information and saved it to the erass_de_dr1_info.csv file in /files
         # Making a copy so that ERASS_DE_DR1_INFO remains unchanged
         erass_dr1_copy = ERASS_DE_DR1_INFO.copy()
+
+        # I prefer lowercase column names, so I make sure they are
+        erass_dr1_copy = erass_dr1_copy.rename(columns={cn: cn.lower() for cn in erass_dr1_copy.columns})
+        # Apart from ObsID of course, I prefer that camel case, because why be consistent?
+        erass_dr1_copy = erass_dr1_copy.rename(columns={'obsid': 'ObsID'})
 
         # Converting the start and end time columns to datetimes - the .%f accounts for the presence of milliseconds
         #  in the times - probably somewhat superfluous
@@ -1091,8 +1095,14 @@ class eRASS1DE(BaseMission):
         # Have to assume this for all of them for now
         erass_dr1_copy['science_usable'] = True
 
+        # I want to keep the information about which ObsIDs are neighbours to the one in each row, but not in separate
+        #  columns, so I join them all into a string and stick them in one column
+        field_cols = erass_dr1_copy.columns[erass_dr1_copy.columns.str.contains('field')]
+        erass_dr1_copy['neigh_obs'] = erass_dr1_copy[field_cols].agg(','.join, axis=1)
+
         # Including the relevant information for the final all_obs_info DataFrame
-        obs_info_pd = erass_dr1_copy[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration']]
+        obs_info_pd = erass_dr1_copy[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration',
+                                      'ra_min', 'ra_max', 'dec_min', 'dec_max', 'neigh_obs']]
         # Finally, setting the all_obs_info property with our dataframe
         self.all_obs_info = obs_info_pd
 
