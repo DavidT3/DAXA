@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/01/2024, 16:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/01/2024, 11:07. Copyright (c) The Contributors
 import glob
 import os.path
 from enum import Flag
@@ -19,7 +19,7 @@ from daxa.process._backend_check import find_esass
 
 ALLOWED_EROSITA_MISSIONS = ['erosita_calpv', 'erosita_all_sky_de_dr1']
 
-# TODO Make this compliant with how I normall do docstrings
+# TODO Make this compliant with how I normally do docstrings
 class _eSASS_Flag(Flag):
     """
     This class was written by Toby Wallage found on Github @TobyWallage.
