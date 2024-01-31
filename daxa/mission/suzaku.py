@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 20:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/01/2024, 12:26. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -501,7 +501,7 @@ class Suzaku(BaseMission):
             self._download_done = True
 
         else:
-            warn("The raw data for this mission have already been downloaded.")
+            warn("The raw data for this mission have already been downloaded.", stacklevel=2)
 
     def assess_process_obs(self, obs_info: dict):
         """
