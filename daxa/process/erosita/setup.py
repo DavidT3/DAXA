@@ -1,18 +1,18 @@
-# This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-# Last modified by Jessica E Pilling (jp735@sussex.ac.uk) Wed May 10 2023, 11:22. Copyright (c) The Contributors
-import numpy as np
-from typing import List
+#  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
+#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 09:04. Copyright (c) The Contributors
+
 import re
 
+import numpy as np
 from astropy.io import fits
 from astropy.units import def_unit, ct, deg, s
 
-from daxa import NUM_CORES
 from daxa import BaseMission
 from daxa.archive.base import Archive
 
 # Defining surface brightness rate astropy unit for use in flaregti to measure thresholds in 
 sb_rate = def_unit('sb_rate', ct / (deg**2 *s)) 
+
 
 def _prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
     """
@@ -60,10 +60,10 @@ def _prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
     
     def parse_erositacalpv_sum(raw_obs_path: str):
         """
-        A function that takes a path to raw eROSITA Calibration and Performance validtion data
+        A function that takes a path to raw eROSITA Calibration and Performance validation data
         that has been filtered for user's instrument choice. The header of the data will be read in 
         and parsed so that information relevant to DAXA processing valid scientific observations can
-        be extracted. This includes information such aswhether the instrument was active, is the instrument 
+        be extracted. This includes information such as to whether the instrument was active, is the instrument
         included in this observation, and whether the fitler wheel was closed or on the calibration source.
 
         :param str sum_path: The path to the raw data file whose header is to be parsed into a dictionary
@@ -114,4 +114,4 @@ def _prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
         # Then adding to the parsed_obs_info dictionary
         parsed_obs_info[mission.name][obs] = parse_erositacalpv_sum(path_to_obs)
      
-    archive.observation_summaries = parsed_obs_info 
+    archive.observation_summaries = parsed_obs_info

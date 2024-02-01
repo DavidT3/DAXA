@@ -1,5 +1,5 @@
-# This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-# Last modified by David J Turner (turne540@msu.edu) Thu Apr 20 2023, 10:52. Copyright (c) The Contributors
+#  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
+#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 09:04. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -8,12 +8,12 @@ from astropy.units import Quantity, UnitConversionError, add_enabled_units
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
-from daxa.exceptions import NoDependencyProcessError
-from daxa.process.erosita.setup import sb_rate
 from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call
+from daxa.process.erosita.setup import sb_rate
 
 # Adding this to the enabled astropy units so that it can be used in flaregti to define thresholds
 add_enabled_units([sb_rate])
+
 
 @esass_call
 def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax: Quantity = Quantity(10000, 'eV'), mask_pimin: Quantity = Quantity(200, 'eV'), 
