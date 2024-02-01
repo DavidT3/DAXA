@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/01/2024, 11:07. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 11:15. Copyright (c) The Contributors
 import glob
 import os.path
 from enum import Flag
@@ -216,7 +216,7 @@ def esass_call(esass_func):
     @wraps(esass_func)
     def wrapper(*args, **kwargs):
         # This is here to avoid a circular import issue
-        from daxa.process.erosita.setup import _prepare_erositacalpv_info
+        from daxa.process.erosita.setup import _prepare_erosita_info
 
         # The first argument of all the eSASS processing functions will be an archive instance, and pulling
         #  that out of the arguments will be useful later
@@ -234,7 +234,7 @@ def esass_call(esass_func):
                 #   processing functions. It will also populate the _process_extra_info dictionary for the archive
                 #   with top level keys of the erositacalpv mission and lower level keys of obs_ids with lower level keys
                 #   of 'path', which will store the raw data path for that obs id.
-                _prepare_erositacalpv_info(obs_archive, miss)
+                _prepare_erosita_info(obs_archive, miss)
 
         # This is the output from whatever function this is a decorator for
         miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout, esass_in_docker = esass_func(*args, **kwargs)

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/01/2024, 18:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 11:15. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -1005,7 +1005,7 @@ class eRASS1DE(BaseMission):
             if len(insts) != 7:
                 # Getting all the path for each event list corresponding to an obs_id for the
                 #  _inst_filtering function later
-                fits_paths = [self._get_evlist_path_from_obs(obs=o) for o in self.filtered_obs_ids]
+                fits_paths = [self._get_evlist_path_from_obs(o) for o in self.filtered_obs_ids]
 
                 # Filtering out any events from the raw data that aren't from the selected instruments
                 if NUM_CORES == 1:
@@ -1262,22 +1262,21 @@ class eRASS1DE(BaseMission):
 
         return None
 
-    def _get_evlist_path_from_obs(self, obs: str):
+    def _get_evlist_path_from_obs(self, obs_id: str):
         """
-        Internal method to get the unfiltered, downloaded event list path for a given
-        obs id, for use in the download method.
+        Internal method to get the unfiltered, downloaded event list path for a given ObsID.
 
-        :param str obs: The obs id for the event list required.
-        :return: The path of the event list.
+        :param str obs_id: The ObsID of the event list required.
+        :return: The path to the event list.
         :rtype: str
         """
-        all_files = os.listdir(os.path.join(self.raw_data_path + obs))
+        all_files = os.listdir(os.path.join(self.raw_data_path + obs_id + '/EXP_010/'))
 
         # This directory could have instrument filtered files in as well as the event list so
         #  selecting the event list by choosing the one with 4 hyphens in
-        file_name = [file for file in all_files if len(re.findall('_', file)) == 4][0]
+        file_name = [file for file in all_files if len(re.findall('_', file)) == 4 and 'Event' in file][0]
 
-        ev_list_path = os.path.join(self.raw_data_path + obs, file_name)
+        ev_list_path = os.path.join(self.raw_data_path, obs_id, 'EXP_010', file_name)
 
         return ev_list_path
 
@@ -1379,7 +1378,7 @@ class eRASS1DE(BaseMission):
             if len(self.chosen_instruments) != 7:
                 # Getting all the path for each event list corresponding to an obs_id for the
                 #  _inst_filtering function later
-                fits_paths = [self._get_evlist_path_from_obs(obs=o) for o in self.filtered_obs_ids]
+                fits_paths = [self._get_evlist_path_from_obs(o) for o in self.filtered_obs_ids]
 
                 # Filtering out any events from the raw data that aren't from the selected instruments
                 if num_cores == 1:

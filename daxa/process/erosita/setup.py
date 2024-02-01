@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 09:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 11:15. Copyright (c) The Contributors
 
 import re
 
@@ -14,11 +14,11 @@ from daxa.archive.base import Archive
 sb_rate = def_unit('sb_rate', ct / (deg**2 *s)) 
 
 
-def _prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
+def _prepare_erosita_info(archive: Archive, mission: BaseMission):
     """
     A function to be used with in the esass_call wrapper. This is called only
     if no erosita processing has taken place yet. It populates two dictionaries
-    with necessary information for esass tasks to be excecuted. The first is the 
+    with necessary information for esass tasks to be executed. The first is the
     _process_extra_info attribute for the given Archive, and it stores paths to raw data
     for each observation. The second dictionary is the observation summaries of the archive,
     which for erosita just parses the filter wheel status. 
@@ -30,7 +30,7 @@ def _prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
     def get_obs_path(mission: BaseMission, obs_id: str):
         """
         A function that returns the absolute raw data path for eROSITA Calibration 
-        and Performance validtion data, for a given mission and obs_id. Since the names of 
+        and Performance validation data, for a given mission and obs_id. Since the names of
         the data files change depending on the user's instrument choice for each mission, 
         this function is necessary for the esass functions to point to the correct raw data path.
         This method is used to populate an Archive._process_extra_info['erositacalpv']['obs']['path']
