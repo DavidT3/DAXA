@@ -1,7 +1,8 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 11:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 11:44. Copyright (c) The Contributors
 
 import re
+from typing import Union
 
 import numpy as np
 from astropy.io import fits
@@ -9,6 +10,7 @@ from astropy.units import def_unit, ct, deg, s
 
 from daxa import BaseMission
 from daxa.archive.base import Archive
+from daxa.mission import eRASS1DE, eROSITACalPV
 
 # Defining surface brightness rate astropy unit for use in flaregti to measure thresholds in 
 sb_rate = def_unit('sb_rate', ct / (deg**2 *s)) 
@@ -27,7 +29,7 @@ def _prepare_erosita_info(archive: Archive, mission: BaseMission):
         which esass_func wraps. 
     :param BaseMission mission: The eROSITACalPV mission for which this information must be prepared.
     """
-    def get_obs_path(mission: BaseMission, obs_id: str):
+    def get_obs_path(mission: Union[eRASS1DE, eROSITACalPV], obs_id: str):
         """
         A function that returns the absolute raw data path for eROSITA Calibration 
         and Performance validation data, for a given mission and obs_id. Since the names of
@@ -42,13 +44,12 @@ def _prepare_erosita_info(archive: Archive, mission: BaseMission):
         :return: The raw data path of the obs_id, with the approriate instrument filtered suffix.
         :rtype: str
         """
-        # In the case that no instrument filtering has taken place, the 
-        #   name of the raw fits file is unchanged from the output of 
-        #   the __get_evlist_path_from_obs method
-        obs_path = mission._get_evlist_path_from_obs(obs=obs_id)
+        # In the case that no instrument filtering has taken place, the name of the raw fits file is unchanged
+        #  from the output of the get_evlist_path_from_obs method
+        obs_path = mission.get_evlist_path_from_obs(obs_id)
 
         if len(mission.chosen_instruments) != 7:
-            # Other wise, need to format the name of the fits file according to the instruments
+            # Otherwise, need to format the name of the fits file according to the instruments
             insts = mission.chosen_instruments
             # Getting an ordered string of the telescope module numbers, which is how the fits
             #   file is named

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 11:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 11:44. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -34,7 +34,7 @@ REQUIRED_DIRS = {'erosita_all_sky_de_dr1': {'all': ['EXP'],
                                             'products': ['EXP', 'DET']}}
 
 # TODO Make sure the properties, internal methods, and user-facing methods are in the 'right' order for this project.
-#  Perhaps replace the '_get_evlist_path_from_obs' method?
+#  Perhaps replace the 'get_evlist_path_from_obs' method?
 
 
 class eROSITACalPV(BaseMission):
@@ -256,7 +256,7 @@ class eROSITACalPV(BaseMission):
             if len(insts) != 7:
                 # Getting all the path for each eventlist corresponding to an obs_id for the
                 #  _inst_filtering function later
-                fits_paths = [self._get_evlist_path_from_obs(obs=o) for o in self.filtered_obs_ids]
+                fits_paths = [self.get_evlist_path_from_obs(o) for o in self.filtered_obs_ids]
 
                 # Filtering out any events from the raw data that arent from the selected instruments
                 if NUM_CORES == 1:
@@ -610,22 +610,21 @@ class eROSITACalPV(BaseMission):
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
 
-    def _get_evlist_path_from_obs(self, obs: str):
+    def get_evlist_path_from_obs(self, obs_id: str):
         """
-        Internal method to get the unfiltered, downloaded event list path for a given
-        obs id, for use in the download method.
+        Internal method to get the unfiltered, downloaded event list path for a given ObsID.
 
-        :param str obs: The obs id for the event list required.
-        :return: The path of the event list.
+        :param str obs_id: The ObsID of the event list required.
+        :return: The path to the event list.
         :rtype: str
         """
-        all_files = os.listdir(os.path.join(self.raw_data_path + obs))
+        all_files = os.listdir(os.path.join(self.raw_data_path + obs_id))
 
         # This directory could have instrument filtered files in as well as the event list so
         #  selecting the event list by choosing the one with 4 hyphens in
         file_name = [file for file in all_files if len(re.findall('_', file)) == 4][0]
 
-        ev_list_path = os.path.join(self.raw_data_path + obs, file_name)
+        ev_list_path = os.path.join(self.raw_data_path, obs_id, file_name)
 
         return ev_list_path
     
@@ -712,8 +711,8 @@ class eROSITACalPV(BaseMission):
                     for link in download_links:
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
-                                            kwds={'raw_dir': self.raw_data_path, 'link': link},
-                                            error_callback=err_callback, callback=callback)
+                                         kwds={'raw_dir': self.raw_data_path, 'link': link},
+                                         error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
 
@@ -731,7 +730,7 @@ class eROSITACalPV(BaseMission):
             if len(self.chosen_instruments) != 7:
                 # Getting all the path for each eventlist corresponding to an obs_id for the
                 #  _inst_filtering function later
-                fits_paths = [self._get_evlist_path_from_obs(obs=o) for o in self.filtered_obs_ids]
+                fits_paths = [self.get_evlist_path_from_obs(o) for o in self.filtered_obs_ids]
 
                 # Filtering out any events from the raw data that arent from the selected instruments
                 if num_cores == 1:
@@ -1005,7 +1004,7 @@ class eRASS1DE(BaseMission):
             if len(insts) != 7:
                 # Getting all the path for each event list corresponding to an obs_id for the
                 #  _inst_filtering function later
-                fits_paths = [self._get_evlist_path_from_obs(o) for o in self.filtered_obs_ids]
+                fits_paths = [self.get_evlist_path_from_obs(o) for o in self.filtered_obs_ids]
 
                 # Filtering out any events from the raw data that aren't from the selected instruments
                 if NUM_CORES == 1:
@@ -1262,7 +1261,7 @@ class eRASS1DE(BaseMission):
 
         return None
 
-    def _get_evlist_path_from_obs(self, obs_id: str):
+    def get_evlist_path_from_obs(self, obs_id: str):
         """
         Internal method to get the unfiltered, downloaded event list path for a given ObsID.
 
@@ -1378,7 +1377,7 @@ class eRASS1DE(BaseMission):
             if len(self.chosen_instruments) != 7:
                 # Getting all the path for each event list corresponding to an obs_id for the
                 #  _inst_filtering function later
-                fits_paths = [self._get_evlist_path_from_obs(o) for o in self.filtered_obs_ids]
+                fits_paths = [self.get_evlist_path_from_obs(o) for o in self.filtered_obs_ids]
 
                 # Filtering out any events from the raw data that aren't from the selected instruments
                 if num_cores == 1:
