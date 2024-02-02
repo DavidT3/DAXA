@@ -1,10 +1,6 @@
 Planned DAXA Features
 ========================
 
-* **eROSITA Commissioning Data** - eROSITA commissioning data can be downloaded using DAXA, and processing is being implemented.
-
-* **eROSITA All-Sky Survey Data** - On the release of eRASS:1DE, another mission class will be implemented to allow for the acquisition of eROSITA All-Sky Survey data.
-
 * **NuSTAR Data** - Data can be acquired and downloaded, but not processed yet.
 
 * **Chandra Data** - Data can be acquired and downloaded, but not processed yet. Data can also be downloaded in a form that will work with the standard Chandra reprocessing scripts.

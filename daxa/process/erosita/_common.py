@@ -1,27 +1,25 @@
-# This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-# Last modified by David J Turner (turne540@msu.edu) Thu Apr 13 2023, 15:16. Copyright (c) The Contributors
+#  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
+#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 11:15. Copyright (c) The Contributors
 import glob
-from typing import Tuple, List
-from warnings import warn
 import os.path
-from subprocess import Popen, PIPE
+from enum import Flag
 from functools import wraps
 from multiprocessing.dummy import Pool
-from enum import Flag
+from subprocess import Popen, PIPE
+from typing import Tuple, List
+from warnings import warn
 
-import itertools
 from astropy.units import UnitConversionError
-from tqdm import tqdm
 from exceptiongroup import ExceptionGroup
+from tqdm import tqdm
 
 from daxa.archive.base import Archive
 from daxa.exceptions import NoEROSITAMissionsError
 from daxa.process._backend_check import find_esass
 
-from daxa.process.erosita.setup import _prepare_erositacalpv_info
+ALLOWED_EROSITA_MISSIONS = ['erosita_calpv', 'erosita_all_sky_de_dr1']
 
-ALLOWED_EROSITA_MISSIONS = ['erosita_calpv']
-
+# TODO Make this compliant with how I normally do docstrings
 class _eSASS_Flag(Flag):
     """
     This class was written by Toby Wallage found on Github @TobyWallage.
@@ -218,7 +216,7 @@ def esass_call(esass_func):
     @wraps(esass_func)
     def wrapper(*args, **kwargs):
         # This is here to avoid a circular import issue
-        from daxa.process.erosita.setup import _prepare_erositacalpv_info
+        from daxa.process.erosita.setup import _prepare_erosita_info
 
         # The first argument of all the eSASS processing functions will be an archive instance, and pulling
         #  that out of the arguments will be useful later
@@ -236,7 +234,7 @@ def esass_call(esass_func):
                 #   processing functions. It will also populate the _process_extra_info dictionary for the archive
                 #   with top level keys of the erositacalpv mission and lower level keys of obs_ids with lower level keys
                 #   of 'path', which will store the raw data path for that obs id.
-                _prepare_erositacalpv_info(obs_archive, miss)
+                _prepare_erosita_info(obs_archive, miss)
 
         # This is the output from whatever function this is a decorator for
         miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout, esass_in_docker = esass_func(*args, **kwargs)

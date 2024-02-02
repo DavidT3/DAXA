@@ -1,24 +1,26 @@
-# This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-# Last modified by Jessica E Pilling (jp735@sussex.ac.uk) Wed May 10 2023, 11:22. Copyright (c) The Contributors
-import numpy as np
-from typing import List
-import re
+#  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
+#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 11:44. Copyright (c) The Contributors
 
+import re
+from typing import Union
+
+import numpy as np
 from astropy.io import fits
 from astropy.units import def_unit, ct, deg, s
 
-from daxa import NUM_CORES
 from daxa import BaseMission
 from daxa.archive.base import Archive
+from daxa.mission import eRASS1DE, eROSITACalPV
 
 # Defining surface brightness rate astropy unit for use in flaregti to measure thresholds in 
 sb_rate = def_unit('sb_rate', ct / (deg**2 *s)) 
 
-def _prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
+
+def _prepare_erosita_info(archive: Archive, mission: BaseMission):
     """
     A function to be used with in the esass_call wrapper. This is called only
     if no erosita processing has taken place yet. It populates two dictionaries
-    with necessary information for esass tasks to be excecuted. The first is the 
+    with necessary information for esass tasks to be executed. The first is the
     _process_extra_info attribute for the given Archive, and it stores paths to raw data
     for each observation. The second dictionary is the observation summaries of the archive,
     which for erosita just parses the filter wheel status. 
@@ -27,10 +29,10 @@ def _prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
         which esass_func wraps. 
     :param BaseMission mission: The eROSITACalPV mission for which this information must be prepared.
     """
-    def get_obs_path(mission: BaseMission, obs_id: str):
+    def get_obs_path(mission: Union[eRASS1DE, eROSITACalPV], obs_id: str):
         """
         A function that returns the absolute raw data path for eROSITA Calibration 
-        and Performance validtion data, for a given mission and obs_id. Since the names of 
+        and Performance validation data, for a given mission and obs_id. Since the names of
         the data files change depending on the user's instrument choice for each mission, 
         this function is necessary for the esass functions to point to the correct raw data path.
         This method is used to populate an Archive._process_extra_info['erositacalpv']['obs']['path']
@@ -42,13 +44,12 @@ def _prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
         :return: The raw data path of the obs_id, with the approriate instrument filtered suffix.
         :rtype: str
         """
-        # In the case that no instrument filtering has taken place, the 
-        #   name of the raw fits file is unchanged from the output of 
-        #   the __get_evlist_path_from_obs method
-        obs_path = mission._get_evlist_path_from_obs(obs=obs_id)
+        # In the case that no instrument filtering has taken place, the name of the raw fits file is unchanged
+        #  from the output of the get_evlist_path_from_obs method
+        obs_path = mission.get_evlist_path_from_obs(obs_id)
 
         if len(mission.chosen_instruments) != 7:
-            # Other wise, need to format the name of the fits file according to the instruments
+            # Otherwise, need to format the name of the fits file according to the instruments
             insts = mission.chosen_instruments
             # Getting an ordered string of the telescope module numbers, which is how the fits
             #   file is named
@@ -60,10 +61,10 @@ def _prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
     
     def parse_erositacalpv_sum(raw_obs_path: str):
         """
-        A function that takes a path to raw eROSITA Calibration and Performance validtion data
+        A function that takes a path to raw eROSITA Calibration and Performance validation data
         that has been filtered for user's instrument choice. The header of the data will be read in 
         and parsed so that information relevant to DAXA processing valid scientific observations can
-        be extracted. This includes information such aswhether the instrument was active, is the instrument 
+        be extracted. This includes information such as to whether the instrument was active, is the instrument
         included in this observation, and whether the fitler wheel was closed or on the calibration source.
 
         :param str sum_path: The path to the raw data file whose header is to be parsed into a dictionary
@@ -114,4 +115,4 @@ def _prepare_erositacalpv_info(archive: Archive, mission: BaseMission):
         # Then adding to the parsed_obs_info dictionary
         parsed_obs_info[mission.name][obs] = parse_erositacalpv_sum(path_to_obs)
      
-    archive.observation_summaries = parsed_obs_info 
+    archive.observation_summaries = parsed_obs_info

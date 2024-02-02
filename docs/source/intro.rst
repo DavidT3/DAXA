@@ -20,7 +20,8 @@ Which missions are supported?
 limited. Support for more telescopes is either currently under development or being actively planned.*
 
     * XMM-Newton Pointed
-    * [Under Development - data acquisition implemented] eROSITA Commissioning
+    * eROSITA Commissioning
+    * eROSITA All-Sky Survey DR1 (German Half)
     * [Under Development - data acquisition implemented] NuSTAR Pointed
     * [Under Development - data acquisition implemented] Chandra
     * [Under Development - RASS/pointed data acquisition implemented] ROSAT
