@@ -15,6 +15,11 @@ process.simple
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: daxa.process.erosita
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. toctree::
    :maxdepth: 2
    :caption: Instrument Specific:
