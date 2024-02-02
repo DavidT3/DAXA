@@ -20,4 +20,5 @@ process.simple
    :caption: Instrument Specific:
 
    daxa.process.xmm <daxa.process.xmm.rst>
+   daxa.process.erosita <daxa.process.erosita.rst>
 
