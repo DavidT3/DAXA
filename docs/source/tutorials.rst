@@ -4,5 +4,5 @@ Tutorials
 .. toctree::
    :maxdepth: 1
 
-    Missions and Archives <notebooks/tutorials/missions_archives.ipynb>
+    Identifying and acquiring relevant X-ray observations <notebooks/tutorials/missions_archives.ipynb>
 
