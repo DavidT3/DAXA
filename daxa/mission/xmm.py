@@ -44,7 +44,7 @@ class XMMPointed(BaseMission):
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. The EPIC
             PN, MOS1, and MOS2 instruments are selected by default. You may also select RGS1 (R1) and RGS2
             (R2), though as they less widely used they are not selected by default. It is also possible to select the
-        Optical Monitor (OM), though it is an optical/UV telescope, and as such it is not selected by default.
+            Optical Monitor (OM), though it is an optical/UV telescope, and as such it is not selected by default.
         :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
             state of a previously defined mission (the same filters having been applied etc.)
         """
