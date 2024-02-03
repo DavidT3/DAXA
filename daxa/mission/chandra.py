@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/02/2024, 13:45. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -80,10 +80,6 @@ class Chandra(BaseMission):
             insts = [insts]
         # Makes sure everything is uppercase
         insts = [i.upper() for i in insts]
-
-        # TODO Remove this once HETG and LETG are supported
-        if 'HETG' in insts or 'LETG' in insts:
-            raise NotImplementedError("The HETG and LETG gratings are not currently supported by this class.")
 
         # These are the allowed instruments for this mission - Chandra has two sets of instruments (HRC and
         #  ACIS), each with two sets of detectors (one for imaging one for grating spectroscopy). It also has
