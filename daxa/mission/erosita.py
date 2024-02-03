@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 11:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/02/2024, 14:37. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -1083,20 +1083,10 @@ class eRASS1DE(BaseMission):
 
         # Converting the start and end time columns to datetimes - the .%f accounts for the presence of milliseconds
         #  in the times - probably somewhat superfluous
-        # erass_dr1_copy['start'] = pd.to_datetime(erass_dr1_copy['start'], utc=False, format="%Y-%m-%dT%H:%M:%S.%f",
-        #                                          errors='coerce')
-        # erass_dr1_copy['end'] = pd.to_datetime(erass_dr1_copy['end'], utc=False, format="%Y-%m-%dT%H:%M:%S.%f",
-        #                                        errors='coerce')
-
-        # TODO include real start and end values when I have figured out a way to make them available
-        #  I have just used the start and end dates of this survey for now
-        #  "Started on December 12, 2019, and was completed on June 11, 2020"
-        erass_dr1_copy['start'] = pd.to_datetime('2019-12-12T00:00:00.00', utc=False, format="%Y-%m-%dT%H:%M:%S.%f",
+        erass_dr1_copy['start'] = pd.to_datetime(erass_dr1_copy['start'], utc=False, format="%Y-%m-%dT%H:%M:%S.%f",
                                                  errors='coerce')
-        erass_dr1_copy['end'] = pd.to_datetime('2020-06-10T00:00:00.00', utc=False, format="%Y-%m-%dT%H:%M:%S.%f",
+        erass_dr1_copy['end'] = pd.to_datetime(erass_dr1_copy['end'], utc=False, format="%Y-%m-%dT%H:%M:%S.%f",
                                                errors='coerce')
-
-        # TODO this is clearly nonsense but have to assume it (see above)
         erass_dr1_copy['duration'] = erass_dr1_copy['end'] - erass_dr1_copy['start']
 
         # Have to assume this for all of them for now
