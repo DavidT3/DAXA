@@ -673,8 +673,8 @@ class eROSITACalPV(BaseMission):
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
             if num_cores == 1:
-                with tqdm(total=len(download_links), desc="Downloading {} "
-                                                          "data".format(self._pretty_miss_name)) as download_prog:
+                with tqdm(total=len(download_links), desc="Downloading "
+                                                          "{} data".format(self._pretty_miss_name)) as download_prog:
                     for link in download_links:
                         # Use the internal static method I set up which both downloads and unpacks the
                         #  eROSITACalPV data
