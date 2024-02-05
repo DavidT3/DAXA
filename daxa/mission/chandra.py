@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/02/2024, 22:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/02/2024, 23:05. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -548,7 +548,7 @@ class Chandra(BaseMission):
                     for obs_id in self.filtered_obs_ids:
                         # Use the internal static method I set up which both downloads and unpacks the Chandra data
                         self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id),
-                                            download_standard=download_products)
+                                            download_products=download_products)
                         # Update the progress bar
                         download_prog.update(1)
 
