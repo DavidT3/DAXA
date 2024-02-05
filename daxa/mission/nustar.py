@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 20:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/02/2024, 22:58. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -308,7 +308,7 @@ class NuSTARPointed(BaseMission):
         self.all_obs_info = rel_nustar
 
     @staticmethod
-    def _download_call(observation_id: str, insts: List[str], raw_dir: str, download_processed: bool):
+    def _download_call(observation_id: str, insts: List[str], raw_dir: str, download_products: bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
@@ -316,11 +316,11 @@ class NuSTARPointed(BaseMission):
         :param str observation_id: The ObsID of the observation to be downloaded.
         :param List[str] insts: The instruments which the user wishes to acquire data for.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
-        :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
+        :param bool download_products: This controls whether the data downloaded include the pre-processed event lists
             and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
             raw data.
         """
-        if download_processed:
+        if download_products:
             req_dir = REQUIRED_DIRS['processed']
         else:
             req_dir = REQUIRED_DIRS['raw']
@@ -395,7 +395,7 @@ class NuSTARPointed(BaseMission):
         return None
 
     def download(self, num_cores: int = NUM_CORES, credentials: Union[str, dict] = None,
-                 download_processed: bool = False):
+                 download_products: bool = False):
         """
         A method to acquire and download the pointed NuSTAR data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -408,7 +408,7 @@ class NuSTARPointed(BaseMission):
         :param dict/str credentials: The path to an ini file containing credentials, a dictionary containing 'user'
             and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
             for providing different credentials for different observations.
-        :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
+        :param bool download_products: This controls whether the data downloaded include the pre-processed event lists
             and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
             raw data.
         """
@@ -442,7 +442,7 @@ class NuSTARPointed(BaseMission):
                         # Use the internal static method I set up which both downloads and unpacks the NuSTAR data
                         self._download_call(obs_id, insts=self.chosen_instruments,
                                             raw_dir=stor_dir + '{o}'.format(o=obs_id),
-                                            download_processed=download_processed)
+                                            download_products=download_products)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -486,7 +486,7 @@ class NuSTARPointed(BaseMission):
                         pool.apply_async(self._download_call,
                                          kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
                                                'raw_dir': stor_dir + '{o}'.format(o=obs_id),
-                                               'download_processed': download_processed},
+                                               'download_processed': download_products},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
