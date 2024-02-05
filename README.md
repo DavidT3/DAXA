@@ -28,7 +28,8 @@ be found in the 'docs' directory in this repository.
 limited. Support for more telescopes is either currently under development or being actively planned._** 
 
 * XMM-Newton Pointed
-* **_[Under Development - data acquisition/some processing implemented]_** eROSITA Commissioning
+* eROSITA Commissioning
+* eROSITA All-Sky Survey DR1 (German Half)
 * **_[Under Development - data acquisition implemented]_** NuSTAR
 * **_[Under Development - data acquisition implemented]_** Chandra
 * **_[Under Development - RASS/pointed data acquisition implemented]_** ROSAT
