@@ -31,12 +31,17 @@ Once installed, you can import DAXA in the usual way (the command will be lowerc
 in the DAXA directory cloned from GitHub and opened Python there then it is possible to 'import DAXA', but that will behave
 very strangely as it hasn't actually imported the module, but the directory.
 
-Required Dependencies
----------------------
+Required Dependencies for Processing Data
+-----------------------------------------
 
 * XMM
     - Science Analysis System (SAS) - v14 or above
     - HEASoft (lcurve is required for XMM processing) - tested on v6.29 and v6.31
+
+* eROSITA
+    - eROSITA Science Analysis Software System (eSASS)
+    - HEASoft - tested on v6.29 and v6.31
+
 
 All required Python modules can be found in requirements.txt, and should be added to your system during the installation of DAXA.
 
