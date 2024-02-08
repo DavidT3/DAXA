@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/02/2024, 11:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/02/2024, 11:52. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -760,6 +760,11 @@ class BaseMission(metaclass=ABCMeta):
         #  SkyCoord (or a SkyCoord catalogue).
         if isinstance(positions, (list, np.ndarray)):
             positions = SkyCoord(positions, unit=u.deg, frame=self.coord_frame)
+        # If the input was already a SkyCoord, we should make sure that it is in the same frame as the current
+        #  mission's observation position information (honestly probably doesn't make that much of a difference, but
+        #  it is good to be thorough).
+        elif isinstance(positions, SkyCoord):
+            positions = positions.transform_to(self.coord_frame)
 
         # This is slightly cheesy, but the search_around_sky method will only work if there is a catalog
         #  of positions that is being searched around, rather than a single position. As such if a single
