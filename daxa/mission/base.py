@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 30/01/2024, 14:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/02/2024, 11:57. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -760,6 +760,11 @@ class BaseMission(metaclass=ABCMeta):
         #  SkyCoord (or a SkyCoord catalogue).
         if isinstance(positions, (list, np.ndarray)):
             positions = SkyCoord(positions, unit=u.deg, frame=self.coord_frame)
+        # If the input was already a SkyCoord, we should make sure that it is in the same frame as the current
+        #  mission's observation position information (honestly probably doesn't make that much of a difference, but
+        #  it is good to be thorough).
+        elif isinstance(positions, SkyCoord):
+            positions = positions.transform_to(self.coord_frame)
 
         # This is slightly cheesy, but the search_around_sky method will only work if there is a catalog
         #  of positions that is being searched around, rather than a single position. As such if a single
@@ -1167,7 +1172,8 @@ class BaseMission(metaclass=ABCMeta):
 
     @_lock_check
     def filter_on_positions_at_time(self, positions: Union[list, np.ndarray, SkyCoord],
-                                    start_datetimes: np.ndarray, end_datetimes: np.ndarray,
+                                    start_datetimes: Union[np.ndarray, datetime],
+                                    end_datetimes: Union[np.ndarray, datetime],
                                     search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
                                     return_obs_info: bool = False, over_run: bool = True):
         """
@@ -1189,10 +1195,10 @@ class BaseMission(metaclass=ABCMeta):
             can be passed either as a list or nested list (i.e. [r, d] OR [[r1, d1], [r2, d2]]), a numpy array, or
             an already defined SkyCoord. If a list or array is passed then the coordinates are assumed to be in
             degrees, and the default mission frame will be used.
-        :param np.array(datetime) start_datetimes: The beginnings of time windows in which to search for
+        :param np.array(datetime)/datetime start_datetimes: The beginnings of time windows in which to search for
             observations. There should be one entry per position passed.
-        :param datetime end_datetimes: The endings of time windows in which to search for observations. There should
-            be one entry per position passed.
+        :param np.array(datetime)/datetime end_datetimes: The endings of time windows in which to search for
+            observations. There should be one entry per position passed.
         :param Quantity/float/int/list/np.ndarray/dict search_distance: The distance within which to search for
             observations by this mission. Distance may be specified either as an Astropy Quantity that can be
             converted to degrees (a float/integer will be assumed to be in units of degrees), as a dictionary of
@@ -1210,12 +1216,31 @@ class BaseMission(metaclass=ABCMeta):
             to True then observations with a start or end within the search window will be selected, but if False
             then only observations with a start AND end within the window are selected. Default is True.
         """
+        # Check that the start and end information is in the same style
+        if isinstance(start_datetimes, datetime) != isinstance(end_datetimes, datetime):
+            raise TypeError("The 'start_datetimes' and 'start_datetimes' must either both be individual datetimes, or "
+                            "arrays of datetimes (for multiple positions).")
+        # Need to make sure we make the datetimes iterable - even if there is only one position/time period being
+        #  investigated
+        elif isinstance(start_datetimes, datetime):
+            start_datetimes = np.array([start_datetimes])
+            end_datetimes = np.array([end_datetimes])
+
+        # This should make sure that any lists of positions like [r, d] are turned into [[r, d]] - this should
+        #  be more acceptable to downstream things
+        if isinstance(positions, list) and not isinstance(positions[0], (list, SkyCoord)):
+            positions = [positions]
+
         # We initially check that the arguments we will be basing the time filtering on are of the right length,
         #  i.e. every position must have corresponding start and end times
-        if len(start_datetimes) != len(positions) or len(end_datetimes) != len(positions):
+        if not positions.isscalar and (len(start_datetimes) != len(positions) or len(end_datetimes) != len(positions)):
             raise ValueError("The 'start_datetimes' (len={sd}) and 'end_datetimes' (len={ed}) arguments must have one "
                              "entry per position specified by the 'positions' (len={p}) "
                              "arguments.".format(sd=len(start_datetimes), ed=len(end_datetimes), p=len(positions)))
+        elif positions.isscalar and (len(start_datetimes) != 1 or len(end_datetimes) != 1):
+            raise ValueError("The 'start_datetimes' (len={sd}) and 'end_datetimes' (len={ed}) arguments must be "
+                             "scalar if a single position is passed".format(sd=len(start_datetimes),
+                                                                            ed=len(end_datetimes)))
 
         # Now we can use the filter on positions method to search for any observations that might be applicable to
         #  the search that the user wants to perform - we will also return the dataframe that
