@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/02/2024, 11:52. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/02/2024, 11:57. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -1233,10 +1233,14 @@ class BaseMission(metaclass=ABCMeta):
 
         # We initially check that the arguments we will be basing the time filtering on are of the right length,
         #  i.e. every position must have corresponding start and end times
-        if len(start_datetimes) != len(positions) or len(end_datetimes) != len(positions):
+        if not positions.isscalar and (len(start_datetimes) != len(positions) or len(end_datetimes) != len(positions)):
             raise ValueError("The 'start_datetimes' (len={sd}) and 'end_datetimes' (len={ed}) arguments must have one "
                              "entry per position specified by the 'positions' (len={p}) "
                              "arguments.".format(sd=len(start_datetimes), ed=len(end_datetimes), p=len(positions)))
+        elif positions.isscalar and (len(start_datetimes) != 1 or len(end_datetimes) != 1):
+            raise ValueError("The 'start_datetimes' (len={sd}) and 'end_datetimes' (len={ed}) arguments must be "
+                             "scalar if a single position is passed".format(sd=len(start_datetimes),
+                                                                            ed=len(end_datetimes)))
 
         # Now we can use the filter on positions method to search for any observations that might be applicable to
         #  the search that the user wants to perform - we will also return the dataframe that
