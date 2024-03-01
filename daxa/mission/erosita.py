@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 11:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/03/2024, 13:55. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -664,8 +664,8 @@ class eROSITACalPV(BaseMission):
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
             if num_cores == 1:
-                with (tqdm(total=len(download_links), desc="Downloading {} data".format(self._pretty_miss_name))
-                      as download_prog):
+                with tqdm(total=len(download_links), desc="Downloading {} "
+                                                          "data".format(self._pretty_miss_name)) as download_prog:
                     for link in download_links:
                         # Use the internal static method I set up which both downloads and unpacks the
                         #  eROSITACalPV data
