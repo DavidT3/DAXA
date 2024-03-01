@@ -1303,8 +1303,8 @@ class eRASS1DE(BaseMission):
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
             if num_cores == 1:
-                with tqdm(total=len(obs_to_download), desc="Downloading {} data".format(self._pretty_miss_name
-                                                                                        )) as download_prog:
+                with tqdm(total=len(obs_to_download), desc="Downloading {} "
+                                                           "data".format(self._pretty_miss_name)) as download_prog:
                     for obs_id in obs_to_download:
                         self._download_call(obs_id=obs_id, raw_dir=self.raw_data_path,
                                             download_products=download_products, pipeline_version=pipeline_version)
