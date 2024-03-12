@@ -62,16 +62,19 @@ it already has, and easy access to those archives will be vital to the continuat
 # Statement of need
 
 The study of X-ray emission from astrophysical objects provides a powerful view of some of the most extreme processes 
-in the Universe, has had a profound impact on our understanding of many types of objects; from in-solar-system objects,  
-to supernovae, to galaxies and galaxy clusters. As such, access to X-ray data should be made as simple as possible, 
+in the Universe, has had a profound impact on our understanding of many types of objects; from in-solar-system 
+objects, to supernovae, to galaxies and galaxy clusters. As such, access to X-ray data should be made as simple as possible, 
 both for X-ray experts and to those non-specialists whose research could benefit from examining their sources at 
 higher energies; organisations such as the European Space Agency (ESA) and the High Energy Astrophysics Science Archive 
 Research Center (HEASARC) have gone to great lengths to enable this access, and we have built on their success to 
-create . Through [Daxa]{.smallcaps}, all major X-ray observatory observation archives are accessible through a single 
-unified interface available in a programming language that is almost ubiquitous in astronomy (Python), and can be
-searched in a variety of ways to find only the data relevant to objects in a particular study. 
-
-
+create our software. Through [Daxa]{.smallcaps}, all major X-ray observatory observation archives are accessible 
+through a single unified interface available in a programming language that is almost ubiquitous in astronomy 
+(Python), and can be searched in a variety of ways to find only the data relevant to objects in a particular 
+study. X-ray data can be particularly intimidating to those astronomers who have not used it before, which acts
+as a barrier to entry, limiting the reach and scientific of X-ray telescopes, things we should be striving to 
+maximise. Our software is particularly powerful in this regard, as it provides a normalised and simple interface to 
+different backend software packages, allowing for the easy processing of X-ray data to a scientifically useful 
+state; this is in addition to the ability to download pre-processed data from many of the data archives.
 
 Almost every sub-field of astronomy, astrophysics, and cosmology has 
 benefited significantly from X-ray coverage over the last three decades. The current workhorse X-ray observatories 
@@ -79,6 +82,7 @@ benefited significantly from X-ray coverage over the last three decades. The cur
 _Chandra_ in particular experiencing a decline in low-energy sensitivity that limits possible science cases; these 
 missions cannot last forever. 
 
+Testing [@xga]
 
 [^*]: turne540@msu.edu
 
