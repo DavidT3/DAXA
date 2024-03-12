@@ -46,8 +46,15 @@ bibliography: paper.bib
 ---
 
 # Summary
-We introduce a new, open-source, Python module for the acquisition and processing of archival data from multiple X-ray telescopes, Democratising Archival X-ray Astronomy (hereafter referred to as [Daxa]{.smallcaps}). The aim of \texttt{DAXA} is to provide a consistent, easy-to-use, interface with the disparate interfaces to different X-ray telescope data archives, and their processing packges, thus enabling much greater access to X-ray data for non-specialists. This in addition to providing low-level control of processing for X-ray experts.
-
+We introduce a new, open-source, Python module for the acquisition and processing of archival data from multiple X-ray 
+telescopes, Democratising Archival X-ray Astronomy (hereafter referred to as [Daxa]{.smallcaps}). The aim of 
+[Daxa]{.smallcaps} is to provide a consistent, easy-to-use, Python interface with the disparate X-ray telescope data 
+archives, and their processing packages. This will enable much greater access to X-ray data for non-specialists, while 
+preserving low-level control of processing for X-ray experts. The package is useful for identifying relevant 
+observations of a single object of interest, but it excels at creating and managing multi-mission datasets for 
+serendipitous studies of large samples of X-ray emitting objects. As we may enter an 'X-ray desert', with no new 
+missions coming online, within the next decade, archival data is going to take on an even greater importance than
+it already has, and easy access to those archives will be vital to the continuation of X-ray astronomy.
 
 # Statement of need
 
