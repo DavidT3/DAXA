@@ -65,9 +65,9 @@ it already has, and easy access to those archives will be vital to the continuat
 
 
 # Existing software packages
-The
+There is no exact analogue to 
 
-# Research projects using DAXA
+# Research projects using [Daxa]{.smallcaps}
 
 
 # Future Work
