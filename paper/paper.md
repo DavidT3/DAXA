@@ -61,6 +61,16 @@ it already has, and easy access to those archives will be vital to the continuat
 
 # Statement of need
 
+The study of X-ray emission from astrophysical objects provides a powerful view of some of the most extreme processes 
+in the Universe, has had a profound impact on our understanding of many types of objects; from in-solar-system objects 
+to supernovae, to galaxies and galaxy clusters. Almost every sub-field of astronomy, astrophysics, and cosmology has 
+benefited significantly from X-ray coverage over the last three decades. The current workhorse X-ray observatories 
+(_XMM_-Newton and _Chandra_; other telescopes are online but are not as generally useful) are ageing however, with 
+_Chandra_ in particular experiencing a decline in low-energy sensitivity that limits possible science cases; these 
+missions cannot last forever. 
+
+
+<font color="red">SECOND THEME, OR FIRST IF I REARRANGE, MAKING EVERYTHING MORE ACCESSIBLE</font>
 
 [^*]: turne540@msu.edu
 
@@ -78,12 +88,14 @@ There is no exact analogue to
 
 
 # Acknowledgements
-DT and MD are grateful for support from the National Aeronautic and Space Administration Astrophysics Data Analysis Program (NASA80NSSC22K0476).
-
-KR and PG acknowledge support from the UK Science and Technology Facilities Council via grants ST/T000473/1 and ST/X001040/1.
+DT and MD are grateful for support from the National Aeronautic and Space Administration Astrophysics Data Analysis 
+Program (NASA80NSSC22K0476). KR and PG acknowledge support from the UK Science and Technology Facilities Council via 
+grants ST/T000473/1 and ST/X001040/1.
 
 ADD JESS' STFC CODE
 
-DO I INCLUDE THIS?? We acknowledge contributions to the _XMM_ Cluster Survey from A. Bermeo, M. Hilton, P. J. Rooney, S. Bhargava, L. Ebrahimpour, R. G. Mann, M. Manolopoulou, J. Mayers, E. W. Upsdell, C. Vergara, P. T. P. Viana, R. Wilkinson, C. A. Collins, R. C. Nichol, J. P. Stott, and others.
+DO I INCLUDE THIS?? We acknowledge contributions to the _XMM_ Cluster Survey from A. Bermeo, M. Hilton, P. J. Rooney, 
+S. Bhargava, L. Ebrahimpour, R. G. Mann, M. Manolopoulou, J. Mayers, E. W. Upsdell, C. Vergara, P. T. P. Viana, 
+R. Wilkinson, C. A. Collins, R. C. Nichol, J. P. Stott, and others.
 
 # References
