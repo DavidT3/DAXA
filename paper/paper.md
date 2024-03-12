@@ -11,6 +11,11 @@ tags:
   - XMM
   - eROSITA
   - Chandra
+  - NuSTAR
+  - Swift
+  - ROSAT
+  - ASCA
+  - Suzaku
 authors:
   - name: David J. Turner[^*]
     orcid: 0000-0001-9658-1396
@@ -36,7 +41,7 @@ affiliations:
     index: 1
   - name: Department of Physics and Astronomy, University of Sussex, Brighton, BN1 9QH, UK
     index: 2
-date: 31 July 2023
+date: 12 March 2024
 bibliography: paper.bib
 ---
 
@@ -53,7 +58,7 @@ We introduce a new, open-source, Python module for the acquisition and processin
 
 
 # Existing software packages
-Th
+The
 
 # Research projects using DAXA
 
@@ -62,12 +67,11 @@ Th
 
 
 # Acknowledgements
-David J Turner and Megan Donague acknowledge support from NASA ADAP...
+DT and MD are grateful for support from the National Aeronautic and Space Administration Astrophysics Data Analysis Program (NASA80NSSC22K0476).
 
-Kathy Romer (KR), and Paul A. Giles (PG)
-acknowledge support from the UK Science and Technology Facilities
-Council via grants ST/P006760/1 (DT), ST/P000525/1 and ST/T000473/1 (PG,
-KR). ADD JESS' STFC CODE
+KR and PG acknowledge support from the UK Science and Technology Facilities Council via grants ST/T000473/1 and ST/X001040/1.
+
+ADD JESS' STFC CODE
 
 DO I INCLUDE THIS?? We acknowledge contributions to the _XMM_ Cluster Survey from A. Bermeo, M. Hilton, P. J. Rooney, S. Bhargava, L. Ebrahimpour, R. G. Mann, M. Manolopoulou, J. Mayers, E. W. Upsdell, C. Vergara, P. T. P. Viana, R. Wilkinson, C. A. Collins, R. C. Nichol, J. P. Stott, and others.
 
