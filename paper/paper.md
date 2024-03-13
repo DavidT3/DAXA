@@ -37,9 +37,9 @@ authors:
   - name: Toby Wallage
     affiliation: 2
 affiliations:
-  - name: Department of Physics and Astronomy, Michigan State University, East Lansing, Michigan, 48824, USA
+  - name: Department of Physics and Astronomy, Michigan State University, East Lansing, Michigan, USA
     index: 1
-  - name: Department of Physics and Astronomy, University of Sussex, Brighton, BN1 9QH, UK
+  - name: Department of Physics and Astronomy, University of Sussex, Brighton, UK
     index: 2
 date: 13 March 2024
 bibliography: paper.bib
