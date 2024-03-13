@@ -1,5 +1,5 @@
 ---
-title: 'DAXA: Democratising archival X-ray astronomy and traversing the X-ray desert'
+title: 'DAXA: Traversing the X-ray desert by Democratising Archival X-ray Astronomy'
 tags:
   - Python
   - Astronomy
