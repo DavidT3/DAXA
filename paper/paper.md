@@ -160,7 +160,13 @@ properties of these groups.
 
 # Future Work
 
-
+The most significant new features implemented in [Daxa]{.smallcaps} will be new mission classes added when new X-ray 
+telescope archives become available, or one of the existing missions that we have not yet implemented is added (for 
+instance _XMM_ observations taken whilst slewing). We will also seek to include support for more telescope-specific 
+cleaning methods taken from their backend software; additionally we wish to implement our own generic processing and 
+cleaning techniques where possible, applicable to multiple missions. We also aim to include source detection 
+capabilities; specifically techniques that are generally applicable to multiple missions whilst taking into account
+instrument-specific effects. 
 
 # Acknowledgements
 DT and MD are grateful for support from the National Aeronautic and Space Administration Astrophysics Data Analysis 
