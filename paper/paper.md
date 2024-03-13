@@ -111,11 +111,32 @@ methods (it is also possible to download the entire archive of a telescope); the
 position (determining whether a coordinate of interest is within the field-of-view), filtering on the time of the 
 observation (also filtering on whether a specific coordinate was observed at a specific time, for whole samples with 
 different coordinates and times of interest), and filtering on specific observation identifiers (ObsIDs) if they 
-are already known.
+are already known. Each mission class has some knowledge of the characteristics of the telescope it represents (such as
+the field-of-view) to make observation filtering easier. The user can also select only a subset of instruments, if the
+telescope has more than one, to exclude any that may not contribute to their analysis. 
 
-Archive class
+Once as set of relevant observations have been identified, for either a single mission or a set of missions, a 
+[Daxa]{.smallcaps} multi-mission data archive can be declared. This will automatically download the selected data from
+the various telescope archives, if the user had not already triggered that, and proceeds to ingest and organise the 
+data so that it can be managed (and if necessary, updated) through the [Daxa]{.smallcaps} interface. Within the
+Python interface it is easy to see and explore exactly what data files are available and for which observations. We
+have also implemented user-friendly, multi-threaded, data preparation and cleaning routines for some telescopes (_XMM_ 
+and _eROSITA_ in particular); fine control of the parameters that control these processes is retained, but default 
+behaviours can be used if the user is unfamiliar with the minutiae of X-ray data preparation. Another key benefit of
+reducing data with [Daxa]{.smallcaps} is the easy access to software logs through our interface, in case of suspected
+problems during the reduction processes. The module is also capable of safely handling processing failures, simply 
+recording at which processing step the failure occurred for a particular ObsID. 
 
-Data management
+All of this information is retained permanently, not just while the initial [Daxa]{.smallcaps} processes are 
+running. Any [Daxa]{.smallcaps} archive can be loaded back into memory after the fact, once again providing access 
+to the stored log information. At this point the archives can also be updated, either by searching for new data from
+the existing missions, adding data from a different mission, or re-processing specific observations to achieve more
+scientifically useful data. Any such change will be recorded, and processed observations version controlled, so that 
+the data archive can have a specific version that refers to its exact state at any given time; this version can be
+referred to in published work using the data archive. Each data archive is also capable of creating a file that
+other [Daxa]{.smallcaps} users can import, and which will recreate the data archive by downloading the same data, and
+processing it in the same way; this renders making fully processed, and large, X-ray data files available with 
+a piece of research is unnecessary.
 
 # Existing software packages
 
