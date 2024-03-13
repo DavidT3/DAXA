@@ -41,7 +41,7 @@ affiliations:
     index: 1
   - name: Department of Physics and Astronomy, University of Sussex, Brighton, BN1 9QH, UK
     index: 2
-date: 12 March 2024
+date: 13 March 2024
 bibliography: paper.bib
 ---
 
@@ -105,7 +105,25 @@ offering the whole dataset for download, which is often impractical.
 
 # Existing software packages
 
-There are no direct analogues to [Daxa]{.smallcaps}, though we 
+There are no direct analogues to our module, though we must acknowledge the many pieces of software (and data
+archives), without which it would have been much more difficult to create [Daxa]{.smallcaps}. Data access is made 
+possible primarily by the HEASARC data archive, though the Astroquery [@astroquery] package is also used. 
+HEASARC provides an online interface to query their data archive, which has similar functionality to some of the 
+filtering methods of mission classes in [Daxa]{.smallcaps} (though we provide slightly more functionality in 
+that regard), and they provide Python SQL examples to access the data, but none of the data management and cleaning 
+functionality that we include. 
+
+Also worthy of mention are the various telescope-specific software packages that underpin [Daxa]{.smallcaps}'s ability
+to perform data preparation and cleaning. Particularly important are the _XMM_ Science Analysis System (SAS; @sas) and 
+the complementary extended SAS (eSAS; @esascook) packages, which allow us to provide simple Python interfaces to the
+complex, multi-step, processes that are required to prepare raw _XMM_ data for scientific use. The analogous 
+eROSITA Science Analysis Software System (eSASS; @erosita) must also be mentioned, as it provides the tools needed to
+reduce and prepare eROSITA data. 
+
+
+
+[Daxa]{.smallcaps} is much greater than the sum of its parts, but would not have been possible without the existing
+software packages it builds upon.
 
 # Research projects using DAXA
 
