@@ -84,11 +84,19 @@ low-energy sensitivity that limits possible science cases; these missions cannot
 missions like Swift, NuSTAR, and XRISM, then archival data (and serendipitous studies) take on an even greater value
 than they already hold. [Daxa]{.smallcaps} is part of an ecosystem of open-source software designed around the concept 
 of enabling serendipitous studies of X-ray emitting objects, and can download and prepare X-ray observations for use
-with tools like 'X-ray: Generate and Analyse' ([Xga]{.smallcaps}) [@xga]. X-ray observations are perfectly suited
+with tools like 'X-ray: Generate and Analyse' ([Xga]{.smallcaps}; @xga). X-ray observations are perfectly suited
 for the kind of archival study facilitated by [Daxa]{.smallcaps} and [Xga]{.smallcaps}, as they generally record the
 time, position, and energy of each individual photon impacting the detector; this means that we can create images, 
-lightcurves, and spectra for any object within the field-of-view, even if it was not the target.
+lightcurves, and spectra for any object within the field-of-view, even if it was not the target. With this software, we
+can enable the maximum exploitation of existing X-ray archives, both to traverse the X-ray desert and to ensure that we 
+are fully prepared for future X-ray telescopes such as Athena and Lynx. Having easy access to the whole history of 
+X-ray observations of an object can provide extra context as to its astrophysics, and comes at no extra cost.
 
+Finally, [Daxa]{.smallcaps} can be used to further one of the tenets of open-source science, reproducibility. Its 
+management features both allow the user to keep track of their dataset, but also to version control it. If more data
+become available, or existing data need to be reprocessed, then the version of the dataset can be automatically 
+updated. Research publications can thus reference an exact version of a dataset, which can be reproduced without
+offering the whole dataset for download, which is often impractical.
 
 [^*]: turne540@msu.edu
 
