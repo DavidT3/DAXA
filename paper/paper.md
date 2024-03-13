@@ -76,13 +76,19 @@ maximise. Our software is particularly powerful in this regard, as it provides a
 different backend software packages, allowing for the easy processing of X-ray data to a scientifically useful 
 state; this is in addition to the ability to download pre-processed data from many of the data archives.
 
-Almost every sub-field of astronomy, astrophysics, and cosmology has 
-benefited significantly from X-ray coverage over the last three decades. The current workhorse X-ray observatories 
-(_XMM_-Newton and _Chandra_; other telescopes are online but are not as generally useful) are ageing however, with 
-_Chandra_ in particular experiencing a decline in low-energy sensitivity that limits possible science cases; these 
-missions cannot last forever. 
+Almost every sub-field of astronomy, astrophysics, and cosmology has benefited significantly from X-ray coverage over 
+the last three decades. The current workhorse X-ray observatories (_XMM_-Newton and _Chandra_; other telescopes are 
+online but are not as generally useful) are ageing however, with _Chandra_ in particular experiencing a decline in 
+low-energy sensitivity that limits possible science cases; these missions cannot last forever. If we are to enter an 
+'X-ray desert', where the astrophysics community has only limited access to new X-ray observations from specialised 
+missions like Swift, NuSTAR, and XRISM, then archival data (and serendipitous studies) take on an even greater value
+than they already hold. [Daxa]{.smallcaps} is part of an ecosystem of open-source software designed around the concept 
+of enabling serendipitous studies of X-ray emitting objects, and can download and prepare X-ray observations for use
+with tools like 'X-ray: Generate and Analyse' ([Xga]{.smallcaps}) [@xga]. X-ray observations are perfectly suited
+for the kind of archival study facilitated by [Daxa]{.smallcaps} and [Xga]{.smallcaps}, as they generally record the
+time, position, and energy of each individual photon impacting the detector; this means that we can create images, 
+lightcurves, and spectra for any object within the field-of-view, even if it was not the target.
 
-Testing [@xga]
 
 [^*]: turne540@msu.edu
 
