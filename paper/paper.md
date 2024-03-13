@@ -105,7 +105,13 @@ offering the whole dataset for download.
 [Daxa]{.smallcaps} contains two types of class, mission classes and the archive class. Mission classes directly 
 represent a telescope, or in some cases a particular use of a telescope (for instance there are separate classes for 
 pointed and survey observations taken by _ROSAT_, as the characteristics of the data are quite different), and exist
-to provide a Python interface with the up-to-date telescope observation database. Such mission classes  
+to provide a Python interface with the up-to-date telescope observation database. Such mission classes allow the user
+to easily identify data relevant to their objects of interest (both individual and samples) with various filtering 
+methods (it is also possible to download the entire archive of a telescope); these include filtering on spatial 
+position (determining whether a coordinate of interest is within the field-of-view), filtering on the time of the 
+observation (also filtering on whether a specific coordinate was observed at a specific time, for whole samples with 
+different coordinates and times of interest), and filtering on specific observation identifiers (ObsIDs) if they 
+are already known.
 
 Archive class
 
@@ -182,9 +188,5 @@ Program (NASA80NSSC22K0476). KR and PG acknowledge support from the UK Science a
 grants ST/T000473/1 and ST/X001040/1.
 
 ADD JESS' STFC CODE
-
-DO I INCLUDE THIS?? We acknowledge contributions to the _XMM_ Cluster Survey from A. Bermeo, M. Hilton, P. J. Rooney, 
-S. Bhargava, L. Ebrahimpour, R. G. Mann, M. Manolopoulou, J. Mayers, E. W. Upsdell, C. Vergara, P. T. P. Viana, 
-R. Wilkinson, C. A. Collins, R. C. Nichol, J. P. Stott, and others.
 
 # References
