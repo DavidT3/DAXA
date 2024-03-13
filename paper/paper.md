@@ -96,12 +96,20 @@ Finally, [Daxa]{.smallcaps} can be used to further one of the tenets of open-sou
 management features both allow the user to keep track of their dataset, but also to version control it. If more data
 become available, or existing data need to be reprocessed, then the version of the dataset can be automatically 
 updated. Research publications can thus reference an exact version of a dataset, which can be reproduced without
-offering the whole dataset for download, which is often impractical.
+offering the whole dataset for download.
 
 [^*]: turne540@msu.edu
 
 # Features
 
+[Daxa]{.smallcaps} contains two types of class, mission classes and the archive class. Mission classes directly 
+represent a telescope, or in some cases a particular use of a telescope (for instance there are separate classes for 
+pointed and survey observations taken by _ROSAT_, as the characteristics of the data are quite different), and exist
+to provide a Python interface with the up-to-date telescope observation database. Such mission classes  
+
+Archive class
+
+Data management
 
 # Existing software packages
 
