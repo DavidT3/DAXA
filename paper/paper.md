@@ -26,12 +26,6 @@ authors:
   - name: Megan Donahue
     orcid: 0000-0002-2808-0853
     affiliation: 1
-  - name: Paul A. Giles
-    orcid: 0000-0003-4937-8453
-    affiliation: 2
-  - name: Kathy Romer
-    orcid: 0000-0002-9328-879X
-    affiliation: 2
   - name: Agrim Gupta
     affiliation: 1
   - name: Toby Wallage
@@ -41,7 +35,7 @@ affiliations:
     index: 1
   - name: Department of Physics and Astronomy, University of Sussex, Brighton, UK
     index: 2
-date: 13 March 2024
+date: 14 March 2024
 bibliography: paper.bib
 ---
 
