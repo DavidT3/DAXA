@@ -199,9 +199,9 @@ instrument-specific effects.
 
 # Acknowledgements
 DT and MD are grateful for support from the National Aeronautic and Space Administration Astrophysics Data Analysis 
-Program (NASA80NSSC22K0476). KR and PG acknowledge support from the UK Science and Technology Facilities Council via 
-grants ST/T000473/1 and ST/X001040/1.
+Program (NASA80NSSC22K0476). 
 
-ADD JESS' STFC CODE
+KR and PG acknowledge support from the UK Science and Technology Facilities Council via grants ST/T000473/1 and ST/X001040/1.
+JP acknowledges support from the UK Science and Technology Facilities Council via grants ST/X508822/1.
 
 # References
