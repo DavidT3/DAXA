@@ -174,14 +174,13 @@ mentioned.
 
 # Research projects using DAXA
 
-[Daxa]{.smallcaps}'s feature-set has reached a minimum viable product level, and has been useful for several research 
-projects over different collaborations; we anticipate that the number of research projects benefiting from it will
-increase significantly. The primary use to which [Daxa]{.smallcaps} has been put is to assemble the multi-mission 
-X-ray dataset (_XMM_, _Chandra_, _eROSITA_, _Swift_, and _ROSAT_) for the X-ray follow-up component of the Local Volume
-Complete Cluster Survey (LoVoCCS). It was used to identify the relevant observations, download, and process them, as 
-well as to organise the significant number of files and make it easier for the dataset to be served to the X-ray 
-community. Construction and administration of such large, complicated, multi-mission datasets is rendered quick and
-easy.
+[Daxa]{.smallcaps} has been useful for several research projects by different collaborations, and we anticipate that 
+the number of research projects benefiting from its features will increase significantly. The primary use to which 
+[Daxa]{.smallcaps} has been put is to assemble the multi-mission X-ray dataset (_XMM_, _Chandra_, _eROSITA_, _Swift_, 
+and _ROSAT_) for the X-ray follow-up component of the Local Volume Complete Cluster Survey (LoVoCCS; @lovoccsI, @xlovoccs). It was used to 
+identify the relevant observations, download, and process them, as well as to organise the significant number of files 
+and make it easier for the dataset to be served to the X-ray community. Construction and administration of such 
+large, complicated, multi-mission datasets is rendered quick and easy.
 
 The X-ray Cluster Science (XCS; formerly known as the _XMM_ Cluster Survey) collaboration now uses [Daxa]{.smallcaps} to
 create and manage their processed X-ray archive; particularly useful is [Daxa]{.smallcaps}'s support for telescopes 
