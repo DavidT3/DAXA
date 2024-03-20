@@ -40,7 +40,7 @@ affiliations:
   - name: Department of Physics and Astronomy, Michigan State University, East Lansing, Michigan, USA
     index: 1
   - name: Department of Physics and Astronomy, University of Sussex, Brighton, UK
-    index: 2a
+    index: 2
 date: 20 March 2024
 bibliography: paper.bib
 ---
@@ -55,7 +55,7 @@ preserving low-level control of processing for X-ray experts. The package is use
 observations of a single object of interest, but it excels at creating and managing multi-mission datasets for 
 serendipitous or targeted studies of large samples of X-ray emitting objects. Once relevant observations are 
 identified, the raw data can be downloaded (and optionally processed) through [Daxa]{.smallcaps}, or pre-processed 
-event lists, images, and exposure maps can be downloaded if they are available. As we may enter an 'X-ray desert', with 
+event lists, images, and exposure maps can be downloaded if they are available. As we may enter an `X-ray desert', with 
 no new X-ray missions coming online, during the next decade, archival data is going to take on an even greater 
 importance than it already has, and enhanced access to those archives will be vital to the continuation of X-ray
 astronomy.
