@@ -80,7 +80,9 @@ to a scientifically useful state; this is in addition to the ability to download
 data archives.
 
 Almost every sub-field of astronomy, astrophysics, and cosmology has benefited significantly from X-ray coverage over 
-the last three decades. The current workhorse X-ray observatories (_XMM_-Newton and _Chandra_; other telescopes are 
+the last three decades; calibrating weak-lensing mis-centering for galaxy cluster studies [@miscen], identifying 
+**...COME UP WITH MORE IMPORTANT X-RAY PAPERS**, even probing the irradiation of exoplanets [@xrayirrexo]. The 
+current workhorse X-ray observatories (_XMM_-Newton and _Chandra_; other telescopes are 
 online but are not as generally useful) are ageing however, with _Chandra_ in particular experiencing a decline in 
 low-energy sensitivity that limits possible science cases; these missions cannot last forever. If we are to enter an 
 'X-ray desert', where the astrophysics community has only limited access to new X-ray observations from specialised 
