@@ -131,18 +131,18 @@ expand); fine control of the parameters that control these processes is retained
 behaviours can be used if the user is unfamiliar with the minutiae of X-ray data preparation. Another key benefit of
 reducing data with [Daxa]{.smallcaps} is the easy access to data logs through our interface, in case of 
 suspected problems during the reduction processes. The module is also capable of safely handling processing 
-failures, simply recording at which processing step the failure occurred for a particular ObsID. 
+failures, recording at which processing step the failure occurred for a particular ObsID. 
 
 All of this information is retained permanently, not just while the initial [Daxa]{.smallcaps} processes are 
-running. Any [Daxa]{.smallcaps} archive can be loaded back into memory after the fact, once again providing access 
-to the stored log information. At this point the archives can also be updated, either by searching for new data from
-the existing missions, adding data from a different mission, or re-processing specific observations to achieve more
-scientifically useful data. Any such change will be recorded, and processed observations version controlled, so that 
-the data archive can have a specific version that refers to its exact state at any given time; this version can be
-referred to in published work using the data archive. Each data archive is also capable of creating a file that
-other [Daxa]{.smallcaps} users can import, and which will recreate the data archive by downloading the same data, and
-processing it in the same way; this renders making fully processed, and large, X-ray data files available with 
-a piece of research is unnecessary.
+running. Any [Daxa]{.smallcaps} archive can be loaded back in after the initial processing, once again providing access 
+to the stored logs, and processing information. At this point the archives can also be updated, either by searching 
+for new data from the existing missions, adding data from a different mission, or re-processing specific observations 
+to achieve more scientifically useful data. Any such change will be recorded in the archive history, and processed 
+observations version controlled, so that the data archive can have a specific version that refers to its exact state 
+at any given time; this version can be referred to in published work using the data archive. Each data archive is also 
+capable of creating a file that other [Daxa]{.smallcaps} users can import, and which will recreate the data archive by 
+downloading the same data, and processing it in the same way; this renders making fully processed, and large, X-ray 
+data files available with a piece of research unnecessary.
 
 # Existing software packages
 
