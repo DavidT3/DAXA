@@ -26,6 +26,12 @@ authors:
   - name: Megan Donahue
     orcid: 0000-0002-2808-0853
     affiliation: 1
+  - name: Paul A. Giles
+    orcid: 0000-0003-4937-8453
+    affiliation: 2
+  - name: Kathy Romer
+    orcid: 0000-0002-9328-879X
+    affiliation: 2
   - name: Agrim Gupta
     affiliation: 1
   - name: Toby Wallage
@@ -35,23 +41,24 @@ affiliations:
     index: 1
   - name: Department of Physics and Astronomy, University of Sussex, Brighton, UK
     index: 2
-date: 14 March 2024
+date: 20 March 2024
 bibliography: paper.bib
 ---
 
 # Summary
 We introduce a new, open-source, Python module for the acquisition and processing of archival data from multiple X-ray 
 telescopes, Democratising Archival X-ray Astronomy (hereafter referred to as [Daxa]{.smallcaps}). The aim of 
-[Daxa]{.smallcaps} is to provide a consistent, easy-to-use, Python interface with the disparate X-ray telescope data 
+[Daxa]{.smallcaps} is to provide a consistent, easy-to-use, Python interface to the disparate X-ray telescope data 
 archives, and their processing packages. We provide this interface for the majority of X-ray telescopes launched 
 within the last 30 years. This module will enable much greater access to X-ray data for non-specialists, while 
 preserving low-level control of processing for X-ray experts. The package is useful for identifying relevant 
 observations of a single object of interest, but it excels at creating and managing multi-mission datasets for 
-serendipitous studies of large samples of X-ray emitting objects. Once relevant observations are identified, the raw 
-data can be downloaded (and optionally processed) through [Daxa]{.smallcaps}, or pre-processed event lists, images, and 
-exposure maps can be downloaded if they are available. As we may enter an 'X-ray desert', with no new 
-missions coming online, within the next decade, archival data is going to take on an even greater importance than
-it already has, and easy access to those archives will be vital to the continuation of X-ray astronomy.
+serendipitous or targeted studies of large samples of X-ray emitting objects. Once relevant observations are 
+identified, the raw data can be downloaded (and optionally processed) through [Daxa]{.smallcaps}, or pre-processed 
+event lists, images, and exposure maps can be downloaded if they are available. As we may enter an 'X-ray desert', with 
+no new X-ray missions coming online, during the next decade, archival data is going to take on an even greater 
+importance than it already has, and enhanced access to those archives will be vital to the continuation of X-ray
+astronomy.
 
 # Statement of need
 
@@ -75,15 +82,15 @@ the last three decades. The current workhorse X-ray observatories (_XMM_-Newton 
 online but are not as generally useful) are ageing however, with _Chandra_ in particular experiencing a decline in 
 low-energy sensitivity that limits possible science cases; these missions cannot last forever. If we are to enter an 
 'X-ray desert', where the astrophysics community has only limited access to new X-ray observations from specialised 
-missions like Swift, NuSTAR, and XRISM, then archival data (and serendipitous studies) take on an even greater value
-than they already hold. [Daxa]{.smallcaps} is part of an ecosystem of open-source software designed around the concept 
-of enabling serendipitous studies of X-ray emitting objects, and can download and prepare X-ray observations for use
-with tools like 'X-ray: Generate and Analyse' ([Xga]{.smallcaps}; @xga). X-ray observations are perfectly suited
+missions like _Swift_, _NuSTAR_, and _XRISM_, then archival data (and serendipitous studies) take on an even greater 
+value than they already hold. [Daxa]{.smallcaps} is part of an ecosystem of open-source software designed around the 
+concept of enabling serendipitous studies of X-ray emitting objects, and can download and prepare X-ray observations 
+for use with tools like 'X-ray: Generate and Analyse' ([Xga]{.smallcaps}; @xga). X-ray observations are perfectly suited
 for the kind of archival study facilitated by [Daxa]{.smallcaps} and [Xga]{.smallcaps}, as they generally record the
 time, position, and energy of each individual photon impacting the detector; this means that we can create images, 
 lightcurves, and spectra for any object within the field-of-view, even if it was not the target. With this software, we
 can enable the maximum exploitation of existing X-ray archives, both to traverse the X-ray desert and to ensure that we 
-are fully prepared for future X-ray telescopes such as Athena and Lynx. Having easy access to the whole history of 
+are fully prepared for future X-ray telescopes such as _Athena_ and _Lynx_. Having easy access to the whole history of 
 X-ray observations of an object can provide extra context as to its astrophysics, and comes at no extra cost.
 
 Finally, [Daxa]{.smallcaps} can be used to further one of the tenets of open-source science, reproducibility. Its 
@@ -146,8 +153,8 @@ Also worthy of mention are the various telescope-specific software packages that
 to perform data preparation and cleaning. Particularly important are the _XMM_ Science Analysis System (SAS; @sas) and 
 the complementary extended SAS (eSAS; @esascook) packages, which allow us to provide simple Python interfaces to the
 complex, multi-step, processes that are required to prepare raw _XMM_ data for scientific use. The analogous 
-eROSITA Science Analysis Software System (eSASS; @erosita) must also be mentioned, as it provides the tools needed to
-reduce and prepare eROSITA data. In this vein we must also mention the HEASoft package, which is almost ubiquitous in
+_eROSITA_ Science Analysis Software System (eSASS; @erosita) must also be mentioned, as it provides the tools needed to
+reduce and prepare _eROSITA_ data. In this vein we must also mention the HEASoft package, which is almost ubiquitous in
 X-ray data analyses, and is used by both SAS and eSASS.
 
 Another related software package is the other module in our open-source X-ray astronomy ecosystem, X-ray: Generate 
@@ -172,7 +179,7 @@ easy.
 
 The X-ray Cluster Science (XCS; formerly known as the _XMM_ Cluster Survey) collaboration now uses [Daxa]{.smallcaps} to
 create and manage their processed X-ray archive; particularly useful is [Daxa]{.smallcaps}'s support for telescopes 
-other than XMM, which has allowed the serendipitous science undertaken by XCS to expand to the use of different 
+other than _XMM_, which has allowed the serendipitous science undertaken by XCS to expand to the use of different 
 telescopes. These telescopes are complementary to _XMM_, and also increase the sky coverage, which in turn increases
 the likelihood that an object of interest has an accessible X-ray observation.
 
