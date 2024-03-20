@@ -85,8 +85,8 @@ the last three decades; calibrating weak-lensing mis-centering for galaxy cluste
 current workhorse X-ray observatories (_XMM_-Newton [@xmm] and _Chandra_); other telescopes are 
 online but are not as generally useful) are ageing however, with _Chandra_ in particular experiencing a decline in 
 low-energy sensitivity that limits possible science cases; these missions cannot last forever. If we are to enter an 
-`X-ray desert`, where the astrophysics community has only limited access to new X-ray observations from specialised 
-missions like _Swift_[@swift], _NuSTAR_[@nustar], and _XRISM_[@xrism], then archival data (and serendipitous studies) 
+X-ray desert, where the astrophysics community has only limited access to new X-ray observations from specialised 
+missions like _Swift_ [@swift], _NuSTAR_ [@nustar], and _XRISM_ [@xrism], then archival data (and serendipitous studies) 
 take on an even greater value than they already hold. [Daxa]{.smallcaps} is part of an ecosystem of open-source software 
 designed around the 
 concept of enabling serendipitous studies of X-ray emitting objects, and can download and prepare X-ray observations 
@@ -95,7 +95,7 @@ for the kind of archival study facilitated by [Daxa]{.smallcaps} and [Xga]{.smal
 time, position, and energy of each individual photon impacting the detector; this means that we can create images, 
 lightcurves, and spectra for any object within the field-of-view, even if it was not the target. With this software, we
 can enable the maximum exploitation of existing X-ray archives, both to traverse the `X-ray desert' and to ensure that we 
-are fully prepared for future X-ray telescopes such as _Athena_[@athena] and _Lynx_[@lynx]. Having easy access to the whole history of 
+are fully prepared for future X-ray telescopes such as _Athena_ [@athena] and _Lynx_ [@lynx]. Having easy access to the whole history of 
 X-ray observations of an object can provide extra context as to its astrophysics, and comes at no extra cost.
 
 Finally, [Daxa]{.smallcaps} can be used to further one of the tenets of open-source science, reproducibility. Its 
@@ -110,7 +110,7 @@ offering the whole dataset for download.
 
 [Daxa]{.smallcaps} contains two types of class, mission classes and the archive class. Mission classes directly 
 represent a telescope, or in some cases a particular use of a telescope (for instance there are separate classes for 
-pointed and survey observations taken by _ROSAT_, as the characteristics of the data are quite different), and exist
+pointed and survey observations taken by _ROSAT_ [@rosat], as the characteristics of the data are quite different), and exist
 to provide a Python interface with the up-to-date telescope observation database. Such mission classes allow the user
 to easily identify data relevant to their objects of interest (both individual and samples) with various filtering 
 methods (it is also possible to download the entire archive of a telescope); these include filtering on spatial 
