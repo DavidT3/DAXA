@@ -40,7 +40,7 @@ affiliations:
   - name: Department of Physics and Astronomy, Michigan State University, East Lansing, Michigan, USA
     index: 1
   - name: Department of Physics and Astronomy, University of Sussex, Brighton, UK
-    index: 2
+    index: 2a
 date: 20 March 2024
 bibliography: paper.bib
 ---
@@ -62,20 +62,22 @@ astronomy.
 
 # Statement of need
 
-The study of X-ray emission from astrophysical objects provides a powerful view of some of the most extreme processes 
-in the Universe, has had a profound impact on our understanding of many types of objects; from in-solar-system 
-objects, to supernovae, to galaxies and galaxy clusters. As such, access to X-ray data should be made as simple as possible, 
-both for X-ray experts and to those non-specialists whose research could benefit from examining their sources at 
-higher energies; organisations such as the European Space Agency (ESA) and the High Energy Astrophysics Science Archive 
-Research Center (HEASARC) have gone to great lengths to enable this access, and we have built on their success to 
-create our software. Through [Daxa]{.smallcaps}, all major X-ray observatory observation archives are accessible 
-through a single unified interface available in a programming language that is almost ubiquitous in astronomy 
-(Python), and can be searched in a variety of ways to find only the data relevant to objects in a particular 
-study. X-ray data can be particularly intimidating to those astronomers who have not used it before, which acts
-as a barrier to entry, limiting the reach and scientific of X-ray telescopes, things we should be striving to 
-maximise. Our software is particularly powerful in this regard, as it provides a normalised and simple interface to 
-different backend software packages, allowing for the easy processing of X-ray data to a scientifically useful 
-state; this is in addition to the ability to download pre-processed data from many of the data archives.
+X-ray observations provide a powerful view of some of the most extreme processes in the Universe, and have had a 
+profound impact on our understanding of many types of astrophysical objects; from in-solar-system objects, to 
+supernovae, to galaxies and galaxy clusters. As such, access to X-ray data should be made as simple as possible, 
+both for X-ray experts and non-specialists whose research benefits from a high-energy view; organisations such as 
+the European Space Agency (ESA) and the High Energy Astrophysics Science Archive Research Center (HEASARC) have gone 
+to great lengths to enable this access, and our software builds on their success. Through [Daxa]{.smallcaps}, most 
+X-ray observatory archives are accessible through a single unified interface available in a programming language 
+that is ubiquitous in astronomy (Python); locally searching for data relevant to a particular sample gives us the 
+opportunity to better record and share the exact search parameters, through a Jupyter notebook for instance. X-ray data 
+can also be particularly intimidating to those astronomers who have not used it before, which acts as a barrier to 
+entry, limiting the reach and scientific impact of X-ray telescopes; it is in our interest to maximise the
+use of these data, both to support X-ray astronomy through the X-ray desert, and to persuade funding bodies of the 
+great need for X-ray telescopes. [Daxa]{.smallcaps} is particularly powerful in this regard, as it provides a 
+normalised, simple, interface to different backend software packages, allowing for the easy processing of X-ray data 
+to a scientifically useful state; this is in addition to the ability to download pre-processed data from many of the 
+data archives.
 
 Almost every sub-field of astronomy, astrophysics, and cosmology has benefited significantly from X-ray coverage over 
 the last three decades. The current workhorse X-ray observatories (_XMM_-Newton and _Chandra_; other telescopes are 
