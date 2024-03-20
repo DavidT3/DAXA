@@ -85,7 +85,7 @@ the last three decades; calibrating weak-lensing mis-centering for galaxy cluste
 current workhorse X-ray observatories (_XMM_-Newton [@xmm] and _Chandra_); other telescopes are 
 online but are not as generally useful) are ageing however, with _Chandra_ in particular experiencing a decline in 
 low-energy sensitivity that limits possible science cases; these missions cannot last forever. If we are to enter an 
-`X-ray desert', where the astrophysics community has only limited access to new X-ray observations from specialised 
+`X-ray desert`, where the astrophysics community has only limited access to new X-ray observations from specialised 
 missions like _Swift_[@swift], _NuSTAR_[@nustar], and _XRISM_[@xrism], then archival data (and serendipitous studies) 
 take on an even greater value than they already hold. [Daxa]{.smallcaps} is part of an ecosystem of open-source software 
 designed around the 
