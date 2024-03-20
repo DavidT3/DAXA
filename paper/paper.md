@@ -122,17 +122,16 @@ characteristics of the telescope it represents (such as the field-of-view) to ma
 user can also select only a subset of instruments, if the telescope has more than one, to exclude any that may not 
 contribute to their analysis. 
 
-Once as set of relevant observations have been identified, for either a single mission or a set of missions, a 
-[Daxa]{.smallcaps} multi-mission data archive can be declared. This will automatically download the selected data from
-the various telescope archives, if the user had not already triggered that, and proceeds to ingest and organise the 
-data so that it can be managed (and if necessary, updated) through the [Daxa]{.smallcaps} interface. Within the
-Python interface it is easy to see and explore exactly what data files are available and for which observations. We
-have also implemented user-friendly, multi-threaded, data preparation and cleaning routines for some telescopes (_XMM_ 
-and _eROSITA_ in particular); fine control of the parameters that control these processes is retained, but default 
+Once a set of relevant observations have been identified, for either a single mission or a set of missions, a 
+[Daxa]{.smallcaps} data archive can be declared. This will automatically download the selected data from
+the various telescope archives, and proceeds to ingest and organise the data so that it can be managed (and if 
+necessary, updated) through the [Daxa]{.smallcaps} interface. We have also implemented user-friendly, multi-threaded, 
+data preparation and cleaning routines for some telescopes (_XMM_ and _eROSITA_ in particular, though this will 
+expand); fine control of the parameters that control these processes is retained, but default 
 behaviours can be used if the user is unfamiliar with the minutiae of X-ray data preparation. Another key benefit of
-reducing data with [Daxa]{.smallcaps} is the easy access to software logs through our interface, in case of suspected
-problems during the reduction processes. The module is also capable of safely handling processing failures, simply 
-recording at which processing step the failure occurred for a particular ObsID. 
+reducing data with [Daxa]{.smallcaps} is the easy access to data logs through our interface, in case of 
+suspected problems during the reduction processes. The module is also capable of safely handling processing 
+failures, simply recording at which processing step the failure occurred for a particular ObsID. 
 
 All of this information is retained permanently, not just while the initial [Daxa]{.smallcaps} processes are 
 running. Any [Daxa]{.smallcaps} archive can be loaded back into memory after the fact, once again providing access 
