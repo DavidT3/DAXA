@@ -147,7 +147,7 @@ data files available with a piece of research unnecessary.
 # Existing software packages
 
 There are no direct analogues to our module, though we must acknowledge the many pieces of software (and data
-archives), without which it would have been much more difficult to create [Daxa]{.smallcaps}. Data access is made 
+archives), that greatly helped the development of [Daxa]{.smallcaps}. Data access is made 
 possible primarily by the HEASARC data archive, though the Astroquery [@astroquery] package is also used. 
 HEASARC provides an online interface to query their data archive, which has similar functionality to some of the 
 filtering methods of mission classes in [Daxa]{.smallcaps} (though we provide slightly more functionality in 
@@ -159,17 +159,18 @@ to perform data preparation and cleaning. Particularly important are the _XMM_ S
 the complementary extended SAS (eSAS; @esascook) packages, which allow us to provide simple Python interfaces to the
 complex, multi-step, processes that are required to prepare raw _XMM_ data for scientific use. The analogous 
 _eROSITA_ Science Analysis Software System (eSASS; @erosita) must also be mentioned, as it provides the tools needed to
-reduce and prepare _eROSITA_ data. In this vein we must also mention the HEASoft package, which is almost ubiquitous in
-X-ray data analyses, and is used by both SAS and eSASS.
+reduce and prepare _eROSITA_ data. In this vein we must also acknowledge the HEASoft package, which is almost 
+ubiquitous in X-ray data analyses, and is used by both SAS and eSASS.
 
 Another related software package is the other module in our open-source X-ray astronomy ecosystem, X-ray: Generate 
 and Analyse ([Xga]{.smallcaps}; @xga). It has none of the same features as [Daxa]{.smallcaps}, as it exists to 
 analyse large sets of X-ray data, we created [Daxa]{.smallcaps} to create and manage the kind of dataset required for
-[Xga]{.smallcaps} to attain maximum usefulness.  
+[Xga]{.smallcaps} to attain maximum usefulness (though such datasets do not _have_ to be analysed with 
+[Xga]{.smallcaps}). 
 
-[Daxa]{.smallcaps} is much greater than the sum of its parts, but would not have been possible without the existing
-software packages it builds upon; we hope that it only enhances the value that astrophysicists derive from the other
-software we have mentioned.
+[Daxa]{.smallcaps} is greater than the sum of its parts, but is only possible because of the existing software packages
+it builds upon; we hope that it only enhances the value that astrophysicists derive from the other software we have 
+mentioned.
 
 # Research projects using DAXA
 
