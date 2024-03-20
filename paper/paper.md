@@ -195,7 +195,7 @@ packages are utilised, and will result in a comprehensive catalogue that is inva
 
 Finally, [Daxa]{.smallcaps} has been used to identify _XMM_ and _Chandra_ (alongside other telescopes, though they 
 play only a supporting role) observations of a series of galaxy groups that appear in the foreground of UV bright
-quasars. Absorption features that indicate the presence of Oxygen VI were identified in the spectra of several of 
+quasars [@ovigroups]. Absorption features that indicate the presence of Oxygen VI were identified in the spectra of several of 
 the quasars, and the data that [Daxa]{.smallcaps} identified and retrieved allowed for an exploration of the hot-gas
 properties of these groups.
 
