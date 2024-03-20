@@ -73,7 +73,7 @@ that is ubiquitous in astronomy (Python); locally searching for data relevant to
 opportunity to better record and share the exact search parameters, through a Jupyter notebook for instance. X-ray data 
 can also be particularly intimidating to those astronomers who have not used it before, which acts as a barrier to 
 entry, limiting the reach and scientific impact of X-ray telescopes; it is in our interest to maximise the
-use of these data, both to support X-ray astronomy through the X-ray desert, and to persuade funding bodies of the 
+use of these data, both to support X-ray astronomy through the `X-ray desert', and to persuade funding bodies of the 
 great need for X-ray telescopes. [Daxa]{.smallcaps} is particularly powerful in this regard, as it provides a 
 normalised, simple, interface to different backend software packages, allowing for the easy processing of X-ray data 
 to a scientifically useful state; this is in addition to the ability to download pre-processed data from many of the 
@@ -85,7 +85,7 @@ the last three decades; calibrating weak-lensing mis-centering for galaxy cluste
 current workhorse X-ray observatories (_XMM_-Newton and _Chandra_; other telescopes are 
 online but are not as generally useful) are ageing however, with _Chandra_ in particular experiencing a decline in 
 low-energy sensitivity that limits possible science cases; these missions cannot last forever. If we are to enter an 
-'X-ray desert', where the astrophysics community has only limited access to new X-ray observations from specialised 
+`X-ray desert', where the astrophysics community has only limited access to new X-ray observations from specialised 
 missions like _Swift_, _NuSTAR_, and _XRISM_, then archival data (and serendipitous studies) take on an even greater 
 value than they already hold. [Daxa]{.smallcaps} is part of an ecosystem of open-source software designed around the 
 concept of enabling serendipitous studies of X-ray emitting objects, and can download and prepare X-ray observations 
@@ -93,7 +93,7 @@ for use with tools like 'X-ray: Generate and Analyse' ([Xga]{.smallcaps}; @xga).
 for the kind of archival study facilitated by [Daxa]{.smallcaps} and [Xga]{.smallcaps}, as they generally record the
 time, position, and energy of each individual photon impacting the detector; this means that we can create images, 
 lightcurves, and spectra for any object within the field-of-view, even if it was not the target. With this software, we
-can enable the maximum exploitation of existing X-ray archives, both to traverse the X-ray desert and to ensure that we 
+can enable the maximum exploitation of existing X-ray archives, both to traverse the `X-ray desert' and to ensure that we 
 are fully prepared for future X-ray telescopes such as _Athena_ and _Lynx_. Having easy access to the whole history of 
 X-ray observations of an object can provide extra context as to its astrophysics, and comes at no extra cost.
 
