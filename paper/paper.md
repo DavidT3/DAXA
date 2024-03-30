@@ -79,8 +79,6 @@ normalised, simple, interface to different backend software packages (some of wh
 users), allowing for the easy processing of X-ray data to a scientifically useful state; this is in addition to the 
 ability to download pre-processed data from many of the data archives.
 
-![A flowchart giving a brief overview of the [Daxa]{.smallcaps} workflow. \label{fig:flowchart}](figures/daxa_paper_flowchart.pdf)
-
 Almost every sub-field of astronomy, astrophysics, and cosmology has benefited significantly from X-ray coverage over 
 the last three decades; calibrating weak-lensing mis-centering for galaxy cluster studies [@miscen], identifying 
 **...COME UP WITH MORE IMPORTANT X-RAY PAPERS**, even probing the irradiation of exoplanets [@xrayirrexo]. The 
@@ -100,6 +98,8 @@ enable the maximum exploitation of existing X-ray archives, to traverse the X-ra
 are fully prepared for future X-ray telescopes such as _Athena_ [@athena] and _Lynx_ [@lynx]. Having easy access to the 
 whole history of X-ray observations of an object can provide extra context as to its astrophysics, and comes at no 
 extra cost.
+
+![A flowchart giving a brief overview of the [Daxa]{.smallcaps} workflow. \label{fig:flowchart}](figures/daxa_paper_flowchart.pdf)
 
 Finally, [Daxa]{.smallcaps} can be used to further one of the tenets of open-source science, reproducibility. Its 
 management features both allow the user to keep track of their dataset, but also to version control it. If more data
