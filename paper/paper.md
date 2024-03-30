@@ -144,6 +144,8 @@ capable of creating a file that other [Daxa]{.smallcaps} users can import, and w
 downloading the same data, and processing it in the same way; this renders making fully processed, and large, X-ray 
 data files available with a piece of research unnecessary.
 
+![A flowchart giving a brief overview of the [Daxa]{.smallcaps} workflow. \label{fig:flowchart}](figures/daxa_paper_flowchart.pdf)
+
 # Existing software packages
 
 There are no direct analogues to our module, though we must acknowledge the many pieces of software (and data
