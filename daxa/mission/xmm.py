@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/08/2023, 15:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 12:06. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -475,3 +475,24 @@ class XMMPointed(BaseMission):
         to_return.update({inst: {} for inst in insts if 'exposures' not in obs_info[inst]})
 
         return to_return
+
+    def ident_to_obsid(self, ident: str):
+        """
+        A slightly unusual abstract method which will allow each mission convert a unique identifier being used
+        in the processing steps to the ObsID (as these unique identifiers will contain the ObsID). This is necessary
+        because XMM, for instance, has processing steps that act on whole ObsIDs (e.g. cifbuild), and processing steps
+        that act on individual sub-exposures of instruments of ObsIDs, so the ID could be '0201903501M1S001'.
+
+        Implemented as an abstract method because the unique identifier style may well be different for different
+        missions - many will just always be the ObsID, but we want to be able to have low level control.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param str ident: The unique identifier used in a particular processing step.
+        """
+        # The XMM unique processing identifiers can take a few forms - the simplest is just the ObsID, the second
+        #  simplest is ObsID + two character instrument identifier (e.g. 0201903501PN), and the final layer of
+        #  complexity is where there is a sub-exposure identifier as well (e.g. 0201903501PNS003).
+        # Thankfully, all XMM ObsIDs are 10 digits long, so we're just going to take the first 10 digits
+        return ident[:10]
