@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 26/01/2024, 14:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 12:24. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -399,6 +399,17 @@ class Archive:
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
                 self._process_logs[mn][pr_name] = log_info[mn]
+                # You'll note that we're only storing these log files if there isn't already an entry - I'm trying
+                #  to be R/W conscious, but this may also get more sophisticated in the future, when version control
+                #  comes more into play and archives are updatable
+                for en in log_info[mn]:
+                    # Calling this method of the mission ensures that the identifier (for instance
+                    #  0201903501PNS003) is just reduced to the ObsID
+                    oi = self[mn].ident_to_obsid(en)
+                    log_pth = self.get_processed_data_path(mn, oi) + 'logs/'
+                    log_pth += "{pn}_{ui}_stdout.log".format(ui=en, pn=pr_name)
+                    with open(log_pth, 'w') as loggo:
+                        loggo.write(log_info[mn][en])
 
     @property
     def process_extra_info(self) -> dict:
