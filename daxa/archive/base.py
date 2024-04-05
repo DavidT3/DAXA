@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 12:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 13:11. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -357,6 +357,17 @@ class Archive:
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
                 self._process_raw_errors[mn][pr_name] = error_info[mn]
+                # I'm checking to make sure that there is actually a non-null entry, as hopefully for most of them
+                #  there will be no stderr! And why make empty files when we don't need too
+                for en in error_info[mn]:
+                    if len(error_info[mn][en]) != 0:
+                        # Calling this method of the mission ensures that the identifier (for instance
+                        #  0201903501PNS003) is just reduced to the ObsID
+                        oi = self[mn].ident_to_obsid(en)
+                        log_pth = self.get_processed_data_path(mn, oi) + 'logs/'
+                        log_pth += "{pn}_{ui}_stderr.log".format(ui=en, pn=pr_name)
+                        with open(log_pth, 'w') as loggo:
+                            loggo.write(error_info[mn][en])
 
     @property
     def process_logs(self) -> dict:
