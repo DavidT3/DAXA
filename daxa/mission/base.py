@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/02/2024, 11:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 11:50. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -1352,6 +1352,24 @@ class BaseMission(metaclass=ABCMeta):
 
         :param dict obs_info: The multi-level dictionary containing available observation information for an
             observation.
+        """
+        pass
+
+    @abstractmethod
+    def ident_to_obsid(self, ident: dict):
+        """
+        A slightly unusual abstract method which will allow each mission convert a unique identifier being used
+        in the processing steps to the ObsID (as these unique identifiers will contain the ObsID). This is necessary
+        because XMM, for instance, has processing steps that act on whole ObsIDs (e.g. cifbuild), and processing steps
+        that act on individual sub-exposures of instruments of ObsIDs, so the ID could be '0201903501M1S001'.
+
+        Implemented as an abstract method because the unique identifier style may well be different for different
+        missions - many will just always be the ObsID, but we want to be able to have low level control.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param str ident: The unique identifier used in a particular processing step.
         """
         pass
 
