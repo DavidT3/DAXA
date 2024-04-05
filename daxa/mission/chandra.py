@@ -626,3 +626,22 @@ class Chandra(BaseMission):
         raise NotImplementedError("The check_process_obs method has not yet been implemented for Chandra, as we need "
                                   "to see what detailed information are available once processing downloaded data has"
                                   "begun.")
+
+    def ident_to_obsid(self, ident: str):
+        """
+        A slightly unusual abstract method which will allow each mission convert a unique identifier being used
+        in the processing steps to the ObsID (as these unique identifiers will contain the ObsID). This is necessary
+        because XMM, for instance, has processing steps that act on whole ObsIDs (e.g. cifbuild), and processing steps
+        that act on individual sub-exposures of instruments of ObsIDs, so the ID could be '0201903501M1S001'.
+
+        Implemented as an abstract method because the unique identifier style may well be different for different
+        missions - many will just always be the ObsID, but we want to be able to have low level control.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param str ident: The unique identifier used in a particular processing step.
+        """
+        raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
+                                  "clear to me what form the unique identifiers will take once we start processing"
+                                  "{n} data ourselves.".format(n=self.pretty_name))
