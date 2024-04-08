@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 10:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 10:17. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -572,12 +572,15 @@ class BaseMission(metaclass=ABCMeta):
         """
         return bool(re.match(self.id_regex, obs_id_to_check))
 
-    def check_inst_names(self, insts: Union[List[str], str]):
+    def check_inst_names(self, insts: Union[List[str], str], error_on_bad_inst: bool = True):
         """
-        An internal function to perform some checks on the validity of chosen instrument names for a given mission.
+        A method to perform some checks on the validity of chosen instrument names for a given mission.
 
         :param List[str]/str insts: Instrument names that are to be checked for the current mission, either a single
             name or a list of names.
+        :param bool error_on_bad_inst: Controls whether an exception is raised if the instrument(s) aren't actually
+            associated with this mission - intended for DAXA checking operations (see 'get_process_logs' of Archive
+            for an example). Default is True.
         :return: The list of instruments (possibly altered to match formats expected by this module).
         :rtype: List
         """
@@ -627,10 +630,12 @@ class BaseMission(metaclass=ABCMeta):
         #  particular mission
         inst_test = [i in self._miss_poss_insts for i in updated_insts]
         # If some aren't then we throw an error (hopefully quite an informative one).
-        if not all(inst_test):
+        if not all(inst_test) and error_on_bad_inst:
             bad_inst = np.array(updated_insts)[~np.array(inst_test)]
             raise ValueError("Some instruments ({bi}) are not associated with this mission, please choose from "
                              "the following; {ai}".format(bi=", ".join(bad_inst), ai=", ".join(self._miss_poss_insts)))
+        elif not all(inst_test) and not error_on_bad_inst:
+            updated_insts = [i for i in updated_insts if i in self._miss_poss_insts]
 
         # Return the possibly altered instruments
         return updated_insts
