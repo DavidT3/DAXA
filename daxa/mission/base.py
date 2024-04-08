@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 18:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 19:38. Copyright (c) The Contributors
 import json
 import os.path
 import re
@@ -1366,7 +1366,7 @@ class BaseMission(metaclass=ABCMeta):
 
         # This is where we set up the dictionary of information that will actually be saved - all the information
         #  common to all mission classes at least. Some will be None for most missions (like chosen field)
-        mission_data = {'chos_inst': self.chosen_instruments, 'chos_field': self._chos_fields,
+        mission_data = {'name': self.name, 'chos_inst': self.chosen_instruments, 'chos_field': self._chos_fields,
                         'downloaded_type': self._download_type, 'cur_date': str(datetime.today())}
 
         # The currently selected data need some more specialist treatment - we can't just save the filter
