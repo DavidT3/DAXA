@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2023, 11:45. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 17:29. Copyright (c) The Contributors
 import shutil
 from functools import wraps
 from typing import Union, List
@@ -91,6 +91,10 @@ def _last_process(mission_names: Union[str, List[str]], obs_ident_num_comp: int)
 
                         # Then can use shutil to move the failed ObsID and whatever might be in the directory
                         shutil.move(cur_path, new_path)
+
+            # We automatically save after these checks - though there will have been a save at the end of the run of
+            #  whatever process triggered this final check
+            arch.save()
 
         return wrapper
     return last_process_function
