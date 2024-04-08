@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 10:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 11:15. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -621,11 +621,6 @@ class BaseMission(metaclass=ABCMeta):
             if inst_name not in updated_insts:
                 updated_insts.append(inst_name)
 
-        # I warn the user if the name(s) of instruments have been altered.
-        if altered:
-            warn("Some instrument names were converted to alternative forms expected by this module, the instrument "
-                 "names are now; {}".format(', '.join(updated_insts)))
-
         # This list comprehension checks that the input instrument names are in the allowed instruments for this
         #  particular mission
         inst_test = [i in self._miss_poss_insts for i in updated_insts]
@@ -633,9 +628,15 @@ class BaseMission(metaclass=ABCMeta):
         if not all(inst_test) and error_on_bad_inst:
             bad_inst = np.array(updated_insts)[~np.array(inst_test)]
             raise ValueError("Some instruments ({bi}) are not associated with this mission, please choose from "
-                             "the following; {ai}".format(bi=", ".join(bad_inst), ai=", ".join(self._miss_poss_insts)))
+                             "the following; {ai}".format(bi=", ".join(bad_inst),
+                                                          ai=", ".join(self._miss_poss_insts)))
         elif not all(inst_test) and not error_on_bad_inst:
             updated_insts = [i for i in updated_insts if i in self._miss_poss_insts]
+
+        # I warn the user if the name(s) of instruments have been altered.
+        if altered:
+            warn("Some instrument names were converted to alternative forms expected by this module, the instrument "
+                 "names are now; {}".format(', '.join(updated_insts)))
 
         # Return the possibly altered instruments
         return updated_insts
