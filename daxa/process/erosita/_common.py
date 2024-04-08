@@ -1,11 +1,11 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 11:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 17:28. Copyright (c) The Contributors
 import glob
 import os.path
 from enum import Flag
 from functools import wraps
 from multiprocessing.dummy import Pool
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, TimeoutExpired
 from typing import Tuple, List
 from warnings import warn
 
@@ -108,7 +108,7 @@ def _esass_process_setup(obs_archive: Archive) -> bool:
     checks to ensure that passed data common to multiple process function calls is suitable.
 
     :param Archive obs_archive: The observation archive passed to the processing function that called this function.
-    :return: A bool indicating whether or not eSASS is being used via Docker or not, set to True if Docker is being used. 
+    :return: A bool indicating whether eSASS is being used via Docker or not, set to True if Docker is being used.
     :rtype: Bool
     """
 
@@ -232,7 +232,7 @@ def esass_call(esass_func):
         obs_archive = args[0]
         obs_archive: Archive  # Just for autocomplete purposes in my IDE
 
-        # Seeing if any of the erosita missions in the archive have had any processing done yet
+        # Seeing if any of the erosita missions in the archive have had any processing done yet
         erosita_miss = [mission for mission in obs_archive if mission.name in ALLOWED_EROSITA_MISSIONS]
         for miss in erosita_miss:
             # Getting the process_logs for each mission
@@ -241,12 +241,14 @@ def esass_call(esass_func):
                 # If no processing has been done yet, we need to run the _prepare_erositacalpv_info function.
                 #   This will fill out the mission observation summaries, which are needed for later 
                 #   processing functions. It will also populate the _process_extra_info dictionary for the archive
-                #   with top level keys of the erositacalpv mission and lower level keys of obs_ids with lower level keys
+                #   with top level keys of the erositacalpv mission and lower level keys of obs_ids with
+                #   lower level keys
                 #   of 'path', which will store the raw data path for that obs id.
                 _prepare_erosita_info(obs_archive, miss)
 
         # This is the output from whatever function this is a decorator for
-        miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout, esass_in_docker = esass_func(*args, **kwargs)
+        (miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout,
+         esass_in_docker) = esass_func(*args, **kwargs)
 
         # Converting the timeout from whatever time units it is in, to seconds - but first checking that the user
         #  hasn't been daft and passed a non-time quantity
@@ -366,7 +368,8 @@ def esass_call(esass_func):
                         rel_fin_path = miss_final_paths[miss_name][rel_id]
                         rel_einfo = miss_extras[miss_name][rel_id]
 
-                        pool.apply_async(execute_cmd, args=(cmd, esass_in_docker, rel_id, miss_name, rel_fin_path, rel_einfo, timeout),
+                        pool.apply_async(execute_cmd, args=(cmd, esass_in_docker, rel_id, miss_name, rel_fin_path,
+                                                            rel_einfo, timeout),
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
@@ -380,5 +383,8 @@ def esass_call(esass_func):
         obs_archive.raw_process_errors = (esass_func.__name__, process_raw_stderrs)
         obs_archive.process_logs = (esass_func.__name__, process_stdouts)
         obs_archive.process_extra_info = (esass_func.__name__, process_einfo)
+
+        # We automatically save after every process run
+        obs_archive.save()
 
     return wrapper
