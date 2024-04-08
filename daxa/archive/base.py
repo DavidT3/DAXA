@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 11:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 11:53. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -1240,8 +1240,6 @@ class Archive:
                     # We pass in the instrument names to this function, which will make sure they are in the format we
                     #  need and remove any that can't be identified as matching the mission style
                     rel_insts = cur_miss.check_inst_names(inst, error_on_bad_inst=False)
-                    # We use lowercase for the identifiers, so we make sure our relevant instruments are in lowercase
-                    rel_insts = [ri.lower() for ri in rel_insts]
 
                     # Also want to make sure there is a failsafe if none of the instruments were valid
                     if len(rel_insts) == 0:
@@ -1266,11 +1264,11 @@ class Archive:
                     #  any of the specified instruments relevant to this mission are present in the unique identifier.
                     # It isn't elegant, but I think it should suffice
                     if (oi_res != ui_res and rel_insts is not None and any([ri in ui_res for ri in rel_insts]) and
-                            obs_id is None or (obs_id is not None and oi_res in obs_id)):
+                            (obs_id is None or (obs_id is not None and oi_res in obs_id))):
                         matches[out[0]].append(out[1][ui_res])
                     # To reach this case either the requested process doesn't use instrument names in its identifier
                     #  (i.e. it operates on a WHOLE ObsID), or no instruments were specified
-                    elif obs_id is None or (obs_id is not None and oi_res in obs_id):
+                    elif rel_insts is None and (obs_id is None or (obs_id is not None and oi_res in obs_id)):
                         matches[out[0]].append(out[1][ui_res])
 
         return matches
