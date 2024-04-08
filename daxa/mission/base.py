@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 11:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 10:02. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -260,7 +260,7 @@ class BaseMission(metaclass=ABCMeta):
         :param List[str] new_insts: The new list of instruments associated with this mission which should
             be processed into the archive.
         """
-        self._chos_insts = self._check_chos_insts(new_insts)
+        self._chos_insts = self.check_inst_names(new_insts)
 
     @property
     def top_level_path(self) -> str:
@@ -535,7 +535,44 @@ class BaseMission(metaclass=ABCMeta):
                                         "{at}".format(it=', '.join(tt_check),
                                                       at=', '.join(list(SRC_TYPE_TAXONOMY.keys()))))
 
-    def _check_chos_insts(self, insts: Union[List[str], str]):
+    @abstractmethod
+    def _fetch_obs_info(self):
+        """
+        The abstract method (i.e. will be overridden in every subclass of BaseMission) that pulls basic information
+        on all observations for a given mission down from whatever server it lives on.
+
+        NOTE - THE INDEX OF THE PANDAS DATAFRAME SHOULD BE RESET AT THE END OF EACH IMPLEMENTATION OF THIS
+        METHOD - e.g. obs_info_pd = obs_info_pd.reset_index(drop=True)
+        """
+        # self.all_obs_info = None
+        pass
+
+    # Then define user-facing methods
+    def reset_filter(self):
+        """
+        Very simple method which simply resets the filter array, meaning that all observations THAT HAVE BEEN
+        MARKED AS USABLE will now be downloaded and processed, and any filters applied to the current mission
+        have been undone.
+        """
+        self._filter_allowed = self.all_obs_info['science_usable'].values.copy()
+        # If the filter changes then we make sure download done is set to False so that any changes
+        #  in observation selection are reflected in the download call
+        self._download_done = False
+
+    def check_obsid_pattern(self, obs_id_to_check: str):
+        """
+        A simple method that will check an input ObsID against the ObsID regular expression pattern defined
+        for the current mission class. If the input ObsID is compliant with the regular expression then
+        True will be returned, if not then False will be returned.
+
+        :param str obs_id_to_check: The ObsID that we wish to check against the ID pattern.
+        :return: A boolean flag indicating whether the input ObsID is compliant with the ID regular expression.
+            True means that it is, False means it is not.
+        :rtype: bool
+        """
+        return bool(re.match(self.id_regex, obs_id_to_check))
+
+    def check_inst_names(self, insts: Union[List[str], str]):
         """
         An internal function to perform some checks on the validity of chosen instrument names for a given mission.
 
@@ -597,43 +634,6 @@ class BaseMission(metaclass=ABCMeta):
 
         # Return the possibly altered instruments
         return updated_insts
-
-    # Then define user-facing methods
-    @abstractmethod
-    def _fetch_obs_info(self):
-        """
-        The abstract method (i.e. will be overridden in every subclass of BaseMission) that pulls basic information
-        on all observations for a given mission down from whatever server it lives on.
-
-        NOTE - THE INDEX OF THE PANDAS DATAFRAME SHOULD BE RESET AT THE END OF EACH IMPLEMENTATION OF THIS
-        METHOD - e.g. obs_info_pd = obs_info_pd.reset_index(drop=True)
-        """
-        # self.all_obs_info = None
-        pass
-
-    def reset_filter(self):
-        """
-        Very simple method which simply resets the filter array, meaning that all observations THAT HAVE BEEN
-        MARKED AS USABLE will now be downloaded and processed, and any filters applied to the current mission
-        have been undone.
-        """
-        self._filter_allowed = self.all_obs_info['science_usable'].values.copy()
-        # If the filter changes then we make sure download done is set to False so that any changes
-        #  in observation selection are reflected in the download call
-        self._download_done = False
-
-    def check_obsid_pattern(self, obs_id_to_check: str):
-        """
-        A simple method that will check an input ObsID against the ObsID regular expression pattern defined
-        for the current mission class. If the input ObsID is compliant with the regular expression then
-        True will be returned, if not then False will be returned.
-
-        :param str obs_id_to_check: The ObsID that we wish to check against the ID pattern.
-        :return: A boolean flag indicating whether the input ObsID is compliant with the ID regular expression.
-            True means that it is, False means it is not.
-        :rtype: bool
-        """
-        return bool(re.match(self.id_regex, obs_id_to_check))
 
     @_lock_check
     def filter_on_obs_ids(self, allowed_obs_ids: Union[str, List[str]]):

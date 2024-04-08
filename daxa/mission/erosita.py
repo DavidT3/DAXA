@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 11:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 10:02. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -139,7 +139,7 @@ class eROSITACalPV(BaseMission):
         :param List[str] new_insts: The new list of instruments associated with this mission which should
             be processed into the archive.
         """
-        self._chos_insts = self._check_chos_insts(new_insts)
+        self._chos_insts = self.check_inst_names(new_insts)
         
     @property
     def coord_frame(self) -> BaseRADecFrame:
@@ -237,7 +237,7 @@ class eROSITACalPV(BaseMission):
         
         super().filter_on_obs_ids(allowed_obs_ids)
 
-    def _check_chos_insts(self, insts: Union[List[str], str]):
+    def check_inst_names(self, insts: Union[List[str], str]):
         """
         An internal function to check and perform event list filtering for instruments for eROSITA. This
         overwrites the version of this method declared in BaseMission, though it does call the super method.
@@ -248,7 +248,7 @@ class eROSITACalPV(BaseMission):
         :return: The list of instruments (possibly altered to match formats expected by this module).
         :rtype: List
         """
-        insts = super()._check_chos_insts(insts)
+        insts = super().check_inst_names(insts)
 
         # Checking if the data has already been downloaded:
         if all([os.path.exists(self.raw_data_path + '{o}'.format(o=obs)) for obs in self.filtered_obs_ids]):
@@ -931,7 +931,7 @@ class eRASS1DE(BaseMission):
         :param List[str] new_insts: The new list of instruments associated with this mission which should
             be processed into the archive.
         """
-        self._chos_insts = self._check_chos_insts(new_insts)
+        self._chos_insts = self.check_inst_names(new_insts)
 
     @property
     def coord_frame(self) -> BaseRADecFrame:
@@ -1000,7 +1000,7 @@ class eRASS1DE(BaseMission):
         self._obs_info_checks(new_info)
         self._obs_info = new_info
 
-    def _check_chos_insts(self, insts: Union[List[str], str]):
+    def check_inst_names(self, insts: Union[List[str], str]):
         """
         An internal function to check and perform event list filtering for instruments for eROSITA. This
         overwrites the version of this method declared in BaseMission, though it does call the super method.
@@ -1012,7 +1012,7 @@ class eRASS1DE(BaseMission):
         :return: The list of instruments (possibly altered to match formats expected by this module).
         :rtype: List
         """
-        insts = super()._check_chos_insts(insts)
+        insts = super().check_inst_names(insts)
 
         # TODO TRY TO UNDERSTAND WHAT JESSICA DID HERE?
 
