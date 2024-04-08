@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 14:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 15:58. Copyright (c) The Contributors
+import json
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -82,7 +83,7 @@ class Archive:
             self._new_arch = False
 
         # This attribute stores the path to the meta-data directory
-        self._arch_meta_path = OUTPUT + 'archives/' + archive_name + '/.save_info'
+        self._arch_meta_path = OUTPUT + 'archives/' + archive_name + '/.save_info/'
         # Make a directory to meta-data we would need to reinstate the archive as it was when it was last saved
         if not self._new_arch and not os.path.exists(self._arch_meta_path):
             raise FileNotFoundError("The save-data directory for '{a}' cannot be found - it is not possible "
@@ -1432,7 +1433,20 @@ class Archive:
         return failed_logs, failed_raw_errors
 
     def save(self):
-        pass
+        """
+        A simple method that saves the information necessary to reload this archive from disk at a later time. This
+        largely consists of the various pieces of information regarding the success (or not) of various processing
+        steps.
+        """
+
+        meta_data = {'process_success': self.process_success, 'obs_summaries': self.observation_summaries,
+                     'final_process_success': self.final_process_success, 'process_errors': self.process_errors,
+                     'process_warnings': self.process_warnings, 'process_extra_info': self.process_extra_info,
+                     'use_this_obs': self.process_observation}
+
+        with open(self._arch_meta_path + 'process_info.json', 'w') as processo:
+            pretty_string = json.dumps(meta_data, indent=4)
+            processo.write(pretty_string)
 
     def info(self):
         """
