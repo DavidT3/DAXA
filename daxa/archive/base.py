@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 13:11. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 10:34. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -12,7 +12,7 @@ from regions import Region, read_ds9, PixelRegion, write_ds9
 
 from daxa import BaseMission, OUTPUT
 from daxa.exceptions import DuplicateMissionError, ArchiveExistsError, NoProcessingError, NoDependencyProcessError, \
-    ObsNotAssociatedError
+    ObsNotAssociatedError, MissionNotAssociatedError
 from daxa.misc import dict_search
 
 
@@ -1148,6 +1148,106 @@ class Archive:
                                                                              pp=process_plural))
 
         return run_success
+
+    def get_process_logs(self, process_name: str, mission_name: Union[str, List[str]] = None,
+                         obs_id: Union[str, List[str]] = None, inst: Union[str, List[str]] = None):
+        """
+
+        :param str process_name:
+        :param str/List[str] mission_name:
+        :param str/List[str] obs_id:
+        :param str/List[str] inst:
+        :return:
+        :rtype:
+        """
+        def unpack_list(to_unpack: list):
+            """
+            A recursive function to go through every layer of a nested list and flatten it all out. It
+            doesn't return anything because to make life easier the 'results' are appended to a variable
+            in the namespace above this one.
+
+            :param list to_unpack: The list that needs unpacking.
+            """
+            # Must iterate through the given list
+            for entry in to_unpack:
+                # If the current element is not a list then all is chill, this element is ready for appending
+                # to the final list
+                if not isinstance(entry, list):
+                    out.append(entry)
+                else:
+                    # If the current element IS a list, then obviously we still have more unpacking to do,
+                    # so we call this function recursively.
+                    unpack_list(entry)
+
+        # If the user has passed a single mission name, we turn it into a list just to make the logic later easier
+        if mission_name is not None and isinstance(mission_name, str):
+            mission_name = [mission_name]
+
+        # If the user has requested a particular mission name(s), then we have to make sure that it is associated
+        #  with the current archive - however if they've just left it as None we don't care, because we'll be
+        #  using every mission in the archive
+        if mission_name is not None and any([mn not in self.mission_names for mn in mission_name]):
+            raise MissionNotAssociatedError("The {mn} mission is not associated with this "
+                                            "archive.".format(mn=mission_name))
+
+        # If the user has specified an ObsID, and it is just a single one, then we turn it into a one-element list
+        #  because it makes the logic easier later on
+        if obs_id is not None and not isinstance(obs_id, str):
+            obs_id = [obs_id]
+
+        # If the user has specified an instrument, and it is just a single one, then we turn it into a one-element list
+        #  because it makes the logic easier later on
+        if inst is not None and not isinstance(inst, str):
+            inst = [inst]
+
+        # Logs that match the input will be stored in this dictionary structure
+        matches = {}
+        # Searching for the process_name specified by the user - any matching results will be iterated through (from
+        #  any mission, we filter out the ones we don't want later, if a particular mission has been specified)
+        for res in dict_search(process_name, self.process_logs):
+            out = []
+            unpack_list(res)
+            # Checking to see whether this result is for a mission the user has specified, if they have specified one
+            if mission_name is None or (mission_name is not None and out[0] in mission_name):
+
+                # We only try to ensure that the instruments are valid if they have been specified!
+                if inst is not None:
+                    # Retrieves the actual mission object for the current iteration
+                    cur_miss = self[out[0]]
+                    # We pass in the instrument names to this function, which will make sure they are in the format we
+                    #  need and remove any that can't be identified as matching the mission style
+                    rel_insts = cur_miss.check_inst_names(inst, error_on_bad_inst=False)
+                    # We use lowercase for the identifiers, so we make sure our relevant instruments are in lowercase
+                    rel_insts = [ri.lower() for ri in rel_insts]
+
+                    # Also want to make sure there is a failsafe if no instrument were valid
+                    if len(rel_insts) == 0:
+                        rel_insts = None
+                else:
+                    rel_insts = None
+
+                # Sets up the storage list for the current mission
+                matches[out[0]] = []
+
+                # Iterating through the unique identifiers (may well be an ObsID, but could be ObsID+instrument, or
+                #  ObsID+instrument+subexposure identifier)
+                for ui_res in out[1]:
+                    # This determines just the ObsID from the unique identifier
+                    oi_res = self[out[0]].ident_to_obsid(ui_res)
+
+                    # This checks to see whether the unique identifier was actually just the ObsID, in which case
+                    #  any passed instruments would be pointless, so we wouldn't use them for matching, then whether
+                    #  any of the specified instruments relevant to this mission are present in the unique identifier.
+                    # It isn't elegant, but I think it should suffice
+                    if (oi_res != ui_res and rel_insts is not None and any([ri in ui_res for ri in rel_insts]) and
+                            obs_id is None or (obs_id is not None and oi_res in obs_id)):
+                        matches[out[0]].append(out[1][ui_res])
+                    # To reach this case either the requested process doesn't use instrument names in its identifier
+                    #  (i.e. it operates on a WHOLE ObsID), or no instruments were specified
+                    elif obs_id is None or (obs_id is not None and oi_res in obs_id):
+                        matches[out[0]].append(out[1][ui_res])
+
+        return matches
 
     def info(self):
         """
