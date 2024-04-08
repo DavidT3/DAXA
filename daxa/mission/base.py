@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 12:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 17:57. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -18,7 +18,8 @@ from astropy.units import Quantity
 from tabulate import tabulate
 
 from daxa import OUTPUT
-from daxa.exceptions import MissionLockedError, NoObsAfterFilterError, IllegalSourceType, NoTargetSourceTypeInfo
+from daxa.exceptions import MissionLockedError, NoObsAfterFilterError, IllegalSourceType, NoTargetSourceTypeInfo, \
+    DAXANotDownloadedError
 
 # These are the columns which MUST be present in the all_obs_info dataframes of any sub-class of BaseMission. This
 #  is mainly implemented to make sure developers who aren't me provide the right data formats
@@ -134,6 +135,15 @@ class BaseMission(metaclass=ABCMeta):
         # Will take the same approach as the name property, where it is defined as an abstract method so it must
         #  be implemented for a new mission class
         self._approx_fov = None
+
+        # This is a very rarely used attribute (I think only eROSITACalPV at the time of writing) that stores which
+        #  particular named fields were chosen
+        self._chos_fields = None
+
+        # This attribute stores which type of data were downloaded, and are thus associated with this mission - there
+        #  are three possible values; 'raw', 'preprocessed', or 'raw+preprocessed' (or four if you count the initial
+        #  None value which is present until a download is actually done).
+        self._download_type = None
 
     # Defining properties first
     @property
@@ -445,13 +455,29 @@ class BaseMission(metaclass=ABCMeta):
     @property
     def download_completed(self) -> bool:
         """
-        Property getter that describes whether the specified raw data for this mission have been
+        Property getter that describes whether the specified data for this mission have been
         downloaded.
 
         :return: Boolean flag describing if data have been downloaded.
         :rtype: bool
         """
         return self._download_done
+
+    @property
+    def downloaded_type(self) -> str:
+        """
+        Property getter that describes what type of data was downloaded for this mission (or raises an exception if
+        no download has been performed yet). The value will be either 'raw', 'preprocessed', or 'raw+preprocessed'.
+
+        :return: A string identifier for the type of data downloaded; the value will be either 'raw',
+            'preprocessed', or 'raw+preprocessed'
+        :rtype: str
+        """
+        if not self.download_completed:
+            raise DAXANotDownloadedError("The 'download_type' cannot have a valid value until a download has "
+                                         "been performed.")
+
+        return self._download_type
 
     @property
     def locked(self) -> bool:
@@ -1318,6 +1344,33 @@ class BaseMission(metaclass=ABCMeta):
         #  that represent positions with both temporal and spatial matches
         if return_obs_info:
             return rel_obs_info[any_rel_data]
+
+    def save(self, save_root_path: str):
+        """
+        A method to save a file representation of the current state of a DAXA mission object. This may be used by
+        the user, and can be safely sent to another user or system to recreate a mission. It is also used by the
+        archive saving mechanic, so that mission objects can be re-set up - it is worth noting that the archive save
+        files ARE NOT how to make a portable archive,
+
+        :param str save_root_path: The DIRECTORY where you wish a save file to be stored, DO NOT pass a path
+            with a filename at the end, as this method will create its own filename.
+        """
+
+        # We check to see whether the output root path exists, and if it doesn't then we shall create it
+        if not os.path.exists(save_root_path):
+            os.makedirs(save_root_path)
+
+        # We set up the actual name of the same file, then the full path to it
+        file_name = self.name + '_state.json'
+        miss_file_path = os.path.join(save_root_path, file_name)
+
+        # This is where we set up the dictionary of information that will actually be saved - all the information
+        #  common to all mission classes at least. Some will be None for most missions (like chosen field)
+        mission_data = {'chos_inst': self.chosen_instruments, 'chos_field': self._chos_fields}
+
+        # Now we write the required information to the state file path
+        # with open(miss_file_path, 'w') as stateo:
+
 
     def info(self):
         print("\n-----------------------------------------------------")
