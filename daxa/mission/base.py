@@ -1,6 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 17:57. Copyright (c) The Contributors
-
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 18:12. Copyright (c) The Contributors
+import json
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
@@ -1366,11 +1366,25 @@ class BaseMission(metaclass=ABCMeta):
 
         # This is where we set up the dictionary of information that will actually be saved - all the information
         #  common to all mission classes at least. Some will be None for most missions (like chosen field)
-        mission_data = {'chos_inst': self.chosen_instruments, 'chos_field': self._chos_fields}
+        mission_data = {'chos_inst': self.chosen_instruments, 'chos_field': self._chos_fields,
+                        'downloaded_type': self._download_type, 'cur_date': str(datetime.today())}
+
+        # The currently selected data need some more specialist treatment - we can't just save the filter
+        #  array, because the available observations (and thus the information table that the filter gets applied
+        #  too) are not necessarily static (for some they will be, because the missions are finished).
+        # This contains all the observations we could have considered using, so that any updating method of the
+        #  mission state by an archive can tell how much new data there is
+        sel_obs = {oi: True if oi in self.filtered_obs_ids else False for oi in self.obs_ids}
+
+        # Make sure to add the sel_obs dictionary into the overall one we're hoping to store
+        mission_data['selected_obs'] = sel_obs
+
+        # TODO Need to store the applied filtering options, and the order
 
         # Now we write the required information to the state file path
-        # with open(miss_file_path, 'w') as stateo:
-
+        with open(miss_file_path, 'w') as stateo:
+            json_str = json.dumps(mission_data, indent=4)
+            stateo.write(json_str)
 
     def info(self):
         print("\n-----------------------------------------------------")
