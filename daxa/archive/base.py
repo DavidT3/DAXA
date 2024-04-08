@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 15:58. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 16:43. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -1438,15 +1438,20 @@ class Archive:
         largely consists of the various pieces of information regarding the success (or not) of various processing
         steps.
         """
-
-        meta_data = {'process_success': self.process_success, 'obs_summaries': self.observation_summaries,
-                     'final_process_success': self.final_process_success, 'process_errors': self.process_errors,
-                     'process_warnings': self.process_warnings, 'process_extra_info': self.process_extra_info,
-                     'use_this_obs': self.process_observation}
+        # These are the big storage dictionaries mostly concerned with what data we are working with, and what we've
+        #  done to it so far, and how successful those things have been
+        process_data = {'process_success': self.process_success, 'obs_summaries': self.observation_summaries,
+                        'final_process_success': self.final_process_success, 'process_errors': self.process_errors,
+                        'process_warnings': self.process_warnings, 'process_extra_info': self.process_extra_info,
+                        'use_this_obs': self.process_observation}
 
         with open(self._arch_meta_path + 'process_info.json', 'w') as processo:
-            pretty_string = json.dumps(meta_data, indent=4)
+            pretty_string = json.dumps(process_data, indent=4)
             processo.write(pretty_string)
+
+        # TODO need to be able to save mission states, and indeed which missions are available
+
+        # TODO store software versions
 
     def info(self):
         """
