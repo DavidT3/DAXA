@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 18:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 19:26. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -83,7 +83,7 @@ class Archive:
             self._new_arch = False
 
         # This attribute stores the path to the meta-data directory
-        self._arch_meta_path = OUTPUT + 'archives/' + archive_name + '/.save_info/'
+        self._arch_meta_path = self._archive_path + '/.save_info/'
         # Make a directory to meta-data we would need to reinstate the archive as it was when it was last saved
         if not self._new_arch and not os.path.exists(self._arch_meta_path):
             raise FileNotFoundError("The save-data directory for '{a}' cannot be found - it is not possible "
@@ -1259,6 +1259,11 @@ class Archive:
         if mission_name not in self.mission_names:
             raise ValueError("The mission {mn} is not associated with this archive. Available missions are "
                              "{am}".format(mn=mission_name, am=', '.join(self.mission_names)))
+
+        # Check if the process has been run at all, if not why continue?
+        if dep_proc not in self.process_names[mission_name]:
+            raise NoDependencyProcessError("The '{dp}' process, necessary for the current task, has not been run "
+                                           "for '{mn}'.".format(dp=dep_proc, mn=mission_name))
 
         # This doesn't often happen when dealing with many observations assigned to a mission, but I did notice it
         #  happen - this should never be triggered by DAXA functions as I've put checks to ensure that zero length
