@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 14:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 17:54. Copyright (c) The Contributors
 
 
 class DAXAConfigError(Exception):
@@ -25,7 +25,7 @@ class DAXAConfigError(Exception):
 class DAXADownloadError(Exception):
     def __init__(self, *args):
         """
-        Exception raised for problems with raw data downloads orchestrated by DAXA.
+        Exception raised for problems with data downloads orchestrated by DAXA.
 
         :param expression:
         :param message:
@@ -40,6 +40,27 @@ class DAXADownloadError(Exception):
             return '{0} '.format(self.message)
         else:
             return 'DAXADownloadError has been raised'
+
+
+class DAXANotDownloadedError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised for when something attempts to perform an action that requires data to be downlaoded, and
+        it hasn't been.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'DAXANotDownloadedError has been raised'
 
 
 class DuplicateMissionError(Exception):
