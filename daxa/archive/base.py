@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 12:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 12:35. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -1288,8 +1288,10 @@ class Archive:
         :param str/List[str] mission_name: The mission name(s) for which logs are to be retrieved. Default is None, in
             which case all missions will be searched, and either a single name or a list of names can be passed. See
             'mission_names' for a list of associated mission names.
-        :param str/List[str] obs_id:
-        :param str/List[str] inst:
+        :param str/List[str] obs_id: The ObsID(s) for which logs are to be retrieved. Default is None, in which case
+            all ObsIDs will be searched. Either a single or a set of ObsIDs can be passed.
+        :param str/List[str] inst: The instrument(s) for which logs are to be retrieved. Default is None, in which case
+            all instruments will be searched. Either a single or a set of instruments can be passed.
         :return: A dictionary containing the requested logs - top level keys are mission names, and the values are
             lists of logs which match the provided information.
         :rtype: dict
@@ -1309,13 +1311,61 @@ class Archive:
         :param str/List[str] mission_name: The mission name(s) for which logs are to be retrieved. Default is None, in
             which case all missions will be searched, and either a single name or a list of names can be passed. See
             'mission_names' for a list of associated mission names.
-        :param str/List[str] obs_id:
-        :param str/List[str] inst:
+        :param str/List[str] obs_id: The ObsID(s) for which logs are to be retrieved. Default is None, in which case
+            all ObsIDs will be searched. Either a single or a set of ObsIDs can be passed.
+        :param str/List[str] inst: The instrument(s) for which logs are to be retrieved. Default is None, in which case
+            all instruments will be searched. Either a single or a set of instruments can be passed.
         :return: A dictionary containing the requested logs - top level keys are mission names, and the values are
             lists of logs which match the provided information.
         :rtype: dict
         """
         return self._fetch_matched_log(self.raw_process_errors, process_name, mission_name, obs_id, inst)
+
+    def get_failed_processes(self, process_name: str):
+        """
+        A simple method to retrieve all unique identifiers of data that failed a particular processing step. The
+        names of processes that have been run can be found in the 'process_names' property of an Archive.
+
+        :param str process_name: The process for which unique identifiers of failed data are to be retrieved
+        (see 'process_names' property for the names of processes run on this archive).
+        :return: A dictionary, with mission names as top level keys, and values being lists of failed
+            unique identifiers.
+        :rtype: dict
+        """
+        def unpack_list(to_unpack: list):
+            """
+            A recursive function to go through every layer of a nested list and flatten it all out. It
+            doesn't return anything because to make life easier the 'results' are appended to a variable
+            in the namespace above this one.
+
+            :param list to_unpack: The list that needs unpacking.
+            """
+            # Must iterate through the given list
+            for entry in to_unpack:
+                # If the current element is not a list then all is chill, this element is ready for appending
+                # to the final list
+                if not isinstance(entry, list):
+                    out.append(entry)
+                else:
+                    # If the current element IS a list, then obviously we still have more unpacking to do,
+                    # so we call this function recursively.
+                    unpack_list(entry)
+
+        # Unique identifiers for data that failed the specified processing step will be stored in this dictionary
+        matches = {}
+        for res in dict_search(process_name, self.process_success):
+            out = []
+            unpack_list(res)
+
+            # Read out the current mission name
+            miss_name = res[0]
+            # Run through the success flag dictionary for this process for this mission, and see which of them failed
+            failed = [ident for ident, succ_flag in out[1].items() if not succ_flag]
+
+            if len(failed) != 0:
+                matches[miss_name] = failed
+
+        return matches
 
     def info(self):
         """
