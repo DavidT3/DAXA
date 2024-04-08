@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 12:45. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 12:47. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -1298,7 +1298,8 @@ class Archive:
         return run_success
 
     def get_process_logs(self, process_name: str, mission_name: Union[str, List[str]] = None,
-                         obs_id: Union[str, List[str]] = None, inst: Union[str, List[str]] = None) -> dict:
+                         obs_id: Union[str, List[str]] = None, inst: Union[str, List[str]] = None,
+                         full_ident: Union[str, List[str]] = None) -> dict:
         """
         This method allows for targeted retrieval of processing logs (stdout), for a specific processing step. The
         particular logs retrieved can be narrows down by mission, ObsID, or instrument. Multiple missions, ObsIDs, and
@@ -1314,14 +1315,18 @@ class Archive:
             all ObsIDs will be searched. Either a single or a set of ObsIDs can be passed.
         :param str/List[str] inst: The instrument(s) for which logs are to be retrieved. Default is None, in which case
             all instruments will be searched. Either a single or a set of instruments can be passed.
+        :param str/List[str] full_ident: A full unique identifier (or a set of them) to make matches too. This will
+            override any ObsID or insts that are specified - for instance one could pass 0201903501PNS003. Default is
+            None.
         :return: A dictionary containing the requested logs - top level keys are mission names, and the values are
             lists of logs which match the provided information.
         :rtype: dict
         """
-        return self._fetch_matched_log(self.process_logs, process_name, mission_name, obs_id, inst)
+        return self._fetch_matched_log(self.process_logs, process_name, mission_name, obs_id, inst, full_ident)
 
     def get_process_raw_error_logs(self, process_name: str, mission_name: Union[str, List[str]] = None,
-                                   obs_id: Union[str, List[str]] = None, inst: Union[str, List[str]] = None) -> dict:
+                                   obs_id: Union[str, List[str]] = None, inst: Union[str, List[str]] = None,
+                                   full_ident: Union[str, List[str]] = None) -> dict:
         """
         This method allows for targeted retrieval of processing raw-error logs (stderr), for a specific processing
         step. The particular logs retrieved can be narrows down by mission, ObsID, or instrument. Multiple missions,
@@ -1337,11 +1342,14 @@ class Archive:
             all ObsIDs will be searched. Either a single or a set of ObsIDs can be passed.
         :param str/List[str] inst: The instrument(s) for which logs are to be retrieved. Default is None, in which case
             all instruments will be searched. Either a single or a set of instruments can be passed.
+        :param str/List[str] full_ident: A full unique identifier (or a set of them) to make matches too. This will
+            override any ObsID or insts that are specified - for instance one could pass 0201903501PNS003. Default is
+            None.
         :return: A dictionary containing the requested logs - top level keys are mission names, and the values are
             lists of logs which match the provided information.
         :rtype: dict
         """
-        return self._fetch_matched_log(self.raw_process_errors, process_name, mission_name, obs_id, inst)
+        return self._fetch_matched_log(self.raw_process_errors, process_name, mission_name, obs_id, inst, full_ident)
 
     def get_failed_processes(self, process_name: str):
         """
