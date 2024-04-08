@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 11:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 17:28. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -406,6 +406,9 @@ def sas_call(sas_func):
         #  added to the observation_summaries property of the archive
         if run_odf_sum_parse:
             obs_archive.observation_summaries = parsed_obs_info
+
+        # We automatically save after every process run
+        obs_archive.save()
 
     return wrapper
 
