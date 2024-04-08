@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 12:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 12:45. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -848,7 +848,8 @@ class Archive:
         return m_name
 
     def _fetch_matched_log(self, log_struct: dict, process_name: str, mission_name: Union[str, List[str]] = None,
-                           obs_id: Union[str, List[str]] = None, inst: Union[str, List[str]] = None):
+                           obs_id: Union[str, List[str]] = None, inst: Union[str, List[str]] = None,
+                           full_ident: Union[str, List[str]] = None):
         """
         This internal method allows for targeted retrieval logs for a specific processing step, but from any of the
         storage structures for the various types of logs stored by this archive. The storage style is identical,
@@ -862,8 +863,13 @@ class Archive:
         :param str/List[str] mission_name: The mission name(s) for which logs are to be retrieved. Default is None, in
             which case all missions will be searched, and either a single name or a list of names can be passed. See
             'mission_names' for a list of associated mission names.
-        :param str/List[str] obs_id:
-        :param str/List[str] inst:
+        :param str/List[str] obs_id: The ObsID(s) for which logs are to be retrieved. Default is None, in which case
+            all ObsIDs will be searched. Either a single or a set of ObsIDs can be passed.
+        :param str/List[str] inst: The instrument(s) for which logs are to be retrieved. Default is None, in which case
+            all instruments will be searched. Either a single or a set of instruments can be passed.
+        :param str/List[str] full_ident: A full unique identifier (or a set of them) to make matches too. This will
+            override any ObsID or insts that are specified - for instance one could pass 0201903501PNS003. Default is
+            None.
         :return: A dictionary containing the requested logs - top level keys are mission names, and the values are
             lists of logs which match the provided information.
         :rtype: dict
@@ -899,6 +905,15 @@ class Archive:
             raise MissionNotAssociatedError("Some missions ({mn}) are not associated with this "
                                             "archive; {am} are associated.".format(mn=", ".join(bad_names),
                                                                                    am=", ".join(self.mission_names)))
+
+        # If the user has specified an instrument, and it is just a single one, then we turn it into a one-element list
+        #  because it makes the logic easier later on
+        if full_ident is not None and isinstance(full_ident, str):
+            full_ident = [full_ident]
+        # We override the obs_id and inst variables if the full_ident is not null, as they are not needed
+        if full_ident is not None:
+            obs_id = None
+            inst = None
 
         # If the user has specified an ObsID, and it is just a single one, then we turn it into a one-element list
         #  because it makes the logic easier later on
@@ -947,12 +962,19 @@ class Archive:
                     # This determines just the ObsID from the unique identifier
                     oi_res = self[out[0]].ident_to_obsid(ui_res)
 
+                    if full_ident is not None and ui_res in full_ident:
+                        matches[out[0]].append(out[1][ui_res])
+                    elif full_ident is not None:
+                        # This could have been included in the following boolean logic, but it made it practically
+                        #  unreadable - so I just make it pass if there is a full ident but it doesn't match
+                        #  the current unique identifier
+                        pass
                     # This checks to see whether the unique identifier was actually just the ObsID, in which case
                     #  any passed instruments would be pointless, so we wouldn't use them for matching, then whether
                     #  any of the specified instruments relevant to this mission are present in the unique identifier.
                     # It isn't elegant, but I think it should suffice
-                    if (oi_res != ui_res and rel_insts is not None and any([ri in ui_res for ri in rel_insts]) and
-                            (obs_id is None or (obs_id is not None and oi_res in obs_id))):
+                    elif (oi_res != ui_res and rel_insts is not None and any([ri in ui_res for ri in rel_insts]) and
+                          (obs_id is None or (obs_id is not None and oi_res in obs_id))):
                         matches[out[0]].append(out[1][ui_res])
                     # To reach this case either the requested process doesn't use instrument names in its identifier
                     #  (i.e. it operates on a WHOLE ObsID), or no instruments were specified
