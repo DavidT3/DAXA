@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 13:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 14:35. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -11,7 +11,7 @@ from astropy.units import Quantity
 from regions import Region, read_ds9, PixelRegion, write_ds9
 
 from daxa import BaseMission, OUTPUT
-from daxa.exceptions import DuplicateMissionError, ArchiveExistsError, NoProcessingError, NoDependencyProcessError, \
+from daxa.exceptions import DuplicateMissionError, NoProcessingError, NoDependencyProcessError, \
     ObsNotAssociatedError, MissionNotAssociatedError
 from daxa.misc import dict_search
 
@@ -63,32 +63,37 @@ class Archive:
         # Store the archive name in an attribute
         self._archive_name = archive_name
 
+        # An attribute for the path to the particular archive directory is also setup, as it's a very useful
+        #  piece of information
+        self._archive_path = OUTPUT + 'archives/' + archive_name + '/'
+
+        # An attribute that stores whether this is a new archive, or whether it has been loaded back in from disk
+        self._new_arch = True
         # Then make sure that the path to store the archive is created, and that it hasn't been created
         #  before, which would mean an existing archive with the same name
-        if not os.path.exists(OUTPUT + 'archives/' + archive_name):
-            os.makedirs(OUTPUT + 'archives/' + archive_name)
-        elif os.path.exists(OUTPUT + 'archives/' + archive_name) and clobber:
-            warn("An archive called {an} already existed, but as clobber=True it has been deleted and "
+        if not os.path.exists(self._archive_path):
+            os.makedirs(self._archive_path)
+        elif os.path.exists(self._archive_path) and clobber:
+            warn("An archive called {an} already existed, but as 'clobber=True' it has been deleted and "
                  "overwritten.".format(an=archive_name), stacklevel=2)
-            rmtree(OUTPUT + 'archives/' + archive_name)
-            os.makedirs(OUTPUT + 'archives/' + archive_name)
+            rmtree(self._archive_path)
+            os.makedirs(self._archive_path)
         else:
-            raise ArchiveExistsError("An archive named {an} already exists in the output directory "
-                                     "({od}).".format(an=archive_name, od=OUTPUT + 'archives/'))
-        # TODO maybe check for the existence of some late-stage product/file to see whether the archive
-        #  has already been successfully generated
-        # elif os.path.exists(OUTPUT + archive_name + '/')
+            self._new_arch = False
 
-        # An attribute for the path to the particular archive directory is also setup, as it's a very useful
-        #  piece of knowledge
-        self._archive_path = OUTPUT + 'archives/' + archive_name + '/'
+        # This attribute stores the path to the meta-data directory
+        self._arch_meta_path = OUTPUT + 'archives/' + archive_name + '/.save_info'
+        # Make a directory to meta-data we would need to reinstate the archive as it was when it was last saved
+        if not self._new_arch and not os.path.exists(self._arch_meta_path):
+            raise FileNotFoundError("The save-data directory for '{a}' cannot be found - it is not possible "
+                                    "to reload the archive.")
+        # If this is a brand-new archive, we have to make sure that the save info directory is created
+        elif self._new_arch:
+            os.makedirs(self._arch_meta_path)
 
         # The mission instances (or single instance) used to create the archive are stored in a dictionary, with
         #  the key being the internal DAXA name for that mission
         self._missions = {m.name: m for m in missions}
-
-        # An attribute to store a command queue for those missions which have a command line processing
-        #  backend (like XMM for instance)
 
         # This iterates through the missions that make up this archive, and ensures that they are 'locked'
         #  That means their observation content becomes immutable.
@@ -1425,6 +1430,9 @@ class Archive:
                                                             full_ident=flat_idents)
 
         return failed_logs, failed_raw_errors
+
+    def save(self):
+        pass
 
     def info(self):
         """
