@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 11:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 12:05. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -636,7 +636,7 @@ class BaseMission(metaclass=ABCMeta):
         # I warn the user if the name(s) of instruments have been altered.
         if altered:
             warn("Some instrument names were converted to alternative forms expected by this module, the instrument "
-                 "names are now; {}".format(', '.join(updated_insts)))
+                 "names are now; {}".format(', '.join(updated_insts)), stacklevel=2)
 
         # Return the possibly altered instruments
         return updated_insts
