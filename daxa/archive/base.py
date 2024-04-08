@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 10:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 11:00. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -461,6 +461,18 @@ class Archive:
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
                 self._process_extra_info[mn][pr_name] = einfo_info[mn]
+
+    @property
+    def process_names(self) -> dict:
+        """
+        Property that returns a dictionary containing the names of all processing steps that have been run on this
+        archive. Top-level keys are mission names, and the values are lists of process names.
+
+        :return: The dictionary containing mission name and process name information. Top-level keys are mission
+            names, and the values are lists of process names.
+        :rtype: dict
+        """
+        return {m_name: list(proc_dict.keys()) for m_name, proc_dict in self.process_success.items()}
 
     @property
     def observation_summaries(self) -> dict:
@@ -1150,15 +1162,23 @@ class Archive:
         return run_success
 
     def get_process_logs(self, process_name: str, mission_name: Union[str, List[str]] = None,
-                         obs_id: Union[str, List[str]] = None, inst: Union[str, List[str]] = None):
+                         obs_id: Union[str, List[str]] = None, inst: Union[str, List[str]] = None) -> dict:
         """
+        This method allows for targeted retrieval of processing logs (stdout), for a specific processing step. The
+        particular logs retrieved can be narrows down by mission, ObsID, or instrument. Multiple missions, ObsIDs, and
+        instruments may be specified, but only one process at a time. The names of processes that have been run can
+        be found in the 'process_names' property of an Archive.
 
-        :param str process_name:
-        :param str/List[str] mission_name:
+        :param str process_name: The process for which logs are to be retrieved (see 'process_names' property for
+            the names of processes run on this archive).
+        :param str/List[str] mission_name: The mission name(s) for which logs are to be retrieved. Default is None, in
+            which case all missions will be searched, and either a single name or a list of names can be passed. See
+            'mission_names' for a list of associated mission names.
         :param str/List[str] obs_id:
         :param str/List[str] inst:
-        :return:
-        :rtype:
+        :return: A dictionary containing the requested logs - top level keys are mission names, and the values are
+            lists of logs which match the provided information.
+        :rtype: dict
         """
         def unpack_list(to_unpack: list):
             """
@@ -1187,8 +1207,10 @@ class Archive:
         #  with the current archive - however if they've just left it as None we don't care, because we'll be
         #  using every mission in the archive
         if mission_name is not None and any([mn not in self.mission_names for mn in mission_name]):
-            raise MissionNotAssociatedError("The {mn} mission is not associated with this "
-                                            "archive.".format(mn=mission_name))
+            bad_names = [mn for mn in mission_name if mn not in self.mission_names]
+            raise MissionNotAssociatedError("Some missions ({mn}) are not associated with this "
+                                            "archive; {am} are associated.".format(mn=", ".join(bad_names),
+                                                                                   am=", ".join(self.mission_names)))
 
         # If the user has specified an ObsID, and it is just a single one, then we turn it into a one-element list
         #  because it makes the logic easier later on
@@ -1197,7 +1219,7 @@ class Archive:
 
         # If the user has specified an instrument, and it is just a single one, then we turn it into a one-element list
         #  because it makes the logic easier later on
-        if inst is not None and not isinstance(inst, str):
+        if inst is not None and isinstance(inst, str):
             inst = [inst]
 
         # Logs that match the input will be stored in this dictionary structure
@@ -1214,15 +1236,19 @@ class Archive:
                 if inst is not None:
                     # Retrieves the actual mission object for the current iteration
                     cur_miss = self[out[0]]
+
                     # We pass in the instrument names to this function, which will make sure they are in the format we
                     #  need and remove any that can't be identified as matching the mission style
                     rel_insts = cur_miss.check_inst_names(inst, error_on_bad_inst=False)
                     # We use lowercase for the identifiers, so we make sure our relevant instruments are in lowercase
                     rel_insts = [ri.lower() for ri in rel_insts]
 
-                    # Also want to make sure there is a failsafe if no instrument were valid
+                    # Also want to make sure there is a failsafe if none of the instruments were valid
                     if len(rel_insts) == 0:
                         rel_insts = None
+                        # Though we shall tell the user if this happens
+                        warn("None of the specified instruments ({i}) were valid for mission "
+                             "{m}.".format(i=", ".join(inst), m=out[0]), stacklevel=2)
                 else:
                     rel_insts = None
 
