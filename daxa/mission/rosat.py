@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 12:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 10:02. Copyright (c) The Contributors
 
 import io
 import os
@@ -156,7 +156,7 @@ class ROSATPointed(BaseMission):
         :param List[str] new_insts: The new list of instruments associated with this mission which should
             be processed into the archive.
         """
-        self._chos_insts = self._check_chos_insts(new_insts)
+        self._chos_insts = self.check_inst_names(new_insts)
 
     @property
     def coord_frame(self) -> BaseRADecFrame:
@@ -244,7 +244,7 @@ class ROSATPointed(BaseMission):
         self._obs_info = new_info
         self.reset_filter()
 
-    def _check_chos_insts(self, insts: Union[List[str], str]) -> List[str]:
+    def check_inst_names(self, insts: Union[List[str], str]) -> List[str]:
         """
         An internal function to perform some checks on the validity of chosen instrument names for ROSAT pointed. This
         overwrites the version of this method declared in BaseMission, though it does call the super method. This
@@ -259,7 +259,7 @@ class ROSATPointed(BaseMission):
         #  setter that calls this function) after the initial declaration phase.
         self.reset_filter()
 
-        insts = super()._check_chos_insts(insts)
+        insts = super().check_inst_names(insts)
 
         # If we've gotten through the super call then the instruments are acceptable, so now we filter the
         #  observation info table using them.
