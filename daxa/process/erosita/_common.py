@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 11:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 11:24. Copyright (c) The Contributors
 import glob
 import os.path
 from enum import Flag
@@ -18,6 +18,7 @@ from daxa.exceptions import NoEROSITAMissionsError
 from daxa.process._backend_check import find_esass
 
 ALLOWED_EROSITA_MISSIONS = ['erosita_calpv', 'erosita_all_sky_de_dr1']
+
 
 # TODO Make this compliant with how I normally do docstrings
 class _eSASS_Flag(Flag):
@@ -81,6 +82,7 @@ class _eSASS_Flag(Flag):
     def get_hex(self):
         return hex(self.value)
 
+
 def _is_valid_flag(flag):
     """
     This function is to be called within the cleaned_evt_lists function to check that the user has
@@ -98,6 +100,7 @@ def _is_valid_flag(flag):
     except ValueError:
         # If the flag is invalid then a ValueError is thrown
         return False
+
 
 def _esass_process_setup(obs_archive: Archive) -> bool:
     """
@@ -121,7 +124,7 @@ def _esass_process_setup(obs_archive: Archive) -> bool:
     erosita_miss = [mission for mission in obs_archive if mission.name in ALLOWED_EROSITA_MISSIONS]
     if len(erosita_miss) == 0:
         raise NoEROSITAMissionsError("None of the missions that make up the passed observation archive are "
-                                 "eROSITA missions, and thus this eROSITA-specific function cannot continue.")
+                                     "eROSITA missions, and thus this eROSITA-specific function cannot continue.")
     else:
         processed = [em.processed for em in erosita_miss]
         if any(processed):
@@ -134,6 +137,10 @@ def _esass_process_setup(obs_archive: Archive) -> bool:
             stor_dir = obs_archive.get_processed_data_path(miss, obs_id)
             if not os.path.exists(stor_dir):
                 os.makedirs(stor_dir)
+
+            # We also make a directory within the storage directory, specifically for logs
+            if not os.path.exists(stor_dir + 'logs'):
+                os.makedirs(stor_dir + 'logs')
     
         # We also ensure that an overall directory for failed processing observations exists - this will give
         #  observation directories which have no useful data in (i.e. they do not have a successful final
@@ -144,6 +151,7 @@ def _esass_process_setup(obs_archive: Archive) -> bool:
             os.makedirs(fail_proc_dir)
 
     return esass_in_docker
+
 
 def execute_cmd(cmd: str, esass_in_docker: bool, rel_id: str, miss_name: str, check_path: str,
                 extra_info: dict, timeout: float = None) -> Tuple[str, str, List[bool], str, str, dict]:
@@ -207,6 +215,7 @@ def execute_cmd(cmd: str, esass_in_docker: bool, rel_id: str, miss_name: str, ch
         else:
             files_exist.append(False)
     return rel_id, miss_name, files_exist, out, err, extra_info
+
 
 def esass_call(esass_func):
     """

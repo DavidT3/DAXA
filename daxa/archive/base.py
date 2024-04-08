@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 26/01/2024, 14:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 13:42. Copyright (c) The Contributors
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -12,7 +12,7 @@ from regions import Region, read_ds9, PixelRegion, write_ds9
 
 from daxa import BaseMission, OUTPUT
 from daxa.exceptions import DuplicateMissionError, ArchiveExistsError, NoProcessingError, NoDependencyProcessError, \
-    ObsNotAssociatedError
+    ObsNotAssociatedError, MissionNotAssociatedError
 from daxa.misc import dict_search
 
 
@@ -357,6 +357,17 @@ class Archive:
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
                 self._process_raw_errors[mn][pr_name] = error_info[mn]
+                # I'm checking to make sure that there is actually a non-null entry, as hopefully for most of them
+                #  there will be no stderr! And why make empty files when we don't need too
+                for en in error_info[mn]:
+                    if len(error_info[mn][en]) != 0:
+                        # Calling this method of the mission ensures that the identifier (for instance
+                        #  0201903501PNS003) is just reduced to the ObsID
+                        oi = self[mn].ident_to_obsid(en)
+                        log_pth = self.get_processed_data_path(mn, oi) + 'logs/'
+                        log_pth += "{pn}_{ui}_stderr.log".format(ui=en, pn=pr_name)
+                        with open(log_pth, 'w') as loggo:
+                            loggo.write(error_info[mn][en])
 
     @property
     def process_logs(self) -> dict:
@@ -399,6 +410,17 @@ class Archive:
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
                 self._process_logs[mn][pr_name] = log_info[mn]
+                # You'll note that we're only storing these log files if there isn't already an entry - I'm trying
+                #  to be R/W conscious, but this may also get more sophisticated in the future, when version control
+                #  comes more into play and archives are updatable
+                for en in log_info[mn]:
+                    # Calling this method of the mission ensures that the identifier (for instance
+                    #  0201903501PNS003) is just reduced to the ObsID
+                    oi = self[mn].ident_to_obsid(en)
+                    log_pth = self.get_processed_data_path(mn, oi) + 'logs/'
+                    log_pth += "{pn}_{ui}_stdout.log".format(ui=en, pn=pr_name)
+                    with open(log_pth, 'w') as loggo:
+                        loggo.write(log_info[mn][en])
 
     @property
     def process_extra_info(self) -> dict:
@@ -439,6 +461,18 @@ class Archive:
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
                 self._process_extra_info[mn][pr_name] = einfo_info[mn]
+
+    @property
+    def process_names(self) -> dict:
+        """
+        Property that returns a dictionary containing the names of all processing steps that have been run on this
+        archive. Top-level keys are mission names, and the values are lists of process names.
+
+        :return: The dictionary containing mission name and process name information. Top-level keys are mission
+            names, and the values are lists of process names.
+        :rtype: dict
+        """
+        return {m_name: list(proc_dict.keys()) for m_name, proc_dict in self.process_success.items()}
 
     @property
     def observation_summaries(self) -> dict:
@@ -813,6 +847,142 @@ class Archive:
 
         return m_name
 
+    def _fetch_matched_log(self, log_struct: dict, process_name: str, mission_name: Union[str, List[str]] = None,
+                           obs_id: Union[str, List[str]] = None, inst: Union[str, List[str]] = None,
+                           full_ident: Union[str, List[str]] = None):
+        """
+        This internal method allows for targeted retrieval logs for a specific processing step, but from any of the
+        storage structures for the various types of logs stored by this archive. The storage style is identical,
+        so only one actual retrieval function is necessary.
+        The particular logs retrieved can be narrows down by mission, ObsID, or instrument. Multiple missions,
+        ObsIDs, and instruments may be specified, but only one process at a time. The names of processes that have
+        been run can be found in the 'process_names' property of an Archive.
+
+        :param str process_name: The process for which logs are to be retrieved (see 'process_names' property for
+            the names of processes run on this archive).
+        :param str/List[str] mission_name: The mission name(s) for which logs are to be retrieved. Default is None, in
+            which case all missions will be searched, and either a single name or a list of names can be passed. See
+            'mission_names' for a list of associated mission names.
+        :param str/List[str] obs_id: The ObsID(s) for which logs are to be retrieved. Default is None, in which case
+            all ObsIDs will be searched. Either a single or a set of ObsIDs can be passed.
+        :param str/List[str] inst: The instrument(s) for which logs are to be retrieved. Default is None, in which case
+            all instruments will be searched. Either a single or a set of instruments can be passed.
+        :param str/List[str] full_ident: A full unique identifier (or a set of them) to make matches too. This will
+            override any ObsID or insts that are specified - for instance one could pass 0201903501PNS003. Default is
+            None.
+        :return: A dictionary containing the requested logs - top level keys are mission names, lower level keys are
+            unique identifiers, and the values are string logs which match the provided information.
+        :rtype: dict
+        """
+        def unpack_list(to_unpack: list):
+            """
+            A recursive function to go through every layer of a nested list and flatten it all out. It
+            doesn't return anything because to make life easier the 'results' are appended to a variable
+            in the namespace above this one.
+
+            :param list to_unpack: The list that needs unpacking.
+            """
+            # Must iterate through the given list
+            for entry in to_unpack:
+                # If the current element is not a list then all is chill, this element is ready for appending
+                # to the final list
+                if not isinstance(entry, list):
+                    out.append(entry)
+                else:
+                    # If the current element IS a list, then obviously we still have more unpacking to do,
+                    # so we call this function recursively.
+                    unpack_list(entry)
+
+        # If the user has passed a single mission name, we turn it into a list just to make the logic later easier
+        if mission_name is not None and isinstance(mission_name, str):
+            mission_name = [mission_name]
+
+        # If the user has requested a particular mission name(s), then we have to make sure that it is associated
+        #  with the current archive - however if they've just left it as None we don't care, because we'll be
+        #  using every mission in the archive
+        if mission_name is not None and any([mn not in self.mission_names for mn in mission_name]):
+            bad_names = [mn for mn in mission_name if mn not in self.mission_names]
+            raise MissionNotAssociatedError("Some missions ({mn}) are not associated with this "
+                                            "archive; {am} are associated.".format(mn=", ".join(bad_names),
+                                                                                   am=", ".join(self.mission_names)))
+
+        # If the user has specified an instrument, and it is just a single one, then we turn it into a one-element list
+        #  because it makes the logic easier later on
+        if full_ident is not None and isinstance(full_ident, str):
+            full_ident = [full_ident]
+        # We override the obs_id and inst variables if the full_ident is not null, as they are not needed
+        if full_ident is not None:
+            obs_id = None
+            inst = None
+
+        # If the user has specified an ObsID, and it is just a single one, then we turn it into a one-element list
+        #  because it makes the logic easier later on
+        if obs_id is not None and not isinstance(obs_id, str):
+            obs_id = [obs_id]
+
+        # If the user has specified an instrument, and it is just a single one, then we turn it into a one-element list
+        #  because it makes the logic easier later on
+        if inst is not None and isinstance(inst, str):
+            inst = [inst]
+
+        # Logs that match the input will be stored in this dictionary structure
+        matches = {}
+        # Searching for the process_name specified by the user - any matching results will be iterated through (from
+        #  any mission, we filter out the ones we don't want later, if a particular mission has been specified)
+        for res in dict_search(process_name, log_struct):
+            out = []
+            unpack_list(res)
+            # Checking to see whether this result is for a mission the user has specified, if they have specified one
+            if mission_name is None or (mission_name is not None and out[0] in mission_name):
+
+                # We only try to ensure that the instruments are valid if they have been specified!
+                if inst is not None:
+                    # Retrieves the actual mission object for the current iteration
+                    cur_miss = self[out[0]]
+
+                    # We pass in the instrument names to this function, which will make sure they are in the format we
+                    #  need and remove any that can't be identified as matching the mission style
+                    rel_insts = cur_miss.check_inst_names(inst, error_on_bad_inst=False)
+
+                    # Also want to make sure there is a failsafe if none of the instruments were valid
+                    if len(rel_insts) == 0:
+                        rel_insts = None
+                        # Though we shall tell the user if this happens
+                        warn("None of the specified instruments ({i}) were valid for mission "
+                             "{m}.".format(i=", ".join(inst), m=out[0]), stacklevel=2)
+                else:
+                    rel_insts = None
+
+                # Sets up the storage list for the current mission
+                matches[out[0]] = {}
+
+                # Iterating through the unique identifiers (may well be an ObsID, but could be ObsID+instrument, or
+                #  ObsID+instrument+subexposure identifier)
+                for ui_res in out[1]:
+                    # This determines just the ObsID from the unique identifier
+                    oi_res = self[out[0]].ident_to_obsid(ui_res)
+
+                    if full_ident is not None and ui_res in full_ident:
+                        matches[out[0]][ui_res] = (out[1][ui_res])
+                    elif full_ident is not None:
+                        # This could have been included in the following boolean logic, but it made it practically
+                        #  unreadable - so I just make it pass if there is a full ident but it doesn't match
+                        #  the current unique identifier
+                        pass
+                    # This checks to see whether the unique identifier was actually just the ObsID, in which case
+                    #  any passed instruments would be pointless, so we wouldn't use them for matching, then whether
+                    #  any of the specified instruments relevant to this mission are present in the unique identifier.
+                    # It isn't elegant, but I think it should suffice
+                    elif (oi_res != ui_res and rel_insts is not None and any([ri in ui_res for ri in rel_insts]) and
+                          (obs_id is None or (obs_id is not None and oi_res in obs_id))):
+                        matches[out[0]][ui_res] = (out[1][ui_res])
+                    # To reach this case either the requested process doesn't use instrument names in its identifier
+                    #  (i.e. it operates on a WHOLE ObsID), or no instruments were specified
+                    elif rel_insts is None and (obs_id is None or (obs_id is not None and oi_res in obs_id)):
+                        matches[out[0]][ui_res] = (out[1][ui_res])
+
+        return matches
+
     # Then define user-facing methods
     def get_processed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
         """
@@ -1126,6 +1296,135 @@ class Archive:
                                                                              pp=process_plural))
 
         return run_success
+
+    def get_process_logs(self, process_name: str, mission_name: Union[str, List[str]] = None,
+                         obs_id: Union[str, List[str]] = None, inst: Union[str, List[str]] = None,
+                         full_ident: Union[str, List[str]] = None) -> dict:
+        """
+        This method allows for targeted retrieval of processing logs (stdout), for a specific processing step. The
+        particular logs retrieved can be narrows down by mission, ObsID, or instrument. Multiple missions, ObsIDs, and
+        instruments may be specified, but only one process at a time. The names of processes that have been run can
+        be found in the 'process_names' property of an Archive.
+
+        :param str process_name: The process for which logs are to be retrieved (see 'process_names' property for
+            the names of processes run on this archive).
+        :param str/List[str] mission_name: The mission name(s) for which logs are to be retrieved. Default is None, in
+            which case all missions will be searched, and either a single name or a list of names can be passed. See
+            'mission_names' for a list of associated mission names.
+        :param str/List[str] obs_id: The ObsID(s) for which logs are to be retrieved. Default is None, in which case
+            all ObsIDs will be searched. Either a single or a set of ObsIDs can be passed.
+        :param str/List[str] inst: The instrument(s) for which logs are to be retrieved. Default is None, in which case
+            all instruments will be searched. Either a single or a set of instruments can be passed.
+        :param str/List[str] full_ident: A full unique identifier (or a set of them) to make matches too. This will
+            override any ObsID or insts that are specified - for instance one could pass 0201903501PNS003. Default is
+            None.
+        :return: A dictionary containing the requested logs - top level keys are mission names, lower level keys are
+            unique identifiers, and the values are string logs which match the provided information.
+        :rtype: dict
+        """
+        return self._fetch_matched_log(self.process_logs, process_name, mission_name, obs_id, inst, full_ident)
+
+    def get_process_raw_error_logs(self, process_name: str, mission_name: Union[str, List[str]] = None,
+                                   obs_id: Union[str, List[str]] = None, inst: Union[str, List[str]] = None,
+                                   full_ident: Union[str, List[str]] = None) -> dict:
+        """
+        This method allows for targeted retrieval of processing raw-error logs (stderr), for a specific processing
+        step. The particular logs retrieved can be narrows down by mission, ObsID, or instrument. Multiple missions,
+        ObsIDs, and instruments may be specified, but only one process at a time. The names of processes that have
+        been run can be found in the 'process_names' property of an Archive.
+
+        :param str process_name: The process for which logs are to be retrieved (see 'process_names' property for
+            the names of processes run on this archive).
+        :param str/List[str] mission_name: The mission name(s) for which logs are to be retrieved. Default is None, in
+            which case all missions will be searched, and either a single name or a list of names can be passed. See
+            'mission_names' for a list of associated mission names.
+        :param str/List[str] obs_id: The ObsID(s) for which logs are to be retrieved. Default is None, in which case
+            all ObsIDs will be searched. Either a single or a set of ObsIDs can be passed.
+        :param str/List[str] inst: The instrument(s) for which logs are to be retrieved. Default is None, in which case
+            all instruments will be searched. Either a single or a set of instruments can be passed.
+        :param str/List[str] full_ident: A full unique identifier (or a set of them) to make matches too. This will
+            override any ObsID or insts that are specified - for instance one could pass 0201903501PNS003. Default is
+            None.
+        :return: A dictionary containing the requested logs - top level keys are mission names, lower level keys are
+            unique identifiers, and the values are string logs which match the provided information.
+        :rtype: dict
+        """
+        return self._fetch_matched_log(self.raw_process_errors, process_name, mission_name, obs_id, inst, full_ident)
+
+    def get_failed_processes(self, process_name: str) -> dict:
+        """
+        A simple method to retrieve all unique identifiers of data that failed a particular processing step. The
+        names of processes that have been run can be found in the 'process_names' property of an Archive.
+
+        :param str process_name: The process for which unique identifiers of data that failed the processing step
+            are to be retrieved (see 'process_names' property for the names of processes run on this archive).
+        :return: A dictionary, with mission names as top level keys, and values being lists of failed
+            unique identifiers.
+        :rtype: dict
+        """
+        def unpack_list(to_unpack: list):
+            """
+            A recursive function to go through every layer of a nested list and flatten it all out. It
+            doesn't return anything because to make life easier the 'results' are appended to a variable
+            in the namespace above this one.
+
+            :param list to_unpack: The list that needs unpacking.
+            """
+            # Must iterate through the given list
+            for entry in to_unpack:
+                # If the current element is not a list then all is chill, this element is ready for appending
+                # to the final list
+                if not isinstance(entry, list):
+                    out.append(entry)
+                else:
+                    # If the current element IS a list, then obviously we still have more unpacking to do,
+                    # so we call this function recursively.
+                    unpack_list(entry)
+
+        # Unique identifiers for data that failed the specified processing step will be stored in this dictionary
+        matches = {}
+        for res in dict_search(process_name, self.process_success):
+            out = []
+            unpack_list(res)
+
+            # Read out the current mission name
+            miss_name = res[0]
+            # Run through the success flag dictionary for this process for this mission, and see which of them failed
+            failed = [ident for ident, succ_flag in out[1].items() if not succ_flag]
+
+            if len(failed) != 0:
+                matches[miss_name] = failed
+
+        return matches
+
+    def get_failed_logs(self, process_name: str) -> Tuple[dict, dict]:
+        """
+        A convenience method that retrieves the logs (stdout and stderr) for processing of particular data (be it a
+        whole ObsID, a  particular instrument of an ObsID, or a particular sub-exposure of a particular instrument
+        of an ObsID) which FAILED.
+
+        :param str process_name: The process for which logs (stdout and stderr) are to be retrieved if the data of
+            a particular unique identifier failed.
+        :return: A tuple of two dictionaries, the first containing stdout logs, and the second containing stderr
+            logs - the structure of the dictionaries has mission names as top level keys, unique identifiers as lower
+            level keys, and string logs as values.
+        :rtype: Tuple[dict, dict]
+        """
+
+        # Identify the unique identifiers for all missions that failed the specified processing step
+        failed_idents = self.get_failed_processes(process_name)
+        # Make a mission list from the keys
+        miss_names = list(failed_idents.keys())
+        # Cycle through the lists of failed unique identifiers for each mission, and make them into a flat list
+        flat_idents = [ident for key in failed_idents.keys() for ident in failed_idents[key]]
+
+        # Feed our mission names and failed identifiers into the get_process_logs method to grab the stdout for
+        #  these identifiers - then we do the same for the stderrs
+        failed_logs = self.get_process_logs(process_name, mission_name=miss_names, full_ident=flat_idents)
+        failed_raw_errors = self.get_process_raw_error_logs(process_name, mission_name=miss_names,
+                                                            full_ident=flat_idents)
+
+        return failed_logs, failed_raw_errors
 
     def info(self):
         """

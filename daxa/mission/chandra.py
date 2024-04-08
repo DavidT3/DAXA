@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 10:02. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -151,7 +151,7 @@ class Chandra(BaseMission):
         :param List[str] new_insts: The new list of instruments associated with this mission which should
             be processed into the archive.
         """
-        self._chos_insts = self._check_chos_insts(new_insts)
+        self._chos_insts = self.check_inst_names(new_insts)
 
     @property
     def coord_frame(self) -> BaseRADecFrame:
@@ -235,7 +235,7 @@ class Chandra(BaseMission):
         self._obs_info = new_info
         self.reset_filter()
 
-    def _check_chos_insts(self, insts: Union[List[str], str]) -> List[str]:
+    def check_inst_names(self, insts: Union[List[str], str]) -> List[str]:
         """
         An internal function to perform some checks on the validity of chosen instrument names for Chandra. This
         overwrites the version of this method declared in BaseMission, though it does call the super method. This
@@ -250,7 +250,7 @@ class Chandra(BaseMission):
         #  setter that calls this function) after the initial declaration phase.
         self.reset_filter()
 
-        insts = super()._check_chos_insts(insts)
+        insts = super().check_inst_names(insts)
         # If we've gotten through the super call then the instruments are acceptable, so now we filter the
         #  observation info table using them. This is complicated slightly by the fact that the gratings are
         #  considered separately from the detectors by the table (they have their own column).
@@ -629,3 +629,22 @@ class Chandra(BaseMission):
         raise NotImplementedError("The check_process_obs method has not yet been implemented for Chandra, as we need "
                                   "to see what detailed information are available once processing downloaded data has"
                                   "begun.")
+
+    def ident_to_obsid(self, ident: str):
+        """
+        A slightly unusual abstract method which will allow each mission convert a unique identifier being used
+        in the processing steps to the ObsID (as these unique identifiers will contain the ObsID). This is necessary
+        because XMM, for instance, has processing steps that act on whole ObsIDs (e.g. cifbuild), and processing steps
+        that act on individual sub-exposures of instruments of ObsIDs, so the ID could be '0201903501M1S001'.
+
+        Implemented as an abstract method because the unique identifier style may well be different for different
+        missions - many will just always be the ObsID, but we want to be able to have low level control.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param str ident: The unique identifier used in a particular processing step.
+        """
+        raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
+                                  "clear to me what form the unique identifiers will take once we start processing"
+                                  "{n} data ourselves.".format(n=self.pretty_name))

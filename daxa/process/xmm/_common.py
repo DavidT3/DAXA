@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/04/2023, 15:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 11:24. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -59,6 +59,10 @@ def _sas_process_setup(obs_archive: Archive) -> Version:
             stor_dir = obs_archive.get_processed_data_path(miss, obs_id)
             if not os.path.exists(stor_dir):
                 os.makedirs(stor_dir)
+
+            # We also make a directory within the storage directory, specifically for logs
+            if not os.path.exists(stor_dir + 'logs'):
+                os.makedirs(stor_dir + 'logs')
 
         # We also ensure that an overall directory for failed processing observations exists - this will give
         #  observation directories which have no useful data in (i.e. they do not have a successful final

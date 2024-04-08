@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/02/2024, 11:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 12:05. Copyright (c) The Contributors
 
 import os.path
 import re
@@ -260,7 +260,7 @@ class BaseMission(metaclass=ABCMeta):
         :param List[str] new_insts: The new list of instruments associated with this mission which should
             be processed into the archive.
         """
-        self._chos_insts = self._check_chos_insts(new_insts)
+        self._chos_insts = self.check_inst_names(new_insts)
 
     @property
     def top_level_path(self) -> str:
@@ -535,12 +535,52 @@ class BaseMission(metaclass=ABCMeta):
                                         "{at}".format(it=', '.join(tt_check),
                                                       at=', '.join(list(SRC_TYPE_TAXONOMY.keys()))))
 
-    def _check_chos_insts(self, insts: Union[List[str], str]):
+    @abstractmethod
+    def _fetch_obs_info(self):
         """
-        An internal function to perform some checks on the validity of chosen instrument names for a given mission.
+        The abstract method (i.e. will be overridden in every subclass of BaseMission) that pulls basic information
+        on all observations for a given mission down from whatever server it lives on.
+
+        NOTE - THE INDEX OF THE PANDAS DATAFRAME SHOULD BE RESET AT THE END OF EACH IMPLEMENTATION OF THIS
+        METHOD - e.g. obs_info_pd = obs_info_pd.reset_index(drop=True)
+        """
+        # self.all_obs_info = None
+        pass
+
+    # Then define user-facing methods
+    def reset_filter(self):
+        """
+        Very simple method which simply resets the filter array, meaning that all observations THAT HAVE BEEN
+        MARKED AS USABLE will now be downloaded and processed, and any filters applied to the current mission
+        have been undone.
+        """
+        self._filter_allowed = self.all_obs_info['science_usable'].values.copy()
+        # If the filter changes then we make sure download done is set to False so that any changes
+        #  in observation selection are reflected in the download call
+        self._download_done = False
+
+    def check_obsid_pattern(self, obs_id_to_check: str):
+        """
+        A simple method that will check an input ObsID against the ObsID regular expression pattern defined
+        for the current mission class. If the input ObsID is compliant with the regular expression then
+        True will be returned, if not then False will be returned.
+
+        :param str obs_id_to_check: The ObsID that we wish to check against the ID pattern.
+        :return: A boolean flag indicating whether the input ObsID is compliant with the ID regular expression.
+            True means that it is, False means it is not.
+        :rtype: bool
+        """
+        return bool(re.match(self.id_regex, obs_id_to_check))
+
+    def check_inst_names(self, insts: Union[List[str], str], error_on_bad_inst: bool = True):
+        """
+        A method to perform some checks on the validity of chosen instrument names for a given mission.
 
         :param List[str]/str insts: Instrument names that are to be checked for the current mission, either a single
             name or a list of names.
+        :param bool error_on_bad_inst: Controls whether an exception is raised if the instrument(s) aren't actually
+            associated with this mission - intended for DAXA checking operations (see 'get_process_logs' of Archive
+            for an example). Default is True.
         :return: The list of instruments (possibly altered to match formats expected by this module).
         :rtype: List
         """
@@ -581,59 +621,25 @@ class BaseMission(metaclass=ABCMeta):
             if inst_name not in updated_insts:
                 updated_insts.append(inst_name)
 
-        # I warn the user if the name(s) of instruments have been altered.
-        if altered:
-            warn("Some instrument names were converted to alternative forms expected by this module, the instrument "
-                 "names are now; {}".format(', '.join(updated_insts)))
-
         # This list comprehension checks that the input instrument names are in the allowed instruments for this
         #  particular mission
         inst_test = [i in self._miss_poss_insts for i in updated_insts]
         # If some aren't then we throw an error (hopefully quite an informative one).
-        if not all(inst_test):
+        if not all(inst_test) and error_on_bad_inst:
             bad_inst = np.array(updated_insts)[~np.array(inst_test)]
             raise ValueError("Some instruments ({bi}) are not associated with this mission, please choose from "
-                             "the following; {ai}".format(bi=", ".join(bad_inst), ai=", ".join(self._miss_poss_insts)))
+                             "the following; {ai}".format(bi=", ".join(bad_inst),
+                                                          ai=", ".join(self._miss_poss_insts)))
+        elif not all(inst_test) and not error_on_bad_inst:
+            updated_insts = [i for i in updated_insts if i in self._miss_poss_insts]
+
+        # I warn the user if the name(s) of instruments have been altered.
+        if altered:
+            warn("Some instrument names were converted to alternative forms expected by this module, the instrument "
+                 "names are now; {}".format(', '.join(updated_insts)), stacklevel=2)
 
         # Return the possibly altered instruments
         return updated_insts
-
-    # Then define user-facing methods
-    @abstractmethod
-    def _fetch_obs_info(self):
-        """
-        The abstract method (i.e. will be overridden in every subclass of BaseMission) that pulls basic information
-        on all observations for a given mission down from whatever server it lives on.
-
-        NOTE - THE INDEX OF THE PANDAS DATAFRAME SHOULD BE RESET AT THE END OF EACH IMPLEMENTATION OF THIS
-        METHOD - e.g. obs_info_pd = obs_info_pd.reset_index(drop=True)
-        """
-        # self.all_obs_info = None
-        pass
-
-    def reset_filter(self):
-        """
-        Very simple method which simply resets the filter array, meaning that all observations THAT HAVE BEEN
-        MARKED AS USABLE will now be downloaded and processed, and any filters applied to the current mission
-        have been undone.
-        """
-        self._filter_allowed = self.all_obs_info['science_usable'].values.copy()
-        # If the filter changes then we make sure download done is set to False so that any changes
-        #  in observation selection are reflected in the download call
-        self._download_done = False
-
-    def check_obsid_pattern(self, obs_id_to_check: str):
-        """
-        A simple method that will check an input ObsID against the ObsID regular expression pattern defined
-        for the current mission class. If the input ObsID is compliant with the regular expression then
-        True will be returned, if not then False will be returned.
-
-        :param str obs_id_to_check: The ObsID that we wish to check against the ID pattern.
-        :return: A boolean flag indicating whether the input ObsID is compliant with the ID regular expression.
-            True means that it is, False means it is not.
-        :rtype: bool
-        """
-        return bool(re.match(self.id_regex, obs_id_to_check))
 
     @_lock_check
     def filter_on_obs_ids(self, allowed_obs_ids: Union[str, List[str]]):
@@ -1352,6 +1358,24 @@ class BaseMission(metaclass=ABCMeta):
 
         :param dict obs_info: The multi-level dictionary containing available observation information for an
             observation.
+        """
+        pass
+
+    @abstractmethod
+    def ident_to_obsid(self, ident: dict):
+        """
+        A slightly unusual abstract method which will allow each mission convert a unique identifier being used
+        in the processing steps to the ObsID (as these unique identifiers will contain the ObsID). This is necessary
+        because XMM, for instance, has processing steps that act on whole ObsIDs (e.g. cifbuild), and processing steps
+        that act on individual sub-exposures of instruments of ObsIDs, so the ID could be '0201903501M1S001'.
+
+        Implemented as an abstract method because the unique identifier style may well be different for different
+        missions - many will just always be the ObsID, but we want to be able to have low level control.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param str ident: The unique identifier used in a particular processing step.
         """
         pass
 
