@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 16:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 17:07. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -92,60 +92,81 @@ class Archive:
         elif self._new_arch:
             os.makedirs(self._arch_meta_path)
 
-        # The mission instances (or single instance) used to create the archive are stored in a dictionary, with
-        #  the key being the internal DAXA name for that mission
-        self._missions = {m.name: m for m in missions}
+        # If the archive is brand new, then we have a lot of setting up attributes to do
+        if self._new_arch:
+            # The mission instances (or single instance) used to create the archive are stored in a dictionary, with
+            #  the key being the internal DAXA name for that mission
+            self._missions = {m.name: m for m in missions}
 
-        # This iterates through the missions that make up this archive, and ensures that they are 'locked'
-        #  That means their observation content becomes immutable.
-        for mission in self._missions.values():
-            mission: BaseMission
-            mission.locked = True
+            # This iterates through the missions that make up this archive, and ensures that they are 'locked'
+            #  That means their observation content becomes immutable.
+            for mission in self._missions.values():
+                mission: BaseMission
+                mission.locked = True
 
-            # We also make sure that the data are downloaded
-            if not mission.download_completed:
-                mission.download()
+                # We also make sure that the data are downloaded
+                if not mission.download_completed:
+                    mission.download()
 
-        # These attributes are to store outputs from command-line based processes (such as the SAS processing
-        #  tools for XMM missions). Top level keys are mission names, one level down from that uses process names
-        #  as keys (the function name; e.g. cif_build), and one level down from that uses either an ObsID or ObsID
-        #  + instrument combo as keys.
-        # The _process_success_flags dictionary stores whether the process was successful, which means that the
-        #  final output file exists, and that there were no errors from stderr
-        self._process_success_flags = {mn: {} for mn in self.mission_names}
-        # The _process_errors dictionary stores any error outputs that may have been generated, _process_warnings
-        #  stores any warnings that (hopefully) aren't serious enough to rule that a process run was a complete
-        #  failure, and _process_logs stores any relevant logs (mostly stdout for cmd line based tools) for
-        #  each process
-        self._process_errors = {mn: {} for mn in self.mission_names}
-        self._process_warnings = {mn: {} for mn in self.mission_names}
-        self._process_raw_errors = {mn: {} for mn in self.mission_names}  # Specifically for unparsed stderr
-        self._process_logs = {mn: {} for mn in self.mission_names}
+            # These attributes are to store outputs from command-line based processes (such as the SAS processing
+            #  tools for XMM missions). Top level keys are mission names, one level down from that uses process names
+            #  as keys (the function name; e.g. cif_build), and one level down from that uses either an ObsID or ObsID
+            #  + instrument combo as keys.
+            # The _process_success_flags dictionary stores whether the process was successful, which means that the
+            #  final output file exists, and that there were no errors from stderr
+            self._process_success_flags = {mn: {} for mn in self.mission_names}
+            # The _process_errors dictionary stores any error outputs that may have been generated, _process_warnings
+            #  stores any warnings that (hopefully) aren't serious enough to rule that a process run was a complete
+            #  failure, and _process_logs stores any relevant logs (mostly stdout for cmd line based tools) for
+            #  each process
+            self._process_errors = {mn: {} for mn in self.mission_names}
+            self._process_warnings = {mn: {} for mn in self.mission_names}
+            self._process_raw_errors = {mn: {} for mn in self.mission_names}  # Specifically for unparsed stderr
+            self._process_logs = {mn: {} for mn in self.mission_names}
 
-        # This attribute is used to store the 'extra info' that is sometimes passed out of processing functions (see
-        # the DAXA cif_build, epchain, and emchain functions for examples).
-        self._process_extra_info = {mn: {} for mn in self.mission_names}
+            # This attribute is used to store the 'extra info' that is sometimes passed out of processing functions (see
+            # the DAXA cif_build, epchain, and emchain functions for examples).
+            self._process_extra_info = {mn: {} for mn in self.mission_names}
 
-        # This attribute will contain information on mission's observations. That could include whether a particular
-        #  instrument was active for a particular observation, what sub-exposures there were (assuming there were
-        #  any, XMM will often have some), what filter was applied, things like that.
-        # I will attempt to normalise the information stored in here for each mission, as far as that is possible.
-        self._miss_obs_summ_info = {mn: {} for mn in self.mission_names}
-        # This dictionary will mimic the structure of the _miss_obs_summ_info dictionary, but will contain simple
-        #  boolean information on whether the particular ObsID-instrument-sub exposure (or more likely
-        #  ObsID-Instrument for most missions) should be reduced and processed for science
-        self._use_this_obs = {mn: {} for mn in self.mission_names}
+            # This attribute will contain information on mission's observations. That could include whether a particular
+            #  instrument was active for a particular observation, what sub-exposures there were (assuming there were
+            #  any, XMM will often have some), what filter was applied, things like that.
+            # I will attempt to normalise the information stored in here for each mission, as far as that is possible.
+            self._miss_obs_summ_info = {mn: {} for mn in self.mission_names}
+            # This dictionary will mimic the structure of the _miss_obs_summ_info dictionary, but will contain simple
+            #  boolean information on whether the particular ObsID-instrument-sub exposure (or more likely
+            #  ObsID-Instrument for most missions) should be reduced and processed for science
+            self._use_this_obs = {mn: {} for mn in self.mission_names}
 
-        # This stores the final judgement pronounced by the _final_process wrapper that should be used to decorate
-        #  the last processing function for a particular mission. At the ObsID level it states whether there are
-        #  any useful data (True) or whether no aspect of that observation reached the end of the final step
-        #  successfully. The ObsIDs marked as False will be moved from the archive processed data directory to a
-        #  separate failed data directory.
-        self._final_obs_id_success = {mn: {} for mn in self.mission_names}
+            # This stores the final judgement pronounced by the _final_process wrapper that should be used to decorate
+            #  the last processing function for a particular mission. At the ObsID level it states whether there are
+            #  any useful data (True) or whether no aspect of that observation reached the end of the final step
+            #  successfully. The ObsIDs marked as False will be moved from the archive processed data directory to a
+            #  separate failed data directory.
+            self._final_obs_id_success = {mn: {} for mn in self.mission_names}
 
-        # This attribute will store regions for the observations associated with different missions. By the time
-        #  they are stored in this attribute they SHOULD be in RA-Dec, not in pixel coords or anything like that
-        self._source_regions = {mn: {} for mn in self.mission_names}
+            # This attribute will store regions for the observations associated with different missions. By the time
+            #  they are stored in this attribute they SHOULD be in RA-Dec, not in pixel coords or anything like that
+            self._source_regions = {mn: {} for mn in self.mission_names}
+
+        # HOWEVER, in this case the archive is being loaded back in from disk, and all those attributes (particularly
+        #  all the dictionaries) will be loaded back in from the save file
+        else:
+            # TODO still need to figure out how missions get read back in, or reconstructed at least
+
+            # This opens the dictionary file that I dumped most of the internal attributes into - we should be able
+            #  to easily reassign all the different json/dictionary entries to their attributes
+            with open(self._arch_meta_path + 'process_info.json', 'r') as processo:
+                info_dict = json.load(processo)
+
+                # Thus begins the long and unsightly process of putting all the information back where it belongs
+                self._process_success_flags = info_dict['process_success']
+                self._miss_obs_summ_info = info_dict['obs_summaries']
+                self._final_obs_id_success = info_dict['final_process_success']
+                self._process_errors = info_dict['process_errors']
+                self._process_warnings = info_dict['process_warnings']
+                self._process_extra_info = info_dict['process_extra_info']
+                self._use_this_obs = info_dict['use_this_obs']
 
     # Defining properties first
     @property
