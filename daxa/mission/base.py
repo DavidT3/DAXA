@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 23:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 09:50. Copyright (c) The Contributors
 import json
 import os.path
 import re
@@ -61,6 +61,34 @@ def _lock_check(change_func):
         return any_ret
 
     return wrapper
+
+
+# def _capture_filter(change_func):
+#     """
+#     An internal function designed to be used as a decorator for any methods of a mission class that perform filtering
+#     operations on the available observations, to capture (and record) what filtering was performed, with what
+#     arguments, and in what order. That information can then be saved in the mission state, and any future reloading
+#     of the mission will be able to update itself by running the same filtering options on the more up to date list
+#     of observations.
+#
+#     :param change_func: The method which is filtering the available mission data.
+#     """
+#
+#     # The wraps decorator updates the wrapper function to look like wrapped function by copying attributes
+#     #  such as __name__, __doc__ (the docstring)
+#     @wraps(change_func)
+#     def wrapper(*args, **kwargs):
+#         # The first argument will be 'self' for any class method, so we check its 'locked' property
+#         if not args[0].locked:
+#             # If not locked then we can execute that method without any worries
+#             any_ret = change_func(*args, **kwargs)
+#         else:
+#             # If the mission is locked then we have to throw an error
+#             raise MissionLockedError("This mission instance has been locked, and is now immutable.")
+#
+#         return any_ret
+#
+#     return wrapper
 
 
 class BaseMission(metaclass=ABCMeta):
@@ -143,7 +171,13 @@ class BaseMission(metaclass=ABCMeta):
         # This attribute stores which type of data were downloaded, and are thus associated with this mission - there
         #  are three possible values; 'raw', 'preprocessed', or 'raw+preprocessed' (or four if you count the initial
         #  None value which is present until a download is actually done).
+        # TODO need to actually have this set in the download methods of the various mission classes
         self._download_type = None
+
+        # This attribute stores the filtering operations that have been applied to the current mission, including the
+        #  configurations that were used - they are stored in the order they were performed; i.e. element 0 is the
+        #  first applied and element N is the last
+        self._filtering_operations = []
 
     # Defining properties first
     @property
@@ -349,6 +383,62 @@ class BaseMission(metaclass=ABCMeta):
         # If the filter changes then we make sure download done is set to False so that any changes
         #  in observation selection are reflected in the download call
         self._download_done = False
+
+    @property
+    def filtering_operations(self) -> List[dict]:
+        """
+        A property getter for the filtering operations that have been applied to this mission, in the order they
+        were applied. This is mainly stored so that missions that have been reinstated from a save file can be updated
+        by running the exact same filtering operations again.
+
+        :return: A list of dictionaries which have two keys, 'name', and 'arguments'; the 'name' key corresponds to
+            the name of the filtering method, and the 'arguments' key corresponds to a dictionary of arguments that
+            were passed to the method. 0th element was applied first, Nth element was applied last.
+        :rtype: List[dict]
+        """
+
+        return self._filtering_operations
+
+    @filtering_operations.setter
+    def filtering_operations(self, new_filter_operation: dict):
+        """
+        A property setter for the store of filtering operations that have been applied to this mission. This is
+        slightly non-traditional in that it doesn't replace the entire filtering operations attribute, but just
+        appends the new entry to what is already there.
+
+        This shouldn't really be used directly, it is more for other DAXA methods than the user.
+
+        :param np.ndarray new_filter_operation: The entry for the filtering operations history. A dictionary that has
+            two keys, 'name', and 'arguments'; the 'name' key corresponds to the name of the filtering method, and
+            the 'arguments' key corresponds to a dictionary of arguments that were passed to the method
+        """
+        # There are quite a few checks on what is being passed to this setter, as I really don't want anyone doing
+        #  it who doesn't know what they are doing - really I don't want anything but the DAXA _capture_filter
+        #  decorator doing this
+        # First I check that the input is a dictionary, and that the keys I need to be there are present
+        if not isinstance(new_filter_operation, dict) or ('name' not in new_filter_operation or
+                                                          'arguments' not in new_filter_operation):
+            raise TypeError("Only a dictionary containing entries for 'name' and 'arguments' may be passed to add a "
+                            "new entry to the filtering operations history.")
+
+        # Then we ensure that the data type for the name is correct
+        if not isinstance(new_filter_operation['name'], str):
+            raise TypeError("The filter operation method name must be a string, this entry ({}) is "
+                            "not.".format(str(new_filter_operation['name'])))
+        # And that it is a method of this mission class (this isn't perfect because you could pass the name of an
+        #  attribute or property, or non-filtering method, and it would be an attribute, but honestly at that point
+        #  you deserve to have things break)
+        elif not hasattr(self, new_filter_operation['name']):
+            raise ValueError("The filter operation method name ({}) is not a method of this mission "
+                             "class.".format(str(new_filter_operation['name'])))
+
+        # Check that the entry for arguments is a dictionary
+        if not isinstance(new_filter_operation['arguments'], dict):
+            raise TypeError("The filter operation arguments value must be a dictionary of passed values.")
+
+        # Finally, if we've got to this point, it is safe to append the new entry to our existing filtering operations
+        #  history list
+        self._filtering_operations.append(new_filter_operation)
 
     @property
     @abstractmethod
