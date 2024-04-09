@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 23:21. Copyright (c) The Contributors
 import json
 import os.path
 import re
@@ -1131,7 +1131,7 @@ class BaseMission(metaclass=ABCMeta):
 
         # Have to check whether there are any coordinates that have been resolved, if not we throw an error
         if len(coords) == 0:
-            raise NameResolveError("The name(s) could be resolved into coordinates.")
+            raise NameResolveError("The name(s) could not be resolved into coordinates.")
 
         # Also, if this list has any entries, then some names failed to resolve (but if we're here then some of the
         #  names WERE resolved)
