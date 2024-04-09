@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 22:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 11:50. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -55,6 +55,8 @@ class Archive:
         # An attribute for the path to the particular archive directory is also setup, as it's a very useful
         #  piece of information
         self._archive_path = OUTPUT + 'archives/' + archive_name + '/'
+        # This attribute stores the path to the meta-data directory
+        self._arch_meta_path = self._archive_path + '/.save_info/'
 
         # An attribute that stores whether this is a new archive, or whether it has been loaded back in from disk
         self._new_arch = True
@@ -67,11 +69,14 @@ class Archive:
                  "overwritten.".format(an=archive_name), stacklevel=2)
             rmtree(self._archive_path)
             os.makedirs(self._archive_path)
+        # In this case something interrupted a declaration of an archive before it was first saved, so the save
+        #  file that would be expected because the save directory exists will not be there - we need to clean up
+        #  the save directory so this can proceed as a new archive
+        elif os.path.exists(self._arch_meta_path) and not os.path.exists(self._arch_meta_path + 'process_info.json'):
+            os.remove(self._arch_meta_path)
         else:
             self._new_arch = False
 
-        # This attribute stores the path to the meta-data directory
-        self._arch_meta_path = self._archive_path + '/.save_info/'
         # Make a directory to meta-data we would need to reinstate the archive as it was when it was last saved
         if not self._new_arch and not os.path.exists(self._arch_meta_path):
             raise FileNotFoundError("The save-data directory for '{a}' cannot be found - it is not possible "
