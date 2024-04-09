@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 14:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 14:43. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -1602,7 +1602,7 @@ class BaseMission(metaclass=ABCMeta):
                 elif isinstance(arg_val, datetime):
                     filt_op['arguments'][arg_name] = {"datetime": str(arg_val)}
                 elif isinstance(arg_val, np.ndarray):
-                    filt_op['arguments'][arg_name] = {'ndarray': list(arg_val)}
+                    filt_op['arguments'][arg_name] = {'ndarray': arg_val.tolist()}
                 # SkyCoord has a few more moving parts, so we create a nested dictionary, other than that same idea
                 elif isinstance(arg_val, SkyCoord):
                     # Reads out the position values in degrees, which will help us to re-construct the SkyCoord
