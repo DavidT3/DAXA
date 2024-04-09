@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 11:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 11:36. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -871,6 +871,7 @@ class BaseMission(metaclass=ABCMeta):
     # TODO Figure out how to support survey-type missions (i.e. eROSITA) that release large sweeps of the sky
     #  when filtering based on position.
     @_lock_check
+    @_capture_filter
     def filter_on_rect_region(self, lower_left: Union[SkyCoord, np.ndarray, list],
                               upper_right: Union[SkyCoord, np.ndarray, list]):
         """
@@ -914,6 +915,7 @@ class BaseMission(metaclass=ABCMeta):
         self.filter_array = new_filter
 
     @_lock_check
+    @_capture_filter
     def filter_on_positions(self, positions: Union[list, np.ndarray, SkyCoord],
                             search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
                             return_pos_obs_info: bool = False) -> Union[None, pd.DataFrame]:
@@ -1210,6 +1212,7 @@ class BaseMission(metaclass=ABCMeta):
             return pd.DataFrame(ret_df_data, columns=ret_df_cols)
 
     @_lock_check
+    @_capture_filter
     def filter_on_name(self, object_name: Union[str, List[str]],
                        search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
                        parse_name: bool = False):
@@ -1271,6 +1274,7 @@ class BaseMission(metaclass=ABCMeta):
         self.filter_on_positions(coords, search_distance)
 
     @_lock_check
+    @_capture_filter
     def filter_on_time(self, start_datetime: datetime, end_datetime: datetime, over_run: bool = True):
         """
         This method allows you to filter observations for this mission based on when they were taken. A start
@@ -1312,6 +1316,7 @@ class BaseMission(metaclass=ABCMeta):
         self.filter_array = new_filter
 
     @_lock_check
+    @_capture_filter
     def filter_on_target_type(self, target_type: Union[str, List[str]]):
         """
         This method allows the filtering of observations based on what type of object their target source was. It
@@ -1361,6 +1366,7 @@ class BaseMission(metaclass=ABCMeta):
         self.filter_array = new_filter
 
     @_lock_check
+    @_capture_filter
     def filter_on_positions_at_time(self, positions: Union[list, np.ndarray, SkyCoord],
                                     start_datetimes: Union[np.ndarray, datetime],
                                     end_datetimes: Union[np.ndarray, datetime],
