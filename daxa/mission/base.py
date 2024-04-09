@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 09:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 11:34. Copyright (c) The Contributors
+import inspect
 import json
 import os.path
 import re
@@ -63,32 +64,63 @@ def _lock_check(change_func):
     return wrapper
 
 
-# def _capture_filter(change_func):
-#     """
-#     An internal function designed to be used as a decorator for any methods of a mission class that perform filtering
-#     operations on the available observations, to capture (and record) what filtering was performed, with what
-#     arguments, and in what order. That information can then be saved in the mission state, and any future reloading
-#     of the mission will be able to update itself by running the same filtering options on the more up to date list
-#     of observations.
-#
-#     :param change_func: The method which is filtering the available mission data.
-#     """
-#
-#     # The wraps decorator updates the wrapper function to look like wrapped function by copying attributes
-#     #  such as __name__, __doc__ (the docstring)
-#     @wraps(change_func)
-#     def wrapper(*args, **kwargs):
-#         # The first argument will be 'self' for any class method, so we check its 'locked' property
-#         if not args[0].locked:
-#             # If not locked then we can execute that method without any worries
-#             any_ret = change_func(*args, **kwargs)
-#         else:
-#             # If the mission is locked then we have to throw an error
-#             raise MissionLockedError("This mission instance has been locked, and is now immutable.")
-#
-#         return any_ret
-#
-#     return wrapper
+def _capture_filter(change_func):
+    """
+    An internal function designed to be used as a decorator for any methods of a mission class that perform filtering
+    operations on the available observations, to capture (and record) what filtering was performed, with what
+    arguments, and in what order. That information can then be saved in the mission state, and any future reloading
+    of the mission will be able to update itself by running the same filtering options on the more up to date list
+    of observations.
+
+    :param change_func: The method which is filtering the available mission data.
+    """
+
+    # The wraps decorator updates the wrapper function to look like wrapped function by copying attributes
+    #  such as __name__, __doc__ (the docstring)
+    @wraps(change_func)
+    def wrapper(*args, **kwargs):
+        # First off we run the filtering method, so we don't save a filtering method that failed
+        any_ret = change_func(*args, **kwargs)
+        # The first argument will be 'self' for any class method, which we need so we can add to the filtering
+        #  operations history
+        rel_miss = args[0]
+
+        # If there are no positional arguments, then all will be well, and we just use the keyword arguments dictionary
+        #  as the entry for the filtering operation history - otherwise we're going to need to add some information
+        final_args = kwargs
+
+        # In this case there are positional arguments other than 'self' - we care about these and need to add them
+        #  to the arguments dictionary
+        if len(args) != 1:
+            # We extract the signature (i.e. the argument and type hints) part of the function
+            meth_sig = inspect.signature(change_func)
+            # Then we specifically extract an ordered dictionary of parameters
+            meth_pars = meth_sig.parameters
+            # This will store any positional arguments that have to be added to the final arguments dictionary
+            pos_arg_vals = {}
+            # Iterating through all the parameters
+            for par_ind, par_name in enumerate(meth_pars):
+                # We don't care about self, so we skip it
+                if par_name == 'self':
+                    continue
+                # As extracting the parameters from the function will also extract keyword arguments, we only
+                #  do things with the ones that DON'T already appear in the keyword arguments dictionary
+                elif par_name not in kwargs:
+                    # In that case we can extract the value from the args tuple using the current positional index,
+                    #  which I THINK should always correspond to the right value because meth_pars is an ordered
+                    #  dictionary
+                    pos_arg_vals[par_name] = args[par_ind]
+            # We add in the newly extracted positional arguments to the final argument dictionary
+            final_args.update(pos_arg_vals)
+
+        # Finally, we add the name of the filtering method to the filtering operations dictionary
+        filtering_op_entry = {'name': change_func.__name__, 'arguments': final_args}
+        # And we add it to the mission's filtering operations property, which will check it and store it
+        rel_miss.filtering_operations = filtering_op_entry
+
+        return any_ret
+
+    return wrapper
 
 
 class BaseMission(metaclass=ABCMeta):
@@ -793,6 +825,7 @@ class BaseMission(metaclass=ABCMeta):
         return updated_insts
 
     @_lock_check
+    @_capture_filter
     def filter_on_obs_ids(self, allowed_obs_ids: Union[str, List[str]]):
         """
         This filtering method will select only observations with IDs specified by the allowed_obs_ids argument.
