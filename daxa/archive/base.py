@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:05. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -79,33 +79,33 @@ class Archive:
         elif self._new_arch:
             os.makedirs(self._arch_meta_path)
 
-        # Must ensure that the missions variable is iterable even if there's only one mission that has
-        #  been passed, makes it easier to generalise things.
-        if isinstance(missions, BaseMission):
-            missions = [missions]
-        elif missions is None and self._new_arch:
-            raise ValueError("The 'missions' argument cannot be None when creating a new archive, only when loading"
-                             "an existing one.")
-        elif missions is None and not self._new_arch:
-            # Just so the user knows
-            warn("Anything passed to 'missions' when loading in an existing archive is disregarded - missions are "
-                 "loaded back in as they were when the archive was last saved.", stacklevel=2)
-
-        # Then checking that every element in the list is a BaseMission
-        if not all(isinstance(mission, BaseMission) for mission in missions):
-            raise TypeError("Please pass either a single mission class instance, or a list of missions class "
-                            "instances to the 'missions' argument.")
-
-        # Here we ensure that there are no duplicate mission instances, each mission should be filtered in such
-        #  a way that all observations for that mission are in one mission instance
-        miss_names = [m.name for m in missions]
-        if len(miss_names) != len(list(set(miss_names))):
-            raise DuplicateMissionError("There are multiple instances of the same missions present in "
-                                        "the 'missions' argument - only one instance of each is allowed for "
-                                        "a particular archive.")
-
         # If the archive is brand new, then we have a lot of setting up attributes to do
         if self._new_arch:
+            # Must ensure that the missions variable is iterable even if there's only one mission that has
+            #  been passed, makes it easier to generalise things.
+            if isinstance(missions, BaseMission):
+                missions = [missions]
+            elif missions is None and self._new_arch:
+                raise ValueError("The 'missions' argument cannot be None when creating a new archive, only when loading"
+                                 "an existing one.")
+            elif missions is None and not self._new_arch:
+                # Just so the user knows
+                warn("Anything passed to 'missions' when loading in an existing archive is disregarded - missions are "
+                     "loaded back in as they were when the archive was last saved.", stacklevel=2)
+
+            # Then checking that every element in the list is a BaseMission
+            if not all(isinstance(mission, BaseMission) for mission in missions):
+                raise TypeError("Please pass either a single mission class instance, or a list of missions class "
+                                "instances to the 'missions' argument.")
+
+            # Here we ensure that there are no duplicate mission instances, each mission should be filtered in such
+            #  a way that all observations for that mission are in one mission instance
+            miss_names = [m.name for m in missions]
+            if len(miss_names) != len(list(set(miss_names))):
+                raise DuplicateMissionError("There are multiple instances of the same missions present in "
+                                            "the 'missions' argument - only one instance of each is allowed for "
+                                            "a particular archive.")
+
             # The mission instances (or single instance) used to create the archive are stored in a dictionary, with
             #  the key being the internal DAXA name for that mission
             self._missions = {m.name: m for m in missions}
