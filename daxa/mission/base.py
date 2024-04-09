@@ -1,10 +1,11 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 13:53. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 14:35. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
+from copy import deepcopy
 from datetime import datetime
 from functools import wraps
 from typing import List, Union
@@ -1582,8 +1583,41 @@ class BaseMission(metaclass=ABCMeta):
         mission_data['selected_obs'] = list(sel_obs)
 
         # We can now store the filtering operations (and their configurations), as well as the order they were run in,
-        #  which means a reinstated mission can re-run the same filtering on an updated data set
-        mission_data['filtering_operations'] = self.filtering_operations
+        #  which means a reinstated mission can re-run the same filtering on an updated data set. HOWEVER, there is
+        #  an irritating snag, where some types of objects that can be passed to filtering method cannot be
+        #  'serialized' in a JSON. As such we have to make some modifications before we store it in our save state file
+
+        # First of all, make a copy of the filtering operations list, as we'll be making modifications that we don't
+        #  want to affect the attribute in the class
+        filt_ops = deepcopy(self.filtering_operations)
+
+        # Here we run through the filter operations, and replace any types we know can't be stored in a JSON and
+        #  could be passed as an argument to a filter method
+        for filt_op in filt_ops:
+            for arg_name, arg_val in filt_op['arguments'].items():
+                # We'll want to reconstruct these things as the type they were originally when the mission is restored
+                #  so we store them as a dictionary to readily identify what types they were before we converted them
+                if isinstance(arg_val, Quantity):
+                    filt_op['arguments'][arg_name] = {"quantity": str(arg_val)}
+                elif isinstance(arg_val, datetime):
+                    filt_op['arguments'][arg_name] = {"datetime": str(arg_val)}
+                elif isinstance(arg_val, np.ndarray):
+                    filt_op['arguments'][arg_name] = {'ndarray': list(arg_val)}
+                # SkyCoord has a few more moving parts, so we create a nested dictionary, other than that same idea
+                elif isinstance(arg_val, SkyCoord):
+                    # Reads out the position values in degrees, which will help us to re-construct the SkyCoord
+                    #  when this mission state is read back in
+                    ra = arg_val.ra.to('deg').value
+                    dec = arg_val.dec.to('deg').value
+
+                    # Saving the specified frame is also important for reconstruction
+                    frame = arg_val.frame.name
+
+                    # Creating a nested dictionary with all the information we should need to reconstruct, if
+                    #  it is just a position (no time axis) - that should be the case as DAXA is now
+                    filt_op['arguments'][arg_name] = {'skycoord': {'ra': ra, 'dec': dec, 'frame': frame}}
+
+        mission_data['filtering_operations'] = filt_ops
 
         # Now we write the required information to the state file path
         with open(miss_file_path, 'w') as stateo:
