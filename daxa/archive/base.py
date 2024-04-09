@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 20:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 20:44. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -30,6 +30,8 @@ class Archive:
     :param str archive_name: The name to be given to this archive - it will be used for storage
         and identification.
     """
+    # TODO UNFORTUNATELY NEED TO DO A BREAKING CHANGE AND SWAP THE ARCHIVE NAME AND MISSIONS ARGUMENTS - MISSIONS
+    #  NEEDS TO BECOME A KEYWORD ARGUMENT
     def __init__(self, missions: Union[List[BaseMission], BaseMission], archive_name: str, clobber: bool = False):
         """
         The init of the Archive class, which is to be used to consolidate and provide some interface with a set
