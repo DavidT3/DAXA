@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 17:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 20:17. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -44,14 +44,19 @@ class eROSITACalPV(BaseMission):
 
     :param List[str]/str fields: The eROSITA calibration field name(s) or type to download/process data from. 
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
+    :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+        state of a previously defined mission (the same filters having been applied etc.)
     """
-    def __init__(self, insts: Union[List[str], str] = None, fields: Union[List[str], str] = None):
+    def __init__(self, insts: Union[List[str], str] = None, fields: Union[List[str], str] = None,
+                 save_file_path: str = None):
         """
         The mission class for the eROSITA early data release observations made during the Calibration and Performance 
         Verification program. 
 
         :param List[str]/str fields: The eROSITA calibration field name(s) or type to download/process data from.
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
+        :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+            state of a previously defined mission (the same filters having been applied etc.)
         """
         # Call the init of parent class with the required information
         super().__init__() 
@@ -99,6 +104,13 @@ class eROSITACalPV(BaseMission):
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
+
+        # We now will read in the previous state, if there is one to be read in. This could be slightly annoying if
+        #  the user has passed an incompatible save file for a mission with a large online archive (i.e. the download
+        #  takes a while), but I figure that is fairly unlikely to be a frequent bother, and this is the most elegant
+        #  way of doing this
+        if save_file_path is not None:
+            self._load_state(save_file_path)
 
     # Defining properties first
     @property
@@ -853,12 +865,16 @@ class eRASS1DE(BaseMission):
     The mission class for the first data release of the German half of the eROSITA All-Sky Survey
 
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
+    :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+        state of a previously defined mission (the same filters having been applied etc.)
     """
-    def __init__(self, insts: Union[List[str], str] = None):
+    def __init__(self, insts: Union[List[str], str] = None, save_file_path: str = None):
         """
         The mission class for the first data release of the German half of the eROSITA All-Sky Survey
 
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from.
+        :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+            state of a previously defined mission (the same filters having been applied etc.)
         """
         # Call the init of parent class with the required information
         super().__init__()
@@ -891,6 +907,13 @@ class eRASS1DE(BaseMission):
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
+
+        # We now will read in the previous state, if there is one to be read in. This could be slightly annoying if
+        #  the user has passed an incompatible save file for a mission with a large online archive (i.e. the download
+        #  takes a while), but I figure that is fairly unlikely to be a frequent bother, and this is the most elegant
+        #  way of doing this
+        if save_file_path is not None:
+            self._load_state(save_file_path)
 
     # Defining properties first
     @property
