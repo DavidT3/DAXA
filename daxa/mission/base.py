@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 13:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 13:53. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -775,6 +775,9 @@ class BaseMission(metaclass=ABCMeta):
         # If the filter changes then we make sure download done is set to False so that any changes
         #  in observation selection are reflected in the download call
         self._download_done = False
+        # As we store the filtering options in the order they were applied, we have to empty the list when we reset
+        #  the filter
+        self._filtering_operations = []
 
     def check_obsid_pattern(self, obs_id_to_check: str):
         """
@@ -1578,7 +1581,9 @@ class BaseMission(metaclass=ABCMeta):
         # Make sure to add the sel_obs dictionary into the overall one we're hoping to store
         mission_data['selected_obs'] = list(sel_obs)
 
-        # TODO Need to store the applied filtering options, and the order
+        # We can now store the filtering operations (and their configurations), as well as the order they were run in,
+        #  which means a reinstated mission can re-run the same filtering on an updated data set
+        mission_data['filtering_operations'] = self.filtering_operations
 
         # Now we write the required information to the state file path
         with open(miss_file_path, 'w') as stateo:
