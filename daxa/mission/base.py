@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 14:58. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 15:46. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -727,6 +727,39 @@ class BaseMission(metaclass=ABCMeta):
             #  interesting bit is where we let the user re-run the exact same filtering steps, to update a previously
             #  created mission state/archive
             self.filter_array = self.filter_array*self.all_obs_info['ObsID'].isin(save_dict['selected_obs'])
+
+            # We now need to load in the filtering operations history, which may include recreating some datatypes
+            #  that weren't serializable
+            filt_ops = save_dict['filtering_operations']
+
+            # Iterating through all the filtering operations, we look for entries that have their argument value
+            #  formatted in a certain way (which we introduced in the save() method so we can know which need
+            #  converting back to a different type).
+            for filt_op in filt_ops:
+                for arg_name, arg_val in filt_op['arguments'].items():
+                    # Astropy quantity is easy, just wrap the string representation in the class
+                    if isinstance(arg_val, dict) and list(arg_val.keys())[0] == 'quantity':
+                        filt_op[arg_name] = Quantity(arg_val['quantity'])
+                    # Datetime is similarly simple, making use of its reading-from-string capabilities - the format
+                    #  is certain to be correct because we write the dates out with that format in save()
+                    elif isinstance(arg_val, dict) and list(arg_val.keys())[0] == 'datetime':
+                        filt_op[arg_name] = datetime.strptime(arg_val['datetime'], "%Y-%m-%d %H:%M:%S.%f")
+                    # This case is a list of datetimes, much the same process as above but with a list comprehension
+                    #  as well
+                    elif isinstance(arg_val, dict) and list(arg_val.keys())[0] == 'datetime_list':
+                        filt_op[arg_name] = [datetime.strptime(dt, "%Y-%m-%d %H:%M:%S.%f")
+                                             for dt in arg_val['datetime_list']]
+                    # Converting a list representation of an array back into an actual array
+                    elif isinstance(arg_val, dict) and list(arg_val.keys())[0] == 'ndarray':
+                        filt_op[arg_name] = np.array(arg_val['ndarray'])
+                    # The SkyCoord is slightly more involved as there are a few components to read out
+                    elif isinstance(arg_val, dict) and list(arg_val.keys())[0] == 'skycoord':
+                        coord = SkyCoord(arg_val['skycoord']['ra'], arg_val['skycoord']['dec'], unit='deg',
+                                         frame=arg_val['skycoord']['frame'])
+                        filt_op[arg_name] = coord
+
+            # Finally, we store the restored dictionary in the filtering operations attribute
+            self._filtering_operations = filt_ops
 
     def _obs_info_checks(self, new_info: pd.DataFrame):
         """
@@ -1600,12 +1633,13 @@ class BaseMission(metaclass=ABCMeta):
                 if isinstance(arg_val, Quantity):
                     filt_op['arguments'][arg_name] = {"quantity": str(arg_val)}
                 elif isinstance(arg_val, datetime):
-                    filt_op['arguments'][arg_name] = {"datetime": str(arg_val)}
+                    filt_op['arguments'][arg_name] = {"datetime": arg_val.strftime("%Y-%m-%d %H:%M:%S.%f")}
                 elif isinstance(arg_val, np.ndarray) and not isinstance(arg_val[0], datetime):
                     filt_op['arguments'][arg_name] = {'ndarray': arg_val.tolist()}
                 # One of the filtering methods can pass lists of datetimes, which need an extra layer of attention
                 elif isinstance(arg_val, (list, np.ndarray)) and isinstance(arg_val[0], datetime):
-                    filt_op['arguments'][arg_name] = {'datetime_list': [str(av) for av in arg_val]}
+                    filt_op['arguments'][arg_name] = {'datetime_list': [av.strftime("%Y-%m-%d %H:%M:%S.%f")
+                                                                        for av in arg_val]}
                 # SkyCoord has a few more moving parts, so we create a nested dictionary, other than that same idea
                 elif isinstance(arg_val, SkyCoord):
                     # Reads out the position values in degrees, which will help us to re-construct the SkyCoord
