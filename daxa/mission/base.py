@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:31. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:44. Copyright (c) The Contributors
 import json
 import os.path
 import re
@@ -566,9 +566,10 @@ class BaseMission(metaclass=ABCMeta):
             # Reset the download_type attribute - lets the mission know what type of data were downloaded last time
             self._download_type = save_dict['downloaded_type']
 
-
-
-            stop
+            # Now we need to recreate the filter array from the stored information - not actually too difficult! The
+            #  interesting bit is where we let the user re-run the exact same filtering steps, to update a previously
+            #  created mission state/archive
+            self.filter_array = self.filter_array*self.all_obs_info['ObsID'].isin(save_dict['selected_obs'])
 
     def _obs_info_checks(self, new_info: pd.DataFrame):
         """
