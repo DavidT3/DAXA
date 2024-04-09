@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 19:38. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 20:46. Copyright (c) The Contributors
 import json
 import os.path
 import re
@@ -19,7 +19,7 @@ from tabulate import tabulate
 
 from daxa import OUTPUT
 from daxa.exceptions import MissionLockedError, NoObsAfterFilterError, IllegalSourceType, NoTargetSourceTypeInfo, \
-    DAXANotDownloadedError
+    DAXANotDownloadedError, IncompatibleSaveError
 
 # These are the columns which MUST be present in the all_obs_info dataframes of any sub-class of BaseMission. This
 #  is mainly implemented to make sure developers who aren't me provide the right data formats
@@ -536,6 +536,27 @@ class BaseMission(metaclass=ABCMeta):
         self._processed = new_val
 
     # Then define internal methods
+    def _load_state(self, save_file_path: str):
+        """
+        This internal function can read in a saved mission state from a file, and replicate the mission as it was. This
+        can be triggered by the user passing a save file to the init of a mission, but more importantly it can be
+        used by archives to re-set-up a mission with the same information as when the archive was created.
+
+        :param str save_file_path: The path to the saved mission state json (created by the BaseMission save() method).
+        """
+        if not os.path.exists(save_file_path):
+            raise FileNotFoundError("The specified mission save file ({}) cannot be found.".format(save_file_path))
+
+        with open(save_file_path, 'r') as stateo:
+            save_dict = json.load(stateo)
+
+            print(save_dict['name'])
+            if save_dict['name'] != self.name:
+                raise IncompatibleSaveError("A saved state for a '{smn}' mission is not compatible with this {mn} "
+                                            "mission.".format(smn=save_dict['name'], mn=self.name))
+
+            stop
+
     def _obs_info_checks(self, new_info: pd.DataFrame):
         """
         Performs very simple checks on new inputs into the observation information dataframe, ensuring it at
