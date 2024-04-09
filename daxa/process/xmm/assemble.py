@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 26/01/2024, 15:47. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -106,7 +106,7 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
 
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
             #  files will be written to.
-            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
             ccf_path = dest_dir + 'ccf.cif'
 
             # Want to identify which CCDs can be processed, i.e. were turned on and were in imaging mode rather
@@ -253,7 +253,7 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
 
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
             #  files will be written to.
-            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
             ccf_path = dest_dir + 'ccf.cif'
 
             # Grab the path to the ODF directory, we shall need it
@@ -395,7 +395,7 @@ def rgs_events(obs_archive: Archive, process_unscheduled: bool = True,  num_core
 
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
             #  files will be written to.
-            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
             ccf_path = dest_dir + 'ccf.cif'
 
             # Grab the path to the ODF directory, we shall need it
@@ -511,7 +511,7 @@ def rgs_angles(obs_archive: Archive,  num_cores: int = NUM_CORES, disable_progre
 
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
             #  files will be written to.
-            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
             ccf_path = dest_dir + 'ccf.cif'
 
             # Grab the path to the ODF directory, we shall need it
@@ -620,7 +620,7 @@ def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, d
 
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
             #  files will be written to.
-            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
             ccf_path = dest_dir + 'ccf.cif'
 
             # Grab the path to the ODF directory, we shall need it
@@ -869,7 +869,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
 
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
             #  files will be written to.
-            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
             ccf_path = dest_dir + 'ccf.cif'
 
             # Set up a temporary directory to work in (probably not really necessary in this case, but will be
@@ -1034,7 +1034,7 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             obs_id, inst = oi.split('_')
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
             #  files will be written to.
-            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
 
             # Setting up the path to the final combined event file
             final_evt_name = "{i}{en_id}_clean.fits".format(i=inst, en_id=to_combine[oi][0][0])
