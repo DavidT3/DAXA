@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 17:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
 import shutil
 from functools import wraps
 from typing import Union, List
@@ -86,8 +86,8 @@ def _last_process(mission_names: Union[str, List[str]], obs_ident_num_comp: int)
                         # If the observation was a total failure, we move its directory away from all the successful
                         #  data, to make the structure of our archive a bit nicer. We can use archive methods
                         #  to get the appropriate paths
-                        cur_path = arch.get_processed_data_path(mn, obs_id)
-                        new_path = arch.get_failed_data_path(mn, obs_id)
+                        cur_path = arch.construct_processed_data_path(mn, obs_id)
+                        new_path = arch.construct_failed_data_path(mn, obs_id)
 
                         # Then can use shutil to move the failed ObsID and whatever might be in the directory
                         shutil.move(cur_path, new_path)

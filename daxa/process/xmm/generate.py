@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/03/2023, 18:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
 import os
 import shutil
 from typing import Tuple
@@ -232,7 +232,7 @@ def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.
             # We make sure that directory exists (can't think why it wouldn't, but better to be safe).
             if os.path.exists(cur_path):
                 # This is the path we're going to move it to, in the existing DAXA directory structure
-                dest_path = obs_archive.get_processed_data_path(miss.name, obs_id) + 'images/'
+                dest_path = obs_archive.construct_processed_data_path(miss.name, obs_id) + 'images/'
                 # Doing the actual moving of the directory
                 shutil.move(cur_path, dest_path)
                 # Then we check to see if the calibration file exists in the images directory, and if so then

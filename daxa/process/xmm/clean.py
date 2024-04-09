@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 26/01/2024, 14:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
@@ -301,7 +301,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
 
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
             #  files will be written to.
-            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
             ccf_path = dest_dir + 'ccf.cif'
 
             # Set up a temporary directory to work in (probably not really necessary in this case, but will be

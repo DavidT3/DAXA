@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -33,7 +33,8 @@ class Archive:
     :param bool clobber: If an archive named 'archive_name' already exists, then setting clobber to True
         will cause it to be deleted and overwritten.
     """
-    def __init__(self, archive_name: str, missions: Union[List[BaseMission], BaseMission] = None, clobber: bool = False):
+    def __init__(self, archive_name: str, missions: Union[List[BaseMission], BaseMission] = None,
+                 clobber: bool = False):
         """
         The init of the Archive class, which is to be used to consolidate and provide some interface with a set
         of mission's data. Archives can be passed to processing and cleaning functions in DAXA, and also
@@ -194,6 +195,9 @@ class Archive:
                 self._process_warnings = info_dict['process_warnings']
                 self._process_extra_info = info_dict['process_extra_info']
                 self._use_this_obs = info_dict['use_this_obs']
+
+                # self._process_raw_errors = {mn: {} for mn in self.mission_names}  # Specifically for unparsed stderr
+                # self._process_logs = {mn: {} for mn in self.mission_names}
 
         # We save at the end of this if it is a new archive, just to set the ball rolling and get the file created.
         if self._new_arch:
@@ -422,7 +426,7 @@ class Archive:
                         # Calling this method of the mission ensures that the identifier (for instance
                         #  0201903501PNS003) is just reduced to the ObsID
                         oi = self[mn].ident_to_obsid(en)
-                        log_pth = self.get_processed_data_path(mn, oi) + 'logs/'
+                        log_pth = self.construct_processed_data_path(mn, oi) + 'logs/'
                         log_pth += "{pn}_{ui}_stderr.log".format(ui=en, pn=pr_name)
                         with open(log_pth, 'w') as loggo:
                             loggo.write(error_info[mn][en])
@@ -475,7 +479,7 @@ class Archive:
                     # Calling this method of the mission ensures that the identifier (for instance
                     #  0201903501PNS003) is just reduced to the ObsID
                     oi = self[mn].ident_to_obsid(en)
-                    log_pth = self.get_processed_data_path(mn, oi) + 'logs/'
+                    log_pth = self.construct_processed_data_path(mn, oi) + 'logs/'
                     log_pth += "{pn}_{ui}_stdout.log".format(ui=en, pn=pr_name)
                     with open(log_pth, 'w') as loggo:
                         loggo.write(log_info[mn][en])
@@ -1042,7 +1046,28 @@ class Archive:
         return matches
 
     # Then define user-facing methods
-    def get_processed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
+    def get_current_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
+        """
+        This method is to construct paths to directories where processed data for a particular mission + observation
+        ID combination will be stored. That functionality is added here so that any change to how those directories
+        are named will take place in only one part of DAXA, and will propagate to other parts of the module. It is
+        unlikely that a user will need to directly use this method.
+
+        If no mission is passed, then no observation ID may be passed. In the case of 'mission' and 'obs_id' being
+        None, the returned string will be constructed ready to format; {mn} should be replaced by the DAXA mission
+        name, and {oi} by the relevant ObsID.
+
+        :param BaseMission/str mission: The mission for which to retrieve the current data path. Default is None
+            in which case a path ready to be formatted with a mission name will be provided.
+        :param str obs_id: The ObsID for which to retrieve the processed data path, cannot be set if 'mission' is
+            set to None. Default is None, in which case a path ready to be formatted with an observation ID will
+            be provided.
+        :return: The requested path.
+        :rtype: str
+        """
+        pass
+
+    def construct_processed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
         """
         This method is to construct paths to directories where processed data for a particular mission + observation
         ID combination will be stored. That functionality is added here so that any change to how those directories
@@ -1064,7 +1089,7 @@ class Archive:
         :rtype: str
         """
         # This runs through a set of checks on the inputs to this method - those checks are in another method
-        #  because they are also used by get_failed_data_path
+        #  because they are also used by construct_failed_data_path
         m_name = self._data_path_construct_checks(mission, obs_id)
 
         # Now we just run through the different possible combinations of circumstances.
@@ -1078,7 +1103,7 @@ class Archive:
 
         return ret_str
 
-    def get_failed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
+    def construct_failed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
         """
         This method is to construct paths to directories where data for a particular mission + observation
         ID combination which failed to process will be stored. That functionality is added here so that any change
@@ -1101,7 +1126,7 @@ class Archive:
         """
 
         # This runs through a set of checks on the inputs to this method - those checks are in another method
-        #  because they are also used by get_processed_data_path
+        #  because they are also used by construct_processed_data_path
         m_name = self._data_path_construct_checks(mission, obs_id)
 
         # The mission name might be None here, in which case using m_name as a key would break things!

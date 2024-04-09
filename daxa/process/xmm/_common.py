@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 17:28. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
 import glob
 import os.path
 from functools import wraps
@@ -56,7 +56,7 @@ def _sas_process_setup(obs_archive: Archive) -> Version:
         # We make sure that the archive directory has folders to store the processed XMM data that will eventually
         #  be created by most functions that call this _sas_process_setup function
         for obs_id in miss.filtered_obs_ids:
-            stor_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            stor_dir = obs_archive.construct_processed_data_path(miss, obs_id)
             if not os.path.exists(stor_dir):
                 os.makedirs(stor_dir)
 
@@ -68,7 +68,7 @@ def _sas_process_setup(obs_archive: Archive) -> Version:
         #  observation directories which have no useful data in (i.e. they do not have a successful final
         #  processing step) somewhere to be copied to (see daxa.process._cleanup._last_process).
         # This is the overall path, there might not ever be anything in it, so we don't pre-make ObsID sub-directories
-        fail_proc_dir = obs_archive.get_failed_data_path(miss, None).format(oi='')[:-1]
+        fail_proc_dir = obs_archive.construct_failed_data_path(miss, None).format(oi='')[:-1]
         if not os.path.exists(fail_proc_dir):
             os.makedirs(fail_proc_dir)
 
