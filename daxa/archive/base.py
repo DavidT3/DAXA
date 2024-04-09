@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:31. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -87,7 +87,7 @@ class Archive:
                 missions = [missions]
             elif missions is None and self._new_arch:
                 raise ValueError("The 'missions' argument cannot be None when creating a new archive, only when loading"
-                                 "an existing one.")
+                                 " an existing one.")
             elif missions is None and not self._new_arch:
                 # Just so the user knows
                 warn("Anything passed to 'missions' when loading in an existing archive is disregarded - missions are "

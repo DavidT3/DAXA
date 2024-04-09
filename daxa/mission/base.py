@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:31. Copyright (c) The Contributors
 import json
 import os.path
 import re
@@ -1412,7 +1412,7 @@ class BaseMission(metaclass=ABCMeta):
         sel_obs = self.filtered_obs_ids
 
         # Make sure to add the sel_obs dictionary into the overall one we're hoping to store
-        mission_data['selected_obs'] = sel_obs
+        mission_data['selected_obs'] = list(sel_obs)
 
         # TODO Need to store the applied filtering options, and the order
 
