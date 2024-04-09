@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 22:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 22:48. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -342,8 +342,10 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in success_flags:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing
-            if pr_name in self._process_success_flags[mn]:
+            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
+            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
+            #  empty dictionaries will be passed).
+            if pr_name in self._process_success_flags[mn] and len(success_flags[mn][pr_name]) != 0:
                 warn("The process_success property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
@@ -381,8 +383,10 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in error_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing
-            if pr_name in self._process_errors[mn]:
+            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
+            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
+            #  empty dictionaries will be passed).
+            if pr_name in self._process_errors[mn] and len(error_info[mn][pr_name]) != 0:
                 warn("The process_errors property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
@@ -420,8 +424,10 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in warn_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing
-            if pr_name in self._process_warnings[mn]:
+            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
+            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
+            #  empty dictionaries will be passed).
+            if pr_name in self._process_warnings[mn] and len(warn_info[mn][pr_name]) != 0:
                 warn("The process_warnings property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
@@ -460,8 +466,10 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in error_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing
-            if pr_name in self._process_raw_errors[mn]:
+            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
+            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
+            #  empty dictionaries will be passed).
+            if pr_name in self._process_raw_errors[mn] and len(error_info[mn][pr_name]) != 0:
                 warn("The raw_process_errors property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
@@ -513,8 +521,10 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in log_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing
-            if pr_name in self._process_logs[mn]:
+            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
+            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
+            #   empty dictionaries will be passed).
+            if pr_name in self._process_logs[mn] and len(log_info[mn][pr_name]) != 0:
                 warn("The process_logs property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
@@ -564,8 +574,10 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in einfo_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing
-            if pr_name in self._process_extra_info[mn]:
+            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
+            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
+            #  empty dictionaries will be passed).
+            if pr_name in self._process_extra_info[mn] and len(einfo_info[mn][pr_name]) != 0:
                 warn("The process_extra_info property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             else:
@@ -622,6 +634,7 @@ class Archive:
             for o_id in new_val[mn]:
                 # If the particular observation does not have an entry for the particular mission then we add it to the
                 #  dictionary, but if it does then we warn the user and do nothing
+                #  and len(new_val[mn]) != 0
                 if o_id in self._miss_obs_summ_info[mn]:
                     warn("The observation_summaries property already has an entry for {o_id} under {mn}, no change "
                          "will be made.".format(o_id=o_id, mn=mn), stacklevel=2)
