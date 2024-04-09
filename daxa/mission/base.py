@@ -1619,8 +1619,8 @@ class BaseMission(metaclass=ABCMeta):
         # It is possible, if someone isn't paying attention, that the save method could be triggered when there aren't
         #  actually any observations left - that doesn't really make sense to me, so we'll throw an error
         if len(sel_obs) == 0:
-            raise NoObsAfterFilterError("There are no observations associated with this {mn} after filtering, so the mission"
-                                  " state cannot be saved.".format(mn=self.pretty_name))
+            raise NoObsAfterFilterError("There are no observations associated with this {mn} after filtering, so "
+                                        "the mission state cannot be saved.".format(mn=self.pretty_name))
 
         # Make sure to add the sel_obs dictionary into the overall one we're hoping to store
         mission_data['selected_obs'] = list(sel_obs)
