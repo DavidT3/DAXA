@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 23:16. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -194,20 +194,26 @@ def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
 
             # This is where the final output calibration file will be stored
             final_path = raw_dir + "{r}_{o}_SCX00000SUM.SAS".format(r=rev, o=obs_id)
-            # This file should be deleted if it already exists
-            if os.path.exists(final_path):
+            # This file should be deleted if it already exists - IF IT IS THE ORIGINAL THAT WAS DOWNLOADED. Hence
+            #  why I've included the clunky extra logic. If a previous run of odf_ingest was successful then we don't
+            #  need to redo anything
+            if os.path.exists(final_path) and ('odf_ingest' not in obs_archive.process_success[miss.name] or
+                                               not obs_archive.process_success[miss.name]['odf_ingest'][obs_id]):
                 os.remove(final_path)
 
-            # The path to the ODF (raw data) for this ObsID
-            odf_path = miss.raw_data_path + obs_id + '/'
+            # Yes it is slightly clunky, but now if the ODF summary file doesn't exist then we make sure to run
+            #  the commands
+            if not os.path.exists(final_path):
+                # The path to the ODF (raw data) for this ObsID
+                odf_path = miss.raw_data_path + obs_id + '/'
 
-            # Construct the command with relevant information
-            cmd = odf_cmd.format(d=proc_dir, ccf=ccf_path, odf_dir=odf_path, out_dir=odf_path)
+                # Construct the command with relevant information
+                cmd = odf_cmd.format(d=proc_dir, ccf=ccf_path, odf_dir=odf_path, out_dir=odf_path)
 
-            # Now store the bash command, the path, and extra info in the dictionaries
-            miss_cmds[miss.name][obs_id] = cmd
-            miss_final_paths[miss.name][obs_id] = final_path
-            miss_extras[miss.name][obs_id] = {'sum_path': final_path}
+                # Now store the bash command, the path, and extra info in the dictionaries
+                miss_cmds[miss.name][obs_id] = cmd
+                miss_final_paths[miss.name][obs_id] = final_path
+                miss_extras[miss.name][obs_id] = {'sum_path': final_path}
 
             # This is just used for populating a progress bar during generation
         process_message = 'Generating ODF summary files'
