@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 17:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 20:44. Copyright (c) The Contributors
 
 
 class DAXAConfigError(Exception):
@@ -405,5 +405,23 @@ class NoRegionsAssociatedError(Exception):
             return 'NoRegionsAssociatedError has been raised'
 
 
+class IncompatibleSaveError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if a save file being read in to reinstate a DAXA mission or archive is being used incorrectly
+        and is not compatible with the process.
 
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'IncompatibleSaveError has been raised'
 
