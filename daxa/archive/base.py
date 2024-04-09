@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 22:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 22:56. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -348,7 +348,7 @@ class Archive:
             if pr_name in self._process_success_flags[mn] and len(success_flags[mn]) != 0:
                 warn("The process_success property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            else:
+            elif pr_name not in self._process_success_flags[mn]:
                 self._process_success_flags[mn][pr_name] = success_flags[mn]
 
     @property
@@ -389,7 +389,7 @@ class Archive:
             if pr_name in self._process_errors[mn] and len(error_info[mn]) != 0:
                 warn("The process_errors property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            else:
+            elif pr_name not in self._process_errors[mn]:
                 self._process_errors[mn][pr_name] = error_info[mn]
 
     @property
@@ -430,7 +430,7 @@ class Archive:
             if pr_name in self._process_warnings[mn] and len(warn_info[mn]) != 0:
                 warn("The process_warnings property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            else:
+            elif pr_name not in self._process_warnings[mn]:
                 self._process_warnings[mn][pr_name] = warn_info[mn]
 
     @property
@@ -472,7 +472,7 @@ class Archive:
             if pr_name in self._process_raw_errors[mn] and len(error_info[mn]) != 0:
                 warn("The raw_process_errors property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            else:
+            elif pr_name not in self._process_raw_errors[mn]:
                 self._process_raw_errors[mn][pr_name] = error_info[mn]
                 # I'm checking to make sure that there is actually a non-null entry, as hopefully for most of them
                 #  there will be no stderr! And why make empty files when we don't need too
@@ -527,7 +527,7 @@ class Archive:
             if pr_name in self._process_logs[mn] and len(log_info[mn]) != 0:
                 warn("The process_logs property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            else:
+            elif pr_name not in self._process_logs[mn]:
                 self._process_logs[mn][pr_name] = log_info[mn]
                 # You'll note that we're only storing these log files if there isn't already an entry - I'm trying
                 #  to be R/W conscious, but this may also get more sophisticated in the future, when version control
@@ -580,7 +580,7 @@ class Archive:
             if pr_name in self._process_extra_info[mn] and len(einfo_info[mn]) != 0:
                 warn("The process_extra_info property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            else:
+            elif pr_name not in self._process_extra_info[mn]:
                 self._process_extra_info[mn][pr_name] = einfo_info[mn]
 
     @property
