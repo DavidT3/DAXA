@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 16:21. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
@@ -182,7 +182,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
     else:
         if method != 'ratio':
             warn("SAS v{} does not support the 'histogram' method, this was only added in v20.0.0, switching to "
-                 "'ratio' method.".format(str(sas_version)))
+                 "'ratio' method.".format(str(sas_version)), stacklevel=2)
         ef_cmd = "cd {d}; export SAS_CCF={ccf}; espfilt eventset={ef} method={me} withsmoothing={ws} smooth={s} " \
                  "withbinning={wb} binsize={bs} ratio={r}; mv {ogti} ../{gti}; mv {oallev} ../{allev}; mv {ohist} " \
                  "../{hist}; cd ../; rm -r {d}"
