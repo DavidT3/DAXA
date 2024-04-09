@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 22:06. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 22:35. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -196,8 +196,55 @@ class Archive:
                 self._process_extra_info = info_dict['process_extra_info']
                 self._use_this_obs = info_dict['use_this_obs']
 
-                # self._process_raw_errors = {mn: {} for mn in self.mission_names}  # Specifically for unparsed stderr
-                # self._process_logs = {mn: {} for mn in self.mission_names}
+                # The raw logs and errors are different, as they are stored in human-readable formats in the
+                #  processing directories - just so people don't HAVE to use DAXA to interact with them. Thus we
+                #  read them in slightly differently.
+                # First off, we define the two storage dictionaries in a similar way to how they are defined for a new
+                #  archive - the difference is we pre-set up process names because we already know which ones to add
+                self._process_logs = {mn: {p_name: {} for p_name in self._process_success_flags[mn]}
+                                      for mn in self.mission_names}
+                self._process_raw_errors = {mn: {p_name: {} for p_name in self._process_success_flags[mn]}
+                                            for mn in self.mission_names}
+                # Now we start another very ugly chunk
+                for miss_name in self.mission_names:
+                    # Iterating through the processes
+                    for proc_name in self._process_success_flags[miss_name]:
+                        # Iterating through the unique identifiers that each process has acted on - these are not
+                        #  guaranteed to be ObsIDs, as they could be something like ObsID+instrument+sub-exposure
+                        for u_id in self._process_success_flags[miss_name][proc_name]:
+                            # We use the current mission's identifier to ObsID converter to retrieve JUST the ObsID
+                            o_id = self[miss_name].ident_to_obsid(u_id)
+                            # We need it to construct the current path to the data - this should automatically deal
+                            #  with data that has been fully processed (the final check has been performed) and
+                            #  moved to the 'failed_data' directory
+                            cur_pth = self.get_current_data_path(miss_name, o_id)
+                            # Set up the name of the stdout log file - which SHOULD exist for all processes
+                            log_file = "{pn}_{ui}_stdout.log".format(pn=proc_name, ui=u_id)
+                            # And construct the full path
+                            cur_log_pth = os.path.join(cur_pth, 'logs', log_file)
+                            # Then we attempt to actually read it in and place it in the storage structure
+                            try:
+                                with open(cur_log_pth, 'r') as loggo:
+                                    self._process_logs[miss_name][proc_name][u_id] = loggo.read()
+                            except FileNotFoundError:
+                                # Every process run should have this log file, so we throw a warning if it can't
+                                #  be found - I don't see why this should happen without outside interference
+                                warn("The {pn} log file for {mn}-{ui} cannot be "
+                                     "found.".format(pn=proc_name, mn=miss_name, ui=u_id), stacklevel=2)
+
+                            # Then we construct the name and path to the possibly present stderr storage file - this
+                            #  one will quite possibly (hopefully even) not exist, because it is only made when there
+                            #  was some output on stderr
+                            err_file = "{pn}_{ui}_stderr.log".format(pn=proc_name, ui=u_id)
+                            cur_err_pth = os.path.join(cur_pth, 'logs', err_file)
+                            # Same deal, we try to read the file in and store it if it exists
+                            try:
+                                with open(cur_err_pth, 'r') as loggo:
+                                    self._process_raw_errors[miss_name][proc_name][u_id] = loggo.read()
+                            except FileNotFoundError:
+                                # We do not show a warning when we can't find a std_err file, as they are not
+                                #  guaranteed to exist like the log files are
+                                pass
 
         # We save at the end of this if it is a new archive, just to set the ball rolling and get the file created.
         if self._new_arch:
