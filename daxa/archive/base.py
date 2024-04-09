@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 11:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 11:53. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -56,7 +56,7 @@ class Archive:
         #  piece of information
         self._archive_path = OUTPUT + 'archives/' + archive_name + '/'
         # This attribute stores the path to the meta-data directory
-        self._arch_meta_path = self._archive_path + '/.save_info/'
+        self._arch_meta_path = self._archive_path + '.save_info/'
 
         # An attribute that stores whether this is a new archive, or whether it has been loaded back in from disk
         self._new_arch = True
@@ -73,7 +73,7 @@ class Archive:
         #  file that would be expected because the save directory exists will not be there - we need to clean up
         #  the save directory so this can proceed as a new archive
         elif os.path.exists(self._arch_meta_path) and not os.path.exists(self._arch_meta_path + 'process_info.json'):
-            os.remove(self._arch_meta_path)
+            rmtree(self._arch_meta_path)
         else:
             self._new_arch = False
 
