@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 13:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 13:44. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -128,6 +128,9 @@ def _capture_filter(change_func):
                 pos_arg_vals = {}
                 # Iterating through all the parameters
                 for par_ind, par_name in enumerate(meth_pars):
+                    # Read out the parameter object
+                    cur_par = meth_pars[par_name]
+
                     # We don't care about self, so we skip it
                     if par_name == 'self':
                         continue
@@ -136,8 +139,13 @@ def _capture_filter(change_func):
                     elif par_name not in kwargs:
                         # In that case we can extract the value from the args tuple using the current positional index,
                         #  which I THINK should always correspond to the right value because meth_pars is an ordered
-                        #  dictionary
-                        pos_arg_vals[par_name] = args[par_ind]
+                        #  dictionary - this only works for non-keyword arguments though
+                        if cur_par.default is cur_par.empty:
+                            pos_arg_vals[par_name] = args[par_ind]
+                        # If a keyword argument has a default value, it won't appear in kwargs, and the above case
+                        #  is for positional arguments, so now we extract the default value from the signature
+                        else:
+                            pos_arg_vals[par_name] = cur_par.default
                 # We add in the newly extracted positional arguments to the final argument dictionary
                 final_args.update(pos_arg_vals)
 
@@ -147,7 +155,6 @@ def _capture_filter(change_func):
             rel_miss.filtering_operations = filtering_op_entry
 
         return any_ret
-
     return wrapper
 
 
@@ -158,7 +165,6 @@ class BaseMission(metaclass=ABCMeta):
     prepared and reduced in various ways. The mission classes will also be responsible for providing a consistent
     user experience of downloading data and generating processed archives.
     """
-
     def __init__(self):
         """
         The __init__ of the superclass for all missions defined in this module. Mission classes will be for storing
