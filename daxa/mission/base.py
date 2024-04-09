@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 20:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:27. Copyright (c) The Contributors
 import json
 import os.path
 import re
@@ -548,12 +548,25 @@ class BaseMission(metaclass=ABCMeta):
             raise FileNotFoundError("The specified mission save file ({}) cannot be found.".format(save_file_path))
 
         with open(save_file_path, 'r') as stateo:
+            # This json contains all the information we need to return the mission to its saved state
             save_dict = json.load(stateo)
 
-            print(save_dict['name'])
+            # First off, lets just sanity check that the file we've been pointed too belongs to this type of mission
             if save_dict['name'] != self.name:
                 raise IncompatibleSaveError("A saved state for a '{smn}' mission is not compatible with this {mn} "
                                             "mission.".format(smn=save_dict['name'], mn=self.name))
+
+            # Set the chosen instruments property from the save file - for all mission classes
+            self.chosen_instruments = save_dict['chos_inst']
+            # If the chosen field wasn't a null value, we'll do the same for that - this is used only rarely, for most
+            #  classes of mission this will be None
+            if save_dict['chos_field'] is not None:
+                self.chosen_fields = save_dict['chos_field']
+
+            # Reset the download_type attribute - lets the mission know what type of data were downloaded last time
+            self._download_type = save_dict['downloaded_type']
+
+
 
             stop
 
@@ -1393,9 +1406,10 @@ class BaseMission(metaclass=ABCMeta):
         # The currently selected data need some more specialist treatment - we can't just save the filter
         #  array, because the available observations (and thus the information table that the filter gets applied
         #  too) are not necessarily static (for some they will be, because the missions are finished).
-        # This contains all the observations we could have considered using, so that any updating method of the
-        #  mission state by an archive can tell how much new data there is
-        sel_obs = {oi: True if oi in self.filtered_obs_ids else False for oi in self.obs_ids}
+        # As such, we decided to just save the accepted ObsIDs, and any difference in data available can be inferred
+        #  by re-running the stored filtering steps, rather than comparing a stored list of ObsIDs to a newly
+        #  downloaded one
+        sel_obs = self.filtered_obs_ids
 
         # Make sure to add the sel_obs dictionary into the overall one we're hoping to store
         mission_data['selected_obs'] = sel_obs

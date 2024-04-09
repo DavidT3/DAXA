@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:27. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -1496,7 +1496,7 @@ class Archive:
         steps.
 
         NOTE that the mission states are not saved here, as they could be triggered repeatedly, which can be slow
-        for the ones with many possible ObsIDs (i.e. Swift and Integral). Instead saves are triggered when the archive
+        for the ones with many possible ObsIDs (i.e. Swift and Integral). Instead, saves are triggered when the archive
         is created, in the init, and if the data in the archive are updated (as this necessitates a change in the
         mission states).
         """
