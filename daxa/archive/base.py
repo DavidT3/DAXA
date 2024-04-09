@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:31. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:37. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -1502,7 +1502,7 @@ class Archive:
         """
         # These are the big storage dictionaries mostly concerned with what data we are working with, and what we've
         #  done to it so far, and how successful those things have been
-        process_data = {'mission_names': self.mission_names, 'process_success': self.process_success,
+        process_data = {'mission_names': self.mission_names, 'process_success': self._process_success_flags,
                         'obs_summaries': self.observation_summaries,
                         'final_process_success': self.final_process_success, 'process_errors': self.process_errors,
                         'process_warnings': self.process_warnings, 'process_extra_info': self.process_extra_info,
