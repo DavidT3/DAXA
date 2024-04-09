@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 13:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 11:53. Copyright (c) The Contributors
+import json
 import os
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -11,9 +12,10 @@ from astropy.units import Quantity
 from regions import Region, read_ds9, PixelRegion, write_ds9
 
 from daxa import BaseMission, OUTPUT
-from daxa.exceptions import DuplicateMissionError, ArchiveExistsError, NoProcessingError, NoDependencyProcessError, \
+from daxa.exceptions import DuplicateMissionError, NoProcessingError, NoDependencyProcessError, \
     ObsNotAssociatedError, MissionNotAssociatedError
 from daxa.misc import dict_search
+from daxa.mission import MISS_INDEX
 
 
 class Archive:
@@ -22,124 +24,236 @@ class Archive:
     of mission's data. Archives can be passed to processing and cleaning functions in DAXA, and also
     contain convenience functions for accessing summaries of the available data.
 
+    :param str archive_name: The name to be given to this archive - it will be used for storage
+        and identification. If an existing archive with this name exists it will be read in, unless clobber=True.
     :param List[BaseMission]/BaseMission missions: The mission, or missions, which are to be included
         in this archive - any setup processes (i.e. the filtering of data to be acquired) should be
-        performed prior to creating an archive.
-    :param str archive_name: The name to be given to this archive - it will be used for storage
-        and identification.
+        performed prior to creating an archive. The default value is None, but this should be set for any new
+        archives, it can only be left as None if an existing archive is being read back in.
+    :param bool clobber: If an archive named 'archive_name' already exists, then setting clobber to True
+        will cause it to be deleted and overwritten.
     """
-    def __init__(self, missions: Union[List[BaseMission], BaseMission], archive_name: str, clobber: bool = False):
+    def __init__(self, archive_name: str, missions: Union[List[BaseMission], BaseMission] = None,
+                 clobber: bool = False):
         """
         The init of the Archive class, which is to be used to consolidate and provide some interface with a set
         of mission's data. Archives can be passed to processing and cleaning functions in DAXA, and also
         contain convenience functions for accessing summaries of the available data.
 
+        :param str archive_name: The name to be given to this archive - it will be used for storage
+            and identification. If an existing archive with this name exists it will be read in, unless clobber=True.
         :param List[BaseMission]/BaseMission missions: The mission, or missions, which are to be included
             in this archive - any setup processes (i.e. the filtering of data to be acquired) should be
-            performed prior to creating an archive.
-        :param str archive_name: The name to be given to this archive - it will be used for storage
-            and identification.
-        :param bool clobber: If an archive with named 'archive_name' already exists, then setting clobber to True
+            performed prior to creating an archive. The default value is None, but this should be set for any new
+            archives, it can only be left as None if an existing archive is being read back in.
+        :param bool clobber: If an archive named 'archive_name' already exists, then setting clobber to True
             will cause it to be deleted and overwritten.
         """
-        # First ensure that the missions variable is iterable even if there's only one mission that has
-        #  been passed, makes it easier to generalise things.
-        if isinstance(missions, BaseMission):
-            missions = [missions]
-        
-        # Then checking that every element in the list is a BaseMission
-        if not all(isinstance(mission, BaseMission) for mission in missions):
-            raise TypeError("Please pass either a single mission class instance, or a list of missions class "
-                            "instances to the 'missions' argument.")
-
-        # Here we ensure that there are no duplicate mission instances, each mission should be filtered in such
-        #  a way that all observations for that mission are in one mission instance
-        miss_names = [m.name for m in missions]
-        if len(miss_names) != len(list(set(miss_names))):
-            raise DuplicateMissionError("There are multiple instances of the same missions present in "
-                                        "the 'missions' argument - only one instance of each is allowed for "
-                                        "a particular archive.")
-
         # Store the archive name in an attribute
         self._archive_name = archive_name
 
+        # An attribute for the path to the particular archive directory is also setup, as it's a very useful
+        #  piece of information
+        self._archive_path = OUTPUT + 'archives/' + archive_name + '/'
+        # This attribute stores the path to the meta-data directory
+        self._arch_meta_path = self._archive_path + '.save_info/'
+
+        # An attribute that stores whether this is a new archive, or whether it has been loaded back in from disk
+        self._new_arch = True
         # Then make sure that the path to store the archive is created, and that it hasn't been created
         #  before, which would mean an existing archive with the same name
-        if not os.path.exists(OUTPUT + 'archives/' + archive_name):
-            os.makedirs(OUTPUT + 'archives/' + archive_name)
-        elif os.path.exists(OUTPUT + 'archives/' + archive_name) and clobber:
-            warn("An archive called {an} already existed, but as clobber=True it has been deleted and "
+        if not os.path.exists(self._archive_path):
+            os.makedirs(self._archive_path)
+        elif os.path.exists(self._archive_path) and clobber:
+            warn("An archive called {an} already existed, but as 'clobber=True' it has been deleted and "
                  "overwritten.".format(an=archive_name), stacklevel=2)
-            rmtree(OUTPUT + 'archives/' + archive_name)
-            os.makedirs(OUTPUT + 'archives/' + archive_name)
+            rmtree(self._archive_path)
+            os.makedirs(self._archive_path)
+        # In this case something interrupted a declaration of an archive before it was first saved, so the save
+        #  file that would be expected because the save directory exists will not be there - we need to clean up
+        #  the save directory so this can proceed as a new archive
+        elif os.path.exists(self._arch_meta_path) and not os.path.exists(self._arch_meta_path + 'process_info.json'):
+            rmtree(self._arch_meta_path)
         else:
-            raise ArchiveExistsError("An archive named {an} already exists in the output directory "
-                                     "({od}).".format(an=archive_name, od=OUTPUT + 'archives/'))
-        # TODO maybe check for the existence of some late-stage product/file to see whether the archive
-        #  has already been successfully generated
-        # elif os.path.exists(OUTPUT + archive_name + '/')
+            self._new_arch = False
 
-        # An attribute for the path to the particular archive directory is also setup, as it's a very useful
-        #  piece of knowledge
-        self._archive_path = OUTPUT + 'archives/' + archive_name + '/'
+        # Make a directory to meta-data we would need to reinstate the archive as it was when it was last saved
+        if not self._new_arch and not os.path.exists(self._arch_meta_path):
+            raise FileNotFoundError("The save-data directory for '{a}' cannot be found - it is not possible "
+                                    "to reload the archive.")
+        # If this is a brand-new archive, we have to make sure that the save info directory is created
+        elif self._new_arch:
+            os.makedirs(self._arch_meta_path)
 
-        # The mission instances (or single instance) used to create the archive are stored in a dictionary, with
-        #  the key being the internal DAXA name for that mission
-        self._missions = {m.name: m for m in missions}
+        # If the archive is brand new, then we have a lot of setting up attributes to do
+        if self._new_arch:
+            # Must ensure that the missions variable is iterable even if there's only one mission that has
+            #  been passed, makes it easier to generalise things.
+            if isinstance(missions, BaseMission):
+                missions = [missions]
+            elif missions is None and self._new_arch:
+                raise ValueError("The 'missions' argument cannot be None when creating a new archive, only when loading"
+                                 " an existing one.")
+            elif missions is None and not self._new_arch:
+                # Just so the user knows
+                warn("Anything passed to 'missions' when loading in an existing archive is disregarded - missions are "
+                     "loaded back in as they were when the archive was last saved.", stacklevel=2)
 
-        # An attribute to store a command queue for those missions which have a command line processing
-        #  backend (like XMM for instance)
+            # Then checking that every element in the list is a BaseMission
+            if not all(isinstance(mission, BaseMission) for mission in missions):
+                raise TypeError("Please pass either a single mission class instance, or a list of missions class "
+                                "instances to the 'missions' argument.")
 
-        # This iterates through the missions that make up this archive, and ensures that they are 'locked'
-        #  That means their observation content becomes immutable.
-        for mission in self._missions.values():
-            mission: BaseMission
-            mission.locked = True
+            # Here we ensure that there are no duplicate mission instances, each mission should be filtered in such
+            #  a way that all observations for that mission are in one mission instance
+            miss_names = [m.name for m in missions]
+            if len(miss_names) != len(list(set(miss_names))):
+                raise DuplicateMissionError("There are multiple instances of the same missions present in "
+                                            "the 'missions' argument - only one instance of each is allowed for "
+                                            "a particular archive.")
 
-            # We also make sure that the data are downloaded
-            if not mission.download_completed:
-                mission.download()
+            # The mission instances (or single instance) used to create the archive are stored in a dictionary, with
+            #  the key being the internal DAXA name for that mission
+            self._missions = {m.name: m for m in missions}
 
-        # These attributes are to store outputs from command-line based processes (such as the SAS processing
-        #  tools for XMM missions). Top level keys are mission names, one level down from that uses process names
-        #  as keys (the function name; e.g. cif_build), and one level down from that uses either an ObsID or ObsID
-        #  + instrument combo as keys.
-        # The _process_success_flags dictionary stores whether the process was successful, which means that the
-        #  final output file exists, and that there were no errors from stderr
-        self._process_success_flags = {mn: {} for mn in self.mission_names}
-        # The _process_errors dictionary stores any error outputs that may have been generated, _process_warnings
-        #  stores any warnings that (hopefully) aren't serious enough to rule that a process run was a complete
-        #  failure, and _process_logs stores any relevant logs (mostly stdout for cmd line based tools) for
-        #  each process
-        self._process_errors = {mn: {} for mn in self.mission_names}
-        self._process_warnings = {mn: {} for mn in self.mission_names}
-        self._process_raw_errors = {mn: {} for mn in self.mission_names}  # Specifically for unparsed stderr
-        self._process_logs = {mn: {} for mn in self.mission_names}
+            # We save the current mission states to our previously created hidden .save_info directory, so that the
+            #  missions can be re-created if the archive is read back in
+            for miss in missions:
+                miss.save(self._arch_meta_path)
 
-        # This attribute is used to store the 'extra info' that is sometimes passed out of processing functions (see
-        # the DAXA cif_build, epchain, and emchain functions for examples).
-        self._process_extra_info = {mn: {} for mn in self.mission_names}
+            # This iterates through the missions that make up this archive, and ensures that they are 'locked'
+            #  That means their observation content becomes immutable.
+            for mission in self._missions.values():
+                mission: BaseMission
+                mission.locked = True
 
-        # This attribute will contain information on mission's observations. That could include whether a particular
-        #  instrument was active for a particular observation, what sub-exposures there were (assuming there were
-        #  any, XMM will often have some), what filter was applied, things like that.
-        # I will attempt to normalise the information stored in here for each mission, as far as that is possible.
-        self._miss_obs_summ_info = {mn: {} for mn in self.mission_names}
-        # This dictionary will mimic the structure of the _miss_obs_summ_info dictionary, but will contain simple
-        #  boolean information on whether the particular ObsID-instrument-sub exposure (or more likely
-        #  ObsID-Instrument for most missions) should be reduced and processed for science
-        self._use_this_obs = {mn: {} for mn in self.mission_names}
+                # We also make sure that the data are downloaded
+                if not mission.download_completed:
+                    mission.download()
 
-        # This stores the final judgement pronounced by the _final_process wrapper that should be used to decorate
-        #  the last processing function for a particular mission. At the ObsID level it states whether there are
-        #  any useful data (True) or whether no aspect of that observation reached the end of the final step
-        #  successfully. The ObsIDs marked as False will be moved from the archive processed data directory to a
-        #  separate failed data directory.
-        self._final_obs_id_success = {mn: {} for mn in self.mission_names}
+            # These attributes are to store outputs from command-line based processes (such as the SAS processing
+            #  tools for XMM missions). Top level keys are mission names, one level down from that uses process names
+            #  as keys (the function name; e.g. cif_build), and one level down from that uses either an ObsID or ObsID
+            #  + instrument combo as keys.
+            # The _process_success_flags dictionary stores whether the process was successful, which means that the
+            #  final output file exists, and that there were no errors from stderr
+            self._process_success_flags = {mn: {} for mn in self.mission_names}
+            # The _process_errors dictionary stores any error outputs that may have been generated, _process_warnings
+            #  stores any warnings that (hopefully) aren't serious enough to rule that a process run was a complete
+            #  failure, and _process_logs stores any relevant logs (mostly stdout for cmd line based tools) for
+            #  each process
+            self._process_errors = {mn: {} for mn in self.mission_names}
+            self._process_warnings = {mn: {} for mn in self.mission_names}
+            self._process_raw_errors = {mn: {} for mn in self.mission_names}  # Specifically for unparsed stderr
+            self._process_logs = {mn: {} for mn in self.mission_names}
 
-        # This attribute will store regions for the observations associated with different missions. By the time
-        #  they are stored in this attribute they SHOULD be in RA-Dec, not in pixel coords or anything like that
-        self._source_regions = {mn: {} for mn in self.mission_names}
+            # This attribute is used to store the 'extra info' that is sometimes passed out of processing functions (see
+            # the DAXA cif_build, epchain, and emchain functions for examples).
+            self._process_extra_info = {mn: {} for mn in self.mission_names}
+
+            # This attribute will contain information on mission's observations. That could include whether a particular
+            #  instrument was active for a particular observation, what sub-exposures there were (assuming there were
+            #  any, XMM will often have some), what filter was applied, things like that.
+            # I will attempt to normalise the information stored in here for each mission, as far as that is possible.
+            self._miss_obs_summ_info = {mn: {} for mn in self.mission_names}
+            # This dictionary will mimic the structure of the _miss_obs_summ_info dictionary, but will contain simple
+            #  boolean information on whether the particular ObsID-instrument-sub exposure (or more likely
+            #  ObsID-Instrument for most missions) should be reduced and processed for science
+            self._use_this_obs = {mn: {} for mn in self.mission_names}
+
+            # This stores the final judgement pronounced by the _final_process wrapper that should be used to decorate
+            #  the last processing function for a particular mission. At the ObsID level it states whether there are
+            #  any useful data (True) or whether no aspect of that observation reached the end of the final step
+            #  successfully. The ObsIDs marked as False will be moved from the archive processed data directory to a
+            #  separate failed data directory.
+            self._final_obs_id_success = {mn: {} for mn in self.mission_names}
+
+            # This attribute will store regions for the observations associated with different missions. By the time
+            #  they are stored in this attribute they SHOULD be in RA-Dec, not in pixel coords or anything like that
+            self._source_regions = {mn: {} for mn in self.mission_names}
+
+        # HOWEVER, in this case the archive is being loaded back in from disk, and all those attributes (particularly
+        #  all the dictionaries) will be loaded back in from the save file
+        else:
+            # This opens the dictionary file that I dumped most of the internal attributes into - we should be able
+            #  to easily reassign all the different json/dictionary entries to their attributes
+            with open(self._arch_meta_path + 'process_info.json', 'r') as processo:
+                info_dict = json.load(processo)
+
+                # Setting up an empty missions dictionary attribute to populate with the missions that we're loading
+                #  back in from their saved states
+                self._missions = {}
+                # Grabbing the mission names that were stored in the archive save file
+                rel_mission_names = info_dict['mission_names']
+                for miss_name in rel_mission_names:
+                    # Setting up the mission instance with the saved state
+                    cur_miss = MISS_INDEX[miss_name](save_file_path=self._arch_meta_path + miss_name + '_state.json')
+                    cur_miss.locked = True
+                    # And storing it in the missions attribute
+                    self._missions[miss_name] = cur_miss
+
+                # Thus begins the long and unsightly process of putting all the information back where it belongs
+                self._process_success_flags = info_dict['process_success']
+                self._miss_obs_summ_info = info_dict['obs_summaries']
+                self._final_obs_id_success = info_dict['final_process_success']
+                self._process_errors = info_dict['process_errors']
+                self._process_warnings = info_dict['process_warnings']
+                self._process_extra_info = info_dict['process_extra_info']
+                self._use_this_obs = info_dict['use_this_obs']
+
+                # The raw logs and errors are different, as they are stored in human-readable formats in the
+                #  processing directories - just so people don't HAVE to use DAXA to interact with them. Thus we
+                #  read them in slightly differently.
+                # First off, we define the two storage dictionaries in a similar way to how they are defined for a new
+                #  archive - the difference is we pre-set up process names because we already know which ones to add
+                self._process_logs = {mn: {p_name: {} for p_name in self._process_success_flags[mn]}
+                                      for mn in self.mission_names}
+                self._process_raw_errors = {mn: {p_name: {} for p_name in self._process_success_flags[mn]}
+                                            for mn in self.mission_names}
+                # Now we start another very ugly chunk
+                for miss_name in self.mission_names:
+                    # Iterating through the processes
+                    for proc_name in self._process_success_flags[miss_name]:
+                        # Iterating through the unique identifiers that each process has acted on - these are not
+                        #  guaranteed to be ObsIDs, as they could be something like ObsID+instrument+sub-exposure
+                        for u_id in self._process_success_flags[miss_name][proc_name]:
+                            # We use the current mission's identifier to ObsID converter to retrieve JUST the ObsID
+                            o_id = self[miss_name].ident_to_obsid(u_id)
+                            # We need it to construct the current path to the data - this should automatically deal
+                            #  with data that has been fully processed (the final check has been performed) and
+                            #  moved to the 'failed_data' directory
+                            cur_pth = self.get_current_data_path(miss_name, o_id)
+                            # Set up the name of the stdout log file - which SHOULD exist for all processes
+                            log_file = "{pn}_{ui}_stdout.log".format(pn=proc_name, ui=u_id)
+                            # And construct the full path
+                            cur_log_pth = os.path.join(cur_pth, 'logs', log_file)
+                            # Then we attempt to actually read it in and place it in the storage structure
+                            try:
+                                with open(cur_log_pth, 'r') as loggo:
+                                    self._process_logs[miss_name][proc_name][u_id] = loggo.read()
+                            except FileNotFoundError:
+                                # Every process run should have this log file, so we throw a warning if it can't
+                                #  be found - I don't see why this should happen without outside interference
+                                warn("The {pn} log file for {mn}-{ui} cannot be "
+                                     "found.".format(pn=proc_name, mn=miss_name, ui=u_id), stacklevel=2)
+
+                            # Then we construct the name and path to the possibly present stderr storage file - this
+                            #  one will quite possibly (hopefully even) not exist, because it is only made when there
+                            #  was some output on stderr
+                            err_file = "{pn}_{ui}_stderr.log".format(pn=proc_name, ui=u_id)
+                            cur_err_pth = os.path.join(cur_pth, 'logs', err_file)
+                            # Same deal, we try to read the file in and store it if it exists
+                            try:
+                                with open(cur_err_pth, 'r') as loggo:
+                                    self._process_raw_errors[miss_name][proc_name][u_id] = loggo.read()
+                            except FileNotFoundError:
+                                # We do not show a warning when we can't find a std_err file, as they are not
+                                #  guaranteed to exist like the log files are
+                                pass
+
+        # We save at the end of this if it is a new archive, just to set the ball rolling and get the file created.
+        if self._new_arch:
+            self.save()
 
     # Defining properties first
     @property
@@ -233,11 +347,13 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in success_flags:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing
-            if pr_name in self._process_success_flags[mn]:
+            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
+            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
+            #  empty dictionaries will be passed).
+            if pr_name in self._process_success_flags[mn] and len(success_flags[mn]) != 0:
                 warn("The process_success property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            else:
+            elif pr_name not in self._process_success_flags[mn]:
                 self._process_success_flags[mn][pr_name] = success_flags[mn]
 
     @property
@@ -272,11 +388,13 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in error_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing
-            if pr_name in self._process_errors[mn]:
+            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
+            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
+            #  empty dictionaries will be passed).
+            if pr_name in self._process_errors[mn] and len(error_info[mn]) != 0:
                 warn("The process_errors property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            else:
+            elif pr_name not in self._process_errors[mn]:
                 self._process_errors[mn][pr_name] = error_info[mn]
 
     @property
@@ -311,11 +429,13 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in warn_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing
-            if pr_name in self._process_warnings[mn]:
+            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
+            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
+            #  empty dictionaries will be passed).
+            if pr_name in self._process_warnings[mn] and len(warn_info[mn]) != 0:
                 warn("The process_warnings property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            else:
+            elif pr_name not in self._process_warnings[mn]:
                 self._process_warnings[mn][pr_name] = warn_info[mn]
 
     @property
@@ -351,11 +471,13 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in error_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing
-            if pr_name in self._process_raw_errors[mn]:
+            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
+            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
+            #  empty dictionaries will be passed).
+            if pr_name in self._process_raw_errors[mn] and len(error_info[mn]) != 0:
                 warn("The raw_process_errors property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            else:
+            elif pr_name not in self._process_raw_errors[mn]:
                 self._process_raw_errors[mn][pr_name] = error_info[mn]
                 # I'm checking to make sure that there is actually a non-null entry, as hopefully for most of them
                 #  there will be no stderr! And why make empty files when we don't need too
@@ -364,7 +486,7 @@ class Archive:
                         # Calling this method of the mission ensures that the identifier (for instance
                         #  0201903501PNS003) is just reduced to the ObsID
                         oi = self[mn].ident_to_obsid(en)
-                        log_pth = self.get_processed_data_path(mn, oi) + 'logs/'
+                        log_pth = self.construct_processed_data_path(mn, oi) + 'logs/'
                         log_pth += "{pn}_{ui}_stderr.log".format(ui=en, pn=pr_name)
                         with open(log_pth, 'w') as loggo:
                             loggo.write(error_info[mn][en])
@@ -404,11 +526,13 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in log_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing
-            if pr_name in self._process_logs[mn]:
+            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
+            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
+            #   empty dictionaries will be passed).
+            if pr_name in self._process_logs[mn] and len(log_info[mn]) != 0:
                 warn("The process_logs property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            else:
+            elif pr_name not in self._process_logs[mn]:
                 self._process_logs[mn][pr_name] = log_info[mn]
                 # You'll note that we're only storing these log files if there isn't already an entry - I'm trying
                 #  to be R/W conscious, but this may also get more sophisticated in the future, when version control
@@ -417,7 +541,7 @@ class Archive:
                     # Calling this method of the mission ensures that the identifier (for instance
                     #  0201903501PNS003) is just reduced to the ObsID
                     oi = self[mn].ident_to_obsid(en)
-                    log_pth = self.get_processed_data_path(mn, oi) + 'logs/'
+                    log_pth = self.construct_processed_data_path(mn, oi) + 'logs/'
                     log_pth += "{pn}_{ui}_stdout.log".format(ui=en, pn=pr_name)
                     with open(log_pth, 'w') as loggo:
                         loggo.write(log_info[mn][en])
@@ -455,11 +579,13 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in einfo_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing
-            if pr_name in self._process_extra_info[mn]:
+            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
+            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
+            #  empty dictionaries will be passed).
+            if pr_name in self._process_extra_info[mn] and len(einfo_info[mn]) != 0:
                 warn("The process_extra_info property already has an entry for {prn} under {mn}, no change will be "
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            else:
+            elif pr_name not in self._process_extra_info[mn]:
                 self._process_extra_info[mn][pr_name] = einfo_info[mn]
 
     @property
@@ -513,6 +639,7 @@ class Archive:
             for o_id in new_val[mn]:
                 # If the particular observation does not have an entry for the particular mission then we add it to the
                 #  dictionary, but if it does then we warn the user and do nothing
+                #  and len(new_val[mn]) != 0
                 if o_id in self._miss_obs_summ_info[mn]:
                     warn("The observation_summaries property already has an entry for {o_id} under {mn}, no change "
                          "will be made.".format(o_id=o_id, mn=mn), stacklevel=2)
@@ -984,7 +1111,39 @@ class Archive:
         return matches
 
     # Then define user-facing methods
-    def get_processed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
+    def get_current_data_path(self, mission: Union[BaseMission, str], obs_id: str) -> str:
+        """
+        A method which returns the current location of the archive data for a particular ObsID of a particular
+        mission. The two location options are in the 'processed' directory, which is the default and will be the
+        home of all ObsIDs that haven't made it to the final process for a particular mission, or the 'failed'
+        directory, where any ObsID that has no use (per the final checks) will be stored.
+
+        :param BaseMission/str mission: The mission for which to retrieve the current data path.
+        :param str obs_id: The ObsID for which to retrieve the current data path.
+        :return: The current path to the requested ObsID of the specified mission.
+        :rtype: str
+        """
+        # Performs standard checks to make sure the mission and ObsID are associated with the archive etc.
+        m_name = self._data_path_construct_checks(mission, obs_id)
+
+        # In this case the ObsID is in the final_process_success, meaning judgement has been rendered, and the
+        #  judgement is that it is useful - thus we call the 'construct_processed_data_path' method
+        if obs_id in self.final_process_success[m_name] and self.final_process_success[m_name][obs_id]:
+            # A slight inefficiency is that this method calls '_data_path_construct_checks' again, but ah well
+            cur_pth = self.construct_processed_data_path(m_name, obs_id)
+
+        # Here the ObsID is present, but it has been classified as failed - so we call 'construct_failed_data_path'
+        elif obs_id in self.final_process_success[m_name] and not self.final_process_success[m_name][obs_id]:
+            cur_pth = self.construct_failed_data_path(m_name, obs_id)
+
+        # Here, the final judgement has not been passed, so everything will be in the default location (i.e. the
+        #  'processed data path', as things are only ever moved to 'failed' after the final process and check
+        else:
+            cur_pth = self.construct_processed_data_path(m_name, obs_id)
+
+        return cur_pth
+
+    def construct_processed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None) -> str:
         """
         This method is to construct paths to directories where processed data for a particular mission + observation
         ID combination will be stored. That functionality is added here so that any change to how those directories
@@ -1006,7 +1165,7 @@ class Archive:
         :rtype: str
         """
         # This runs through a set of checks on the inputs to this method - those checks are in another method
-        #  because they are also used by get_failed_data_path
+        #  because they are also used by construct_failed_data_path
         m_name = self._data_path_construct_checks(mission, obs_id)
 
         # Now we just run through the different possible combinations of circumstances.
@@ -1020,7 +1179,7 @@ class Archive:
 
         return ret_str
 
-    def get_failed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
+    def construct_failed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None) -> str:
         """
         This method is to construct paths to directories where data for a particular mission + observation
         ID combination which failed to process will be stored. That functionality is added here so that any change
@@ -1043,7 +1202,7 @@ class Archive:
         """
 
         # This runs through a set of checks on the inputs to this method - those checks are in another method
-        #  because they are also used by get_processed_data_path
+        #  because they are also used by construct_processed_data_path
         m_name = self._data_path_construct_checks(mission, obs_id)
 
         # The mission name might be None here, in which case using m_name as a key would break things!
@@ -1227,6 +1386,11 @@ class Archive:
         if mission_name not in self.mission_names:
             raise ValueError("The mission {mn} is not associated with this archive. Available missions are "
                              "{am}".format(mn=mission_name, am=', '.join(self.mission_names)))
+
+        # Check if the process has been run at all, if not why continue?
+        if dep_proc not in self.process_names[mission_name]:
+            raise NoDependencyProcessError("The '{dp}' process, necessary for the current task, has not been run "
+                                           "for '{mn}'.".format(dp=dep_proc, mn=mission_name))
 
         # This doesn't often happen when dealing with many observations assigned to a mission, but I did notice it
         #  happen - this should never be triggered by DAXA functions as I've put checks to ensure that zero length
@@ -1425,6 +1589,31 @@ class Archive:
                                                             full_ident=flat_idents)
 
         return failed_logs, failed_raw_errors
+
+    def save(self):
+        """
+        A simple method that saves the information necessary to reload this archive from disk at a later time. This
+        largely consists of the various pieces of information regarding the success (or not) of various processing
+        steps.
+
+        NOTE that the mission states are not saved here, as they could be triggered repeatedly, which can be slow
+        for the ones with many possible ObsIDs (i.e. Swift and Integral). Instead, saves are triggered when the archive
+        is created, in the init, and if the data in the archive are updated (as this necessitates a change in the
+        mission states).
+        """
+        # These are the big storage dictionaries mostly concerned with what data we are working with, and what we've
+        #  done to it so far, and how successful those things have been
+        process_data = {'mission_names': self.mission_names, 'process_success': self._process_success_flags,
+                        'obs_summaries': self.observation_summaries,
+                        'final_process_success': self.final_process_success, 'process_errors': self.process_errors,
+                        'process_warnings': self.process_warnings, 'process_extra_info': self.process_extra_info,
+                        'use_this_obs': self.process_observation}
+
+        with open(self._arch_meta_path + 'process_info.json', 'w') as processo:
+            pretty_string = json.dumps(process_data, indent=4)
+            processo.write(pretty_string)
+
+        # TODO store software versions
 
     def info(self):
         """

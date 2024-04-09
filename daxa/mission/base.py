@@ -1,9 +1,11 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 12:05. Copyright (c) The Contributors
-
+#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 16:03. Copyright (c) The Contributors
+import inspect
+import json
 import os.path
 import re
 from abc import ABCMeta, abstractmethod
+from copy import deepcopy
 from datetime import datetime
 from functools import wraps
 from typing import List, Union
@@ -18,7 +20,12 @@ from astropy.units import Quantity
 from tabulate import tabulate
 
 from daxa import OUTPUT
-from daxa.exceptions import MissionLockedError, NoObsAfterFilterError, IllegalSourceType, NoTargetSourceTypeInfo
+from daxa.exceptions import MissionLockedError, NoObsAfterFilterError, IllegalSourceType, NoTargetSourceTypeInfo, \
+    DAXANotDownloadedError, IncompatibleSaveError
+
+# This global helps to ensure that filtering functions that call another filtering function don't end up storing
+#  every single filter in the filtering operations history - we only want the outer call (see _capture_filter for use)
+_no_filtering_op_store = False
 
 # These are the columns which MUST be present in the all_obs_info dataframes of any sub-class of BaseMission. This
 #  is mainly implemented to make sure developers who aren't me provide the right data formats
@@ -62,6 +69,96 @@ def _lock_check(change_func):
     return wrapper
 
 
+def _capture_filter(change_func):
+    """
+    An internal function designed to be used as a decorator for any methods of a mission class that perform filtering
+    operations on the available observations, to capture (and record) what filtering was performed, with what
+    arguments, and in what order. That information can then be saved in the mission state, and any future reloading
+    of the mission will be able to update itself by running the same filtering options on the more up to date list
+    of observations.
+
+    :param change_func: The method which is filtering the available mission data.
+    """
+
+    # The wraps decorator updates the wrapper function to look like wrapped function by copying attributes
+    #  such as __name__, __doc__ (the docstring)
+    @wraps(change_func)
+    def wrapper(*args, **kwargs):
+        # This global helps us to keep track of whether we should be recording the filtering operation information, as
+        #  we DON'T want that to happen when one filtering function calls another (e.g. filter_on_name calls
+        #  filter_on_positions)
+        global _no_filtering_op_store
+
+        # In this case, _no_filtering_op_store is True, which is NOT the default value, and we know then that this
+        #  decorator has been triggered by a filtering operation called within another filtering operation, and we
+        #  just want to run the filter without saving the information
+        if _no_filtering_op_store:
+            # First off we run the filtering method, so we don't save a filtering method that failed
+            any_ret = change_func(*args, **kwargs)
+
+        # However in this case, we know that this is the outermost filtering operation, so we're going to do more than
+        #  just run the filtering method
+        else:
+            # First of all, we set the global flag to True, so if the filtering method we're about to call has calls
+            #  to other filtering methods (and thus this decorator is triggered again), then the filter operation is
+            #  not saved
+            _no_filtering_op_store = True
+            # Then we run the filtering method, so we don't save a filtering method that failed
+            any_ret = change_func(*args, **kwargs)
+            # And now we reset the global flag and continue on with saving the information we need to save
+            _no_filtering_op_store = False
+
+            # The first argument will be 'self' for any class method, which we need so we can add to the filtering
+            #  operations history
+            rel_miss = args[0]
+
+            # If there are no positional arguments, then all will be well, and we just use the keyword arguments
+            #  dictionary as the entry for the filtering operation history - otherwise we're going to need to add
+            #  some information
+            final_args = kwargs
+
+            # In this case there are positional arguments other than 'self' - we care about these and need to add them
+            #  to the arguments dictionary
+            if len(args) != 1:
+                # We extract the signature (i.e. the argument and type hints) part of the function
+                meth_sig = inspect.signature(change_func)
+                # Then we specifically extract an ordered dictionary of parameters
+                meth_pars = meth_sig.parameters
+
+                # This will store any positional arguments that have to be added to the final arguments dictionary
+                pos_arg_vals = {}
+                # Iterating through all the parameters
+                for par_ind, par_name in enumerate(meth_pars):
+                    # Read out the parameter object
+                    cur_par = meth_pars[par_name]
+
+                    # We don't care about self, so we skip it
+                    if par_name == 'self':
+                        continue
+                    # As extracting the parameters from the function will also extract keyword arguments, we only
+                    #  do things with the ones that DON'T already appear in the keyword arguments dictionary
+                    elif par_name not in kwargs:
+                        # In that case we can extract the value from the args tuple using the current positional index,
+                        #  which I THINK should always correspond to the right value because meth_pars is an ordered
+                        #  dictionary - this only works for non-keyword arguments though
+                        if cur_par.default is cur_par.empty:
+                            pos_arg_vals[par_name] = args[par_ind]
+                        # If a keyword argument has a default value, it won't appear in kwargs, and the above case
+                        #  is for positional arguments, so now we extract the default value from the signature
+                        else:
+                            pos_arg_vals[par_name] = cur_par.default
+                # We add in the newly extracted positional arguments to the final argument dictionary
+                final_args.update(pos_arg_vals)
+
+            # Finally, we add the name of the filtering method to the filtering operations dictionary
+            filtering_op_entry = {'name': change_func.__name__, 'arguments': final_args}
+            # And we add it to the mission's filtering operations property, which will check it and store it
+            rel_miss.filtering_operations = filtering_op_entry
+
+        return any_ret
+    return wrapper
+
+
 class BaseMission(metaclass=ABCMeta):
     """
     The superclass for all missions defined in this module. Mission classes will be for storing and interacting
@@ -69,7 +166,6 @@ class BaseMission(metaclass=ABCMeta):
     prepared and reduced in various ways. The mission classes will also be responsible for providing a consistent
     user experience of downloading data and generating processed archives.
     """
-
     def __init__(self):
         """
         The __init__ of the superclass for all missions defined in this module. Mission classes will be for storing
@@ -134,6 +230,21 @@ class BaseMission(metaclass=ABCMeta):
         # Will take the same approach as the name property, where it is defined as an abstract method so it must
         #  be implemented for a new mission class
         self._approx_fov = None
+
+        # This is a very rarely used attribute (I think only eROSITACalPV at the time of writing) that stores which
+        #  particular named fields were chosen
+        self._chos_fields = None
+
+        # This attribute stores which type of data were downloaded, and are thus associated with this mission - there
+        #  are three possible values; 'raw', 'preprocessed', or 'raw+preprocessed' (or four if you count the initial
+        #  None value which is present until a download is actually done).
+        # TODO need to actually have this set in the download methods of the various mission classes
+        self._download_type = None
+
+        # This attribute stores the filtering operations that have been applied to the current mission, including the
+        #  configurations that were used - they are stored in the order they were performed; i.e. element 0 is the
+        #  first applied and element N is the last
+        self._filtering_operations = []
 
     # Defining properties first
     @property
@@ -341,6 +452,62 @@ class BaseMission(metaclass=ABCMeta):
         self._download_done = False
 
     @property
+    def filtering_operations(self) -> List[dict]:
+        """
+        A property getter for the filtering operations that have been applied to this mission, in the order they
+        were applied. This is mainly stored so that missions that have been reinstated from a save file can be updated
+        by running the exact same filtering operations again.
+
+        :return: A list of dictionaries which have two keys, 'name', and 'arguments'; the 'name' key corresponds to
+            the name of the filtering method, and the 'arguments' key corresponds to a dictionary of arguments that
+            were passed to the method. 0th element was applied first, Nth element was applied last.
+        :rtype: List[dict]
+        """
+
+        return self._filtering_operations
+
+    @filtering_operations.setter
+    def filtering_operations(self, new_filter_operation: dict):
+        """
+        A property setter for the store of filtering operations that have been applied to this mission. This is
+        slightly non-traditional in that it doesn't replace the entire filtering operations attribute, but just
+        appends the new entry to what is already there.
+
+        This shouldn't really be used directly, it is more for other DAXA methods than the user.
+
+        :param np.ndarray new_filter_operation: The entry for the filtering operations history. A dictionary that has
+            two keys, 'name', and 'arguments'; the 'name' key corresponds to the name of the filtering method, and
+            the 'arguments' key corresponds to a dictionary of arguments that were passed to the method
+        """
+        # There are quite a few checks on what is being passed to this setter, as I really don't want anyone doing
+        #  it who doesn't know what they are doing - really I don't want anything but the DAXA _capture_filter
+        #  decorator doing this
+        # First I check that the input is a dictionary, and that the keys I need to be there are present
+        if not isinstance(new_filter_operation, dict) or ('name' not in new_filter_operation or
+                                                          'arguments' not in new_filter_operation):
+            raise TypeError("Only a dictionary containing entries for 'name' and 'arguments' may be passed to add a "
+                            "new entry to the filtering operations history.")
+
+        # Then we ensure that the data type for the name is correct
+        if not isinstance(new_filter_operation['name'], str):
+            raise TypeError("The filter operation method name must be a string, this entry ({}) is "
+                            "not.".format(str(new_filter_operation['name'])))
+        # And that it is a method of this mission class (this isn't perfect because you could pass the name of an
+        #  attribute or property, or non-filtering method, and it would be an attribute, but honestly at that point
+        #  you deserve to have things break)
+        elif not hasattr(self, new_filter_operation['name']):
+            raise ValueError("The filter operation method name ({}) is not a method of this mission "
+                             "class.".format(str(new_filter_operation['name'])))
+
+        # Check that the entry for arguments is a dictionary
+        if not isinstance(new_filter_operation['arguments'], dict):
+            raise TypeError("The filter operation arguments value must be a dictionary of passed values.")
+
+        # Finally, if we've got to this point, it is safe to append the new entry to our existing filtering operations
+        #  history list
+        self._filtering_operations.append(new_filter_operation)
+
+    @property
     @abstractmethod
     def all_obs_info(self) -> pd.DataFrame:
         """
@@ -445,13 +612,29 @@ class BaseMission(metaclass=ABCMeta):
     @property
     def download_completed(self) -> bool:
         """
-        Property getter that describes whether the specified raw data for this mission have been
+        Property getter that describes whether the specified data for this mission have been
         downloaded.
 
         :return: Boolean flag describing if data have been downloaded.
         :rtype: bool
         """
         return self._download_done
+
+    @property
+    def downloaded_type(self) -> str:
+        """
+        Property getter that describes what type of data was downloaded for this mission (or raises an exception if
+        no download has been performed yet). The value will be either 'raw', 'preprocessed', or 'raw+preprocessed'.
+
+        :return: A string identifier for the type of data downloaded; the value will be either 'raw',
+            'preprocessed', or 'raw+preprocessed'
+        :rtype: str
+        """
+        if not self.download_completed:
+            raise DAXANotDownloadedError("The 'download_type' cannot have a valid value until a download has "
+                                         "been performed.")
+
+        return self._download_type
 
     @property
     def locked(self) -> bool:
@@ -510,6 +693,78 @@ class BaseMission(metaclass=ABCMeta):
         self._processed = new_val
 
     # Then define internal methods
+    def _load_state(self, save_file_path: str):
+        """
+        This internal function can read in a saved mission state from a file, and replicate the mission as it was. This
+        can be triggered by the user passing a save file to the init of a mission, but more importantly it can be
+        used by archives to re-set-up a mission with the same information as when the archive was created.
+
+        :param str save_file_path: The path to the saved mission state json (created by the BaseMission save() method).
+        """
+        if not os.path.exists(save_file_path):
+            raise FileNotFoundError("The specified mission save file ({}) cannot be found.".format(save_file_path))
+
+        with open(save_file_path, 'r') as stateo:
+            # This json contains all the information we need to return the mission to its saved state
+            save_dict = json.load(stateo)
+
+            # First off, lets just sanity check that the file we've been pointed too belongs to this type of mission
+            if save_dict['name'] != self.name:
+                raise IncompatibleSaveError("A saved state for a '{smn}' mission is not compatible with this {mn} "
+                                            "mission.".format(smn=save_dict['name'], mn=self.name))
+
+            # Set the chosen instruments property from the save file - for all mission classes
+            self.chosen_instruments = save_dict['chos_inst']
+            # If the chosen field wasn't a null value, we'll do the same for that - this is used only rarely, for most
+            #  classes of mission this will be None
+            if save_dict['chos_field'] is not None:
+                self.chosen_fields = save_dict['chos_field']
+
+            # Reset the download_type attribute - lets the mission know what type of data were downloaded last time
+            self._download_type = save_dict['downloaded_type']
+
+            # Now we need to recreate the filter array from the stored information - not actually too difficult! The
+            #  interesting bit is where we let the user re-run the exact same filtering steps, to update a previously
+            #  created mission state/archive
+            self.filter_array = self.filter_array*self.all_obs_info['ObsID'].isin(save_dict['selected_obs'])
+
+            # We now need to load in the filtering operations history, which may include recreating some datatypes
+            #  that weren't serializable
+            read_filt_ops = save_dict['filtering_operations']
+            # We're going to be modifying some of the entries most likely, so we make a new list to store them in
+            reinstated_filt_ops = []
+            # Iterating through all the filtering operations, we look for entries that have their argument value
+            #  formatted in a certain way (which we introduced in the save() method so we can know which need
+            #  converting back to a different type).
+            for filt_op in read_filt_ops:
+                for arg_name, arg_val in filt_op['arguments'].items():
+                    # Astropy quantity is easy, just wrap the string representation in the class
+                    if isinstance(arg_val, dict) and list(arg_val.keys())[0] == 'quantity':
+                        filt_op['arguments'][arg_name] = Quantity(arg_val['quantity'])
+                    # Datetime is similarly simple, making use of its reading-from-string capabilities - the format
+                    #  is certain to be correct because we write the dates out with that format in save()
+                    elif isinstance(arg_val, dict) and list(arg_val.keys())[0] == 'datetime':
+                        filt_op['arguments'][arg_name] = datetime.strptime(arg_val['datetime'], "%Y-%m-%d %H:%M:%S.%f")
+                    # This case is a list of datetimes, much the same process as above but with a list comprehension
+                    #  as well
+                    elif isinstance(arg_val, dict) and list(arg_val.keys())[0] == 'datetime_list':
+                        filt_op['arguments'][arg_name] = [datetime.strptime(dt, "%Y-%m-%d %H:%M:%S.%f")
+                                                          for dt in arg_val['datetime_list']]
+                    # Converting a list representation of an array back into an actual array
+                    elif isinstance(arg_val, dict) and list(arg_val.keys())[0] == 'ndarray':
+                        filt_op['arguments'][arg_name] = np.array(arg_val['ndarray'])
+                    # The SkyCoord is slightly more involved as there are a few components to read out
+                    elif isinstance(arg_val, dict) and list(arg_val.keys())[0] == 'skycoord':
+                        coord = SkyCoord(arg_val['skycoord']['ra'], arg_val['skycoord']['dec'], unit='deg',
+                                         frame=arg_val['skycoord']['frame'])
+                        filt_op['arguments'][arg_name] = coord
+
+                # Add to the list that contains the fully reinstated filtering operations history
+                reinstated_filt_ops.append(filt_op)
+
+            # Finally, we store the restored dictionary in the filtering operations attribute
+            self._filtering_operations = reinstated_filt_ops
+
     def _obs_info_checks(self, new_info: pd.DataFrame):
         """
         Performs very simple checks on new inputs into the observation information dataframe, ensuring it at
@@ -558,6 +813,9 @@ class BaseMission(metaclass=ABCMeta):
         # If the filter changes then we make sure download done is set to False so that any changes
         #  in observation selection are reflected in the download call
         self._download_done = False
+        # As we store the filtering options in the order they were applied, we have to empty the list when we reset
+        #  the filter
+        self._filtering_operations = []
 
     def check_obsid_pattern(self, obs_id_to_check: str):
         """
@@ -642,6 +900,7 @@ class BaseMission(metaclass=ABCMeta):
         return updated_insts
 
     @_lock_check
+    @_capture_filter
     def filter_on_obs_ids(self, allowed_obs_ids: Union[str, List[str]]):
         """
         This filtering method will select only observations with IDs specified by the allowed_obs_ids argument.
@@ -687,6 +946,7 @@ class BaseMission(metaclass=ABCMeta):
     # TODO Figure out how to support survey-type missions (i.e. eROSITA) that release large sweeps of the sky
     #  when filtering based on position.
     @_lock_check
+    @_capture_filter
     def filter_on_rect_region(self, lower_left: Union[SkyCoord, np.ndarray, list],
                               upper_right: Union[SkyCoord, np.ndarray, list]):
         """
@@ -730,6 +990,7 @@ class BaseMission(metaclass=ABCMeta):
         self.filter_array = new_filter
 
     @_lock_check
+    @_capture_filter
     def filter_on_positions(self, positions: Union[list, np.ndarray, SkyCoord],
                             search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
                             return_pos_obs_info: bool = False) -> Union[None, pd.DataFrame]:
@@ -1026,6 +1287,7 @@ class BaseMission(metaclass=ABCMeta):
             return pd.DataFrame(ret_df_data, columns=ret_df_cols)
 
     @_lock_check
+    @_capture_filter
     def filter_on_name(self, object_name: Union[str, List[str]],
                        search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
                        parse_name: bool = False):
@@ -1070,7 +1332,7 @@ class BaseMission(metaclass=ABCMeta):
 
         # Have to check whether there are any coordinates that have been resolved, if not we throw an error
         if len(coords) == 0:
-            raise NameResolveError("The name(s) could be resolved into coordinates.")
+            raise NameResolveError("The name(s) could not be resolved into coordinates.")
 
         # Also, if this list has any entries, then some names failed to resolve (but if we're here then some of the
         #  names WERE resolved)
@@ -1087,6 +1349,7 @@ class BaseMission(metaclass=ABCMeta):
         self.filter_on_positions(coords, search_distance)
 
     @_lock_check
+    @_capture_filter
     def filter_on_time(self, start_datetime: datetime, end_datetime: datetime, over_run: bool = True):
         """
         This method allows you to filter observations for this mission based on when they were taken. A start
@@ -1128,6 +1391,7 @@ class BaseMission(metaclass=ABCMeta):
         self.filter_array = new_filter
 
     @_lock_check
+    @_capture_filter
     def filter_on_target_type(self, target_type: Union[str, List[str]]):
         """
         This method allows the filtering of observations based on what type of object their target source was. It
@@ -1177,6 +1441,7 @@ class BaseMission(metaclass=ABCMeta):
         self.filter_array = new_filter
 
     @_lock_check
+    @_capture_filter
     def filter_on_positions_at_time(self, positions: Union[list, np.ndarray, SkyCoord],
                                     start_datetimes: Union[np.ndarray, datetime],
                                     end_datetimes: Union[np.ndarray, datetime],
@@ -1318,6 +1583,98 @@ class BaseMission(metaclass=ABCMeta):
         #  that represent positions with both temporal and spatial matches
         if return_obs_info:
             return rel_obs_info[any_rel_data]
+
+    def save(self, save_root_path: str):
+        """
+        A method to save a file representation of the current state of a DAXA mission object. This may be used by
+        the user, and can be safely sent to another user or system to recreate a mission. It is also used by the
+        archive saving mechanic, so that mission objects can be re-set up - it is worth noting that the archive save
+        files ARE NOT how to make a portable archive,
+
+        :param str save_root_path: The DIRECTORY where you wish a save file to be stored, DO NOT pass a path
+            with a filename at the end, as this method will create its own filename.
+        """
+
+        # We check to see whether the output root path exists, and if it doesn't then we shall create it
+        if not os.path.exists(save_root_path):
+            os.makedirs(save_root_path)
+
+        # We set up the actual name of the same file, then the full path to it
+        file_name = self.name + '_state.json'
+        miss_file_path = os.path.join(save_root_path, file_name)
+
+        # This is where we set up the dictionary of information that will actually be saved - all the information
+        #  common to all mission classes at least. Some will be None for most missions (like chosen field)
+        mission_data = {'name': self.name, 'chos_inst': self.chosen_instruments, 'chos_field': self._chos_fields,
+                        'downloaded_type': self._download_type, 'cur_date': str(datetime.today())}
+
+        # The currently selected data need some more specialist treatment - we can't just save the filter
+        #  array, because the available observations (and thus the information table that the filter gets applied
+        #  too) are not necessarily static (for some they will be, because the missions are finished).
+        # As such, we decided to just save the accepted ObsIDs, and any difference in data available can be inferred
+        #  by re-running the stored filtering steps, rather than comparing a stored list of ObsIDs to a newly
+        #  downloaded one
+        sel_obs = self.filtered_obs_ids
+
+        # It is possible, if someone isn't paying attention, that the save method could be triggered when there aren't
+        #  actually any observations left - that doesn't really make sense to me, so we'll throw an error
+        if len(sel_obs) == 0:
+            raise NoObsAfterFilterError("There are no observations associated with this {mn} mission after "
+                                        "filtering, so the mission state cannot be saved.".format(mn=self.pretty_name))
+
+        # Make sure to add the sel_obs dictionary into the overall one we're hoping to store
+        mission_data['selected_obs'] = list(sel_obs)
+
+        # We can now store the filtering operations (and their configurations), as well as the order they were run in,
+        #  which means a reinstated mission can re-run the same filtering on an updated data set. HOWEVER, there is
+        #  an irritating snag, where some types of objects that can be passed to filtering method cannot be
+        #  'serialized' in a JSON. As such we have to make some modifications before we store it in our save state file
+
+        # First of all, make a copy of the filtering operations list, as we'll be making modifications that we don't
+        #  want to affect the attribute in the class
+        filt_ops = deepcopy(self.filtering_operations)
+
+        # Here we run through the filter operations, and replace any types we know can't be stored in a JSON and
+        #  could be passed as an argument to a filter method
+        for filt_op in filt_ops:
+            for arg_name, arg_val in filt_op['arguments'].items():
+                # We'll want to reconstruct these things as the type they were originally when the mission is restored
+                #  so we store them as a dictionary to readily identify what types they were before we converted them
+                if isinstance(arg_val, Quantity):
+                    filt_op['arguments'][arg_name] = {"quantity": str(arg_val)}
+                elif isinstance(arg_val, datetime):
+                    filt_op['arguments'][arg_name] = {"datetime": arg_val.strftime("%Y-%m-%d %H:%M:%S.%f")}
+                elif isinstance(arg_val, np.ndarray) and not isinstance(arg_val[0], datetime):
+                    filt_op['arguments'][arg_name] = {'ndarray': arg_val.tolist()}
+                # One of the filtering methods can pass lists of datetimes, which need an extra layer of attention
+                elif isinstance(arg_val, (list, np.ndarray)) and isinstance(arg_val[0], datetime):
+                    filt_op['arguments'][arg_name] = {'datetime_list': [av.strftime("%Y-%m-%d %H:%M:%S.%f")
+                                                                        for av in arg_val]}
+                # SkyCoord has a few more moving parts, so we create a nested dictionary, other than that same idea
+                elif isinstance(arg_val, SkyCoord):
+                    # Reads out the position values in degrees, which will help us to re-construct the SkyCoord
+                    #  when this mission state is read back in
+                    ra = arg_val.ra.to('deg').value
+                    dec = arg_val.dec.to('deg').value
+
+                    # If ra is an array, we need to convert it and dec to lists
+                    if isinstance(ra, np.ndarray):
+                        ra = ra.tolist()
+                        dec = dec.tolist()
+
+                    # Saving the specified frame is also important for reconstruction
+                    frame = arg_val.frame.name
+
+                    # Creating a nested dictionary with all the information we should need to reconstruct, if
+                    #  it is just a position (no time axis) - that should be the case as DAXA is now
+                    filt_op['arguments'][arg_name] = {'skycoord': {'ra': ra, 'dec': dec, 'frame': frame}}
+
+        mission_data['filtering_operations'] = filt_ops
+
+        # Now we write the required information to the state file path
+        with open(miss_file_path, 'w') as stateo:
+            json_str = json.dumps(mission_data, indent=4)
+            stateo.write(json_str)
 
     def info(self):
         print("\n-----------------------------------------------------")

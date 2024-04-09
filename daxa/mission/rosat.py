@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 10:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:23. Copyright (c) The Contributors
 
 import io
 import os
@@ -57,10 +57,12 @@ class ROSATPointed(BaseMission):
     mode with PSPC-C at the beginning of the ROSAT mission.
 
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
-            pass either a single string value or a list of strings. They may include PSPCB, PSPCC, and HRI.
+        pass either a single string value or a list of strings. They may include PSPCB, PSPCC, and HRI.
+    :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+        state of a previously defined mission (the same filters having been applied etc.)
     """
 
-    def __init__(self, insts: Union[List[str], str] = None):
+    def __init__(self, insts: Union[List[str], str] = None, save_file_path: str = None):
         """
         The mission class for ROSAT Pointed observations, taken after the initial all-sky survey. This mission includes
         the follow-up observations taken to complete the all-sky survey in pointed mode towards the end of the ROSAT
@@ -76,6 +78,8 @@ class ROSATPointed(BaseMission):
 
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
             pass either a single string value or a list of strings. They may include PSPCB, PSPCC, and HRI.
+        :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+            state of a previously defined mission (the same filters having been applied etc.)
         """
         super().__init__()
 
@@ -109,6 +113,10 @@ class ROSATPointed(BaseMission):
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
+
+        # We now will read in the previous state, if there is one to be read in.
+        if save_file_path is not None:
+            self._load_state(save_file_path)
 
         # Deliberately using the property setter, because it calls the internal _check_chos_insts function
         #  to make sure the input instruments are allowed
@@ -635,17 +643,23 @@ class ROSATAllSky(BaseMission):
 
     No instrument choice is offered for this mission class because all RASS observations in the scanning portion
     of the survey were taken with PSPC-C.
+
+    :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+        state of a previously defined mission (the same filters having been applied etc.)
     """
 
-    def __init__(self):
+    def __init__(self, save_file_path: str = None):
         """
         The mission class for ROSAT All-Sky Survey (RASS) observations. The available observation information is
         fetched from the HEASArc  RASSMASTER table, and data are downloaded from the HEASArc https access to their FTP
-        server. Only data from the initial scanning phase of RASS will be fetched by this class, not the follow-up pointed
-        mode observations used to complete the survey towards the end of the ROSAT mission.
+        server. Only data from the initial scanning phase of RASS will be fetched by this class, not the follow-up
+        pointed mode observations used to complete the survey towards the end of the ROSAT mission.
 
         No instrument choice is offered for this mission class because all RASS observations in the scanning portion
         of the survey were taken with PSPC-C.
+
+        :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+            state of a previously defined mission (the same filters having been applied etc.)
         """
         super().__init__()
 
@@ -675,6 +689,10 @@ class ROSATAllSky(BaseMission):
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
+
+        # We now will read in the previous state, if there is one to be read in.
+        if save_file_path is not None:
+            self._load_state(save_file_path)
 
     @property
     def name(self) -> str:

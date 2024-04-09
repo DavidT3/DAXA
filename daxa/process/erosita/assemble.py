@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 09:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
 
 import os.path
 from random import randint
@@ -168,7 +168,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
 
                 # This path is guaranteed to exist, as it was set up in _esass_process_setup. This is where output
                 #  files will be written to.
-                dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+                dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
                 # Set up a temporary directory to work in (probably not really necessary in this case, but will be
                 #  in other processing functions).
                 temp_name = "tempdir_{}".format(randint(0, 1e+8))

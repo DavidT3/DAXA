@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 12:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:23. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -40,11 +40,13 @@ class Suzaku(BaseMission):
     the HEASArc https access to their FTP server.
 
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
-            pass either a single string value or a list of strings. They may include XIS0, XIS1, XIS2, and XIS3 (the
-            default is all of them).
+        pass either a single string value or a list of strings. They may include XIS0, XIS1, XIS2, and XIS3 (the
+        default is all of them).
+    :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+            state of a previously defined mission (the same filters having been applied etc.)
     """
 
-    def __init__(self, insts: Union[List[str], str] = None):
+    def __init__(self, insts: Union[List[str], str] = None, save_file_path: str = None):
         """
         The mission class for Suzaku observations, specifically those from the XIS instruments, as XRS' cooling system
         was damaged soon after launch, and HXD was not an imaging instrument.
@@ -54,6 +56,8 @@ class Suzaku(BaseMission):
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
             pass either a single string value or a list of strings. They may include XIS0, XIS1, XIS2, and XIS3 (the
             default is all of them).
+        :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+            state of a previously defined mission (the same filters having been applied etc.)
         """
         super().__init__()
 
@@ -93,6 +97,10 @@ class Suzaku(BaseMission):
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
+
+        # We now will read in the previous state, if there is one to be read in.
+        if save_file_path is not None:
+            self._load_state(save_file_path)
 
     @property
     def name(self) -> str:
