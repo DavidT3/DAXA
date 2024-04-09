@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 20:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:01. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -24,46 +24,30 @@ class Archive:
     of mission's data. Archives can be passed to processing and cleaning functions in DAXA, and also
     contain convenience functions for accessing summaries of the available data.
 
+    :param str archive_name: The name to be given to this archive - it will be used for storage
+        and identification. If an existing archive with this name exists it will be read in, unless clobber=True.
     :param List[BaseMission]/BaseMission missions: The mission, or missions, which are to be included
         in this archive - any setup processes (i.e. the filtering of data to be acquired) should be
-        performed prior to creating an archive.
-    :param str archive_name: The name to be given to this archive - it will be used for storage
-        and identification.
+        performed prior to creating an archive. The default value is None, but this should be set for any new
+        archives, it can only be left as None if an existing archive is being read back in.
+    :param bool clobber: If an archive named 'archive_name' already exists, then setting clobber to True
+        will cause it to be deleted and overwritten.
     """
-    # TODO UNFORTUNATELY NEED TO DO A BREAKING CHANGE AND SWAP THE ARCHIVE NAME AND MISSIONS ARGUMENTS - MISSIONS
-    #  NEEDS TO BECOME A KEYWORD ARGUMENT
-    def __init__(self, missions: Union[List[BaseMission], BaseMission], archive_name: str, clobber: bool = False):
+    def __init__(self, archive_name: str, missions: Union[List[BaseMission], BaseMission] = None, clobber: bool = False):
         """
         The init of the Archive class, which is to be used to consolidate and provide some interface with a set
         of mission's data. Archives can be passed to processing and cleaning functions in DAXA, and also
         contain convenience functions for accessing summaries of the available data.
 
+        :param str archive_name: The name to be given to this archive - it will be used for storage
+            and identification. If an existing archive with this name exists it will be read in, unless clobber=True.
         :param List[BaseMission]/BaseMission missions: The mission, or missions, which are to be included
             in this archive - any setup processes (i.e. the filtering of data to be acquired) should be
-            performed prior to creating an archive.
-        :param str archive_name: The name to be given to this archive - it will be used for storage
-            and identification.
-        :param bool clobber: If an archive with named 'archive_name' already exists, then setting clobber to True
+            performed prior to creating an archive. The default value is None, but this should be set for any new
+            archives, it can only be left as None if an existing archive is being read back in.
+        :param bool clobber: If an archive named 'archive_name' already exists, then setting clobber to True
             will cause it to be deleted and overwritten.
         """
-        # First ensure that the missions variable is iterable even if there's only one mission that has
-        #  been passed, makes it easier to generalise things.
-        if isinstance(missions, BaseMission):
-            missions = [missions]
-        
-        # Then checking that every element in the list is a BaseMission
-        if not all(isinstance(mission, BaseMission) for mission in missions):
-            raise TypeError("Please pass either a single mission class instance, or a list of missions class "
-                            "instances to the 'missions' argument.")
-
-        # Here we ensure that there are no duplicate mission instances, each mission should be filtered in such
-        #  a way that all observations for that mission are in one mission instance
-        miss_names = [m.name for m in missions]
-        if len(miss_names) != len(list(set(miss_names))):
-            raise DuplicateMissionError("There are multiple instances of the same missions present in "
-                                        "the 'missions' argument - only one instance of each is allowed for "
-                                        "a particular archive.")
-
         # Store the archive name in an attribute
         self._archive_name = archive_name
 
@@ -94,6 +78,31 @@ class Archive:
         # If this is a brand-new archive, we have to make sure that the save info directory is created
         elif self._new_arch:
             os.makedirs(self._arch_meta_path)
+
+        # Must ensure that the missions variable is iterable even if there's only one mission that has
+        #  been passed, makes it easier to generalise things.
+        if isinstance(missions, BaseMission):
+            missions = [missions]
+        elif missions is None and self._new_arch:
+            raise ValueError("The 'missions' argument cannot be None when creating a new archive, only when loading"
+                             "an existing one.")
+        elif missions is None and not self._new_arch:
+            # Just so the user knows
+            warn("Anything passed to 'missions' when loading in an existing archive is disregarded - missions are "
+                 "loaded back in as they were when the archive was last saved.", stacklevel=2)
+
+        # Then checking that every element in the list is a BaseMission
+        if not all(isinstance(mission, BaseMission) for mission in missions):
+            raise TypeError("Please pass either a single mission class instance, or a list of missions class "
+                            "instances to the 'missions' argument.")
+
+        # Here we ensure that there are no duplicate mission instances, each mission should be filtered in such
+        #  a way that all observations for that mission are in one mission instance
+        miss_names = [m.name for m in missions]
+        if len(miss_names) != len(list(set(miss_names))):
+            raise DuplicateMissionError("There are multiple instances of the same missions present in "
+                                        "the 'missions' argument - only one instance of each is allowed for "
+                                        "a particular archive.")
 
         # If the archive is brand new, then we have a lot of setting up attributes to do
         if self._new_arch:
@@ -185,6 +194,10 @@ class Archive:
                 self._process_warnings = info_dict['process_warnings']
                 self._process_extra_info = info_dict['process_extra_info']
                 self._use_this_obs = info_dict['use_this_obs']
+
+        # We save at the end of this if it is a new archive, just to set the ball rolling and get the file created.
+        if self._new_arch:
+            self.save()
 
     # Defining properties first
     @property
