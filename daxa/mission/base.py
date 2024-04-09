@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 15:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 15:52. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -730,36 +730,40 @@ class BaseMission(metaclass=ABCMeta):
 
             # We now need to load in the filtering operations history, which may include recreating some datatypes
             #  that weren't serializable
-            filt_ops = save_dict['filtering_operations']
-
+            read_filt_ops = save_dict['filtering_operations']
+            # We're going to be modifying some of the entries most likely, so we make a new list to store them in
+            reinstated_filt_ops = []
             # Iterating through all the filtering operations, we look for entries that have their argument value
             #  formatted in a certain way (which we introduced in the save() method so we can know which need
             #  converting back to a different type).
-            for filt_op in filt_ops:
+            for filt_op in read_filt_ops:
                 for arg_name, arg_val in filt_op['arguments'].items():
                     # Astropy quantity is easy, just wrap the string representation in the class
                     if isinstance(arg_val, dict) and list(arg_val.keys())[0] == 'quantity':
-                        filt_op[arg_name] = Quantity(arg_val['quantity'])
+                        filt_op['arguments'][arg_name] = Quantity(arg_val['quantity'])
                     # Datetime is similarly simple, making use of its reading-from-string capabilities - the format
                     #  is certain to be correct because we write the dates out with that format in save()
                     elif isinstance(arg_val, dict) and list(arg_val.keys())[0] == 'datetime':
-                        filt_op[arg_name] = datetime.strptime(arg_val['datetime'], "%Y-%m-%d %H:%M:%S.%f")
+                        filt_op['arguments'][arg_name] = datetime.strptime(arg_val['datetime'], "%Y-%m-%d %H:%M:%S.%f")
                     # This case is a list of datetimes, much the same process as above but with a list comprehension
                     #  as well
                     elif isinstance(arg_val, dict) and list(arg_val.keys())[0] == 'datetime_list':
-                        filt_op[arg_name] = [datetime.strptime(dt, "%Y-%m-%d %H:%M:%S.%f")
-                                             for dt in arg_val['datetime_list']]
+                        filt_op['arguments'][arg_name] = [datetime.strptime(dt, "%Y-%m-%d %H:%M:%S.%f")
+                                                          for dt in arg_val['datetime_list']]
                     # Converting a list representation of an array back into an actual array
                     elif isinstance(arg_val, dict) and list(arg_val.keys())[0] == 'ndarray':
-                        filt_op[arg_name] = np.array(arg_val['ndarray'])
+                        filt_op['arguments'][arg_name] = np.array(arg_val['ndarray'])
                     # The SkyCoord is slightly more involved as there are a few components to read out
                     elif isinstance(arg_val, dict) and list(arg_val.keys())[0] == 'skycoord':
                         coord = SkyCoord(arg_val['skycoord']['ra'], arg_val['skycoord']['dec'], unit='deg',
                                          frame=arg_val['skycoord']['frame'])
-                        filt_op[arg_name] = coord
+                        filt_op['arguments'][arg_name] = coord
+
+                # Add to the list that contains the fully reinstated filtering operations history
+                reinstated_filt_ops.append(filt_op)
 
             # Finally, we store the restored dictionary in the filtering operations attribute
-            self._filtering_operations = filt_ops
+            self._filtering_operations = reinstated_filt_ops
 
     def _obs_info_checks(self, new_info: pd.DataFrame):
         """
