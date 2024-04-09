@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/04/2024, 12:06. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 20:17. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -32,8 +32,10 @@ class XMMPointed(BaseMission):
         MOS1, and MOS2 instruments are selected by default. You may also select RGS1 (R1) and RGS2 (R2), though
         as they less widely used they are not selected by default. It is also possible to select the
         Optical Monitor (OM), though it is an optical/UV telescope, and as such it is not selected by default.
+    :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+        state of a previously defined mission (the same filters having been applied etc.)
     """
-    def __init__(self, insts: Union[List[str], str] = None):
+    def __init__(self, insts: Union[List[str], str] = None, save_file_path: str = None):
         """
         The mission class init for pointed XMM observations (i.e. slewing observations are NOT included in the data
         accessed and collected by instances of this class). The available observation information is fetched from
@@ -42,7 +44,9 @@ class XMMPointed(BaseMission):
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. The EPIC
             PN, MOS1, and MOS2 instruments are selected by default. You may also select RGS1 (R1) and RGS2
             (R2), though as they less widely used they are not selected by default. It is also possible to select the
-            Optical Monitor (OM), though it is an optical/UV telescope, and as such it is not selected by default.
+        Optical Monitor (OM), though it is an optical/UV telescope, and as such it is not selected by default.
+        :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+            state of a previously defined mission (the same filters having been applied etc.)
         """
         # Call the init of parent class with the required information
         super().__init__()
@@ -77,9 +81,17 @@ class XMMPointed(BaseMission):
         # Runs the method which fetches information on all available pointed XMM observations and stores that
         #  information in the all_obs_info property
         self._fetch_obs_info()
+
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
+
+        # We now will read in the previous state, if there is one to be read in. This could be slightly annoying if
+        #  the user has passed an incompatible save file for a mission with a large online archive (i.e. the download
+        #  takes a while), but I figure that is fairly unlikely to be a frequent bother, and this is the most elegant
+        #  way of doing this
+        if save_file_path is not None:
+            self._load_state(save_file_path)
 
     # Defining properties first
     @property

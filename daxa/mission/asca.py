@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/02/2024, 22:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 20:17. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -41,9 +41,11 @@ class ASCA(BaseMission):
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
             pass either a single string value or a list of strings. They may include SIS0, SIS1, GIS2, and GIS3 (the
             default is all of them).
+    :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+        state of a previously defined mission (the same filters having been applied etc.)
     """
 
-    def __init__(self, insts: Union[List[str], str] = None):
+    def __init__(self, insts: Union[List[str], str] = None, save_file_path: str = None):
         """
         The mission class for ASCA observations, both from the GIS AND SIS instruments.
         The available observation information is fetched from the HEASArc ASCAMASTER table, and data are downloaded from
@@ -52,6 +54,8 @@ class ASCA(BaseMission):
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
                 pass either a single string value or a list of strings. They may include SIS0, SIS1, GIS2, and GIS3 (the
                 default is all of them).
+        :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+            state of a previously defined mission (the same filters having been applied etc.)
         """
         super().__init__()
 
@@ -88,6 +92,13 @@ class ASCA(BaseMission):
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
+
+        # We now will read in the previous state, if there is one to be read in. This could be slightly annoying if
+        #  the user has passed an incompatible save file for a mission with a large online archive (i.e. the download
+        #  takes a while), but I figure that is fairly unlikely to be a frequent bother, and this is the most elegant
+        #  way of doing this
+        if save_file_path is not None:
+            self._load_state(save_file_path)
 
     @property
     def name(self) -> str:
