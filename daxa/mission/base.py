@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 14:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 14:47. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -1609,6 +1609,11 @@ class BaseMission(metaclass=ABCMeta):
                     #  when this mission state is read back in
                     ra = arg_val.ra.to('deg').value
                     dec = arg_val.dec.to('deg').value
+
+                    # If ra is an array, we need to convert it and dec to lists
+                    if isinstance(ra, np.ndarray):
+                        ra = ra.tolist()
+                        dec = dec.tolist()
 
                     # Saving the specified frame is also important for reconstruction
                     frame = arg_val.frame.name
