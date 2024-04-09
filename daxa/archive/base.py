@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 22:06. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -1046,28 +1046,39 @@ class Archive:
         return matches
 
     # Then define user-facing methods
-    def get_current_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
+    def get_current_data_path(self, mission: Union[BaseMission, str], obs_id: str) -> str:
         """
-        This method is to construct paths to directories where processed data for a particular mission + observation
-        ID combination will be stored. That functionality is added here so that any change to how those directories
-        are named will take place in only one part of DAXA, and will propagate to other parts of the module. It is
-        unlikely that a user will need to directly use this method.
+        A method which returns the current location of the archive data for a particular ObsID of a particular
+        mission. The two location options are in the 'processed' directory, which is the default and will be the
+        home of all ObsIDs that haven't made it to the final process for a particular mission, or the 'failed'
+        directory, where any ObsID that has no use (per the final checks) will be stored.
 
-        If no mission is passed, then no observation ID may be passed. In the case of 'mission' and 'obs_id' being
-        None, the returned string will be constructed ready to format; {mn} should be replaced by the DAXA mission
-        name, and {oi} by the relevant ObsID.
-
-        :param BaseMission/str mission: The mission for which to retrieve the current data path. Default is None
-            in which case a path ready to be formatted with a mission name will be provided.
-        :param str obs_id: The ObsID for which to retrieve the processed data path, cannot be set if 'mission' is
-            set to None. Default is None, in which case a path ready to be formatted with an observation ID will
-            be provided.
-        :return: The requested path.
+        :param BaseMission/str mission: The mission for which to retrieve the current data path.
+        :param str obs_id: The ObsID for which to retrieve the current data path.
+        :return: The current path to the requested ObsID of the specified mission.
         :rtype: str
         """
-        pass
+        # Performs standard checks to make sure the mission and ObsID are associated with the archive etc.
+        m_name = self._data_path_construct_checks(mission, obs_id)
 
-    def construct_processed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
+        # In this case the ObsID is in the final_process_success, meaning judgement has been rendered, and the
+        #  judgement is that it is useful - thus we call the 'construct_processed_data_path' method
+        if obs_id in self.final_process_success[m_name] and self.final_process_success[m_name][obs_id]:
+            # A slight inefficiency is that this method calls '_data_path_construct_checks' again, but ah well
+            cur_pth = self.construct_processed_data_path(m_name, obs_id)
+
+        # Here the ObsID is present, but it has been classified as failed - so we call 'construct_failed_data_path'
+        elif obs_id in self.final_process_success[m_name] and not self.final_process_success[m_name][obs_id]:
+            cur_pth = self.construct_failed_data_path(m_name, obs_id)
+
+        # Here, the final judgement has not been passed, so everything will be in the default location (i.e. the
+        #  'processed data path', as things are only ever moved to 'failed' after the final process and check
+        else:
+            cur_pth = self.construct_processed_data_path(m_name, obs_id)
+
+        return cur_pth
+
+    def construct_processed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None) -> str:
         """
         This method is to construct paths to directories where processed data for a particular mission + observation
         ID combination will be stored. That functionality is added here so that any change to how those directories
@@ -1103,7 +1114,7 @@ class Archive:
 
         return ret_str
 
-    def construct_failed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None):
+    def construct_failed_data_path(self, mission: Union[BaseMission, str] = None, obs_id: str = None) -> str:
         """
         This method is to construct paths to directories where data for a particular mission + observation
         ID combination which failed to process will be stored. That functionality is added here so that any change
