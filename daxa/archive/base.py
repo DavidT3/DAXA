@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 20:22. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 20:39. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -15,6 +15,7 @@ from daxa import BaseMission, OUTPUT
 from daxa.exceptions import DuplicateMissionError, NoProcessingError, NoDependencyProcessError, \
     ObsNotAssociatedError, MissionNotAssociatedError
 from daxa.misc import dict_search
+from daxa.mission import MISS_INDEX
 
 
 class Archive:
@@ -157,12 +158,22 @@ class Archive:
         # HOWEVER, in this case the archive is being loaded back in from disk, and all those attributes (particularly
         #  all the dictionaries) will be loaded back in from the save file
         else:
-            # TODO still need to figure out how missions get read back in, or reconstructed at least
-
             # This opens the dictionary file that I dumped most of the internal attributes into - we should be able
             #  to easily reassign all the different json/dictionary entries to their attributes
             with open(self._arch_meta_path + 'process_info.json', 'r') as processo:
                 info_dict = json.load(processo)
+
+                # Setting up an empty missions dictionary attribute to populate with the missions that we're loading
+                #  back in from their saved states
+                self._missions = {}
+                # Grabbing the mission names that were stored in the archive save file
+                rel_mission_names = info_dict['mission_names']
+                for miss_name in rel_mission_names:
+                    # Setting up the mission instance with the saved state
+                    cur_miss = MISS_INDEX[miss_name](save_file_path=self._arch_meta_path + miss_name + '_state.json')
+                    cur_miss.locked = True
+                    # And storing it in the missions attribute
+                    self._missions[miss_name] = cur_miss
 
                 # Thus begins the long and unsightly process of putting all the information back where it belongs
                 self._process_success_flags = info_dict['process_success']
