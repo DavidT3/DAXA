@@ -1,28 +1,31 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/04/2024, 13:11. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/04/2024, 15:34. Copyright (c) The Contributors
 
-# This script will create and process (XMM process anyway) an archive of observations of Abell 3667, so I have
-#  something to load in for the archives tutorial
+# This script will create and process (XMM process anyway) an archive of observations of the quasar PHL 1811, so I
+#  have something to load in for the archives tutorial
 
 from daxa.archive import Archive
-from daxa.mission import XMMPointed, Chandra, eRASS1DE, ROSATPointed
+from daxa.mission import XMMPointed, Chandra, NuSTARPointed, ROSATAllSky
 from daxa.process.simple import full_process_xmm
 
 xm = XMMPointed()
 ch = Chandra()
-er = eRASS1DE()
-rp = ROSATPointed()
+ra = ROSATAllSky()
+nu = NuSTARPointed()
 
-xm.filter_on_name("A3667")
-ch.filter_on_name("A3667")
-er.filter_on_name("A3667")
-rp.filter_on_name("A3667")
+xm.filter_on_name("PHL 1811")
+bodge = xm.filter_array.copy()
+bodge[xm.all_obs_info['ObsID'].isin(['0502671101', '0102041001'])] = True
+xm.filter_array = bodge
+ch.filter_on_name("PHL 1811")
+ra.filter_on_name("PHL 1811")
+nu.filter_on_name("PHL 1811")
 
 xm.download()
 ch.download(download_products=True)
-er.download()
-rp.download(download_products=True)
+ra.download(download_products=True)
+nu.download(download_products=True)
 
-arch = Archive("A3667_made_earlier", [xm, ch, er, rp])
+arch = Archive("PHL1811_made_earlier", [xm, ch, nu, ra])
 
 full_process_xmm(arch)
