@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/04/2024, 15:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/04/2024, 15:36. Copyright (c) The Contributors
 
 # This script will create and process (XMM process anyway) an archive of observations of the quasar PHL 1811, so I
 #  have something to load in for the archives tutorial
@@ -15,6 +15,9 @@ nu = NuSTARPointed()
 
 xm.filter_on_name("PHL 1811")
 bodge = xm.filter_array.copy()
+# This is a bodge - I'm doing this for illustrative purposes, neither of these observations has anything to do with the
+#  PHL 1811 - 0502671101 will have one sub-exposure fail the espfilt processing step (I think it was) and 0102041001
+#  is entirely CalClosed observations so everything will fail
 bodge[xm.all_obs_info['ObsID'].isin(['0502671101', '0102041001'])] = True
 xm.filter_array = bodge
 ch.filter_on_name("PHL 1811")
