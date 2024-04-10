@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/04/2024, 13:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/04/2024, 14:03. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -720,8 +720,8 @@ class BaseMission(metaclass=ABCMeta):
             if save_dict['chos_field'] is not None:
                 self.chosen_fields = save_dict['chos_field']
 
-            # We need to reinstate the flag that tells the mission (and any host archive) that the data associated with this
-            #  mission has been fully processed
+            # We need to reinstate the flag that tells the mission (and any host archive) that the data associated
+            #  with this mission has been fully processed
             self._processed = save_dict['processed']
 
             # Reset the download_type attribute - lets the mission know what type of data were downloaded last time

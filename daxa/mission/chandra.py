@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 16:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/04/2024, 14:03. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -105,16 +105,16 @@ class Chandra(BaseMission):
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
 
-        # We now will read in the previous state, if there is one to be read in.
-        if save_file_path is not None:
-            self._load_state(save_file_path)
-
         # Deliberately using the property setter, because it calls the internal _check_chos_insts function
         #  to make sure the input instruments are allowed
         # This instrument stuff is down here because for Chandra I want it to happen AFTER the Observation info
         #  table has been fetched. As Chandra uses one instrument per observation, this will effectively be another
         #  filtering operation rather than the download-time operation is has been for NuSTAR for instance
         self.chosen_instruments = insts
+
+        # We now will read in the previous state, if there is one to be read in.
+        if save_file_path is not None:
+            self._load_state(save_file_path)
 
     @property
     def name(self) -> str:
