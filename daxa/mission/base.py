@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 16:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/04/2024, 13:57. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -719,6 +719,10 @@ class BaseMission(metaclass=ABCMeta):
             #  classes of mission this will be None
             if save_dict['chos_field'] is not None:
                 self.chosen_fields = save_dict['chos_field']
+
+            # We need to reinstate the flag that tells the mission (and any host archive) that the data associated with this
+            #  mission has been fully processed
+            self._processed = save_dict['processed']
 
             # Reset the download_type attribute - lets the mission know what type of data were downloaded last time
             self._download_type = save_dict['downloaded_type']
@@ -1606,7 +1610,8 @@ class BaseMission(metaclass=ABCMeta):
         # This is where we set up the dictionary of information that will actually be saved - all the information
         #  common to all mission classes at least. Some will be None for most missions (like chosen field)
         mission_data = {'name': self.name, 'chos_inst': self.chosen_instruments, 'chos_field': self._chos_fields,
-                        'downloaded_type': self._download_type, 'cur_date': str(datetime.today())}
+                        'downloaded_type': self._download_type, 'cur_date': str(datetime.today()),
+                        'processed': self.processed}
 
         # The currently selected data need some more specialist treatment - we can't just save the filter
         #  array, because the available observations (and thus the information table that the filter gets applied
