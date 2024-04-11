@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 11:53. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/04/2024, 11:51. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -250,6 +250,19 @@ class Archive:
                                 # We do not show a warning when we can't find a std_err file, as they are not
                                 #  guaranteed to exist like the log files are
                                 pass
+
+                # Set up the regions attribute as an empty dictionary (soon to be filled, if there are region files)
+                self._source_regions = {mn: {} for mn in self.mission_names}
+                # Then w go through the processes of loading any region files that might exist for the missions
+                for miss_name in self.mission_names:
+                    # This creates a generic path to the region file storage for this mission - we can fill in
+                    #  the ObsID and check if it exists
+                    gen_reg_path = self.get_region_file_path(miss_name)
+                    # We fill in the ObsID and check if it exists
+                    for oi in self[miss_name].filtered_obs_ids:
+                        cur_reg_path = gen_reg_path.format(oi=oi)
+                        if os.path.exists(cur_reg_path):
+                            self._source_regions[miss_name][oi] = read_ds9(cur_reg_path)
 
         # We save at the end of this if it is a new archive, just to set the ball rolling and get the file created.
         if self._new_arch:
