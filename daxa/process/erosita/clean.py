@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 14:41. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -16,19 +16,21 @@ add_enabled_units([sb_rate])
 
 
 @esass_call
-def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax: Quantity = Quantity(10000, 'eV'), mask_pimin: Quantity = Quantity(200, 'eV'), 
-            mask_pimax: Quantity = Quantity(10000, 'eV'), binsize: int = 1200, detml: Union[float, int] = 10, timebin: Quantity = Quantity(20, 's'), 
-            source_size: Quantity = Quantity(25, 'arcsec'), source_like: Union[float, int] = 10, threshold: Quantity = Quantity(-1, 'sb_rate'), 
-            max_threshold: Quantity = Quantity(-1, 'sb_rate'), mask_iter: int = 3, num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
+def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax: Quantity = Quantity(10000, 'eV'),
+             mask_pimin: Quantity = Quantity(200, 'eV'), mask_pimax: Quantity = Quantity(10000, 'eV'),
+             binsize: int = 1200, detml: Union[float, int] = 10, timebin: Quantity = Quantity(20, 's'),
+             source_size: Quantity = Quantity(25, 'arcsec'), source_like: Union[float, int] = 10,
+             threshold: Quantity = Quantity(-1, 'sb_rate'), max_threshold: Quantity = Quantity(-1, 'sb_rate'),
+             mask_iter: int = 3, num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
     """
-    The DAXA wrapper for the eROSITA eSASS task flaregti, which attempts to identify good time intervals with minimal flaring.
-    This has been tested up to flaregti v1.20.
+    The DAXA wrapper for the eROSITA eSASS task flaregti, which attempts to identify good time intervals with
+    minimal flaring. This has been tested up to flaregti v1.20.
 
     This function does not generate final event lists, but instead is used to create good-time-interval files
     which are then applied to the creation of final event lists, along with other user-specified filters, in the
     'cleaned_evt_lists' function.
 
-    :param obs_archive Archive: An Archive instance containing eROSITA mission instances with observations for
+    :param Archive obs_archive: An Archive instance containing eROSITA mission instances with observations for
         which flaregti should be run. This function will fail if no eROSITA missions are present in the archive.
     :param float pimin:  Lower PI bound of energy range for lightcurve creation.
     :param float pimax:  Upper PI bound of energy range for lightcurve creation.
@@ -251,9 +253,9 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             raise FileNotFoundError("No valid observations have been found, so flaregti may not be run.")
 
         # all_obs_info is a list of lists, where each list is of the format: [ObsID, Inst, 'usable'].
-        #   There is a new list for each instrument, but I just want to loop over the ObsID in the following bit of code, 
-        #   I also want to know all the instruments that the ObsID contains events for
-        #   So here I am just making a dictionary of the format: {ObsID: insts}
+        # There is a new list for each instrument, but I just want to loop over the ObsID in the following bit of code,
+        #  I also want to know all the instruments that the ObsID contains events for
+        #  So here I am just making a dictionary of the format: {ObsID: insts}
         # Getting unique obs_ids in all_obs_info
         obs_ids = list(set([all_obs_info_list[0] for all_obs_info_list in all_obs_info]))
         obs_info_dict = {}
@@ -305,7 +307,8 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
                                       sl=source_like, fr=fov_radius, t=threshold, mt=max_threshold, wm=write_mask,
                                       m=og_maskimg_name, mit=mask_iter, wl=write_lightcurve, lcf=og_lc_name,
                                       wti=write_thresholdimg, tif=og_thresholdimg_name, olc=og_lc_name, lc=lc_path, 
-                                      oti=og_thresholdimg_name, ti=threshold_path, omi=og_maskimg_name, mi=maskimg_path)
+                                      oti=og_thresholdimg_name, ti=threshold_path, omi=og_maskimg_name,
+                                      mi=maskimg_path)
 
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][obs_id] = cmd
@@ -316,4 +319,5 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     # This is just used for populating a progress bar during the process run
     process_message = 'Finding flares in observations'
 
-    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout, esass_in_docker
+    return (miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress,
+            timeout, esass_in_docker)

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 11:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 14:41. Copyright (c) The Contributors
 
 import re
 from typing import Union
@@ -13,7 +13,7 @@ from daxa.archive.base import Archive
 from daxa.mission import eRASS1DE, eROSITACalPV
 
 # Defining surface brightness rate astropy unit for use in flaregti to measure thresholds in 
-sb_rate = def_unit('sb_rate', ct / (deg**2 *s)) 
+sb_rate = def_unit('sb_rate', ct / (deg**2 * s))
 
 
 def _prepare_erosita_info(archive: Archive, mission: BaseMission):
@@ -29,7 +29,7 @@ def _prepare_erosita_info(archive: Archive, mission: BaseMission):
         which esass_func wraps. 
     :param BaseMission mission: The eROSITACalPV mission for which this information must be prepared.
     """
-    def get_obs_path(mission: Union[eRASS1DE, eROSITACalPV], obs_id: str):
+    def get_obs_path(rel_miss: Union[eRASS1DE, eROSITACalPV], obs_id: str):
         """
         A function that returns the absolute raw data path for eROSITA Calibration 
         and Performance validation data, for a given mission and obs_id. Since the names of
@@ -38,19 +38,19 @@ def _prepare_erosita_info(archive: Archive, mission: BaseMission):
         This method is used to populate an Archive._process_extra_info['erositacalpv']['obs']['path']
         attribute.
 
-        :param BaseMission mission: The eROSITACalPV mission containing observations with 
+        :param BaseMission rel_miss: The eROSITACalPV mission containing observations with
             mission specific instrument filtering, that need paths pointing to.
         :param str obs_id: The obs_id for which the returned raw data path corresponds to.
-        :return: The raw data path of the obs_id, with the approriate instrument filtered suffix.
+        :return: The raw data path of the obs_id, with the appropriate instrument filtered suffix.
         :rtype: str
         """
         # In the case that no instrument filtering has taken place, the name of the raw fits file is unchanged
         #  from the output of the get_evlist_path_from_obs method
-        obs_path = mission.get_evlist_path_from_obs(obs_id)
+        obs_path = rel_miss.get_evlist_path_from_obs(obs_id)
 
-        if len(mission.chosen_instruments) != 7:
+        if len(rel_miss.chosen_instruments) != 7:
             # Otherwise, need to format the name of the fits file according to the instruments
-            insts = mission.chosen_instruments
+            insts = rel_miss.chosen_instruments
             # Getting an ordered string of the telescope module numbers, which is how the fits
             #   file is named
             tm_nos = ''.join(sorted(re.findall(r'\d+', ''.join(insts))))
@@ -65,9 +65,9 @@ def _prepare_erosita_info(archive: Archive, mission: BaseMission):
         that has been filtered for user's instrument choice. The header of the data will be read in 
         and parsed so that information relevant to DAXA processing valid scientific observations can
         be extracted. This includes information such as to whether the instrument was active, is the instrument
-        included in this observation, and whether the fitler wheel was closed or on the calibration source.
+        included in this observation, and whether the filter wheel was closed or on the calibration source.
 
-        :param str sum_path: The path to the raw data file whose header is to be parsed into a dictionary
+        :param str raw_obs_path: The path to the raw data file whose header is to be parsed into a dictionary
             of relevant information.
         :return: Multi-level dictionary of information, with top-level keys being instrument names. Next 
             level contains information on whether the instrument was active, is it included in the instrument
@@ -110,7 +110,7 @@ def _prepare_erosita_info(archive: Archive, mission: BaseMission):
         path_to_obs = get_obs_path(mission, obs)
         # Adding in the obs_id keys into the extra_info dictionary
         extra_info[obs] = {}
-        # Adding in the path key and value into the obs layer of extra_info
+        # Adding in the path key and value into the obs layer of extra_info
         extra_info[obs]['path'] = path_to_obs
         # Then adding to the parsed_obs_info dictionary
         parsed_obs_info[mission.name][obs] = parse_erositacalpv_sum(path_to_obs)
