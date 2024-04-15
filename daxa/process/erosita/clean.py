@@ -1,15 +1,14 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 14:41. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 14:49. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
 
 from astropy.units import Quantity, UnitConversionError, add_enabled_units
 
-from daxa import NUM_CORES
+from daxa import NUM_CORES, sb_rate
 from daxa.archive.base import Archive
 from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call
-from daxa.process.erosita.setup import sb_rate
 
 # Adding this to the enabled astropy units so that it can be used in flaregti to define thresholds
 add_enabled_units([sb_rate])
@@ -20,7 +19,8 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
              mask_pimin: Quantity = Quantity(200, 'eV'), mask_pimax: Quantity = Quantity(10000, 'eV'),
              binsize: int = 1200, detml: Union[float, int] = 10, timebin: Quantity = Quantity(20, 's'),
              source_size: Quantity = Quantity(25, 'arcsec'), source_like: Union[float, int] = 10,
-             threshold: Quantity = Quantity(-1, 'sb_rate'), max_threshold: Quantity = Quantity(-1, 'sb_rate'),
+             threshold: Quantity = Quantity(-1, 'ct/(deg^2 * s)'),
+             max_threshold: Quantity = Quantity(-1, 'ct/(deg^2 * s)'),
              mask_iter: int = 3, num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
     """
     The DAXA wrapper for the eROSITA eSASS task flaregti, which attempts to identify good time intervals with

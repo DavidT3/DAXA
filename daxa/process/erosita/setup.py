@@ -1,19 +1,15 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 14:41. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 14:49. Copyright (c) The Contributors
 
 import re
 from typing import Union
 
 import numpy as np
 from astropy.io import fits
-from astropy.units import def_unit, ct, deg, s
 
 from daxa import BaseMission
 from daxa.archive.base import Archive
 from daxa.mission import eRASS1DE, eROSITACalPV
-
-# Defining surface brightness rate astropy unit for use in flaregti to measure thresholds in 
-sb_rate = def_unit('sb_rate', ct / (deg**2 * s))
 
 
 def _prepare_erosita_info(archive: Archive, mission: BaseMission):
