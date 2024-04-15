@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 17:23. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -192,9 +192,10 @@ class eROSITACalPV(BaseMission):
         """
         # The approximate field of view is defined here because I want to force implementation for each
         #  new mission class.
-        warn("A field-of-view cannot be easily defined for eROSITACalPV and this number is almost completely "
-             "arbitrary, you should make your own judgement on a search distance.", stacklevel=2)
-        self._approx_fov = Quantity(30, 'arcmin')
+        warn("A field-of-view cannot be easily defined for eROSITACalPV and this number is the approximate half-length "
+             "of an eFEDS section, the worst case separation - this is unnecessarily large for pointed "
+             "observations, and you should make your own judgement on a search distance.", stacklevel=2)
+        self._approx_fov = Quantity(4.5, 'degree')
         return self._approx_fov
 
     @property

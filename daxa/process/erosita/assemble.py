@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 16:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 17:23. Copyright (c) The Contributors
 
 import os.path
 from random import randint
@@ -210,7 +210,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
         # TODO THIS SHOULD BE REMOVED WHEN I'VE MADE SURE THE DEPENDENCY CHECKER WORKS FOR EROSITA
         # If no observations have had flaregti run successfully, then no events can be cleaned
         if bad_obs_counter == len(obs_info_dict):
-            raise NoDependencyProcessError("The required process flaregti has not been run successfully"
+            raise NoDependencyProcessError("The required process flaregti has not been run successfully "
                                            "for any data in {mn}".format(mn=miss.name))
 
     # This is just used for populating a progress bar during the process run
