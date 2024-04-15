@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 17:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 17:45. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -220,16 +220,14 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     write_mask = 'yes'
     write_lightcurve = 'yes' 
 
-    # Defining the command 
+    # Defining the command - we create a symlink to the event list primarily because we had some issues with
+    #  flaregti being able to read in the event lists, but only on some systems - this seems more consistent
     flaregti_cmd = "cd {d}; ln -s {ef} {lef}; flaregti eventfile={lef} pimin={pimi} pimax={pima} " \
-         "mask_pimin={mpimi} mask_pimax={mpima} xmin={xmi} xmax={xma} ymin={ymi} ymax={yma} " \
-         "gridsize={gs} binsize={bs} detml={dl} timebin={tb} source_size={ss} source_like={sl} " \
-         "fov_radius={fr} threshold={t} max_threshold={mt} write_mask={wm} mask={m} mask_iter={mit} " \
-         "write_lightcurve={wl} lightcurve={lcf} write_thresholdimg={wti} thresholdimg={tif}; "
-
-    # \
-    #      "mv {olc} {lc}; mv {oti} {ti}; mv {omi} {mi}" \
-    #      "; rm -r {d}"
+                   "mask_pimin={mpimi} mask_pimax={mpima} xmin={xmi} xmax={xma} ymin={ymi} ymax={yma} " \
+                   "gridsize={gs} binsize={bs} detml={dl} timebin={tb} source_size={ss} source_like={sl} " \
+                   "fov_radius={fr} threshold={t} max_threshold={mt} write_mask={wm} mask={m} mask_iter={mit} " \
+                   "write_lightcurve={wl} lightcurve={lcf} write_thresholdimg={wti} thresholdimg={tif}; " \
+                   "mv {olc} {lc}; mv {oti} {ti}; mv {omi} {mi}; rm -r {d}"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -304,14 +302,14 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             if not os.path.exists(temp_dir):
                 os.makedirs(temp_dir)
 
-            cmd = flaregti_cmd.format(d=temp_dir, lef=evt_list_file.split('/')[-1], ef=evt_list_file, pimi=pimin, pima=pimax,
-                                      mpimi=mask_pimin, mpima=mask_pimax, xmi=xmin, xma=xmax, ymi=ymin,
-                                      yma=ymax, gs=gridsize, bs=binsize, dl=detml, tb=timebin, ss=source_size,
-                                      sl=source_like, fr=fov_radius, t=threshold, mt=max_threshold, wm=write_mask,
-                                      m=og_maskimg_name, mit=mask_iter, wl=write_lightcurve, lcf=og_lc_name,
-                                      wti=write_thresholdimg, tif=og_thresholdimg_name, olc=og_lc_name, lc=lc_path, 
-                                      oti=og_thresholdimg_name, ti=threshold_path, omi=og_maskimg_name,
-                                      mi=maskimg_path)
+            cmd = flaregti_cmd.format(d=temp_dir, lef="temp_{oi}_evt_pth".format(oi=obs_id), ef=evt_list_file,
+                                      pimi=pimin, pima=pimax, mpimi=mask_pimin, mpima=mask_pimax, xmi=xmin, xma=xmax,
+                                      ymi=ymin, yma=ymax, gs=gridsize, bs=binsize, dl=detml, tb=timebin,
+                                      ss=source_size, sl=source_like, fr=fov_radius, t=threshold, mt=max_threshold,
+                                      wm=write_mask, m=og_maskimg_name, mit=mask_iter, wl=write_lightcurve,
+                                      lcf=og_lc_name, wti=write_thresholdimg, tif=og_thresholdimg_name,
+                                      olc=og_lc_name, lc=lc_path, oti=og_thresholdimg_name, ti=threshold_path,
+                                      omi=og_maskimg_name, mi=maskimg_path)
 
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][obs_id] = cmd
