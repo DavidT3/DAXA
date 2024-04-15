@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 12:16. Copyright (c) The Contributors
 import os
 from copy import deepcopy
 from random import randint
@@ -685,7 +685,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
         a single string expression can be passed, or a list/tuple of separate expressions, which will be combined
         using '&&' logic before being used as the expression for evselect. Other expression components can be
         added during the process of the function, such as GTI filtering, energy filtering, and anomalous state CCD
-        filtering..
+        filtering.
     :param bool filt_mos_anom_state: Whether this function should use the results of an 'emanom' run
         to identify and remove MOS CCDs that are in anomolous states. If 'False' is passed then no such filtering
         will be applied.
