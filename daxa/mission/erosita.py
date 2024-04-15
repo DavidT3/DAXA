@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 17:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 17:39. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -183,8 +183,8 @@ class eROSITACalPV(BaseMission):
         the field of view. In cases where the field of view is not square/circular, it is the half-side-length of
         the longest side.
 
-        NOTE - THIS FIELD OF VIEW IS NONSENSE BECAUSE OF HOW SOME OF THE eROSITACalPV DATA WERE TAKEN IN POINTING
-        AND SOME IN SLEWING MODE.
+        NOTE - THIS FIELD OF VIEW IS SORT OF NONSENSE BECAUSE OF HOW SOME OF THE eROSITACalPV DATA WERE TAKEN
+        IN POINTING AND SOME IN SLEWING MODE.
 
         :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
             then this may be a dictionary, with keys being instrument names.

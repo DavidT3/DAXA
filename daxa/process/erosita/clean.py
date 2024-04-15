@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 16:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 17:39. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -221,7 +221,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     write_lightcurve = 'yes' 
 
     # Defining the command 
-    flaregti_cmd = "cd {d}; flaregti eventfile={ef} pimin={pimi} pimax={pima} " \
+    flaregti_cmd = "cd {d}; ln -s {ef} {lef}  flaregti eventfile={lef} pimin={pimi} pimax={pima} " \
          "mask_pimin={mpimi} mask_pimax={mpima} xmin={xmi} xmax={xma} ymin={ymi} ymax={yma} " \
          "gridsize={gs} binsize={bs} detml={dl} timebin={tb} source_size={ss} source_like={sl} " \
          "fov_radius={fr} threshold={t} max_threshold={mt} write_mask={wm} mask={m} mask_iter={mit} " \
@@ -276,7 +276,6 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             #   to the event lists
             # evt_list_file = obs_archive._process_extra_info[miss.name][obs_id]['path']
             evt_list_file = obs_archive[miss.name].get_evlist_path_from_obs(obs_id)
-            print(evt_list_file)
 
             # This path is guaranteed to exist, as it was set up in _esass_process_setup. This is where output
             #  files will be written to.
@@ -303,7 +302,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             if not os.path.exists(temp_dir):
                 os.makedirs(temp_dir)
 
-            cmd = flaregti_cmd.format(d=temp_dir, ef=evt_list_file, pimi=pimin, pima=pimax,
+            cmd = flaregti_cmd.format(d=temp_dir, lef=evt_list_file.split('/')[-1], ef=evt_list_file, pimi=pimin, pima=pimax,
                                       mpimi=mask_pimin, mpima=mask_pimax, xmi=xmin, xma=xmax, ymi=ymin,
                                       yma=ymax, gs=gridsize, bs=binsize, dl=detml, tb=timebin, ss=source_size,
                                       sl=source_like, fr=fov_radius, t=threshold, mt=max_threshold, wm=write_mask,
