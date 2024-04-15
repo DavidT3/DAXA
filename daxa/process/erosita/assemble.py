@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 15:52. Copyright (c) The Contributors
 
 import os.path
 from random import randint
@@ -19,7 +19,6 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
                       hi_en: Quantity = Quantity(10, 'keV'), flag: int = 0xc0000000, flag_invert: bool = True,
                       pattern: int = 15, num_cores: int = NUM_CORES, disable_progress: bool = False,
                       timeout: Quantity = None):
-
     """
     The function wraps the eROSITA eSASS task evtool, which is used for selecting events.
     This has been tested up to evtool v2.10.1
@@ -32,11 +31,11 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
         which cleaned event lists should be created. This function will fail if no eROSITA missions are present in
         the archive.
     :param Quantity lo_en: The lower bound of an energy filter to be applied to the cleaned, filtered, event lists. If
-        'lo_en' is set to an Astropy Quantity, then 'hi_en' must be as well. Default is None, in which case no
-        energy filter is applied.
+        'lo_en' is set to an Astropy Quantity, then 'hi_en' must be as well. Default is 0.2 keV, which is the
+        minimum allowed by the eROSITA toolset. Passing None will result in the default value being used.
     :param Quantity hi_en: The upper bound of an energy filter to be applied to the cleaned, filtered, event lists. If
-        'hi_en' is set to an Astropy Quantity, then 'lo_en' must be as well. Default is None, in which case no
-        energy filter is applied.
+        'hi_en' is set to an Astropy Quantity, then 'lo_en' must be as well. Default is 10 keV, which is the
+        maximum allowed by the eROSITA toolset. Passing None will result in the default value being used.
     :param int flag: FLAG parameter to select events based on owner, information, rejection, quality, and corrupted
         data. The eROSITA website contains the full description of event flags in section 1.1.2 of the following link:
         https://erosita.mpe.mpg.de/edr/DataAnalysis/prod_descript/EventFiles_edr.html. The default parameter will
@@ -53,6 +52,12 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
     # Run the setup for eSASS processes, which checks that eSASS is installed, checks that the archive has at least
     #  one eROSITA mission in it, and shows a warning if the eROSITA missions have already been processed
     esass_in_docker = _esass_process_setup(obs_archive)
+
+    # We ensure that if a null value is passed the lo_en and hi_en values revert to default behaviour
+    if lo_en is None:
+        lo_en = Quantity(0.2, 'keV')
+    if hi_en is None:
+        hi_en = Quantity(10.0, 'keV')
 
     # Checking user's choice of energy limit parameters
     if not isinstance(lo_en, Quantity) or not isinstance(hi_en, Quantity):
