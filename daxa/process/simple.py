@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 14:41. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 15:16. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
@@ -12,7 +12,6 @@ from daxa.process.xmm.assemble import (epchain, emchain, cleaned_evt_lists, merg
                                        rgs_angles, cleaned_rgs_event_lists)
 from daxa.process.xmm.check import emanom
 from daxa.process.xmm.clean import espfilt
-from daxa.process.xmm.generate import generate_images_expmaps
 from daxa.process.xmm.setup import cif_build, odf_ingest
 
 
@@ -41,6 +40,8 @@ def full_process_xmm(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quanti
         processes of each stage, whether they are at the ObsID, ObsID-Inst, or ObsID-Inst-Subexposure level of
         granularity.
     """
+    from daxa.process.xmm.generate import generate_images_expmaps
+
     # Creates calibration files for the XMM observations
     cif_build(obs_archive, num_cores=num_cores, timeout=timeout)
     # Prepares the summary files for the XMM observations - used by processes to determine what data there are
