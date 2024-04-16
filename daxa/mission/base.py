@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 16:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 17:00. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -246,6 +246,18 @@ class BaseMission(metaclass=ABCMeta):
         #  configurations that were used - they are stored in the order they were performed; i.e. element 0 is the
         #  first applied and element N is the last
         self._filtering_operations = []
+
+        # These attributes store template names for pre-processed images, exposure maps, backgrounds, and event lists
+        #  They will not be made available to the user through a property because I don't think the user has any need
+        #  for them, instead there are get methods for evt list, image, etc. paths.
+        # Each mission will need to implement these in their init, otherwise the get methods will error out for that
+        #  mission class (deliberately, as for some missions it will not be possible to fill these attributes in
+        self._template_evt_pth = None
+        self._template_img_pth = None
+        self._template_exp_pth = None
+        self._template_bck_pth = None
+
+        #
 
     # Defining properties first
     @property
@@ -806,6 +818,40 @@ class BaseMission(metaclass=ABCMeta):
         """
         # self.all_obs_info = None
         pass
+
+    def _get_prod_path_checks(self, obs_id: str, inst: str):
+        """
+        Checks on inputs common to the several get methods for paths to pre-processed products downloaded with
+        this mission.
+
+        :param str obs_id: The ObsID of the product for which a path has been requested.
+        :param str inst: The instrument of the product for which a path has been requested.
+        """
+        # Checking that the data are actually downloaded - what is the point in providing a path that leads to nothing?
+        if not self._download_done:
+            raise DAXANotDownloadedError("The data have not yet been downloaded, so the requested path cannot "
+                                         "be provided.")
+
+        # The path get methods are for the pre-processed event lists and products which we support downloading for
+        #  many of the missions - if the data type that was requested to be downloaded is not one of these, then
+        #  those pre-processed data have not been downloaded.
+        if not self.downloaded_type not in ['raw+preprocessed', 'preprocessed']:
+            raise DAXANotDownloadedError("The downloaded data are not preprocessed, thus the requested path "
+                                         "cannot be provided.")
+
+        # Checking the ObsID that has been passed; a) is it the right pattern for this particular mission, and b) is
+        #  it a part of the filtered dataset
+        if not self.check_obsid_pattern(obs_id):
+            raise ValueError("The supplied ObsID ({oi}) does not match this mission's ObsID formatting "
+                             "standard.".format(oi=obs_id))
+        elif obs_id not in self.filtered_obs_ids:
+            raise ValueError("The supplied ObsID ({oi}) is not a part of this mission's filtered "
+                             "dataset.".format(oi=obs_id))
+
+        # Also check the supplied instrument (assuming there is one)
+        if inst is not None and inst not in self.chosen_instruments:
+            raise ValueError("The supplied instrument ({i}) is not one of the chose instruments associated with this "
+                             "mission ({ci}).".format(i=inst, ci=", ".join(self.chosen_instruments)))
 
     # Then define user-facing methods
     def reset_filter(self):
@@ -1674,6 +1720,25 @@ class BaseMission(metaclass=ABCMeta):
         cols = ['Target Type', 'Description']
         # Now simply print them in a nice table
         print(tabulate(data, cols, tablefmt=table_format))
+
+    def get_evt_list_path(self, obs_id: str, inst: str = None):
+        if self._template_evt_pth is None:
+            raise DAXANotDownloadedError("This mission does")
+
+        self._get_prod_path_checks(obs_id, inst)
+        pass
+
+    def get_image_path(self, obs_id: str, inst: str = None, lo_en: Quantity = None, hi_en: Quantity = None):
+        self._get_prod_path_checks(obs_id, inst)
+        pass
+
+    def get_expmap_path(self, obs_id: str, inst: str = None, lo_en: Quantity = None, hi_en: Quantity = None):
+        self._get_prod_path_checks(obs_id, inst)
+        pass
+
+    def get_background_path(self, obs_id: str, inst: str = None, lo_en: Quantity = None, hi_en: Quantity = None):
+        self._get_prod_path_checks(obs_id, inst)
+        pass
 
     def delete_raw_data(self, force_del: bool = False, all_raw_data: bool = False):
         """

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 20:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 17:00. Copyright (c) The Contributors
 
 
 class DAXAConfigError(Exception):
@@ -425,3 +425,23 @@ class IncompatibleSaveError(Exception):
         else:
             return 'IncompatibleSaveError has been raised'
 
+
+class PreProcessedNotSupportedError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if the user attempts to access pre-processed data for a mission class that does not support
+        it (usually because the data are not available in the archive).
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'PreProcessedNotSupportedError has been raised'
