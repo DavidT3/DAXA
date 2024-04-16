@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 19:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 19:47. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -1748,6 +1748,14 @@ class BaseMission(metaclass=ABCMeta):
 
         self._get_prod_path_checks(obs_id, inst)
 
+        if self._template_en_trans is None:
+            raise NotImplementedError("The template for translating energy to filename is not implemented for "
+                                      "{}.".format(self.pretty_name))
+
+        # The energy translation attribute is in the form of a nested dictionary where the top level keys are lower
+        #  energy bounds, and the lower level keys are upper energy bounds
+        if lo_en not in self._template_en_trans:
+            raise
 
     def get_expmap_path(self, obs_id: str, inst: str = None, lo_en: Quantity = None, hi_en: Quantity = None):
         if self._template_exp_name is None:

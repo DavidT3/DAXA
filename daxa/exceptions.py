@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 17:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 19:47. Copyright (c) The Contributors
 
 
 class DAXAConfigError(Exception):
@@ -445,3 +445,25 @@ class PreProcessedNotSupportedError(Exception):
             return '{0} '.format(self.message)
         else:
             return 'PreProcessedNotSupportedError has been raised'
+
+
+class PreProcessedNotAvailableError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if the user attempts to access a pre-processed product that is not available for the
+        mission - e.g. if they try to access an image for an energy band not present in the archive.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'PreProcessedNotAvailableError has been raised'
+
