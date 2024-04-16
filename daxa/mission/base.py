@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 19:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 19:39. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -257,7 +257,9 @@ class BaseMission(metaclass=ABCMeta):
         self._template_exp_name = None
         self._template_bck_name = None
 
-        #
+        # These attributes are for when a 'translation layer' is required between things like energy ranges and
+        #  pre-processed filenames. They will only need to be set in a mission class init when they are required
+        self._template_en_trans = None
 
     # Defining properties first
     @property
@@ -1745,7 +1747,7 @@ class BaseMission(metaclass=ABCMeta):
                                                 "images, so a path cannot be provided.".format(m=self.pretty_name))
 
         self._get_prod_path_checks(obs_id, inst)
-        pass
+
 
     def get_expmap_path(self, obs_id: str, inst: str = None, lo_en: Quantity = None, hi_en: Quantity = None):
         if self._template_exp_name is None:

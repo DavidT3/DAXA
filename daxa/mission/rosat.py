@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 19:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 19:39. Copyright (c) The Contributors
 
 import io
 import os
@@ -121,9 +121,20 @@ class ROSATPointed(BaseMission):
         #  filtering operation rather than the download-time operation is has been for NuSTAR for instance
         self.chosen_instruments = insts
 
+        # These are the 'translations' required between energy band and filename identifier for ROSAT images/expmaps -
+        #  it is organised so that top level keys are lower energy bounds, and the lower level keys are upper energy
+        #  bounds, then the value is the filename identifier
+        self._template_en_trans = {Quantity(0.07, 'keV'): {Quantity(2.4, 'keV'): "1",
+                                                           Quantity(0.4, 'keV'): "3"},
+                                   Quantity(0.4, 'keV'): {Quantity(2.4, 'keV'): "2"}}
+
         # We set up the ROSAT file name templates, so that the user (or other parts of DAXA) can retrieve paths
         #  to the event lists, images, exposure maps, and background maps that can be downloaded
         self._template_evt_name = "{oi}_bas.fits"
+        # self._template_img_name = {"PSPCB": "{oi}_{im}{eb}.fits",
+        #                            "PSPBC": "{oi}_{im}{eb}.fits",
+        #                            "HRI": ""}
+        self._template_img_name = "{oi}_{im}{eb}.fits"
 
         # We now will read in the previous state, if there is one to be read in.
         if save_file_path is not None:
