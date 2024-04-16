@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 17:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 22:30. Copyright (c) The Contributors
 
 import os.path
 from random import randint
@@ -39,8 +39,9 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
     :param int flag: FLAG parameter to select events based on owner, information, rejection, quality, and corrupted
         data. The eROSITA website contains the full description of event flags in section 1.1.2 of the following link:
         https://erosita.mpe.mpg.de/edr/DataAnalysis/prod_descript/EventFiles_edr.html. The default parameter will
-        remove all events flagged as either singly corrupt or as part of a corrupt frame.
+        select all events flagged as either singly corrupt or as part of a corrupt frame.
     :param bool flag_invert: If set to True, this function will discard all events selected by the flag parameter.
+        This is the default behaviour.
     :param int pattern: Selects events of a certain pattern chosen by the integer key. The default of 15 selects
         all four of the recognized legal patterns.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
@@ -86,12 +87,12 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
 
     # Checking user has input the flag parameter as an integer
     if not isinstance(flag, int):
-            raise TypeError("The flag parameter must be an integer.")
+        raise TypeError("The flag parameter must be an integer.")
 
     # Checking the input is a valid hexidecimal number
     if not _is_valid_flag(flag):
-            raise ValueError("{} is not a valid eSASS flag, see the eROSITA website"
-                             " for valid flags.".format(flag))
+        raise ValueError("{} is not a valid eSASS flag, see the eROSITA website"
+                         " for valid flags.".format(flag))
     
     # Checking user has input flag_invert as a boolean
     if not isinstance(flag_invert, bool):
