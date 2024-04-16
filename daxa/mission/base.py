@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 17:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 19:24. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -22,7 +22,7 @@ from tabulate import tabulate
 
 from daxa import OUTPUT
 from daxa.exceptions import MissionLockedError, NoObsAfterFilterError, IllegalSourceType, NoTargetSourceTypeInfo, \
-    DAXANotDownloadedError, IncompatibleSaveError
+    DAXANotDownloadedError, IncompatibleSaveError, PreProcessedNotSupportedError
 
 # This global helps to ensure that filtering functions that call another filtering function don't end up storing
 #  every single filter in the filtering operations history - we only want the outer call (see _capture_filter for use)
@@ -252,10 +252,10 @@ class BaseMission(metaclass=ABCMeta):
         #  for them, instead there are get methods for evt list, image, etc. paths.
         # Each mission will need to implement these in their init, otherwise the get methods will error out for that
         #  mission class (deliberately, as for some missions it will not be possible to fill these attributes in
-        self._template_evt_pth = None
-        self._template_img_pth = None
-        self._template_exp_pth = None
-        self._template_bck_pth = None
+        self._template_evt_name = None
+        self._template_img_name = None
+        self._template_exp_name = None
+        self._template_bck_name = None
 
         #
 
@@ -1721,22 +1721,47 @@ class BaseMission(metaclass=ABCMeta):
         # Now simply print them in a nice table
         print(tabulate(data, cols, tablefmt=table_format))
 
-    def get_evt_list_path(self, obs_id: str, inst: str = None):
-        if self._template_evt_pth is None:
-            raise DAXANotDownloadedError("This mission does")
+    def get_evt_list_path(self, obs_id: str, inst: str = None) -> str:
+        """
+        A get method that provides the path to a downloaded pre-generated event list for the current mission (if
+        available). This method will not work if pre-processed data have not been downloaded.
+
+        :param str obs_id: The ObsID of the event list.
+        :param str inst: The instrument of the event list (if applicable).
+        :return: The requested event list path.
+        :rtype: str
+        """
+        if self._template_evt_name is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "event lists, so a path cannot be provided.".format(m=self.pretty_name))
 
         self._get_prod_path_checks(obs_id, inst)
-        pass
+
+        return os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id, i=inst))
 
     def get_image_path(self, obs_id: str, inst: str = None, lo_en: Quantity = None, hi_en: Quantity = None):
+        if self._template_img_name is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "images, so a path cannot be provided.".format(m=self.pretty_name))
+
         self._get_prod_path_checks(obs_id, inst)
         pass
 
     def get_expmap_path(self, obs_id: str, inst: str = None, lo_en: Quantity = None, hi_en: Quantity = None):
+        if self._template_exp_name is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "exposure maps, so a path cannot be "
+                                                "provided.".format(m=self.pretty_name))
+
         self._get_prod_path_checks(obs_id, inst)
         pass
 
     def get_background_path(self, obs_id: str, inst: str = None, lo_en: Quantity = None, hi_en: Quantity = None):
+        if self._template_bck_name is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "backgrounds, so a path cannot be "
+                                                "provided.".format(m=self.pretty_name))
+
         self._get_prod_path_checks(obs_id, inst)
         pass
 
