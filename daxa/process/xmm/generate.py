@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 13:31. Copyright (c) The Contributors
 import os
 import shutil
 from typing import Tuple
@@ -81,7 +81,7 @@ def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.
         non-scalar Astropy Quantity. If multiple upper bounds are passed, they must each have an entry in the
         lo_en argument. The default is 'Quantity([2.0, 10.0], 'keV')', which will generate two sets of products, one
         with upper bound 2.0 keV, the other with upper bound 10 keV.
-    :param int num_cores:
+    :param int num_cores: The number of cores to use, default is set to 90% of available.
     """
 
     # Run the energy bounds checks

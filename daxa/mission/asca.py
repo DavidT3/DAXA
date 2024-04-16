@@ -307,7 +307,7 @@ class ASCA(BaseMission):
         self.all_obs_info = rel_asca
 
     @staticmethod
-    def _download_call(observation_id: str, insts: List[str], raw_dir: str, download_processed: bool):
+    def _download_call(observation_id: str, insts: List[str], raw_dir: str, download_products: bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
@@ -315,13 +315,13 @@ class ASCA(BaseMission):
         :param str observation_id: The ObsID of the observation to be downloaded.
         :param List[str] insts: The instruments which the user wishes to acquire data for.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
-        :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
+        :param bool download_products: This controls whether the data downloaded include the pre-processed event lists
             and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
             raw data.
         """
         insts = [inst.lower() for inst in insts]
 
-        if download_processed:
+        if download_products:
             req_dir = REQUIRED_DIRS['processed']
         else:
             req_dir = REQUIRED_DIRS['raw']
@@ -392,7 +392,7 @@ class ASCA(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, download_processed: bool = False):
+    def download(self, num_cores: int = NUM_CORES, download_products: bool = False):
         """
         A method to acquire and download the ASCA data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -402,7 +402,7 @@ class ASCA(BaseMission):
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
-        :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
+        :param bool download_products: This controls whether the data downloaded include the pre-processed event lists
             and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
             raw data.
         """
@@ -428,7 +428,7 @@ class ASCA(BaseMission):
                         # Use the internal static method I set up which both downloads and unpacks the ASCA data
                         self._download_call(obs_id, insts=self.chosen_instruments,
                                             raw_dir=stor_dir + '{o}'.format(o=obs_id),
-                                            download_processed=download_processed)
+                                            download_products=download_products)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -472,7 +472,7 @@ class ASCA(BaseMission):
                         pool.apply_async(self._download_call,
                                          kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
                                                'raw_dir': stor_dir + '{o}'.format(o=obs_id),
-                                               'download_processed': download_processed},
+                                               'download_products': download_products},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.

@@ -308,7 +308,7 @@ class Swift(BaseMission):
 
     @staticmethod
     def _download_call(observation_id: str, insts: List[str], start_year: str, start_month: str, raw_dir: str,
-                       download_processed: bool):
+                       download_products: bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
@@ -320,13 +320,13 @@ class Swift(BaseMission):
         :param str start_month: The start month of the observation to be downloaded - this is necessary as
             the HEASArc Swift data are split into yyyy-mm directories.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
-        :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
+        :param bool download_products: This controls whether the data downloaded include the pre-processed event lists
             and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
             raw data.
         """
         insts = [inst.lower() for inst in insts]
         req_dir = REQUIRED_DIRS['all'] + [inst + '/' for inst in insts]
-        if download_processed:
+        if download_products:
             dir_lookup = REQUIRED_DIRS['processed']
         else:
             dir_lookup = REQUIRED_DIRS['raw']
@@ -394,7 +394,7 @@ class Swift(BaseMission):
                         files = [en['href'] + '/' + fil['href'] for fil in BeautifulSoup(session.get(low_rel_url).text,
                                                                                          "html.parser").find_all("a")
                                  if '?' not in fil['href'] and obs_dir not in fil['href'] and
-                                 ('cl.evt' not in fil['href'] or download_processed)]
+                                 ('cl.evt' not in fil['href'] or download_products)]
                     else:
                         files = []
 
@@ -425,7 +425,7 @@ class Swift(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, download_processed: bool = False):
+    def download(self, num_cores: int = NUM_CORES, download_products: bool = False):
         """
         A method to acquire and download the Swift data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -435,7 +435,7 @@ class Swift(BaseMission):
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
-        :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
+        :param bool download_products: This controls whether the data downloaded include the pre-processed event lists
             and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
             raw data.
         """
@@ -463,7 +463,7 @@ class Swift(BaseMission):
                         self._download_call(obs_id, insts=self.chosen_instruments, start_year=str(row['start'].year),
                                             start_month=str(row['start'].month),
                                             raw_dir=stor_dir + '{o}'.format(o=obs_id),
-                                            download_processed=download_processed)
+                                            download_products=download_products)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -510,7 +510,7 @@ class Swift(BaseMission):
                                                'start_year': str(row['start'].year),
                                                'start_month': str(row['start'].month),
                                                'raw_dir': stor_dir + '{o}'.format(o=obs_id),
-                                               'download_processed': download_processed},
+                                               'download_products': download_products},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.

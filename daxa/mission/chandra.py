@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 16:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/04/2024, 14:03. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -85,10 +85,6 @@ class Chandra(BaseMission):
         # Makes sure everything is uppercase
         insts = [i.upper() for i in insts]
 
-        # TODO Remove this once HETG and LETG are supported
-        if 'HETG' in insts or 'LETG' in insts:
-            raise NotImplementedError("The HETG and LETG gratings are not currently supported by this class.")
-
         # These are the allowed instruments for this mission - Chandra has two sets of instruments (HRC and
         #  ACIS), each with two sets of detectors (one for imaging one for grating spectroscopy). It also has
         #  two choices of grating spectroscopy (HETG and LETG).
@@ -109,16 +105,16 @@ class Chandra(BaseMission):
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
 
-        # We now will read in the previous state, if there is one to be read in.
-        if save_file_path is not None:
-            self._load_state(save_file_path)
-
         # Deliberately using the property setter, because it calls the internal _check_chos_insts function
         #  to make sure the input instruments are allowed
         # This instrument stuff is down here because for Chandra I want it to happen AFTER the Observation info
         #  table has been fetched. As Chandra uses one instrument per observation, this will effectively be another
         #  filtering operation rather than the download-time operation is has been for NuSTAR for instance
         self.chosen_instruments = insts
+
+        # We now will read in the previous state, if there is one to be read in.
+        if save_file_path is not None:
+            self._load_state(save_file_path)
 
     @property
     def name(self) -> str:
@@ -426,16 +422,16 @@ class Chandra(BaseMission):
         self.all_obs_info = rel_chandra
 
     @staticmethod
-    def _download_call(observation_id: str, raw_dir: str, download_standard: bool):
+    def _download_call(observation_id: str, raw_dir: str, download_products: bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
 
         :param str observation_id: The ObsID of the observation to be downloaded.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
-        :param bool download_standard: Whether the 'standard' Chandra data distribution should be downloaded, with
-            'primary' and 'secondary' folders. This is False by default (in the download method) because DAXA
-            normally only wants the raw data.
+        :param bool download_products: Whether the 'standard' Chandra data distribution should be downloaded, with
+            'primary' and 'secondary' folders, which includes pre-generated images. This is False by default (in the
+            download method) because DAXA normally only wants the raw data.
         """
         # The Chandra data are stored in observatories that are named to correspond with the last digit of
         #  the particular observation's ObsID, so we shall extract that for later
@@ -446,7 +442,7 @@ class Chandra(BaseMission):
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
 
         # This defines the 'required' directories depending on the type of download that we're doing
-        if not download_standard:
+        if not download_products:
             req_dir = REQUIRED_DIRS['raw']
         else:
             req_dir = REQUIRED_DIRS['standard']
@@ -510,7 +506,7 @@ class Chandra(BaseMission):
         return None
 
     def download(self, num_cores: int = NUM_CORES, credentials: Union[str, dict] = None,
-                 download_standard: bool = False):
+                 download_products: bool = False):
         """
         A method to acquire and download the pointed Chandra data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -518,7 +514,7 @@ class Chandra(BaseMission):
         a new value to the chosen_instruments property.
 
         If you're using DAXA only for data acquisition, and wish to use CIAO scripts for reprocessing (e.g.
-        'chandra_repro'), then set 'download_standard=True'.
+        'chandra_repro'), then set 'download_products=True'.
 
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
@@ -526,9 +522,10 @@ class Chandra(BaseMission):
         :param dict/str credentials: The path to an ini file containing credentials, a dictionary containing 'user'
             and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
             for providing different credentials for different observations.
-        :param bool download_standard: Whether the 'standard' Chandra data structure should be downloaded (i.e. with
-            'primary' and 'secondary' directories. The default is False, as DAXA will do its own processing, but if
-            you just wish to use DAXA for data acquisition, and then use the CIAO scripts, this should be set to True.
+        :param bool download_products: Whether the 'standard' Chandra data structure should be downloaded (i.e. with
+            'primary' and 'secondary' directories, including pre-generated images. The default is False, as DAXA will
+            do its own processing, but if you just wish to use DAXA for data acquisition, and then use the CIAO
+            scripts, this should be set to True.
         """
 
         if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():
@@ -559,7 +556,7 @@ class Chandra(BaseMission):
                     for obs_id in self.filtered_obs_ids:
                         # Use the internal static method I set up which both downloads and unpacks the Chandra data
                         self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id),
-                                            download_standard=download_standard)
+                                            download_products=download_products)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -602,7 +599,7 @@ class Chandra(BaseMission):
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
                                          kwds={'observation_id': obs_id, 'raw_dir': stor_dir + '{o}'.format(o=obs_id),
-                                               'download_standard': download_standard},
+                                               'download_products': download_products},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.

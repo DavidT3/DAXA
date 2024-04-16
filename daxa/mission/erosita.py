@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 17:39. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -183,8 +183,8 @@ class eROSITACalPV(BaseMission):
         the field of view. In cases where the field of view is not square/circular, it is the half-side-length of
         the longest side.
 
-        NOTE - THIS FIELD OF VIEW IS NONSENSE BECAUSE OF HOW SOME OF THE eROSITACalPV DATA WERE TAKEN IN POINTING
-        AND SOME IN SLEWING MODE.
+        NOTE - THIS FIELD OF VIEW IS SORT OF NONSENSE BECAUSE OF HOW SOME OF THE eROSITACalPV DATA WERE TAKEN
+        IN POINTING AND SOME IN SLEWING MODE.
 
         :return: The approximate field of view(s) for the mission's instrument(s). In cases with multiple instruments
             then this may be a dictionary, with keys being instrument names.
@@ -192,9 +192,10 @@ class eROSITACalPV(BaseMission):
         """
         # The approximate field of view is defined here because I want to force implementation for each
         #  new mission class.
-        warn("A field-of-view cannot be easily defined for eROSITACalPV and this number is almost completely "
-             "arbitrary, you should make your own judgement on a search distance.", stacklevel=2)
-        self._approx_fov = Quantity(30, 'arcmin')
+        warn("A field-of-view cannot be easily defined for eROSITACalPV and this number is the approximate half-length "
+             "of an eFEDS section, the worst case separation - this is unnecessarily large for pointed "
+             "observations, and you should make your own judgement on a search distance.", stacklevel=2)
+        self._approx_fov = Quantity(4.5, 'degree')
         return self._approx_fov
 
     @property
@@ -673,8 +674,8 @@ class eROSITACalPV(BaseMission):
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
             if num_cores == 1:
-                with tqdm(total=len(download_links), desc="Downloading {} "
-                                                          "data".format(self._pretty_miss_name)) as download_prog:
+                with tqdm(total=len(download_links), desc="Downloading "
+                                                          "{} data".format(self._pretty_miss_name)) as download_prog:
                     for link in download_links:
                         # Use the internal static method I set up which both downloads and unpacks the
                         #  eROSITACalPV data
@@ -1118,20 +1119,10 @@ class eRASS1DE(BaseMission):
 
         # Converting the start and end time columns to datetimes - the .%f accounts for the presence of milliseconds
         #  in the times - probably somewhat superfluous
-        # erass_dr1_copy['start'] = pd.to_datetime(erass_dr1_copy['start'], utc=False, format="%Y-%m-%dT%H:%M:%S.%f",
-        #                                          errors='coerce')
-        # erass_dr1_copy['end'] = pd.to_datetime(erass_dr1_copy['end'], utc=False, format="%Y-%m-%dT%H:%M:%S.%f",
-        #                                        errors='coerce')
-
-        # TODO include real start and end values when I have figured out a way to make them available
-        #  I have just used the start and end dates of this survey for now
-        #  "Started on December 12, 2019, and was completed on June 11, 2020"
-        erass_dr1_copy['start'] = pd.to_datetime('2019-12-12T00:00:00.00', utc=False, format="%Y-%m-%dT%H:%M:%S.%f",
+        erass_dr1_copy['start'] = pd.to_datetime(erass_dr1_copy['start'], utc=False, format="%Y-%m-%dT%H:%M:%S.%f",
                                                  errors='coerce')
-        erass_dr1_copy['end'] = pd.to_datetime('2020-06-10T00:00:00.00', utc=False, format="%Y-%m-%dT%H:%M:%S.%f",
+        erass_dr1_copy['end'] = pd.to_datetime(erass_dr1_copy['end'], utc=False, format="%Y-%m-%dT%H:%M:%S.%f",
                                                errors='coerce')
-
-        # TODO this is clearly nonsense but have to assume it (see above)
         erass_dr1_copy['duration'] = erass_dr1_copy['end'] - erass_dr1_copy['start']
 
         # Have to assume this for all of them for now

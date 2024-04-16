@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/04/2024, 14:03. Copyright (c) The Contributors
 
 import io
 import os
@@ -114,16 +114,16 @@ class ROSATPointed(BaseMission):
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
 
-        # We now will read in the previous state, if there is one to be read in.
-        if save_file_path is not None:
-            self._load_state(save_file_path)
-
         # Deliberately using the property setter, because it calls the internal _check_chos_insts function
         #  to make sure the input instruments are allowed
         # This instrument stuff is down here because for ROSAT I want it to happen AFTER the Observation info
         #  table has been fetched. As ROSAT uses one instrument per observation, this will effectively be another
         #  filtering operation rather than the download-time operation is has been for NuSTAR for instance
         self.chosen_instruments = insts
+
+        # We now will read in the previous state, if there is one to be read in.
+        if save_file_path is not None:
+            self._load_state(save_file_path)
 
     @property
     def name(self) -> str:
@@ -407,19 +407,16 @@ class ROSATPointed(BaseMission):
         self.all_obs_info = full_ros
 
     @staticmethod
-    def _download_call(observation_id: str, raw_dir: str, download_processed: bool, download_products: bool):
+    def _download_call(observation_id: str, raw_dir: str, download_products: bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
 
         :param str observation_id: The ObsID of the observation to be downloaded.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
-        :param bool download_processed: This controls whether the data downloaded are the pre-processed event lists
-            stored by HEASArc, or whether they are the original raw event lists. Default is to download pre-processed
-            data.
         :param bool download_products: This controls whether the HEASArc-published images and exposure maps are
             downloaded alongside the event lists and attitude files. Setting this to True will download the
-            images/exposure maps, IF download_processed is set to True. The default is False.
+            images/exposure maps. The default is False.
         """
 
         # Make sure raw_dir has a slash at the end
@@ -435,23 +432,24 @@ class ROSATPointed(BaseMission):
         # Setting up the FTP paths for ROSAT pointed data is slightly more complicated than for the All-Sky Survey, as
         #  pointed data can be with HRI or PSPC instruments, and the first digit of the six-digit chunk of the ObsID
         #  can be something other than 9, as that indicates what type of object was being observed
-        if download_processed:
-            obs_dir = "/FTP/rosat/data/{inst}/processed_data/{ot}/{oid}/".format(oid=observation_id.lower(),
-                                                                                 inst=inst, ot=obj_type)
-            # This defines the files we're looking to download, based on the fact this is the pointed ROSAT
-            #  mission, and we want the pre-processed data
-            sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['pointed']['processed']]
+        obs_dir = "/FTP/rosat/data/{inst}/processed_data/{ot}/{oid}/".format(oid=observation_id.lower(),
+                                                                             inst=inst, ot=obj_type)
+        # This defines the files we're looking to download, based on the fact this is the pointed ROSAT
+        #  mission, and we want the pre-processed data
+        sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['pointed']['processed']]
 
-            if download_products:
-                oth_sel_files = [fp.format(o=observation_id.lower()) for fp in PROC_PROD_NAMES[inst]]
-                sel_files += oth_sel_files
+        if download_products:
+            oth_sel_files = [fp.format(o=observation_id.lower()) for fp in PROC_PROD_NAMES[inst]]
+            sel_files += oth_sel_files
+
+        # TODO Probably remove this honestly
         # This URL is for downloading RAW data, not the pre-processed stuff
-        else:
-            obs_dir = "/FTP/rosat/data/{inst}/RDA/{ot}/{oid}/".format(oid=observation_id.lower(), inst=inst,
-                                                                      ot=obj_type)
-            # This defines the files we're looking to download, based on the fact this is the pointed ROSAT
-            #  mission, and we want the raw data
-            sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['pointed']['raw']]
+        # else:
+        #     obs_dir = "/FTP/rosat/data/{inst}/RDA/{ot}/{oid}/".format(oid=observation_id.lower(), inst=inst,
+        #                                                               ot=obj_type)
+        #     # This defines the files we're looking to download, based on the fact this is the pointed ROSAT
+        #     #  mission, and we want the raw data
+        #     sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['pointed']['raw']]
 
         # Assembles the full URL to the archive directory
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
@@ -497,7 +495,7 @@ class ROSATPointed(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, download_processed: bool = True, download_products: bool = False):
+    def download(self, num_cores: int = NUM_CORES, download_products: bool = False):
         """
         A method to acquire and download the ROSAT pointed data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded).
@@ -508,23 +506,10 @@ class ROSATPointed(BaseMission):
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
-        :param bool download_processed: This controls whether the data downloaded are the pre-processed event lists
-            stored by HEASArc, or whether they are the original raw event lists. Default is to download pre-processed
-            data.
         :param bool download_products: This controls whether the HEASArc-published images and exposure maps are
             downloaded alongside the event lists and attitude files. Setting this to True will download the
-            images/exposure maps, IF download_processed is set to True. The default is False.
+            images/exposure maps. The default is False.
         """
-
-        if not download_processed:
-            raise NotImplementedError("The ability to download completely unprocessed RASS data has not been added "
-                                      "yet, mainly due to confusion about the location of the data and whether the "
-                                      "software to process it still exists.")
-
-        # Must check that the user isn't trying to download processed products and raw data
-        if download_products and not download_processed:
-            raise ValueError("The download_products argument may only be set to True if the download_processed "
-                             "argument is also True.")
 
         # Ensures that a directory to store the 'raw' RASS data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
@@ -546,7 +531,7 @@ class ROSATPointed(BaseMission):
                     for obs_id in self.filtered_obs_ids:
                         # Use the internal static method I set up which both downloads and unpacks the RASS data
                         self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id),
-                                            download_processed=download_processed, download_products=download_products)
+                                            download_products=download_products)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -589,7 +574,6 @@ class ROSATPointed(BaseMission):
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
                                          kwds={'observation_id': obs_id, 'raw_dir': stor_dir + '{o}'.format(o=obs_id),
-                                               'download_processed': download_processed,
                                                'download_products': download_products},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
@@ -871,19 +855,16 @@ class ROSATAllSky(BaseMission):
         self.all_obs_info = full_rass
 
     @staticmethod
-    def _download_call(observation_id: str, raw_dir: str, download_processed: bool, download_products:bool):
+    def _download_call(observation_id: str, raw_dir: str, download_products: bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
 
         :param str observation_id: The ObsID of the observation to be downloaded.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
-        :param bool download_processed: This controls whether the data downloaded are the pre-processed event lists
-            stored by HEASArc, or whether they are the original raw event lists. Default is to download pre-processed
-            data.
         :param bool download_products: This controls whether the HEASArc-published images and exposure maps are
             downloaded alongside the event lists and attitude files. Setting this to True will download the
-            images/exposure maps, IF download_processed is set to True. The default is False.
+            images/exposure maps. The default is False.
         """
 
         # Make sure raw_dir has a slash at the end
@@ -894,22 +875,22 @@ class ROSATAllSky(BaseMission):
         #  directories that have names/IDs corresponding to the targeted object type. In the case of RASS that
         #  will always be 900000, as it corresponds to Solar Systems, SURVEYS, and Miscellaneous. Specifically this
         #  is the URL for downloading the pre-processed data
-        if download_processed:
-            obs_dir = "/FTP/rosat/data/pspc/processed_data/900000/{oid}/".format(oid=observation_id.lower())
-            # This defines the files we're looking to download, based on the fact this is a RASS mission, and we want
-            #  the pre-processed data
-            sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['rass']['processed']]
+        obs_dir = "/FTP/rosat/data/pspc/processed_data/900000/{oid}/".format(oid=observation_id.lower())
+        # This defines the files we're looking to download, based on the fact this is a RASS mission, and we want
+        #  the pre-processed data
+        sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['rass']['processed']]
 
-            if download_products:
-                oth_sel_files = [fp.format(o=observation_id.lower()) for fp in PROC_PROD_NAMES['pspc']]
-                sel_files += oth_sel_files
+        if download_products:
+            oth_sel_files = [fp.format(o=observation_id.lower()) for fp in PROC_PROD_NAMES['pspc']]
+            sel_files += oth_sel_files
 
+        # TODO Probably remove this entirely
         # This URL is for downloading RAW data, not the pre-processed stuff
-        else:
-            obs_dir = "/FTP/rosat/data/pspc/RDA/900000/{oid}/".format(oid=observation_id)
-            # This defines the files we're looking to download, based on the fact this is a RASS mission, and we want
-            #  the raw data
-            sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['rass']['raw']]
+        # else:
+        #     obs_dir = "/FTP/rosat/data/pspc/RDA/900000/{oid}/".format(oid=observation_id)
+        #     # This defines the files we're looking to download, based on the fact this is a RASS mission, and we want
+        #     #  the raw data
+        #     sel_files = [fp.format(o=observation_id.lower()) for fp in GOOD_FILE_PATTERNS['rass']['raw']]
 
         # Assembles the full URL to the archive directory
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
@@ -965,7 +946,7 @@ class ROSATAllSky(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, download_processed: bool = True, download_products: bool = False):
+    def download(self, num_cores: int = NUM_CORES, download_products: bool = False):
         """
         A method to acquire and download the ROSAT All-Sky Survey data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded).
@@ -976,23 +957,10 @@ class ROSATAllSky(BaseMission):
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
-        :param bool download_processed: This controls whether the data downloaded are the pre-processed event lists
-            stored by HEASArc, or whether they are the original raw event lists. Default is to download pre-processed
-            data.
         :param bool download_products: This controls whether the HEASArc-published images and exposure maps are
             downloaded alongside the event lists and attitude files. Setting this to True will download the
-            images/exposure maps, IF download_processed is set to True. The default is False.
+            images/exposure maps. The default is False.
         """
-
-        if not download_processed:
-            raise NotImplementedError("The ability to download completely unprocessed RASS data has not been added "
-                                      "yet, mainly due to confusion about the location of the data and whether the "
-                                      "software to process it still exists.")
-
-        # Must check that the user isn't trying to download processed products and raw data
-        if download_products and not download_processed:
-            raise ValueError("The download_products argument may only be set to True if the download_processed "
-                             "argument is also True.")
 
         # Ensures that a directory to store the 'raw' RASS data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
@@ -1014,7 +982,7 @@ class ROSATAllSky(BaseMission):
                     for obs_id in self.filtered_obs_ids:
                         # Use the internal static method I set up which both downloads and unpacks the RASS data
                         self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id),
-                                            download_processed=download_processed, download_products=download_products)
+                                            download_products=download_products)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -1057,7 +1025,6 @@ class ROSATAllSky(BaseMission):
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
                                          kwds={'observation_id': obs_id, 'raw_dir': stor_dir + '{o}'.format(o=obs_id),
-                                               'download_processed': download_processed,
                                                'download_products': download_products},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool

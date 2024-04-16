@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 22:30. Copyright (c) The Contributors
 
 import os.path
 from random import randint
@@ -19,7 +19,6 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
                       hi_en: Quantity = Quantity(10, 'keV'), flag: int = 0xc0000000, flag_invert: bool = True,
                       pattern: int = 15, num_cores: int = NUM_CORES, disable_progress: bool = False,
                       timeout: Quantity = None):
-
     """
     The function wraps the eROSITA eSASS task evtool, which is used for selecting events.
     This has been tested up to evtool v2.10.1
@@ -32,16 +31,17 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
         which cleaned event lists should be created. This function will fail if no eROSITA missions are present in
         the archive.
     :param Quantity lo_en: The lower bound of an energy filter to be applied to the cleaned, filtered, event lists. If
-        'lo_en' is set to an Astropy Quantity, then 'hi_en' must be as well. Default is None, in which case no
-        energy filter is applied.
+        'lo_en' is set to an Astropy Quantity, then 'hi_en' must be as well. Default is 0.2 keV, which is the
+        minimum allowed by the eROSITA toolset. Passing None will result in the default value being used.
     :param Quantity hi_en: The upper bound of an energy filter to be applied to the cleaned, filtered, event lists. If
-        'hi_en' is set to an Astropy Quantity, then 'lo_en' must be as well. Default is None, in which case no
-        energy filter is applied.
+        'hi_en' is set to an Astropy Quantity, then 'lo_en' must be as well. Default is 10 keV, which is the
+        maximum allowed by the eROSITA toolset. Passing None will result in the default value being used.
     :param int flag: FLAG parameter to select events based on owner, information, rejection, quality, and corrupted
         data. The eROSITA website contains the full description of event flags in section 1.1.2 of the following link:
         https://erosita.mpe.mpg.de/edr/DataAnalysis/prod_descript/EventFiles_edr.html. The default parameter will
-        remove all events flagged as either singly corrupt or as part of a corrupt frame.
+        select all events flagged as either singly corrupt or as part of a corrupt frame.
     :param bool flag_invert: If set to True, this function will discard all events selected by the flag parameter.
+        This is the default behaviour.
     :param int pattern: Selects events of a certain pattern chosen by the integer key. The default of 15 selects
         all four of the recognized legal patterns.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
@@ -53,6 +53,12 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
     # Run the setup for eSASS processes, which checks that eSASS is installed, checks that the archive has at least
     #  one eROSITA mission in it, and shows a warning if the eROSITA missions have already been processed
     esass_in_docker = _esass_process_setup(obs_archive)
+
+    # We ensure that if a null value is passed the lo_en and hi_en values revert to default behaviour
+    if lo_en is None:
+        lo_en = Quantity(0.2, 'keV')
+    if hi_en is None:
+        hi_en = Quantity(10.0, 'keV')
 
     # Checking user's choice of energy limit parameters
     if not isinstance(lo_en, Quantity) or not isinstance(hi_en, Quantity):
@@ -81,12 +87,12 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
 
     # Checking user has input the flag parameter as an integer
     if not isinstance(flag, int):
-            raise TypeError("The flag parameter must be an integer.")
+        raise TypeError("The flag parameter must be an integer.")
 
     # Checking the input is a valid hexidecimal number
     if not _is_valid_flag(flag):
-            raise ValueError("{} is not a valid eSASS flag, see the eROSITA website"
-                             " for valid flags.".format(flag))
+        raise ValueError("{} is not a valid eSASS flag, see the eROSITA website"
+                         " for valid flags.".format(flag))
     
     # Checking user has input flag_invert as a boolean
     if not isinstance(flag_invert, bool):
@@ -201,10 +207,11 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
                 # successfully, and so a warning will be raised saying this observation has not been cleaned
                 bad_obs_counter += 1
                 pass
-    
+
+        # TODO THIS SHOULD BE REMOVED WHEN I'VE MADE SURE THE DEPENDENCY CHECKER WORKS FOR EROSITA
         # If no observations have had flaregti run successfully, then no events can be cleaned
         if bad_obs_counter == len(obs_info_dict):
-            raise NoDependencyProcessError("The required process flaregti has not been run successfully"
+            raise NoDependencyProcessError("The required process flaregti has not been run successfully "
                                            "for any data in {mn}".format(mn=miss.name))
 
     # This is just used for populating a progress bar during the process run

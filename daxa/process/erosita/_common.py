@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 16:56. Copyright (c) The Contributors
 import glob
 import os.path
 from enum import Flag
@@ -201,6 +201,9 @@ def execute_cmd(cmd: str, esass_in_docker: bool, rel_id: str, miss_name: str, ch
     #  means that it doesn't throw errors if there is a character it doesn't recognize
     out = out.decode("UTF-8", errors='ignore')
     err = err.decode("UTF-8", errors='ignore')
+
+    # We also add the command string to the beginning of the stdout - this is for logging purposes
+    out = cmd + '\n\n' + out
 
     # Simple check on whether the 'final file' passed into this function actually exists or not - even if there is only
     #  one path to check we made sure that its in a list so the check can be done easily for multiple paths
