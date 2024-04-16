@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 17:45. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 23:57. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -39,7 +39,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     :param int binsize: Bin size of mask image (unit: sky pixels).
     :param int detml: Likelihood threshold for mask creation.
     :param int timebin: Bin size for lightcurve (unit: seconds).
-    :param int source_size: Diameter of source extracton area for dynamic threshold calculation (unit: arcsec);
+    :param int source_size: Diameter of source extraction area for dynamic threshold calculation (unit: arcsec);
         this is the most important parameter if optimizing for extended sources.
     :param int source_like: Source likelihood for automatic threshold calculation.
     :param float threshold: Flare threshold; dynamic if negative (unit: counts/deg^2/sec).
