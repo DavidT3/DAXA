@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 14:53. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 16:01. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -1603,6 +1603,53 @@ class Archive:
                                                             full_ident=flat_idents)
 
         return failed_logs, failed_raw_errors
+
+    def delete_raw_data(self, force_del: bool = False, all_raw_data: bool = False):
+        """
+        This method will delete raw data downloaded for the missions in this archive; by default only directories
+        corresponding to ObsIDs currently accepted through a mission's filter will be deleted, but if all_raw_data is
+        set to True then the WHOLE raw data directory corresponding to a particular mission will be removed.
+
+        Confirmation from the user will be sought that they wish to delete the data, unless force_del is set to
+        True - in which case the removal will be performed straight away.
+
+        :param bool force_del: This argument can be used to ensure that the delete option can be performed entirely
+            programmatically, without requiring a user input. Default is False, but if set to True then the delete
+            operation will be performed immediately.
+        :param bool all_raw_data: This controls whether only the data selected by the current instance of each mission
+            are deleted (when False, the default behaviour) or if the whole directory associated with each mission is
+            removed.
+        """
+
+        # If the user hasn't set force_del to True, then we need to ask them if they're sure - this is essentially
+        #  identical to what happens within the mission delete_raw_data method, but if we have a bunch of missions
+        #  in an archive we don't want the user to be asked N different times
+        if not force_del:
+            # Urgh a while loop, I feel like I'm a first year undergrad again
+            proc_flag = None
+            # This will keep going until the proc_flag has a value that the next step will understand
+            while proc_flag is None:
+                # We ask the question
+                init_proc_flag = input("Proceed with deletion of raw data for {} missions "
+                                       "[Y/N]?".format(self.archive_name))
+                # If they answer Y then we'll delete (I could have used lower() for this, but I thought this was
+                #  safer in case they pass a non-string).
+                if init_proc_flag == 'Y' or init_proc_flag == 'y':
+                    proc_flag = True
+                # If they answer N we won't delete
+                elif init_proc_flag == 'N' or init_proc_flag == 'n':
+                    proc_flag = False
+                # Got to tell them if they pass an illegal value - and we'll go around again
+                else:
+                    warn("Please enter either Y or N!", stacklevel=2)
+        else:
+            # In this case the user has force deleted, so no question is asked and proc_flag is True
+            proc_flag = True
+
+        # If the last step returned True, then we start deleting
+        if proc_flag:
+            for miss in self.missions:
+                miss.delete_raw_data(True, all_raw_data)
 
     def save(self):
         """
