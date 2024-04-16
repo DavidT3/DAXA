@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/04/2024, 14:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 14:49. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -947,8 +947,6 @@ class BaseMission(metaclass=ABCMeta):
         # Then we set the filter array property with that updated mask
         self.filter_array = new_filter
 
-    # TODO Figure out how to support survey-type missions (i.e. eROSITA) that release large sweeps of the sky
-    #  when filtering based on position.
     @_lock_check
     @_capture_filter
     def filter_on_rect_region(self, lower_left: Union[SkyCoord, np.ndarray, list],
@@ -964,11 +962,15 @@ class BaseMission(metaclass=ABCMeta):
         :param SkyCoord/np.ndarray/list lower_left: The RA-Dec coordinates of the lower left corner of the
             rectangular region. This can be passed as a SkyCoord, or a list/array with two entries - this
             will then be used to create a SkyCoord which assumes the default frame of the current mission and
-            that the inputs are in degrees.
+            that the inputs are in degrees. NOTE that we wish the coordinates to be passed with RA increasing
+            from left to right, but we will attempt to interpret coordinates passed with RA increasing from right
+            to left, and will show a warning.
         :param SkyCoord/np.ndarray/list upper_right: The RA-Dec coordinates of the upper right corner of the
             rectangular region. This can be passed as a SkyCoord, or a list/array with two entries - this
             will then be used to create a SkyCoord which assumes the default frame of the current mission and
-            that the inputs are in degrees.
+            that the inputs are in degrees. NOTE that we wish the coordinates to be passed with RA increasing
+            from left to right, but we will attempt to interpret coordinates passed with RA increasing from right
+            to left, and will show a warning.
         """
         # Checks to see if the user has passed the lower left coordinate as an array with an RA and Dec, rather
         #  than as an initialized SkyCoord. If so then we set up a SkyCoord assuming the default frame of this mission.
@@ -979,6 +981,24 @@ class BaseMission(metaclass=ABCMeta):
         #  than as an initialized SkyCoord. If so then we set up a SkyCoord assuming the default frame of this mission.
         if isinstance(upper_right, (list, np.ndarray)):
             upper_right = SkyCoord(*upper_right, unit=u.deg, frame=self.coord_frame)
+
+        # The convention for RA is to have it DECREASING from left to right, but the way I've thought about this is
+        #  a box on the sky with the lower left value having the MINIMUM RA, and the upper right having the MAXIMUM
+        #  RA. It may well be that the other convention is used, in which case we have to reverse things so that
+        #  our boolean check below works.
+        if lower_left.ra > upper_right.ra:
+            # The warning serves to inform the user of what we've done
+            warn("The passed corner coordinates are defined with RA increasing from right to left (upper-right "
+                 "RA is less than lower-left; we reversed this.", stacklevel=2)
+
+            # We set up new lower left and upper right coordinates, swapping the RA values to meet the definition we
+            #  want for our check below
+            new_lower_left = SkyCoord(upper_right.ra, lower_left.dec, unit='deg', frame=upper_right.frame)
+            new_upper_right = SkyCoord(lower_left.ra, upper_right.dec, unit='deg', frame=upper_right.frame)
+
+            # Then we replace the originals
+            lower_left = new_lower_left
+            upper_right = new_upper_right
 
         # Creates a filter based on a rectangular region defined by the input coordinates
         box_filter = ((self.ra_decs.ra >= lower_left.ra) & (self.ra_decs.ra <= upper_right.ra) &

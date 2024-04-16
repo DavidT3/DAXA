@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 12:57. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -459,8 +459,15 @@ class Swift(BaseMission):
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
                     for row_ind, row in self.filtered_obs_info.iterrows():
                         obs_id = row['ObsID']
+                        # While the user may have chosen multiple instruments, it is possible for Swift to have an
+                        #  instrument switched off for a given observation, in which case an expected instrument
+                        #  directory that the internal download method checks for will be missing. As such we ensure
+                        #  that we only request instruments that have a non-zero exposure
+                        rel_insts = [ci for ci in self.chosen_instruments
+                                     if row[ci.lower() + '_exposure'].total_seconds() != 0]
+
                         # Use the internal static method I set up which both downloads and unpacks the Swift data
-                        self._download_call(obs_id, insts=self.chosen_instruments, start_year=str(row['start'].year),
+                        self._download_call(obs_id, insts=rel_insts, start_year=str(row['start'].year),
                                             start_month=str(row['start'].month),
                                             raw_dir=stor_dir + '{o}'.format(o=obs_id),
                                             download_products=download_products)
@@ -504,9 +511,17 @@ class Swift(BaseMission):
                     # Again nested for loop through ObsIDs and instruments
                     for row_ind, row in self.filtered_obs_info.iterrows():
                         obs_id = row['ObsID']
+
+                        # While the user may have chosen multiple instruments, it is possible for Swift to have an
+                        #  instrument switched off for a given observation, in which case an expected instrument
+                        #  directory that the internal download method checks for will be missing. As such we ensure
+                        #  that we only request instruments that have a non-zero exposure
+                        rel_insts = [ci for ci in self.chosen_instruments
+                                     if row[ci.lower() + '_exposure'].total_seconds() != 0]
+
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
-                                         kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
+                                         kwds={'observation_id': obs_id, 'insts': rel_insts,
                                                'start_year': str(row['start'].year),
                                                'start_month': str(row['start'].month),
                                                'raw_dir': stor_dir + '{o}'.format(o=obs_id),

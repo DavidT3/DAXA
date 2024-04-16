@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/04/2024, 11:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 14:53. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -125,7 +125,8 @@ class Archive:
             #  That means their observation content becomes immutable.
             for mission in self._missions.values():
                 mission: BaseMission
-                mission.locked = True
+                if not mission.locked:
+                    mission.locked = True
 
                 # We also make sure that the data are downloaded
                 if not mission.download_completed:
