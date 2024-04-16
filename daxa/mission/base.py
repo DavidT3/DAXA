@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 16:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 16:12. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -1609,111 +1609,6 @@ class BaseMission(metaclass=ABCMeta):
         if return_obs_info:
             return rel_obs_info[any_rel_data]
 
-    def save(self, save_root_path: str):
-        """
-        A method to save a file representation of the current state of a DAXA mission object. This may be used by
-        the user, and can be safely sent to another user or system to recreate a mission. It is also used by the
-        archive saving mechanic, so that mission objects can be re-set up - it is worth noting that the archive save
-        files ARE NOT how to make a portable archive,
-
-        :param str save_root_path: The DIRECTORY where you wish a save file to be stored, DO NOT pass a path
-            with a filename at the end, as this method will create its own filename.
-        """
-
-        # We check to see whether the output root path exists, and if it doesn't then we shall create it
-        if not os.path.exists(save_root_path):
-            os.makedirs(save_root_path)
-
-        # We set up the actual name of the same file, then the full path to it
-        file_name = self.name + '_state.json'
-        miss_file_path = os.path.join(save_root_path, file_name)
-
-        # This is where we set up the dictionary of information that will actually be saved - all the information
-        #  common to all mission classes at least. Some will be None for most missions (like chosen field)
-        mission_data = {'name': self.name, 'chos_inst': self.chosen_instruments, 'chos_field': self._chos_fields,
-                        'downloaded_type': self._download_type, 'cur_date': str(datetime.today()),
-                        'processed': self.processed}
-
-        # The currently selected data need some more specialist treatment - we can't just save the filter
-        #  array, because the available observations (and thus the information table that the filter gets applied
-        #  too) are not necessarily static (for some they will be, because the missions are finished).
-        # As such, we decided to just save the accepted ObsIDs, and any difference in data available can be inferred
-        #  by re-running the stored filtering steps, rather than comparing a stored list of ObsIDs to a newly
-        #  downloaded one
-        sel_obs = self.filtered_obs_ids
-
-        # It is possible, if someone isn't paying attention, that the save method could be triggered when there aren't
-        #  actually any observations left - that doesn't really make sense to me, so we'll throw an error
-        if len(sel_obs) == 0:
-            raise NoObsAfterFilterError("There are no observations associated with this {mn} mission after "
-                                        "filtering, so the mission state cannot be saved.".format(mn=self.pretty_name))
-
-        # Make sure to add the sel_obs dictionary into the overall one we're hoping to store
-        mission_data['selected_obs'] = list(sel_obs)
-
-        # We can now store the filtering operations (and their configurations), as well as the order they were run in,
-        #  which means a reinstated mission can re-run the same filtering on an updated data set. HOWEVER, there is
-        #  an irritating snag, where some types of objects that can be passed to filtering method cannot be
-        #  'serialized' in a JSON. As such we have to make some modifications before we store it in our save state file
-
-        # First of all, make a copy of the filtering operations list, as we'll be making modifications that we don't
-        #  want to affect the attribute in the class
-        filt_ops = deepcopy(self.filtering_operations)
-
-        # Here we run through the filter operations, and replace any types we know can't be stored in a JSON and
-        #  could be passed as an argument to a filter method
-        for filt_op in filt_ops:
-            for arg_name, arg_val in filt_op['arguments'].items():
-                # We'll want to reconstruct these things as the type they were originally when the mission is restored
-                #  so we store them as a dictionary to readily identify what types they were before we converted them
-                if isinstance(arg_val, Quantity):
-                    filt_op['arguments'][arg_name] = {"quantity": str(arg_val)}
-                elif isinstance(arg_val, datetime):
-                    filt_op['arguments'][arg_name] = {"datetime": arg_val.strftime("%Y-%m-%d %H:%M:%S.%f")}
-                elif isinstance(arg_val, np.ndarray) and not isinstance(arg_val[0], datetime):
-                    filt_op['arguments'][arg_name] = {'ndarray': arg_val.tolist()}
-                # One of the filtering methods can pass lists of datetimes, which need an extra layer of attention
-                elif isinstance(arg_val, (list, np.ndarray)) and isinstance(arg_val[0], datetime):
-                    filt_op['arguments'][arg_name] = {'datetime_list': [av.strftime("%Y-%m-%d %H:%M:%S.%f")
-                                                                        for av in arg_val]}
-                # SkyCoord has a few more moving parts, so we create a nested dictionary, other than that same idea
-                elif isinstance(arg_val, SkyCoord):
-                    # Reads out the position values in degrees, which will help us to re-construct the SkyCoord
-                    #  when this mission state is read back in
-                    ra = arg_val.ra.to('deg').value
-                    dec = arg_val.dec.to('deg').value
-
-                    # If ra is an array, we need to convert it and dec to lists
-                    if isinstance(ra, np.ndarray):
-                        ra = ra.tolist()
-                        dec = dec.tolist()
-
-                    # Saving the specified frame is also important for reconstruction
-                    frame = arg_val.frame.name
-
-                    # Creating a nested dictionary with all the information we should need to reconstruct, if
-                    #  it is just a position (no time axis) - that should be the case as DAXA is now
-                    filt_op['arguments'][arg_name] = {'skycoord': {'ra': ra, 'dec': dec, 'frame': frame}}
-
-        mission_data['filtering_operations'] = filt_ops
-
-        # Now we write the required information to the state file path
-        with open(miss_file_path, 'w') as stateo:
-            json_str = json.dumps(mission_data, indent=4)
-            stateo.write(json_str)
-
-    def info(self):
-        print("\n-----------------------------------------------------")
-        print("Number of Observations - {}".format(len(self)))
-        print("Number of Filtered Observations - {}".format(len(self.filtered_obs_info)))
-        print("Total Duration - {}".format(self.all_obs_info['duration'].sum()))
-        print("Total Filtered Duration - {}".format(self.filtered_obs_info['duration'].sum()))
-        print("Earliest Observation Date - {}".format(self.all_obs_info['start'].min()))
-        print("Latest Observation Date - {}".format(self.all_obs_info['end'].max()))
-        print("Earliest Filtered Observation Date - {}".format(self.filtered_obs_info['start'].min()))
-        print("Latest Filtered Observation Date - {}".format(self.filtered_obs_info['end'].max()))
-        print("-----------------------------------------------------\n")
-
     @abstractmethod
     def download(self):
         """
@@ -1836,6 +1731,111 @@ class BaseMission(metaclass=ABCMeta):
             # Iterate through the previously defined list of directories.
             for rm_dir in rm_dirs:
                 rmtree(rm_dir)
+
+    def save(self, save_root_path: str):
+        """
+        A method to save a file representation of the current state of a DAXA mission object. This may be used by
+        the user, and can be safely sent to another user or system to recreate a mission. It is also used by the
+        archive saving mechanic, so that mission objects can be re-set up - it is worth noting that the archive save
+        files ARE NOT how to make a portable archive,
+
+        :param str save_root_path: The DIRECTORY where you wish a save file to be stored, DO NOT pass a path
+            with a filename at the end, as this method will create its own filename.
+        """
+
+        # We check to see whether the output root path exists, and if it doesn't then we shall create it
+        if not os.path.exists(save_root_path):
+            os.makedirs(save_root_path)
+
+        # We set up the actual name of the same file, then the full path to it
+        file_name = self.name + '_state.json'
+        miss_file_path = os.path.join(save_root_path, file_name)
+
+        # This is where we set up the dictionary of information that will actually be saved - all the information
+        #  common to all mission classes at least. Some will be None for most missions (like chosen field)
+        mission_data = {'name': self.name, 'chos_inst': self.chosen_instruments, 'chos_field': self._chos_fields,
+                        'downloaded_type': self._download_type, 'cur_date': str(datetime.today()),
+                        'processed': self.processed}
+
+        # The currently selected data need some more specialist treatment - we can't just save the filter
+        #  array, because the available observations (and thus the information table that the filter gets applied
+        #  too) are not necessarily static (for some they will be, because the missions are finished).
+        # As such, we decided to just save the accepted ObsIDs, and any difference in data available can be inferred
+        #  by re-running the stored filtering steps, rather than comparing a stored list of ObsIDs to a newly
+        #  downloaded one
+        sel_obs = self.filtered_obs_ids
+
+        # It is possible, if someone isn't paying attention, that the save method could be triggered when there aren't
+        #  actually any observations left - that doesn't really make sense to me, so we'll throw an error
+        if len(sel_obs) == 0:
+            raise NoObsAfterFilterError("There are no observations associated with this {mn} mission after "
+                                        "filtering, so the mission state cannot be saved.".format(mn=self.pretty_name))
+
+        # Make sure to add the sel_obs dictionary into the overall one we're hoping to store
+        mission_data['selected_obs'] = list(sel_obs)
+
+        # We can now store the filtering operations (and their configurations), as well as the order they were run in,
+        #  which means a reinstated mission can re-run the same filtering on an updated data set. HOWEVER, there is
+        #  an irritating snag, where some types of objects that can be passed to filtering method cannot be
+        #  'serialized' in a JSON. As such we have to make some modifications before we store it in our save state file
+
+        # First of all, make a copy of the filtering operations list, as we'll be making modifications that we don't
+        #  want to affect the attribute in the class
+        filt_ops = deepcopy(self.filtering_operations)
+
+        # Here we run through the filter operations, and replace any types we know can't be stored in a JSON and
+        #  could be passed as an argument to a filter method
+        for filt_op in filt_ops:
+            for arg_name, arg_val in filt_op['arguments'].items():
+                # We'll want to reconstruct these things as the type they were originally when the mission is restored
+                #  so we store them as a dictionary to readily identify what types they were before we converted them
+                if isinstance(arg_val, Quantity):
+                    filt_op['arguments'][arg_name] = {"quantity": str(arg_val)}
+                elif isinstance(arg_val, datetime):
+                    filt_op['arguments'][arg_name] = {"datetime": arg_val.strftime("%Y-%m-%d %H:%M:%S.%f")}
+                elif isinstance(arg_val, np.ndarray) and not isinstance(arg_val[0], datetime):
+                    filt_op['arguments'][arg_name] = {'ndarray': arg_val.tolist()}
+                # One of the filtering methods can pass lists of datetimes, which need an extra layer of attention
+                elif isinstance(arg_val, (list, np.ndarray)) and isinstance(arg_val[0], datetime):
+                    filt_op['arguments'][arg_name] = {'datetime_list': [av.strftime("%Y-%m-%d %H:%M:%S.%f")
+                                                                        for av in arg_val]}
+                # SkyCoord has a few more moving parts, so we create a nested dictionary, other than that same idea
+                elif isinstance(arg_val, SkyCoord):
+                    # Reads out the position values in degrees, which will help us to re-construct the SkyCoord
+                    #  when this mission state is read back in
+                    ra = arg_val.ra.to('deg').value
+                    dec = arg_val.dec.to('deg').value
+
+                    # If ra is an array, we need to convert it and dec to lists
+                    if isinstance(ra, np.ndarray):
+                        ra = ra.tolist()
+                        dec = dec.tolist()
+
+                    # Saving the specified frame is also important for reconstruction
+                    frame = arg_val.frame.name
+
+                    # Creating a nested dictionary with all the information we should need to reconstruct, if
+                    #  it is just a position (no time axis) - that should be the case as DAXA is now
+                    filt_op['arguments'][arg_name] = {'skycoord': {'ra': ra, 'dec': dec, 'frame': frame}}
+
+        mission_data['filtering_operations'] = filt_ops
+
+        # Now we write the required information to the state file path
+        with open(miss_file_path, 'w') as stateo:
+            json_str = json.dumps(mission_data, indent=4)
+            stateo.write(json_str)
+
+    def info(self):
+        print("\n-----------------------------------------------------")
+        print("Number of Observations - {}".format(len(self)))
+        print("Number of Filtered Observations - {}".format(len(self.filtered_obs_info)))
+        print("Total Duration - {}".format(self.all_obs_info['duration'].sum()))
+        print("Total Filtered Duration - {}".format(self.filtered_obs_info['duration'].sum()))
+        print("Earliest Observation Date - {}".format(self.all_obs_info['start'].min()))
+        print("Latest Observation Date - {}".format(self.all_obs_info['end'].max()))
+        print("Earliest Filtered Observation Date - {}".format(self.filtered_obs_info['start'].min()))
+        print("Latest Filtered Observation Date - {}".format(self.filtered_obs_info['end'].max()))
+        print("-----------------------------------------------------\n")
 
     def __len__(self):
         """
