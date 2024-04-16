@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 12:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 12:57. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -463,7 +463,8 @@ class Swift(BaseMission):
                         #  instrument switched off for a given observation, in which case an expected instrument
                         #  directory that the internal download method checks for will be missing. As such we ensure
                         #  that we only request instruments that have a non-zero exposure
-                        rel_insts = [ci for ci in self.chosen_instruments if row[ci.lower() + '_exposure'] != 0]
+                        rel_insts = [ci for ci in self.chosen_instruments
+                                     if row[ci.lower() + '_exposure'].total_seconds() != 0]
 
                         # Use the internal static method I set up which both downloads and unpacks the Swift data
                         self._download_call(obs_id, insts=rel_insts, start_year=str(row['start'].year),
@@ -515,7 +516,8 @@ class Swift(BaseMission):
                         #  instrument switched off for a given observation, in which case an expected instrument
                         #  directory that the internal download method checks for will be missing. As such we ensure
                         #  that we only request instruments that have a non-zero exposure
-                        rel_insts = [ci for ci in self.chosen_instruments if row[ci.lower() + '_exposure'] != 0]
+                        rel_insts = [ci for ci in self.chosen_instruments
+                                     if row[ci.lower() + '_exposure'].total_seconds() != 0]
 
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
