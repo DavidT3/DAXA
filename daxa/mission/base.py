@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 14:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 15:56. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -8,6 +8,7 @@ from abc import ABCMeta, abstractmethod
 from copy import deepcopy
 from datetime import datetime
 from functools import wraps
+from shutil import rmtree
 from typing import List, Union
 from warnings import warn
 
@@ -1778,6 +1779,63 @@ class BaseMission(metaclass=ABCMeta):
         cols = ['Target Type', 'Description']
         # Now simply print them in a nice table
         print(tabulate(data, cols, tablefmt=table_format))
+
+    def delete_raw_data(self, force_del: bool = False, all_raw_data: bool = False):
+        """
+        This method will delete can raw data downloaded for this mission; by default only directories corresponding to
+        ObsIDs currently accepted through the filter will be deleted, but if all_raw_data is set to True then the
+        WHOLE raw data directory corresponding to this mission will be removed.
+
+        Confirmation from the user will be sought that they wish to delete the data, unless force_del is set to
+        True - in which case the removal will be performed straight away.
+
+        :param bool force_del: This argument can be used to ensure that the delete option can be performed entirely
+            programmatically, without requiring a user input. Default is False, but if set to True then the delete
+            operation will be performed immediately.
+        :param bool all_raw_data: This controls whether only the data selected by the current instance of the mission
+            are deleted (when False, the default behaviour) or if the whole directory associated with the mission is
+            removed.
+        """
+        # We make sure to unlock the mission, update the download done attribute to False, and remove the knowledge
+        #  of which type of data were downloaded previously
+        self._locked = False
+        self._download_done = False
+        self._download_type = None
+
+        # This uses the user input to decide whether to just delete the ObsID directories associated with the
+        #  currently filtered mission (the default), or to delete the mission's whole directory
+        if not all_raw_data:
+            rm_dirs = [self.raw_data_path + oi for oi in self.filtered_obs_ids]
+        else:
+            rm_dirs = [self.raw_data_path]
+
+        # If the user hasn't set force_del to True, then we need to ask them if they're sure
+        if not force_del:
+            # Urgh a while loop, I feel like I'm a first year undergrad again
+            proc_flag = None
+            # This will keep going until the proc_flag has a value that the next step will understand
+            while proc_flag is None:
+                # We ask the question
+                init_proc_flag = input("Proceed with deletion of {} raw data [Y/N]?".format(self.pretty_name))
+                # If they answer Y then we'll delete (I could have used lower() for this, but I thought this was
+                #  safer in case they pass a non-string).
+                if init_proc_flag == 'Y' or init_proc_flag == 'y':
+                    proc_flag = True
+                # If they answer N we won't delete
+                elif init_proc_flag == 'N' or init_proc_flag == 'n':
+                    proc_flag = False
+                # Got to tell them if they pass an illegal value - and we'll go around again
+                else:
+                    warn("Please enter either Y or N!", stacklevel=2)
+        else:
+            # In this case the user has force deleted, so no question is asked and proc_flag is True
+            proc_flag = True
+
+        # If the last step returned True, then we start deleting
+        if proc_flag:
+            # Iterate through the previously defined list of directories.
+            for rm_dir in rm_dirs:
+                rmtree(rm_dir)
 
     def __len__(self):
         """
