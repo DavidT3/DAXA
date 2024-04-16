@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 19:47. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 19:59. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -22,7 +22,7 @@ from tabulate import tabulate
 
 from daxa import OUTPUT
 from daxa.exceptions import MissionLockedError, NoObsAfterFilterError, IllegalSourceType, NoTargetSourceTypeInfo, \
-    DAXANotDownloadedError, IncompatibleSaveError, PreProcessedNotSupportedError
+    DAXANotDownloadedError, IncompatibleSaveError, PreProcessedNotSupportedError, PreProcessedNotAvailableError
 
 # This global helps to ensure that filtering functions that call another filtering function don't end up storing
 #  every single filter in the filtering operations history - we only want the outer call (see _capture_filter for use)
@@ -706,6 +706,29 @@ class BaseMission(metaclass=ABCMeta):
         elif new_val and not self.locked:
             self.locked = True
         self._processed = new_val
+
+    @property
+    def preprocessed_energy_bands(self) -> Quantity:
+        """
+        Property getter for a non-scalar astropy Quantity containing the energy bands of the pre-processed products
+        supplied by this mission. The return will be in the form of pairs of energies, in keV.
+
+        :return: A non-scalar astropy Quantity, with the first column being lower energy bounds and the second column
+            being upper energy bounds.
+        :rtype: Quantity
+        """
+        # If this attribute is not set then we're going to assume that the archive doesn't provide any products
+        #  which are energy bound
+        if self._template_en_trans is None:
+            raise PreProcessedNotSupportedError("This mission's archive does not supply pre-processed products within "
+                                                "specific energy bands.")
+
+        # The attribute is organized as a nested dictionary, with top level keys being lower energy bounds, and the
+        #  low level keys being upper energy bounds
+        en_bnds = Quantity([Quantity([l_en, h_en]) for l_en, u_en_dict in self._template_en_trans.items()
+                            for h_en in u_en_dict])
+
+        return en_bnds
 
     # Then define internal methods
     def _load_state(self, save_file_path: str):
@@ -1755,7 +1778,10 @@ class BaseMission(metaclass=ABCMeta):
         # The energy translation attribute is in the form of a nested dictionary where the top level keys are lower
         #  energy bounds, and the lower level keys are upper energy bounds
         if lo_en not in self._template_en_trans:
-            raise
+            # al_en_bands = self.preprocessed_energy_bands
+            print(self.preprocessed_energy_bands)
+            raise PreProcessedNotAvailableError("The {m} archive does not provide images with {l} as the lower energy "
+                                                "bound; ")
 
     def get_expmap_path(self, obs_id: str, inst: str = None, lo_en: Quantity = None, hi_en: Quantity = None):
         if self._template_exp_name is None:
