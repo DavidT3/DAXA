@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 10:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 10:48. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -992,7 +992,7 @@ class BaseMission(metaclass=ABCMeta):
         if not all(isinstance(inst, str) for inst in insts):
             raise TypeError("Instruments must be input as a string or a list of strings.")
 
-        # Making sure the input is capitalised for compatibilty with the rest of the module
+        # Making sure the input is capitalized for compatibility with the rest of the module
         insts = [i.upper() for i in insts]
 
         # I just check that there are actually entries in this list of instruments, because it would be silly if
