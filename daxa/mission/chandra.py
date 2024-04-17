@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 11:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 12:12. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -136,8 +136,8 @@ class Chandra(BaseMission):
     def chosen_instruments(self) -> List[str]:
         """
         Property getter for the names of the currently selected instruments associated with this mission which
-        will be processed into an archive by DAXA functions. Overwritten here because I want to use a custom
-        version of _check_chos_insts for Chandra.
+        will be processed into an archive by DAXA functions. Overwritten here because there
+        are custom behaviours for Chandra, as it has one instrument per ObsID.
 
         :return: A list of instrument names
         :rtype: List[str]
@@ -149,8 +149,8 @@ class Chandra(BaseMission):
     def chosen_instruments(self, new_insts: List[str]):
         """
         Property setter for the instruments associated with this mission that should be processed. This property
-        may only be set to a list that is a subset of the existing property value. Overwritten here because I want
-        to use a custom version of _check_chos_insts for Chandra.
+        may only be set to a list that is a subset of the existing property value. Overwritten here because there
+        are custom behaviours for Chandra, as it has one instrument per ObsID.
 
         :param List[str] new_insts: The new list of instruments associated with this mission which should
             be processed into the archive.
