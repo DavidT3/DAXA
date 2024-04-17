@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 12:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 14:20. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -260,6 +260,7 @@ class BaseMission(metaclass=ABCMeta):
         # These attributes are for when a 'translation layer' is required between things like energy ranges and
         #  pre-processed filenames. They will only need to be set in a mission class init when they are required
         self._template_en_trans = None
+        self._template_inst_trans = None
 
     # Defining properties first
     @property
@@ -853,7 +854,7 @@ class BaseMission(metaclass=ABCMeta):
         pass
 
     def _get_prod_path_checks(self, obs_id: str, inst: str, lo_en: Quantity = None,
-                              hi_en: Quantity = None) -> Union[str, dict]:
+                              hi_en: Quantity = None) -> Union[str, dict, str]:
         """
         Checks on inputs common to the several get methods for paths to pre-processed products downloaded with
         this mission.
@@ -862,8 +863,9 @@ class BaseMission(metaclass=ABCMeta):
         :param str inst: The instrument of the product for which a path has been requested.
         :return: The 'inst' argument, corrected to the standard expected for this mission, if necessary, and the
             relevant part of the energy bound to string identifier translation dictionary for the pre-processed
-            products of this mission.
-        :rtype: Union[str, dict]
+            products of this mission. Finally, if the instrument names in the file names are different from the
+            filenames used by the mission class, the third return is the 'correct' version for the filenames.
+        :rtype: Union[str, dict, str]
         """
         # Checking that the data are actually downloaded - what is the point in providing a path that leads to nothing?
         if not self._download_done:
@@ -950,7 +952,12 @@ class BaseMission(metaclass=ABCMeta):
                                                                                                  u=hi_en.value,
                                                                                                  eb=al_eb))
 
-        return inst, temp_en_trans
+        if self._template_inst_trans is not None and inst is not None:
+            file_inst = self._template_inst_trans[inst]
+        else:
+            file_inst = inst
+
+        return inst, temp_en_trans, file_inst
 
     # Then define user-facing methods
     def reset_filter(self):
@@ -1834,13 +1841,13 @@ class BaseMission(metaclass=ABCMeta):
             raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
                                                 "event lists, so a path cannot be provided.".format(m=self.pretty_name))
 
-        inst, en_bnd_trans = self._get_prod_path_checks(obs_id, inst)
+        inst, en_bnd_trans, file_inst = self._get_prod_path_checks(obs_id, inst)
 
         rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id, i=inst))
         if not os.path.exists(rel_pth):
             msg = "The requested {m}-{oi} event list file does not exist.".format(m=self.pretty_name, oi=obs_id) \
                 if inst is None else ("The requested {m}-{oi}-{i} event list file does not "
-                                      "exist.").format(m=self.pretty_name, oi=obs_id, i=inst)
+                                      "exist.").format(m=self.pretty_name, oi=obs_id, i=file_inst)
             raise FileNotFoundError(msg)
 
         return rel_pth
@@ -1866,7 +1873,7 @@ class BaseMission(metaclass=ABCMeta):
         hi_en = hi_en.to('keV')
 
         # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
-        inst, en_bnd_trans = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+        inst, en_bnd_trans, file_inst = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
 
         # This fishes out the relevant energy-bounds-to-identifying string translation
         bnd_ident = en_bnd_trans[lo_en][hi_en]
@@ -1875,7 +1882,7 @@ class BaseMission(metaclass=ABCMeta):
         #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
         #  need to check which is applicable to this mission and treat it accordingly
         if isinstance(self._template_img_name, str):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name.format(oi=obs_id, i=inst,
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name.format(oi=obs_id, i=file_inst,
                                                                                               eb=bnd_ident))
         # In some cases the instrument name will have to be supplied, otherwise we will not be able to
         #  create a path
@@ -1888,7 +1895,8 @@ class BaseMission(metaclass=ABCMeta):
                                                 "images for the {i} instrument, so a path cannot be "
                                                 "provided.".format(m=self.pretty_name, i=inst))
         elif isinstance(self._template_img_name, dict):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name[inst].format(oi=obs_id, i=inst,
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name[inst].format(oi=obs_id,
+                                                                                                    i=file_inst,
                                                                                                     eb=bnd_ident))
 
         # We are going to check that the file we're pointing too does actually exist
@@ -1922,7 +1930,7 @@ class BaseMission(metaclass=ABCMeta):
         hi_en = hi_en.to('keV')
 
         # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
-        inst, en_bnd_trans = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+        inst, en_bnd_trans, file_inst = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
 
         # This fishes out the relevant energy-bounds-to-identifying string translation
         bnd_ident = en_bnd_trans[lo_en][hi_en]
@@ -1931,7 +1939,7 @@ class BaseMission(metaclass=ABCMeta):
         #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
         #  need to check which is applicable to this mission and treat it accordingly
         if isinstance(self._template_exp_name, str):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_exp_name.format(oi=obs_id, i=inst,
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_exp_name.format(oi=obs_id, i=file_inst,
                                                                                               eb=bnd_ident))
         # In some cases the instrument name will have to be supplied, otherwise we will not be able to
         #  create a path
@@ -1946,7 +1954,7 @@ class BaseMission(metaclass=ABCMeta):
                                                 "provided.".format(m=self.pretty_name, i=inst))
         elif isinstance(self._template_exp_name, dict):
             rel_pth = os.path.join(self.raw_data_path, obs_id,
-                                   self._template_exp_name[inst].format(oi=obs_id, i=inst,
+                                   self._template_exp_name[inst].format(oi=obs_id, i=file_inst,
                                                                         eb=bnd_ident))
 
         # We are going to check that the file we're pointing too does actually exist
@@ -1980,7 +1988,7 @@ class BaseMission(metaclass=ABCMeta):
         hi_en = hi_en.to('keV')
 
         # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
-        inst, en_bnd_trans = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+        inst, en_bnd_trans, file_inst = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
 
         # This fishes out the relevant energy-bounds-to-identifying string translation
         bnd_ident = en_bnd_trans[lo_en][hi_en]
@@ -1989,7 +1997,7 @@ class BaseMission(metaclass=ABCMeta):
         #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
         #  need to check which is applicable to this mission and treat it accordingly
         if isinstance(self._template_bck_name, str):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_bck_name.format(oi=obs_id, i=inst,
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_bck_name.format(oi=obs_id, i=file_inst,
                                                                                               eb=bnd_ident))
         # In some cases the instrument name will have to be supplied, otherwise we will not be able to
         #  create a path
@@ -2003,7 +2011,7 @@ class BaseMission(metaclass=ABCMeta):
                                                 "provided.".format(m=self.pretty_name, i=inst))
         elif isinstance(self._template_bck_name, dict):
             rel_pth = os.path.join(self.raw_data_path, obs_id,
-                                   self._template_bck_name[inst].format(oi=obs_id, i=inst,
+                                   self._template_bck_name[inst].format(oi=obs_id, i=file_inst,
                                                                         eb=bnd_ident))
 
         # We are going to check that the file we're pointing too does actually exist

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/04/2024, 15:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 14:20. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -80,6 +80,19 @@ class NuSTARPointed(BaseMission):
         # Deliberately using the property setter, because it calls the internal _check_chos_insts function
         #  to make sure the input instruments are allowed
         self.chosen_instruments = insts
+
+        # These are the 'translations' required between energy band and filename identifier for ROSAT images/expmaps -
+        #  it is organised so that top level keys are instruments, middle keys are lower energy bounds, and the lower
+        #  level keys are upper energy bounds, then the value is the filename identifier
+        self._template_en_trans = {Quantity(3., 'keV'): {Quantity(78, 'keV'): ""}}
+        self._template_inst_trans = {'FPMA': 'A', 'FPMB': 'B'}
+
+        # We set up the ROSAT file name templates, so that the user (or other parts of DAXA) can retrieve paths
+        #  to the event lists, images, exposure maps, and background maps that can be downloaded
+        self._template_evt_name = "event_cl/nu{oi}{i}01_cl.evt"
+        self._template_img_name = "event_cl/nu{oi}{i}01_sk.img"
+        self._template_exp_name = None
+        self._template_bck_name = None
 
         # Call the name property to set up the name and pretty name attributes
         self.name
@@ -391,7 +404,7 @@ class NuSTARPointed(BaseMission):
 
                 # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
                 #  event lists, as they're more likely to be used
-                if 'evt.gz' in down_file:
+                if 'evt.gz' in down_file or 'img.gz' in down_file:
                     # Open and decompress the events file
                     with gzip.open(local_dir + down_file, 'rb') as compresso:
                         # Open a new file handler for the decompressed data, then funnel the decompressed events there
