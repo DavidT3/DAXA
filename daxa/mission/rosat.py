@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 20:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 21:31. Copyright (c) The Contributors
 
 import io
 import os
@@ -132,6 +132,9 @@ class ROSATPointed(BaseMission):
         #  to the event lists, images, exposure maps, and background maps that can be downloaded
         self._template_evt_name = "{oi}_bas.fits"
         self._template_img_name = "{oi}_im{eb}.fits"
+        self._template_exp_name = {"PSPC-B": "{oi}_mex.fits",
+                                   "PSPC-C": "{oi}_mex.fits",
+                                   "HRI": None}
 
         # We now will read in the previous state, if there is one to be read in.
         if save_file_path is not None:
