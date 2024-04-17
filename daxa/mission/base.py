@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 14:20. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 14:37. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -1843,11 +1843,11 @@ class BaseMission(metaclass=ABCMeta):
 
         inst, en_bnd_trans, file_inst = self._get_prod_path_checks(obs_id, inst)
 
-        rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id, i=inst))
+        rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id, i=file_inst))
         if not os.path.exists(rel_pth):
             msg = "The requested {m}-{oi} event list file does not exist.".format(m=self.pretty_name, oi=obs_id) \
                 if inst is None else ("The requested {m}-{oi}-{i} event list file does not "
-                                      "exist.").format(m=self.pretty_name, oi=obs_id, i=file_inst)
+                                      "exist.").format(m=self.pretty_name, oi=obs_id, i=inst)
             raise FileNotFoundError(msg)
 
         return rel_pth
