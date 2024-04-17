@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 21:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 21:42. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -844,13 +844,15 @@ class BaseMission(metaclass=ABCMeta):
         # self.all_obs_info = None
         pass
 
-    def _get_prod_path_checks(self, obs_id: str, inst: str, lo_en: Quantity = None, hi_en: Quantity = None):
+    def _get_prod_path_checks(self, obs_id: str, inst: str, lo_en: Quantity = None, hi_en: Quantity = None) -> str:
         """
         Checks on inputs common to the several get methods for paths to pre-processed products downloaded with
         this mission.
 
         :param str obs_id: The ObsID of the product for which a path has been requested.
         :param str inst: The instrument of the product for which a path has been requested.
+        :return: The 'inst' argument, corrected to the standard expected for this mission, if necessary.
+        :rtype: str
         """
         # Checking that the data are actually downloaded - what is the point in providing a path that leads to nothing?
         if not self._download_done:
@@ -873,10 +875,10 @@ class BaseMission(metaclass=ABCMeta):
             raise ValueError("The supplied ObsID ({oi}) is not a part of this mission's filtered "
                              "dataset.".format(oi=obs_id))
 
-        # Also check the supplied instrument (assuming there is one)
-        if inst is not None and inst not in self.chosen_instruments:
-            raise ValueError("The supplied instrument ({i}) is not one of the chose instruments associated with this "
-                             "mission ({ci}).".format(i=inst, ci=", ".join(self.chosen_instruments)))
+        # Also check the supplied instrument (assuming there is one) - this should correct the instrument name to
+        #  the standard we expect, or throw an error if it is completely wrong
+        if inst is not None:
+            inst = self.check_inst_names(inst)[0]
 
         if self._template_en_trans is None:
             raise NotImplementedError("The template for translating energy to filename is not implemented for "
@@ -904,6 +906,8 @@ class BaseMission(metaclass=ABCMeta):
                                                                                                  l=lo_en.value,
                                                                                                  u=hi_en.value,
                                                                                                  eb=al_eb))
+
+        return inst
 
     # Then define user-facing methods
     def reset_filter(self):
@@ -1787,7 +1791,7 @@ class BaseMission(metaclass=ABCMeta):
             raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
                                                 "event lists, so a path cannot be provided.".format(m=self.pretty_name))
 
-        self._get_prod_path_checks(obs_id, inst)
+        inst = self._get_prod_path_checks(obs_id, inst)
 
         rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id, i=inst))
         if not os.path.exists(rel_pth):
@@ -1819,7 +1823,7 @@ class BaseMission(metaclass=ABCMeta):
         hi_en = hi_en.to('keV')
 
         # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
-        self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+        inst = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
 
         # This fishes out the relevant energy-bounds-to-identifying string translation
         bnd_ident = self._template_en_trans[lo_en][hi_en]
@@ -1835,6 +1839,11 @@ class BaseMission(metaclass=ABCMeta):
         elif isinstance(self._template_img_name, dict) and inst is None:
             raise ValueError("The 'inst' argument cannot be None for this mission, as the different instruments have "
                              "differently formatted pre-processed file names.")
+        # It is possible for only some instruments of a mission to have images, so we check
+        elif isinstance(self._template_exp_name, dict) and self._template_exp_name[inst] is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "images for the {i} instrument, so a path cannot be "
+                                                "provided.".format(m=self.pretty_name, i=inst))
         elif isinstance(self._template_img_name, dict):
             rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name[inst].format(oi=obs_id, i=inst,
                                                                                                     eb=bnd_ident))
@@ -1870,7 +1879,7 @@ class BaseMission(metaclass=ABCMeta):
         hi_en = hi_en.to('keV')
 
         # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
-        self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+        inst = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
 
         # This fishes out the relevant energy-bounds-to-identifying string translation
         bnd_ident = self._template_en_trans[lo_en][hi_en]
@@ -1887,6 +1896,11 @@ class BaseMission(metaclass=ABCMeta):
             raise ValueError(
                 "The 'inst' argument cannot be None for this mission, as the different instruments have "
                 "differently formatted pre-processed file names.")
+        # It is possible for only some instruments of a mission to have exposure maps, so we check
+        elif isinstance(self._template_exp_name, dict) and self._template_exp_name[inst] is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "exposure maps for the {i} instrument, so a path cannot be "
+                                                "provided.".format(m=self.pretty_name, i=inst))
         elif isinstance(self._template_exp_name, dict):
             rel_pth = os.path.join(self.raw_data_path, obs_id,
                                    self._template_exp_name[inst].format(oi=obs_id, i=inst,
@@ -1923,7 +1937,7 @@ class BaseMission(metaclass=ABCMeta):
         hi_en = hi_en.to('keV')
 
         # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
-        self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+        inst = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
 
         # This fishes out the relevant energy-bounds-to-identifying string translation
         bnd_ident = self._template_en_trans[lo_en][hi_en]
@@ -1937,9 +1951,13 @@ class BaseMission(metaclass=ABCMeta):
         # In some cases the instrument name will have to be supplied, otherwise we will not be able to
         #  create a path
         elif isinstance(self._template_bck_name, dict) and inst is None:
-            raise ValueError(
-                "The 'inst' argument cannot be None for this mission, as the different instruments have "
-                "differently formatted pre-processed file names.")
+            raise ValueError("The 'inst' argument cannot be None for this mission, as the different instruments have "
+                             "differently formatted pre-processed file names.")
+        # It is possible for only some instruments of a mission to have background maps, so we check
+        elif isinstance(self._template_exp_name, dict) and self._template_exp_name[inst] is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "background maps for the {i} instrument, so a path cannot be "
+                                                "provided.".format(m=self.pretty_name, i=inst))
         elif isinstance(self._template_bck_name, dict):
             rel_pth = os.path.join(self.raw_data_path, obs_id,
                                    self._template_bck_name[inst].format(oi=obs_id, i=inst,
