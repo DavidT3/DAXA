@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 19:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 20:24. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -844,7 +844,7 @@ class BaseMission(metaclass=ABCMeta):
         # self.all_obs_info = None
         pass
 
-    def _get_prod_path_checks(self, obs_id: str, inst: str):
+    def _get_prod_path_checks(self, obs_id: str, inst: str, lo_en: Quantity = None, hi_en: Quantity = None):
         """
         Checks on inputs common to the several get methods for paths to pre-processed products downloaded with
         this mission.
@@ -877,6 +877,33 @@ class BaseMission(metaclass=ABCMeta):
         if inst is not None and inst not in self.chosen_instruments:
             raise ValueError("The supplied instrument ({i}) is not one of the chose instruments associated with this "
                              "mission ({ci}).".format(i=inst, ci=", ".join(self.chosen_instruments)))
+
+        if self._template_en_trans is None:
+            raise NotImplementedError("The template for translating energy to filename is not implemented for "
+                                      "{}.".format(self.pretty_name))
+
+        # The energy translation attribute is in the form of a nested dictionary where the top level keys are lower
+        #  energy bounds, and the lower level keys are upper energy bounds
+        if lo_en is not None and lo_en not in self._template_en_trans:
+            # Joining the available energy bands into a string for the energy message
+            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value)
+                       for eb_ind, eb in enumerate(self.preprocessed_energy_bands)]
+            al_eb = ", ".join(eb_strs) + "keV"
+            raise PreProcessedNotAvailableError("The {m} archive does not provide products with {l}keV as the lower "
+                                                "energy bound; only {eb} are available.".format(m=self.pretty_name,
+                                                                                                l=lo_en.value,
+                                                                                                eb=al_eb))
+        # Now we check the passed hi_en value
+        elif hi_en is not None and hi_en not in self._template_en_trans[lo_en]:
+            # Joining the available energy bands into a string for the energy message
+            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value)
+                       for eb_ind, eb in enumerate(self.preprocessed_energy_bands)]
+            al_eb = ", ".join(eb_strs) + "keV"
+            raise PreProcessedNotAvailableError("The {m} archive does not provide products with {l}-{u}keV "
+                                                "energy bounds; only {eb} are available.".format(m=self.pretty_name,
+                                                                                                 l=lo_en.value,
+                                                                                                 u=hi_en.value,
+                                                                                                 eb=al_eb))
 
     # Then define user-facing methods
     def reset_filter(self):
@@ -1762,26 +1789,50 @@ class BaseMission(metaclass=ABCMeta):
 
         self._get_prod_path_checks(obs_id, inst)
 
-        return os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id, i=inst))
+        rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id, i=inst))
+        if not os.path.exists(rel_pth):
+            msg = "The requested {m}-{oi} event list file does not exist.".format(m=self.pretty_name, oi=obs_id) \
+                if inst is None else ("The requested {m}-{oi}-{i} event list file does not "
+                                      "exist.").format(m=self.pretty_name, oi=obs_id, i=inst)
+            raise FileNotFoundError(msg)
 
-    def get_image_path(self, obs_id: str, inst: str = None, lo_en: Quantity = None, hi_en: Quantity = None):
+        return rel_pth
+
+    def get_image_path(self, obs_id: str, lo_en: Quantity, hi_en: Quantity, inst: str = None) -> str:
+        """
+        A get method that provides the path to a downloaded pre-generated image for the current mission (if
+        available). This method will not work if pre-processed data have not been downloaded.
+
+        :param str obs_id: The ObsID of the image.
+        :param Quantity lo_en: The lower energy bound of the image.
+        :param Quantity hi_en: The upper energy bound of the image.
+        :param str inst: The instrument of the image (if applicable).
+        :return: The requested image file path.
+        :rtype: str
+        """
         if self._template_img_name is None:
             raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
                                                 "images, so a path cannot be provided.".format(m=self.pretty_name))
 
-        self._get_prod_path_checks(obs_id, inst)
+        # We make sure that the provided energy bounds are in keV
+        lo_en = lo_en.to('keV')
+        hi_en = hi_en.to('keV')
 
-        if self._template_en_trans is None:
-            raise NotImplementedError("The template for translating energy to filename is not implemented for "
-                                      "{}.".format(self.pretty_name))
+        # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
+        self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
 
-        # The energy translation attribute is in the form of a nested dictionary where the top level keys are lower
-        #  energy bounds, and the lower level keys are upper energy bounds
-        if lo_en not in self._template_en_trans:
-            # al_en_bands = self.preprocessed_energy_bands
-            print(self.preprocessed_energy_bands)
-            raise PreProcessedNotAvailableError("The {m} archive does not provide images with {l} as the lower energy "
-                                                "bound; ")
+        # This fishes out the relevant energy-bounds-to-identifying string translation
+        bnd_ident = self._template_en_trans[lo_en][hi_en]
+
+        rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name.format(oi=obs_id, i=inst,
+                                                                                          eb=bnd_ident))
+        if not os.path.exists(rel_pth):
+            msg = "The requested {m}-{oi} image file does not exist.".format(m=self.pretty_name, oi=obs_id) \
+                if inst is None else ("The requested {m}-{oi}-{i} image file does not "
+                                      "exist.").format(m=self.pretty_name, oi=obs_id, i=inst)
+            raise FileNotFoundError(msg)
+
+        return rel_pth
 
     def get_expmap_path(self, obs_id: str, inst: str = None, lo_en: Quantity = None, hi_en: Quantity = None):
         if self._template_exp_name is None:
