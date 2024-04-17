@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 09:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 10:23. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -852,15 +852,18 @@ class BaseMission(metaclass=ABCMeta):
         # self.all_obs_info = None
         pass
 
-    def _get_prod_path_checks(self, obs_id: str, inst: str, lo_en: Quantity = None, hi_en: Quantity = None) -> str:
+    def _get_prod_path_checks(self, obs_id: str, inst: str, lo_en: Quantity = None,
+                              hi_en: Quantity = None) -> Union[str, dict]:
         """
         Checks on inputs common to the several get methods for paths to pre-processed products downloaded with
         this mission.
 
         :param str obs_id: The ObsID of the product for which a path has been requested.
         :param str inst: The instrument of the product for which a path has been requested.
-        :return: The 'inst' argument, corrected to the standard expected for this mission, if necessary.
-        :rtype: str
+        :return: The 'inst' argument, corrected to the standard expected for this mission, if necessary, and the
+            relevant part of the energy bound to string identifier translation dictionary for the pre-processed
+            products of this mission.
+        :rtype: Union[str, dict]
         """
         # Checking that the data are actually downloaded - what is the point in providing a path that leads to nothing?
         if not self._download_done:
@@ -888,26 +891,50 @@ class BaseMission(metaclass=ABCMeta):
         if inst is not None:
             inst = self.check_inst_names(inst)[0]
 
+        # Some missions will have one instrument per ObsID - in these cases we don't NEED the instrument argument
+        #  to be passed, as we can get that info ourselves
+        if inst is None and 'instrument' in self.filtered_obs_info.columns:
+            inst = self.all_obs_info[self.all_obs_info['ObsID'] == obs_id].iloc[0]['instrument']
+        elif (inst is not None and 'instrument' in self.filtered_obs_info.columns and
+              self.all_obs_info[self.all_obs_info['ObsID'] == obs_id].iloc[0]['instrument'] != inst):
+            corr_inst = self.all_obs_info[self.all_obs_info['ObsID'] == obs_id].iloc[0]['instrument']
+            warn("Your passed instrument ({i}) does not match the instrument that was used for observation {oi} of "
+                 "{m}, and has been replaced with the correct instrument name "
+                 "({ci}).".format(oi=obs_id, m=self.pretty_name, i=inst, ci=corr_inst), stacklevel=2)
+            inst = corr_inst
+
         if self._template_en_trans is None:
             raise NotImplementedError("The template for translating energy to filename is not implemented for "
                                       "{}.".format(self.pretty_name))
+        # In this case this dictionary is in the "instrument names as top level keys" configuration - so we need an
+        #  instrument name in order to do the job
+        elif not isinstance(list(self._template_en_trans.keys())[0], Quantity):
+            if inst is None:
+                raise ValueError("The {m} mission provides pre-processed products with different energy bounds "
+                                 "depending on instrument; as such, an instrument name must be "
+                                 "passed.".format(m=self.pretty_name))
+            else:
+                temp_en_trans = self._template_en_trans[inst]
+        # In this case all instruments have the same energy bounds
+        elif isinstance(list(self._template_en_trans.keys())[0], Quantity):
+            temp_en_trans = self._template_en_trans
 
         # The energy translation attribute is in the form of a nested dictionary where the top level keys are lower
         #  energy bounds, and the lower level keys are upper energy bounds
-        if lo_en is not None and lo_en not in self._template_en_trans:
+        if lo_en is not None and lo_en not in temp_en_trans:
+            rel_bands = self.preprocessed_energy_bands if inst is None else self.preprocessed_energy_bands[inst]
             # Joining the available energy bands into a string for the energy message
-            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value)
-                       for eb_ind, eb in enumerate(self.preprocessed_energy_bands)]
+            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
             al_eb = ", ".join(eb_strs) + "keV"
             raise PreProcessedNotAvailableError("The {m} archive does not provide products with {l}keV as the lower "
                                                 "energy bound; only {eb} are available.".format(m=self.pretty_name,
                                                                                                 l=lo_en.value,
                                                                                                 eb=al_eb))
         # Now we check the passed hi_en value
-        elif hi_en is not None and hi_en not in self._template_en_trans[lo_en]:
+        elif hi_en is not None and hi_en not in temp_en_trans[lo_en]:
+            rel_bands = self.preprocessed_energy_bands if inst is None else self.preprocessed_energy_bands[inst]
             # Joining the available energy bands into a string for the energy message
-            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value)
-                       for eb_ind, eb in enumerate(self.preprocessed_energy_bands)]
+            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
             al_eb = ", ".join(eb_strs) + "keV"
             raise PreProcessedNotAvailableError("The {m} archive does not provide products with {l}-{u}keV "
                                                 "energy bounds; only {eb} are available.".format(m=self.pretty_name,
@@ -915,7 +942,7 @@ class BaseMission(metaclass=ABCMeta):
                                                                                                  u=hi_en.value,
                                                                                                  eb=al_eb))
 
-        return inst
+        return inst, temp_en_trans
 
     # Then define user-facing methods
     def reset_filter(self):
@@ -1799,7 +1826,7 @@ class BaseMission(metaclass=ABCMeta):
             raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
                                                 "event lists, so a path cannot be provided.".format(m=self.pretty_name))
 
-        inst = self._get_prod_path_checks(obs_id, inst)
+        inst, en_bnd_trans = self._get_prod_path_checks(obs_id, inst)
 
         rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id, i=inst))
         if not os.path.exists(rel_pth):
@@ -1831,10 +1858,10 @@ class BaseMission(metaclass=ABCMeta):
         hi_en = hi_en.to('keV')
 
         # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
-        inst = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+        inst, en_bnd_trans = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
 
         # This fishes out the relevant energy-bounds-to-identifying string translation
-        bnd_ident = self._template_en_trans[lo_en][hi_en]
+        bnd_ident = en_bnd_trans[lo_en][hi_en]
 
         # The image template path can take two forms, one is a straight string and can just be filled in, but the
         #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
@@ -1887,10 +1914,10 @@ class BaseMission(metaclass=ABCMeta):
         hi_en = hi_en.to('keV')
 
         # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
-        inst = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+        inst, en_bnd_trans = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
 
         # This fishes out the relevant energy-bounds-to-identifying string translation
-        bnd_ident = self._template_en_trans[lo_en][hi_en]
+        bnd_ident = en_bnd_trans[lo_en][hi_en]
 
         # The image template path can take two forms, one is a straight string and can just be filled in, but the
         #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
@@ -1945,10 +1972,10 @@ class BaseMission(metaclass=ABCMeta):
         hi_en = hi_en.to('keV')
 
         # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
-        inst = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+        inst, en_bnd_trans = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
 
         # This fishes out the relevant energy-bounds-to-identifying string translation
-        bnd_ident = self._template_en_trans[lo_en][hi_en]
+        bnd_ident = en_bnd_trans[lo_en][hi_en]
 
         # The image template path can take two forms, one is a straight string and can just be filled in, but the
         #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
