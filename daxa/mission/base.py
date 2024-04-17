@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 22:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 09:50. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -708,13 +708,14 @@ class BaseMission(metaclass=ABCMeta):
         self._processed = new_val
 
     @property
-    def preprocessed_energy_bands(self) -> Quantity:
+    def preprocessed_energy_bands(self) -> dict:
         """
         Property getter for a non-scalar astropy Quantity containing the energy bands of the pre-processed products
-        supplied by this mission. The return will be in the form of pairs of energies, in keV.
+        supplied by this mission. The return will be in the form of a dictionary with instrument names as keys and an
+        array of pairs of energies, in keV, as values.
 
-        :return: A non-scalar astropy Quantity, with the first column being lower energy bounds and the second column
-            being upper energy bounds.
+        :return: A dictionary with mission instrument names as keys, and non-scalar astropy Quantities as values, with
+            the first column being lower energy bounds and the second column being upper energy bounds.
         :rtype: Quantity
         """
         # If this attribute is not set then we're going to assume that the archive doesn't provide any products
@@ -723,12 +724,19 @@ class BaseMission(metaclass=ABCMeta):
             raise PreProcessedNotSupportedError("This mission's archive does not supply pre-processed products within "
                                                 "specific energy bands.")
 
-        # The attribute is organized as a nested dictionary, with top level keys being lower energy bounds, and the
-        #  low level keys being upper energy bounds
-        en_bnds = Quantity([Quantity([l_en, h_en]) for l_en, u_en_dict in self._template_en_trans.items()
-                            for h_en in u_en_dict])
+        # The attribute is organized as a nested dictionary - with two possible configurations, one with instrument
+        #  names as top level keys, then lower level keys being lower energy bounds, and the
+        #  lowest level keys being upper energy bounds - the other configuration is the same, but doesn't have top
+        #  level instrument keys (these then apply to all instruments of a mission).
+        if isinstance(list(self._template_en_trans.keys())[0], Quantity):
+            en_bnds = Quantity([Quantity([l_en, h_en]) for l_en, u_en_dict in self._template_en_trans.items()
+                                for h_en in u_en_dict])
+            ret_bnds = {i: en_bnds for i in self.chosen_instruments}
+        else:
+            ret_bnds = {i: Quantity([Quantity([l_en, h_en]) for l_en, u_en_dict in self._template_en_trans[i].items()
+                                     for h_en in u_en_dict]) for i in self.chosen_instruments}
 
-        return en_bnds
+        return ret_bnds
 
     # Then define internal methods
     def _load_state(self, save_file_path: str):
