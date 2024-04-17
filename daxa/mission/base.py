@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 20:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 20:29. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -1824,8 +1824,22 @@ class BaseMission(metaclass=ABCMeta):
         # This fishes out the relevant energy-bounds-to-identifying string translation
         bnd_ident = self._template_en_trans[lo_en][hi_en]
 
-        rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name.format(oi=obs_id, i=inst,
-                                                                                          eb=bnd_ident))
+        # The image template path can take two forms, one is a straight string and can just be filled in, but the
+        #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
+        #  need to check which is applicable to this mission and treat it accordingly
+        if isinstance(self._template_img_name, str):
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name.format(oi=obs_id, i=inst,
+                                                                                              eb=bnd_ident))
+        # In some cases the instrument name will have to be supplied, otherwise we will not be able to
+        #  create a path
+        elif isinstance(self._template_img_name, dict) and inst is None:
+            raise ValueError("The 'inst' argument cannot be None for this mission, as the different instruments have "
+                             "differently formatted pre-processed file names.")
+        elif isinstance(self._template_img_name, dict):
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name[inst].format(oi=obs_id, i=inst,
+                                                                                                    eb=bnd_ident))
+
+        # We are going to check that the file we're pointing too does actually exist
         if not os.path.exists(rel_pth):
             msg = "The requested {m}-{oi} image file does not exist.".format(m=self.pretty_name, oi=obs_id) \
                 if inst is None else ("The requested {m}-{oi}-{i} image file does not "
