@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 14:47. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 14:50. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -909,7 +909,8 @@ class BaseMission(metaclass=ABCMeta):
             inst = self._chos_insts[0]
         elif inst is None and len(self._chos_insts) > 1:
             raise ValueError("The {m} mission has multiple instruments that can observe simultaneously, one must be "
-                             "selected for this path to be generated.".format(m=self.pretty_name))
+                             "selected for this path to be generated; the options are "
+                             "{ai}".format(m=self.pretty_name, ai=", ".join(self.chosen_instruments)))
 
         if self._template_en_trans is None:
             raise NotImplementedError("The template for translating energy to filename is not implemented for "
