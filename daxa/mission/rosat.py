@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 22:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 22:17. Copyright (c) The Contributors
 
 import io
 import os
@@ -538,6 +538,12 @@ class ROSATPointed(BaseMission):
         #  the _download_call method
         if all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in self.filtered_obs_ids]):
             self._download_done = True
+
+        # We store the type of data that was downloaded
+        if download_products:
+            self._download_type = "raw+preprocessed"
+        else:
+            self._download_type = "raw"
 
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
