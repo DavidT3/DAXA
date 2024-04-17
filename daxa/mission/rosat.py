@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 12:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 12:22. Copyright (c) The Contributors
 
 import io
 import os
@@ -122,8 +122,8 @@ class ROSATPointed(BaseMission):
         self.chosen_instruments = insts
 
         # These are the 'translations' required between energy band and filename identifier for ROSAT images/expmaps -
-        #  it is organised so that top level keys are lower energy bounds, and the lower level keys are upper energy
-        #  bounds, then the value is the filename identifier
+        #  it is organised so that top level keys are instruments, middle keys are lower energy bounds, and the lower
+        #  level keys are upper energy bounds, then the value is the filename identifier
         self._template_en_trans = {'PSPCB': {Quantity(0.07, 'keV'): {Quantity(2.4, 'keV'): "1",
                                                                      Quantity(0.4, 'keV'): "3"},
                                              Quantity(0.4, 'keV'): {Quantity(2.4, 'keV'): "2"}},
@@ -675,6 +675,20 @@ class ROSATAllSky(BaseMission):
         # Setting the chosen instruments property, still using the BaseMission infrastructure even though we know
         #  there will only ever be the PSPC instrument for this mission
         self.chosen_instruments = insts
+
+        # These are the 'translations' required between energy band and filename identifier for ROSAT images/expmaps -
+        #  it is organised so that top level keys are instruments, middle keys are lower energy bounds, and the lower
+        #  level keys are upper energy bounds, then the value is the filename identifier
+        self._template_en_trans = {Quantity(0.07, 'keV'): {Quantity(2.4, 'keV'): "1",
+                                                           Quantity(0.4, 'keV'): "3"},
+                                   Quantity(0.4, 'keV'): {Quantity(2.4, 'keV'): "2"}}
+
+        # We set up the ROSAT file name templates, so that the user (or other parts of DAXA) can retrieve paths
+        #  to the event lists, images, exposure maps, and background maps that can be downloaded
+        self._template_evt_name = "{oi}_bas.fits"
+        self._template_img_name = "{oi}_im{eb}.fits"
+        self._template_exp_name = "{oi}_mex.fits"
+        self._template_bck_name = "{oi}_bk{eb}.fits"
 
         # Call the name property to set up the name and pretty name attributes
         self.name
