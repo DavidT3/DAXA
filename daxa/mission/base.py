@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 21:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 22:12. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -862,7 +862,7 @@ class BaseMission(metaclass=ABCMeta):
         # The path get methods are for the pre-processed event lists and products which we support downloading for
         #  many of the missions - if the data type that was requested to be downloaded is not one of these, then
         #  those pre-processed data have not been downloaded.
-        if not self.downloaded_type not in ['raw+preprocessed', 'preprocessed']:
+        if self.downloaded_type not in ['raw+preprocessed', 'preprocessed']:
             raise DAXANotDownloadedError("The downloaded data are not preprocessed, thus the requested path "
                                          "cannot be provided.")
 
@@ -1927,7 +1927,7 @@ class BaseMission(metaclass=ABCMeta):
         :return: The requested background map file path.
         :rtype: str
         """
-        if self._template_exp_name is None:
+        if self._template_bck_name is None:
             raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
                                                 "background maps, so a path cannot be "
                                                 "provided.".format(m=self.pretty_name))
