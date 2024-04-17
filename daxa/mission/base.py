@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 20:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 21:29. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -1848,23 +1848,111 @@ class BaseMission(metaclass=ABCMeta):
 
         return rel_pth
 
-    def get_expmap_path(self, obs_id: str, inst: str = None, lo_en: Quantity = None, hi_en: Quantity = None):
+    def get_expmap_path(self, obs_id: str, lo_en: Quantity, hi_en: Quantity, inst: str = None) -> str:
+        """
+        A get method that provides the path to a downloaded pre-generated exposure map for the current mission (if
+        available). This method will not work if pre-processed data have not been downloaded.
+
+        :param str obs_id: The ObsID of the exposure map.
+        :param Quantity lo_en: The lower energy bound of the exposure map.
+        :param Quantity hi_en: The upper energy bound of the exposure map.
+        :param str inst: The instrument of the exposure map (if applicable).
+        :return: The requested exposure map file path.
+        :rtype: str
+        """
         if self._template_exp_name is None:
             raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
                                                 "exposure maps, so a path cannot be "
                                                 "provided.".format(m=self.pretty_name))
 
-        self._get_prod_path_checks(obs_id, inst)
-        pass
+        # We make sure that the provided energy bounds are in keV
+        lo_en = lo_en.to('keV')
+        hi_en = hi_en.to('keV')
 
-    def get_background_path(self, obs_id: str, inst: str = None, lo_en: Quantity = None, hi_en: Quantity = None):
-        if self._template_bck_name is None:
+        # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
+        self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+
+        # This fishes out the relevant energy-bounds-to-identifying string translation
+        bnd_ident = self._template_en_trans[lo_en][hi_en]
+
+        # The image template path can take two forms, one is a straight string and can just be filled in, but the
+        #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
+        #  need to check which is applicable to this mission and treat it accordingly
+        if isinstance(self._template_exp_name, str):
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_exp_name.format(oi=obs_id, i=inst,
+                                                                                              eb=bnd_ident))
+        # In some cases the instrument name will have to be supplied, otherwise we will not be able to
+        #  create a path
+        elif isinstance(self._template_exp_name, dict) and inst is None:
+            raise ValueError(
+                "The 'inst' argument cannot be None for this mission, as the different instruments have "
+                "differently formatted pre-processed file names.")
+        elif isinstance(self._template_exp_name, dict):
+            rel_pth = os.path.join(self.raw_data_path, obs_id,
+                                   self._template_exp_name[inst].format(oi=obs_id, i=inst,
+                                                                        eb=bnd_ident))
+
+        # We are going to check that the file we're pointing too does actually exist
+        if not os.path.exists(rel_pth):
+            msg = "The requested {m}-{oi} exposure map file does not exist.".format(m=self.pretty_name, oi=obs_id) \
+                if inst is None else ("The requested {m}-{oi}-{i} exposure map file does not "
+                                      "exist.").format(m=self.pretty_name, oi=obs_id, i=inst)
+            raise FileNotFoundError(msg)
+
+        return rel_pth
+
+    def get_background_path(self, obs_id: str, lo_en: Quantity, hi_en: Quantity, inst: str = None) -> str:
+        """
+        A get method that provides the path to a downloaded pre-generated background map for the current mission (if
+        available). This method will not work if pre-processed data have not been downloaded.
+
+        :param str obs_id: The ObsID of the background map.
+        :param Quantity lo_en: The lower energy bound of the background map.
+        :param Quantity hi_en: The upper energy bound of the background map.
+        :param str inst: The instrument of the background map (if applicable).
+        :return: The requested background map file path.
+        :rtype: str
+        """
+        if self._template_exp_name is None:
             raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
-                                                "backgrounds, so a path cannot be "
+                                                "background maps, so a path cannot be "
                                                 "provided.".format(m=self.pretty_name))
 
-        self._get_prod_path_checks(obs_id, inst)
-        pass
+        # We make sure that the provided energy bounds are in keV
+        lo_en = lo_en.to('keV')
+        hi_en = hi_en.to('keV')
+
+        # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
+        self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+
+        # This fishes out the relevant energy-bounds-to-identifying string translation
+        bnd_ident = self._template_en_trans[lo_en][hi_en]
+
+        # The image template path can take two forms, one is a straight string and can just be filled in, but the
+        #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
+        #  need to check which is applicable to this mission and treat it accordingly
+        if isinstance(self._template_bck_name, str):
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_bck_name.format(oi=obs_id, i=inst,
+                                                                                              eb=bnd_ident))
+        # In some cases the instrument name will have to be supplied, otherwise we will not be able to
+        #  create a path
+        elif isinstance(self._template_bck_name, dict) and inst is None:
+            raise ValueError(
+                "The 'inst' argument cannot be None for this mission, as the different instruments have "
+                "differently formatted pre-processed file names.")
+        elif isinstance(self._template_bck_name, dict):
+            rel_pth = os.path.join(self.raw_data_path, obs_id,
+                                   self._template_bck_name[inst].format(oi=obs_id, i=inst,
+                                                                        eb=bnd_ident))
+
+        # We are going to check that the file we're pointing too does actually exist
+        if not os.path.exists(rel_pth):
+            msg = "The requested {m}-{oi} background map file does not exist.".format(m=self.pretty_name, oi=obs_id) \
+                if inst is None else ("The requested {m}-{oi}-{i} background map file does not "
+                                      "exist.").format(m=self.pretty_name, oi=obs_id, i=inst)
+            raise FileNotFoundError(msg)
+
+        return rel_pth
 
     def delete_raw_data(self, force_del: bool = False, all_raw_data: bool = False):
         """
