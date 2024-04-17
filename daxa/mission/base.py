@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 10:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 12:34. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -922,7 +922,11 @@ class BaseMission(metaclass=ABCMeta):
         # The energy translation attribute is in the form of a nested dictionary where the top level keys are lower
         #  energy bounds, and the lower level keys are upper energy bounds
         if lo_en is not None and lo_en not in temp_en_trans:
-            rel_bands = self.preprocessed_energy_bands if inst is None else self.preprocessed_energy_bands[inst]
+            # If we've gotten this far with instrument being None, then there will only be one set of energy bands
+            #  for this mission, regardless of instrument - thus we can just take the entry from
+            #  preprocessed_energy_bands
+            rel_bands = list(self.preprocessed_energy_bands.values())[0] if inst is None \
+                else self.preprocessed_energy_bands[inst]
             # Joining the available energy bands into a string for the energy message
             eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
             al_eb = ", ".join(eb_strs) + "keV"
@@ -932,7 +936,11 @@ class BaseMission(metaclass=ABCMeta):
                                                                                                 eb=al_eb))
         # Now we check the passed hi_en value
         elif hi_en is not None and hi_en not in temp_en_trans[lo_en]:
-            rel_bands = self.preprocessed_energy_bands if inst is None else self.preprocessed_energy_bands[inst]
+            # If we've gotten this far with instrument being None, then there will only be one set of energy bands
+            #  for this mission, regardless of instrument - thus we can just take the entry from
+            #  preprocessed_energy_bands
+            rel_bands = list(self.preprocessed_energy_bands.values())[0] if inst is None \
+                else self.preprocessed_energy_bands[inst]
             # Joining the available energy bands into a string for the energy message
             eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
             al_eb = ", ".join(eb_strs) + "keV"
