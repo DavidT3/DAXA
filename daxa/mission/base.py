@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 14:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 17:34. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -855,7 +855,7 @@ class BaseMission(metaclass=ABCMeta):
         pass
 
     def _get_prod_path_checks(self, obs_id: str, inst: str, lo_en: Quantity = None,
-                              hi_en: Quantity = None) -> Union[str, dict, str]:
+                              hi_en: Quantity = None) -> Union[str, dict, str, Quantity, Quantity]:
         """
         Checks on inputs common to the several get methods for paths to pre-processed products downloaded with
         this mission.
@@ -864,9 +864,11 @@ class BaseMission(metaclass=ABCMeta):
         :param str inst: The instrument of the product for which a path has been requested.
         :return: The 'inst' argument, corrected to the standard expected for this mission, if necessary, and the
             relevant part of the energy bound to string identifier translation dictionary for the pre-processed
-            products of this mission. Finally, if the instrument names in the file names are different from the
-            filenames used by the mission class, the third return is the 'correct' version for the filenames.
-        :rtype: Union[str, dict, str]
+            products of this mission. Also, if the instrument names in the file names are different from the
+            filenames used by the mission class, the third return is the 'correct' version for the filenames. The
+            checked low and high energy bounds are also returned, as if None values were passed but only one band
+            is available for the chose instrument it will be filled in.
+        :rtype: Union[str, dict, str, Quantity, Quantity]
         """
         # Checking that the data are actually downloaded - what is the point in providing a path that leads to nothing?
         if not self._download_done:
@@ -944,8 +946,13 @@ class BaseMission(metaclass=ABCMeta):
                                                 "energy bound for {i}; only {eb} are "
                                                 "available.".format(m=self.pretty_name, l=lo_en.value, eb=al_eb,
                                                                     i=inst))
+        # In this case we need a low energy, and one was not passed, but the selected instrument only has one available
+        #  band for the pre-processed products, so we will just fill it in
+        elif lo_en is None and len(self.preprocessed_energy_bands) == 1:
+            lo_en = self.preprocessed_energy_bands[inst][0]
+
         # Now we check the passed hi_en value
-        elif hi_en is not None and hi_en not in temp_en_trans[lo_en]:
+        if hi_en is not None and hi_en not in temp_en_trans[lo_en]:
             # If we've gotten this far with instrument being None, then there will only be one set of energy bands
             #  for this mission, regardless of instrument - thus we can just take the entry from
             #  preprocessed_energy_bands
@@ -958,13 +965,15 @@ class BaseMission(metaclass=ABCMeta):
                                                 "energy bounds for {i}; only {eb} are "
                                                 "available.".format(m=self.pretty_name, l=lo_en.value, u=hi_en.value,
                                                                     eb=al_eb, i=inst))
+        elif hi_en is None and len(self.preprocessed_energy_bands) == 1:
+            hi_en = self.preprocessed_energy_bands[inst][1]
 
         if self._template_inst_trans is not None and inst is not None:
             file_inst = self._template_inst_trans[inst]
         else:
             file_inst = inst
 
-        return inst, temp_en_trans, file_inst
+        return inst, temp_en_trans, file_inst, lo_en, hi_en
 
     def _get_prod_path_post_checks(self, rel_pth: str, obs_id: str, inst: str, req_type: str) -> str:
         """
@@ -1890,7 +1899,7 @@ class BaseMission(metaclass=ABCMeta):
             raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
                                                 "event lists, so a path cannot be provided.".format(m=self.pretty_name))
 
-        inst, en_bnd_trans, file_inst = self._get_prod_path_checks(obs_id, inst)
+        inst, en_bnd_trans, file_inst, lo_en, hi_en = self._get_prod_path_checks(obs_id, inst)
 
         # The template path can take two forms, one is a straight string and can just be filled in, but the
         #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
@@ -1905,7 +1914,7 @@ class BaseMission(metaclass=ABCMeta):
         # It is possible for only some instruments of a mission to have images, so we check
         elif isinstance(self._template_evt_name, dict) and self._template_evt_name[inst] is None:
             raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
-                                                "images for the {i} instrument, so a path cannot be "
+                                                "event lists for the {i} instrument, so a path cannot be "
                                                 "provided.".format(m=self.pretty_name, i=inst))
         elif isinstance(self._template_evt_name, dict):
             rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name[inst].format(oi=obs_id,
@@ -1916,7 +1925,7 @@ class BaseMission(metaclass=ABCMeta):
 
         return rel_pth
 
-    def get_image_path(self, obs_id: str, lo_en: Quantity, hi_en: Quantity, inst: str = None) -> str:
+    def get_image_path(self, obs_id: str, lo_en: Quantity = None, hi_en: Quantity = None, inst: str = None) -> str:
         """
         A get method that provides the path to a downloaded pre-generated image for the current mission (if
         available). This method will not work if pre-processed data have not been downloaded.
@@ -1932,12 +1941,24 @@ class BaseMission(metaclass=ABCMeta):
             raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
                                                 "images, so a path cannot be provided.".format(m=self.pretty_name))
 
-        # We make sure that the provided energy bounds are in keV
-        lo_en = lo_en.to('keV')
-        hi_en = hi_en.to('keV')
+        if lo_en is not None:
+            # We make sure that the provided energy bounds are in keV
+            lo_en = lo_en.to('keV')
+            hi_en = hi_en.to('keV')
 
         # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
-        inst, en_bnd_trans, file_inst = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+        inst, en_bnd_trans, file_inst, lo_en, hi_en = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+
+        # If this quantity is still None by now, it means that the chosen instrument has multiple energy bands
+        #  available and the pre-processing method could not fill in the energy range
+        if lo_en is None:
+            rel_bands = self.preprocessed_energy_bands[inst]
+            # Joining the available energy bands into a string for the energy message
+            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
+            al_eb = ", ".join(eb_strs) + "keV"
+            raise ValueError("The 'lo_en' and 'hi_en' arguments cannot be None, as {m}-{i} has multiple energy "
+                             "bands available for pre-processed products; {eb} are "
+                             "available".format(m=self.pretty_name, i=inst, eb=al_eb))
 
         # This fishes out the relevant energy-bounds-to-identifying string translation
         bnd_ident = en_bnd_trans[lo_en][hi_en]
@@ -1968,7 +1989,7 @@ class BaseMission(metaclass=ABCMeta):
 
         return rel_pth
 
-    def get_expmap_path(self, obs_id: str, lo_en: Quantity, hi_en: Quantity, inst: str = None) -> str:
+    def get_expmap_path(self, obs_id: str, lo_en: Quantity = None, hi_en: Quantity = None, inst: str = None) -> str:
         """
         A get method that provides the path to a downloaded pre-generated exposure map for the current mission (if
         available). This method will not work if pre-processed data have not been downloaded.
@@ -1985,12 +2006,24 @@ class BaseMission(metaclass=ABCMeta):
                                                 "exposure maps, so a path cannot be "
                                                 "provided.".format(m=self.pretty_name))
 
-        # We make sure that the provided energy bounds are in keV
-        lo_en = lo_en.to('keV')
-        hi_en = hi_en.to('keV')
+        if lo_en is not None:
+            # We make sure that the provided energy bounds are in keV
+            lo_en = lo_en.to('keV')
+            hi_en = hi_en.to('keV')
 
         # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
-        inst, en_bnd_trans, file_inst = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+        inst, en_bnd_trans, file_inst, lo_en, hi_en = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+
+        # If this quantity is still None by now, it means that the chosen instrument has multiple energy bands
+        #  available and the pre-processing method could not fill in the energy range
+        if lo_en is None:
+            rel_bands = self.preprocessed_energy_bands[inst]
+            # Joining the available energy bands into a string for the energy message
+            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
+            al_eb = ", ".join(eb_strs) + "keV"
+            raise ValueError("The 'lo_en' and 'hi_en' arguments cannot be None, as {m}-{i} has multiple energy "
+                             "bands available for pre-processed products; {eb} are "
+                             "available".format(m=self.pretty_name, i=inst, eb=al_eb))
 
         # This fishes out the relevant energy-bounds-to-identifying string translation
         bnd_ident = en_bnd_trans[lo_en][hi_en]
@@ -2022,7 +2055,7 @@ class BaseMission(metaclass=ABCMeta):
 
         return rel_pth
 
-    def get_background_path(self, obs_id: str, lo_en: Quantity, hi_en: Quantity, inst: str = None) -> str:
+    def get_background_path(self, obs_id: str, lo_en: Quantity = None, hi_en: Quantity = None, inst: str = None) -> str:
         """
         A get method that provides the path to a downloaded pre-generated background map for the current mission (if
         available). This method will not work if pre-processed data have not been downloaded.
@@ -2039,12 +2072,24 @@ class BaseMission(metaclass=ABCMeta):
                                                 "background maps, so a path cannot be "
                                                 "provided.".format(m=self.pretty_name))
 
-        # We make sure that the provided energy bounds are in keV
-        lo_en = lo_en.to('keV')
-        hi_en = hi_en.to('keV')
+        if lo_en is not None:
+            # We make sure that the provided energy bounds are in keV
+            lo_en = lo_en.to('keV')
+            hi_en = hi_en.to('keV')
 
         # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
-        inst, en_bnd_trans, file_inst = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+        inst, en_bnd_trans, file_inst, lo_en, hi_en = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+
+        # If this quantity is still None by now, it means that the chosen instrument has multiple energy bands
+        #  available and the pre-processing method could not fill in the energy range
+        if lo_en is None:
+            rel_bands = self.preprocessed_energy_bands[inst]
+            # Joining the available energy bands into a string for the energy message
+            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
+            al_eb = ", ".join(eb_strs) + "keV"
+            raise ValueError("The 'lo_en' and 'hi_en' arguments cannot be None, as {m}-{i} has multiple energy "
+                             "bands available for pre-processed products; {eb} are "
+                             "available".format(m=self.pretty_name, i=inst, eb=al_eb))
 
         # This fishes out the relevant energy-bounds-to-identifying string translation
         bnd_ident = en_bnd_trans[lo_en][hi_en]
