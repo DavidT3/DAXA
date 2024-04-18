@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 14:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 17:56. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -95,7 +95,7 @@ class Swift(BaseMission):
         #  level keys are upper energy bounds, then the value is the filename identifier
         self._template_en_trans = {'XRT': {Quantity(0.01, 'keV'): {Quantity(10.23, 'keV'): ""}},
                                    'BAT': None,
-                                   'UVOT': {Quantity(np.NaN, 'keV'): {Quantity(np.NaN, 'keV'): ""}}}
+                                   'UVOT': {Quantity(0, 'keV'): {Quantity(0, 'keV'): ""}}}
         self._template_inst_trans = None
 
         # We set up the ROSAT file name templates, so that the user (or other parts of DAXA) can retrieve paths
@@ -105,9 +105,9 @@ class Swift(BaseMission):
         #  but this could be easier
         self._template_evt_name = {'XRT': "xrt/event/sw{oi}xpc*po_cl.evt", "UVOT": None,
                                    'BAT': "sw{oi}msbevshsp uf.evt"}
-        self._template_img_name = {'XRT': "xrt/products/sw{oi}xpc_sk.img", "UVOT": "xrt/products/sw{oi}u_sk.img",
+        self._template_img_name = {'XRT': "xrt/products/sw{oi}xpc_sk.img", "UVOT": "uvot/products/sw{oi}u_sk.img",
                                    "BAT": None}
-        self._template_exp_name = {'XRT': "xrt/products/sw{oi}xpc_ex.img", "UVOT": "xrt/products/sw{oi}u_ex.img",
+        self._template_exp_name = {'XRT': "xrt/products/sw{oi}xpc_ex.img", "UVOT": "uvot/products/sw{oi}u_ex.img",
                                    "BAT": None}
         self._template_bck_name = None
 
