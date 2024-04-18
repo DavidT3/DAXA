@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 12:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 09:48. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -111,6 +111,19 @@ class Chandra(BaseMission):
         #  table has been fetched. As Chandra uses one instrument per observation, this will effectively be another
         #  filtering operation rather than the download-time operation is has been for NuSTAR for instance
         self.chosen_instruments = insts
+
+        # These are the 'translations' required between energy band and filename identifier for ROSAT images/expmaps -
+        #  it is organised so that top level keys are instruments, middle keys are lower energy bounds, and the lower
+        #  level keys are upper energy bounds, then the value is the filename identifier
+        self._template_en_trans = {Quantity(3., 'keV'): {Quantity(78, 'keV'): ""}}
+        self._template_inst_trans = {'ACIS-I': 'acis', 'ACIS-S': 'acis', 'HRC': 'hrc'}
+
+        # We set up the ROSAT file name templates, so that the user (or other parts of DAXA) can retrieve paths
+        #  to the event lists, images, exposure maps, and background maps that can be downloaded
+        self._template_evt_name = "primary/{i}f{oi}N*_evt2.fits"
+        self._template_img_name = "primary/{i}f{oi}N*_full_img2.fits"
+        self._template_exp_name = None
+        self._template_bck_name = None
 
         # We now will read in the previous state, if there is one to be read in.
         if save_file_path is not None:
@@ -531,6 +544,12 @@ class Chandra(BaseMission):
             os.makedirs(self.top_level_path + self.name + '_raw')
         # Grabs the raw data storage path
         stor_dir = self.raw_data_path
+
+        # We store the type of data that was downloaded
+        if download_products:
+            self._download_type = "raw+preprocessed"
+        else:
+            self._download_type = "raw"
 
         # A very unsophisticated way of checking whether raw data have been downloaded before
         #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
