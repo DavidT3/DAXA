@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 09:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 10:13. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -940,9 +940,9 @@ class BaseMission(metaclass=ABCMeta):
             eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
             al_eb = ", ".join(eb_strs) + "keV"
             raise PreProcessedNotAvailableError("The {m} archive does not provide products with {l}keV as the lower "
-                                                "energy bound; only {eb} are available.".format(m=self.pretty_name,
-                                                                                                l=lo_en.value,
-                                                                                                eb=al_eb))
+                                                "energy bound for {i}; only {eb} are "
+                                                "available.".format(m=self.pretty_name, l=lo_en.value, eb=al_eb,
+                                                                    i=inst))
         # Now we check the passed hi_en value
         elif hi_en is not None and hi_en not in temp_en_trans[lo_en]:
             # If we've gotten this far with instrument being None, then there will only be one set of energy bands
@@ -954,10 +954,9 @@ class BaseMission(metaclass=ABCMeta):
             eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
             al_eb = ", ".join(eb_strs) + "keV"
             raise PreProcessedNotAvailableError("The {m} archive does not provide products with {l}-{u}keV "
-                                                "energy bounds; only {eb} are available.".format(m=self.pretty_name,
-                                                                                                 l=lo_en.value,
-                                                                                                 u=hi_en.value,
-                                                                                                 eb=al_eb))
+                                                "energy bounds for {i}; only {eb} are "
+                                                "available.".format(m=self.pretty_name, l=lo_en.value, u=hi_en.value,
+                                                                    eb=al_eb, i=inst))
 
         if self._template_inst_trans is not None and inst is not None:
             file_inst = self._template_inst_trans[inst]
