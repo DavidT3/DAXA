@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 09:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 10:08. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -115,8 +115,11 @@ class Chandra(BaseMission):
         # These are the 'translations' required between energy band and filename identifier for ROSAT images/expmaps -
         #  it is organised so that top level keys are instruments, middle keys are lower energy bounds, and the lower
         #  level keys are upper energy bounds, then the value is the filename identifier
-        self._template_en_trans = {Quantity(0.5, 'keV'): {Quantity(7.0, 'keV'): ""}}
-        self._template_inst_trans = {'ACIS-I': 'acis', 'ACIS-S': 'acis', 'HRC': 'hrc'}
+        self._template_en_trans = {'ACIS-I': {Quantity(0.5, 'keV'): {Quantity(7.0, 'keV'): ""}},
+                                   'ACIS-S': {Quantity(0.5, 'keV'): {Quantity(7.0, 'keV'): ""}},
+                                   'HRC-I': {Quantity(0.06, 'keV'): {Quantity(10.0, 'keV'): ""}},
+                                   'HRC-S': {Quantity(0.06, 'keV'): {Quantity(10.0, 'keV'): ""}}}
+        self._template_inst_trans = {'ACIS-I': 'acis', 'ACIS-S': 'acis', 'HRC-I': 'hrc', 'HRC-S': 'hrc'}
 
         # We set up the ROSAT file name templates, so that the user (or other parts of DAXA) can retrieve paths
         #  to the event lists, images, exposure maps, and background maps that can be downloaded
