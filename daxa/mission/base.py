@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 14:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 09:48. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -966,6 +966,48 @@ class BaseMission(metaclass=ABCMeta):
 
         return inst, temp_en_trans, file_inst
 
+    def _get_prod_path_post_checks(self, rel_pth: str, obs_id: str, inst: str, req_type: str) -> str:
+        """
+        This internal function performs some checks common to all pre-processed product path get methods - basically
+        makes sure the file exists, and figures out exactly which file is the right one in the case that there is a
+        wildcard in the filename (looking at you Chandra).
+
+        :param str rel_pth: The generated file path that needs checking.
+        :param str obs_id: The ObsID of the product for which the path was generated.
+        :param str inst: The instrument of the product for which the path was generated.
+        :param str req_type: The type of file that was requested.
+        :return: The final file path (it may have been altered if there was a wildcard).
+        :rtype: str
+        """
+        # This is unfortunate, but because Chandra includes a revision number in their file name (admirable, but they
+        #  have formatted them inconsistently which makes this the most elegant way of dealing with it), the Chandra
+        #  templates have a * in them (like the unix wildcard) - as such we'll split things up and find a matching file
+        if '*' in rel_pth:
+            # We don't just use the raw data path because some archives have sub-directories downloaded. As such we'll
+            #  split the path we already created - this creates a path including any sub-directories there might be
+            just_dir_path = "/".join(rel_pth.split("/")[:-1]) + "/"
+            just_file_name_parts = rel_pth.split("/")[-1].split('*')
+            poss_files = [fn for fn in os.listdir(just_dir_path) if all([fn_p in fn for fn_p in just_file_name_parts])]
+            if len(poss_files) != 1:
+                msg = ("The requested {m}-{oi} {t} file ({f}) cannot be uniquely "
+                       "identified.").format(m=self.pretty_name, oi=obs_id, f=rel_pth, t=req_type) \
+                    if inst is None else ("The requested {m}-{oi}-{i} {t} file ({f}) cannot be uniquely "
+                                          "identified.").format(m=self.pretty_name, oi=obs_id, i=inst, f=rel_pth,
+                                                                t=req_type)
+
+                raise FileNotFoundError(msg)
+            else:
+                rel_pth = just_dir_path + poss_files[0]
+
+        elif not os.path.exists(rel_pth):
+            msg = "The requested {m}-{oi} {t} file ({f}) does not exist.".format(m=self.pretty_name, oi=obs_id,
+                                                                                 f=rel_pth, t=req_type) \
+                if inst is None else ("The requested {m}-{oi}-{i} {t} file ({f}) does not "
+                                      "exist.").format(m=self.pretty_name, oi=obs_id, i=inst, f=rel_pth, t=req_type)
+            raise FileNotFoundError(msg)
+
+        return rel_pth
+
     # Then define user-facing methods
     def reset_filter(self):
         """
@@ -1851,11 +1893,9 @@ class BaseMission(metaclass=ABCMeta):
         inst, en_bnd_trans, file_inst = self._get_prod_path_checks(obs_id, inst)
 
         rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id, i=file_inst))
-        if not os.path.exists(rel_pth):
-            msg = "The requested {m}-{oi} event list file does not exist.".format(m=self.pretty_name, oi=obs_id) \
-                if inst is None else ("The requested {m}-{oi}-{i} event list file does not "
-                                      "exist.").format(m=self.pretty_name, oi=obs_id, i=inst)
-            raise FileNotFoundError(msg)
+
+        # This performs certain checks to make sure the file exists, and fill in any wildcards
+        rel_pth = self._get_prod_path_post_checks(rel_pth, obs_id, inst, 'event list')
 
         return rel_pth
 
@@ -1906,12 +1946,8 @@ class BaseMission(metaclass=ABCMeta):
                                                                                                     i=file_inst,
                                                                                                     eb=bnd_ident))
 
-        # We are going to check that the file we're pointing too does actually exist
-        if not os.path.exists(rel_pth):
-            msg = "The requested {m}-{oi} image file does not exist.".format(m=self.pretty_name, oi=obs_id) \
-                if inst is None else ("The requested {m}-{oi}-{i} image file does not "
-                                      "exist.").format(m=self.pretty_name, oi=obs_id, i=inst)
-            raise FileNotFoundError(msg)
+        # This performs certain checks to make sure the file exists, and fill in any wildcards
+        rel_pth = self._get_prod_path_post_checks(rel_pth, obs_id, inst, 'image')
 
         return rel_pth
 
@@ -1964,12 +2000,8 @@ class BaseMission(metaclass=ABCMeta):
                                    self._template_exp_name[inst].format(oi=obs_id, i=file_inst,
                                                                         eb=bnd_ident))
 
-        # We are going to check that the file we're pointing too does actually exist
-        if not os.path.exists(rel_pth):
-            msg = "The requested {m}-{oi} exposure map file does not exist.".format(m=self.pretty_name, oi=obs_id) \
-                if inst is None else ("The requested {m}-{oi}-{i} exposure map file does not "
-                                      "exist.").format(m=self.pretty_name, oi=obs_id, i=inst)
-            raise FileNotFoundError(msg)
+        # This performs certain checks to make sure the file exists, and fill in any wildcards
+        rel_pth = self._get_prod_path_post_checks(rel_pth, obs_id, inst, 'exposure map')
 
         return rel_pth
 
@@ -2021,12 +2053,8 @@ class BaseMission(metaclass=ABCMeta):
                                    self._template_bck_name[inst].format(oi=obs_id, i=file_inst,
                                                                         eb=bnd_ident))
 
-        # We are going to check that the file we're pointing too does actually exist
-        if not os.path.exists(rel_pth):
-            msg = "The requested {m}-{oi} background map file does not exist.".format(m=self.pretty_name, oi=obs_id) \
-                if inst is None else ("The requested {m}-{oi}-{i} background map file does not "
-                                      "exist.").format(m=self.pretty_name, oi=obs_id, i=inst)
-            raise FileNotFoundError(msg)
+        # This performs certain checks to make sure the file exists, and fill in any wildcards
+        rel_pth = self._get_prod_path_post_checks(rel_pth, obs_id, inst, 'background map')
 
         return rel_pth
 
