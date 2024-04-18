@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 18:20. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 18:30. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -151,7 +151,7 @@ class eROSITACalPV(BaseMission):
         """
         new_insts = self.check_inst_names(new_insts)
 
-        if (self._chos_insts is None or np.array(deepcopy(new_insts)).sort() !=
+        if (len(self._chos_insts) == 0 or np.array(deepcopy(new_insts)).sort() !=
                 np.array(deepcopy(self._chos_insts)).sort()):
             changed = True
             self._chos_insts = new_insts
@@ -968,7 +968,7 @@ class eRASS1DE(BaseMission):
         """
         new_insts = self.check_inst_names(new_insts)
 
-        if (self._chos_insts is None or np.array(deepcopy(new_insts)).sort() !=
+        if (len(self._chos_insts) == 0 or np.array(deepcopy(new_insts)).sort() !=
                 np.array(deepcopy(self._chos_insts)).sort()):
             changed = True
             self._chos_insts = new_insts
