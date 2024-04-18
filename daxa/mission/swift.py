@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 12:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 10:25. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -414,7 +414,7 @@ class Swift(BaseMission):
 
                 # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
                 #  event lists, as they're more likely to be used
-                if 'evt.gz' in down_file:
+                if 'evt.gz' in down_file or 'img.gz':
                     # Open and decompress the events file
                     with gzip.open(local_dir + down_file, 'rb') as compresso:
                         # Open a new file handler for the decompressed data, then funnel the decompressed events there

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 10:25. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -337,6 +337,9 @@ class XMMPointed(BaseMission):
             os.makedirs(self.top_level_path + self.name + '_raw')
         # Grabs the raw data storage path
         stor_dir = self.raw_data_path
+
+        # This XMM mission currently only supports the downloading of raw data - I should try to address that
+        self._download_type = 'raw'
 
         # A very unsophisticated way of checking whether raw data have been downloaded before (see issue #30)
         #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
