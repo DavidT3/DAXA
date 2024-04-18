@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 10:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 14:34. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -735,7 +735,8 @@ class BaseMission(metaclass=ABCMeta):
             ret_bnds = {i: en_bnds for i in self.chosen_instruments}
         else:
             ret_bnds = {i: Quantity([Quantity([l_en, h_en]) for l_en, u_en_dict in self._template_en_trans[i].items()
-                                     for h_en in u_en_dict]) for i in self.chosen_instruments}
+                                     for h_en in u_en_dict]) for i in self.chosen_instruments
+                        if i in self._template_en_trans and self._template_en_trans[i] is not None}
 
         return ret_bnds
 
@@ -1891,7 +1892,24 @@ class BaseMission(metaclass=ABCMeta):
 
         inst, en_bnd_trans, file_inst = self._get_prod_path_checks(obs_id, inst)
 
-        rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id, i=file_inst))
+        # The template path can take two forms, one is a straight string and can just be filled in, but the
+        #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
+        #  need to check which is applicable to this mission and treat it accordingly
+        if isinstance(self._template_evt_name, str):
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id, i=file_inst))
+        # In some cases the instrument name will have to be supplied, otherwise we will not be able to
+        #  create a path
+        elif isinstance(self._template_evt_name, dict) and inst is None:
+            raise ValueError("The 'inst' argument cannot be None for this mission, as the different instruments have "
+                             "differently formatted pre-processed file names.")
+        # It is possible for only some instruments of a mission to have images, so we check
+        elif isinstance(self._template_evt_name, dict) and self._template_evt_name[inst] is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "images for the {i} instrument, so a path cannot be "
+                                                "provided.".format(m=self.pretty_name, i=inst))
+        elif isinstance(self._template_evt_name, dict):
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name[inst].format(oi=obs_id,
+                                                                                                    i=file_inst))
 
         # This performs certain checks to make sure the file exists, and fill in any wildcards
         rel_pth = self._get_prod_path_post_checks(rel_pth, obs_id, inst, 'event list')
@@ -1936,7 +1954,7 @@ class BaseMission(metaclass=ABCMeta):
             raise ValueError("The 'inst' argument cannot be None for this mission, as the different instruments have "
                              "differently formatted pre-processed file names.")
         # It is possible for only some instruments of a mission to have images, so we check
-        elif isinstance(self._template_exp_name, dict) and self._template_exp_name[inst] is None:
+        elif isinstance(self._template_img_name, dict) and self._template_img_name[inst] is None:
             raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
                                                 "images for the {i} instrument, so a path cannot be "
                                                 "provided.".format(m=self.pretty_name, i=inst))
@@ -2043,7 +2061,7 @@ class BaseMission(metaclass=ABCMeta):
             raise ValueError("The 'inst' argument cannot be None for this mission, as the different instruments have "
                              "differently formatted pre-processed file names.")
         # It is possible for only some instruments of a mission to have background maps, so we check
-        elif isinstance(self._template_exp_name, dict) and self._template_exp_name[inst] is None:
+        elif isinstance(self._template_bck_name, dict) and self._template_bck_name[inst] is None:
             raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
                                                 "background maps for the {i} instrument, so a path cannot be "
                                                 "provided.".format(m=self.pretty_name, i=inst))
