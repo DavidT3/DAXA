@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 21:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 21:33. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -96,6 +96,10 @@ class eROSITACalPV(BaseMission):
         self._miss_poss_insts = ['TM1', 'TM2', 'TM3', 'TM4', 'TM5', 'TM6', 'TM7']
         # Setting the user specified instruments
         self.chosen_instruments = insts
+
+        # The event list name for filling in
+        self._template_evt_name = "fm00_{oi}_020_EventList_c001.fits"
+
         # Call the name property to set up the name and pretty name attributes
         self.name
 
@@ -805,6 +809,29 @@ class eROSITACalPV(BaseMission):
         else:
             warn("The raw data for this mission have already been downloaded.", stacklevel=2)
 
+    def get_evt_list_path(self, obs_id: str, inst: str = None) -> str:
+        """
+        A get method that provides the path to a downloaded pre-generated event list for the current mission (if
+        available). This method will not work if pre-processed data have not been downloaded.
+
+        :param str obs_id: The ObsID of the event list.
+        :param str inst: The instrument of the event list (if applicable).
+        :return: The requested event list path.
+        :rtype: str
+        """
+        # Just setting the instrument to a known instrument - it doesn't matter for eROSITA because they're all
+        #  shipped in the same files - this is the reason this method overrides the base implementation. Sort of wish
+        #  I'd done all of them like this...
+        inst = self.chosen_instruments[0]
+
+        inst, en_bnd_trans, file_inst, lo_en, hi_en = self._get_prod_path_checks(obs_id, inst)
+
+        rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id))
+        # This performs certain checks to make sure the file exists, and fill in any wildcards
+        rel_pth = self._get_prod_path_post_checks(rel_pth, obs_id, inst, 'event list')
+
+        return rel_pth
+
     def assess_process_obs(self, obs_info: dict):
         """
         A slightly unusual method which will allow the eROSITACalPV mission to assess the information on a particular
@@ -906,7 +933,7 @@ class eRASS1DE(BaseMission):
                                    Quantity(0.5, 'keV'): {Quantity(1.0, 'keV'): "6"},
                                    Quantity(1, 'keV'): {Quantity(2.0, 'keV'): "7"}}
 
-        # We set up the ROSAT file name templates, so that the user (or other parts of DAXA) can retrieve paths
+        # We set up the eROSITA file name templates, so that the user (or other parts of DAXA) can retrieve paths
         #  to the event lists, images, exposure maps, and background maps that can be downloaded
         self._template_evt_name = "EXP_010/em01_{oi}_020_EventList_c010.fits"
         self._template_img_name = "EXP_010/em01_{oi}_02{eb}_Image_c010.fits"
