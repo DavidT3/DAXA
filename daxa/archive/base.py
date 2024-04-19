@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 19/04/2024, 17:11. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 19/04/2024, 17:18. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -13,7 +13,7 @@ from regions import Region, read_ds9, PixelRegion, write_ds9
 
 from daxa import BaseMission, OUTPUT
 from daxa.exceptions import DuplicateMissionError, NoProcessingError, NoDependencyProcessError, \
-    ObsNotAssociatedError, MissionNotAssociatedError
+    ObsNotAssociatedError, MissionNotAssociatedError, PreProcessedNotAvailableError
 from daxa.misc import dict_search
 from daxa.mission import MISS_INDEX
 
@@ -319,8 +319,22 @@ class Archive:
         """
         return list(self._missions.values())
 
-    # @property
-    # def preprocessed_missions(self) ->:
+    @property
+    def preprocessed_missions(self) -> List[BaseMission]:
+        """
+        Gets a list of missions that have pre-processed data downloaded, if there are none an error will be raised.
+
+        :return: A list of the mission instances in this archive which have pre-processed data downloaded.
+        :rtype: List[BaseMission]
+        """
+        preproc = [miss for miss in self.missions if miss.downloaded_type == 'raw+processed' or
+                   miss.downloaded_type == 'processed']
+        # Check if there actually are any preprocessed missions - we'll error if not
+        if len(preproc):
+            raise PreProcessedNotAvailableError("This archive ({a}) does not contain any pre-processed "
+                                                "missions.".format(a=self.archive_name))
+
+        return preproc
 
     @property
     def process_success(self) -> dict:
