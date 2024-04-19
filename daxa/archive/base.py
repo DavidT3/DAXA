@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 19/04/2024, 17:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 19/04/2024, 17:37. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -327,8 +327,8 @@ class Archive:
         :return: A list of the mission instances in this archive which have pre-processed data downloaded.
         :rtype: List[BaseMission]
         """
-        preproc = [miss for miss in self.missions if miss.downloaded_type == 'raw+processed' or
-                   miss.downloaded_type == 'processed']
+        preproc = [miss for miss in self.missions if miss.downloaded_type == 'raw+preprocessed' or
+                   miss.downloaded_type == 'preprocessed']
         # Check if there actually are any preprocessed missions - we'll error if not
         if len(preproc):
             raise PreProcessedNotAvailableError("This archive ({a}) does not contain any pre-processed "
