@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 21:33. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 21:37. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -619,24 +619,6 @@ class eROSITACalPV(BaseMission):
 
         super().filter_on_obs_ids(allowed_obs_ids)
 
-    def get_evlist_path_from_obs(self, obs_id: str):
-        """
-        Internal method to get the unfiltered, downloaded event list path for a given ObsID.
-
-        :param str obs_id: The ObsID of the event list required.
-        :return: The path to the event list.
-        :rtype: str
-        """
-        all_files = os.listdir(os.path.join(self.raw_data_path + obs_id))
-
-        # This directory could have instrument filtered files in as well as the event list so
-        #  selecting the event list by choosing the one with 4 hyphens in
-        file_name = [file for file in all_files if len(re.findall('_', file)) == 4][0]
-
-        ev_list_path = os.path.join(self.raw_data_path, obs_id, file_name)
-
-        return ev_list_path
-    
     def download(self, num_cores: int = NUM_CORES):
         """
         A method to acquire and download the eROSITA Calibration and Performance Validation data that 
@@ -1009,7 +991,7 @@ class eRASS1DE(BaseMission):
             if len(new_insts) != 7:
                 # Getting all the path for each eventlist corresponding to an obs_id for the
                 #  _inst_filtering function later
-                fits_paths = [self.get_evlist_path_from_obs(o) for o in self.filtered_obs_ids]
+                fits_paths = [self.get_evt_list_path(o) for o in self.filtered_obs_ids]
 
                 # Filtering out any events from the raw data that aren't from the selected instruments
                 if NUM_CORES == 1:
@@ -1322,24 +1304,6 @@ class eRASS1DE(BaseMission):
 
         return None
 
-    def get_evlist_path_from_obs(self, obs_id: str):
-        """
-        Internal method to get the unfiltered, downloaded event list path for a given ObsID.
-
-        :param str obs_id: The ObsID of the event list required.
-        :return: The path to the event list.
-        :rtype: str
-        """
-        all_files = os.listdir(os.path.join(self.raw_data_path + obs_id + '/EXP_010/'))
-
-        # This directory could have instrument filtered files in as well as the event list so
-        #  selecting the event list by choosing the one with 4 hyphens in
-        file_name = [file for file in all_files if len(re.findall('_', file)) == 4 and 'Event' in file][0]
-
-        ev_list_path = os.path.join(self.raw_data_path, obs_id, 'EXP_010', file_name)
-
-        return ev_list_path
-
     def download(self, num_cores: int = NUM_CORES, download_products: bool = False, pipeline_version: int = None):
         """
         A method to acquire and download the German eROSITA All-Sky Survey DR1 data that
@@ -1444,7 +1408,7 @@ class eRASS1DE(BaseMission):
             if len(self.chosen_instruments) != 7:
                 # Getting all the path for each event list corresponding to an obs_id for the
                 #  _inst_filtering function later
-                fits_paths = [self.get_evlist_path_from_obs(o) for o in self.filtered_obs_ids]
+                fits_paths = [self.get_evt_list_path(o) for o in self.filtered_obs_ids]
 
                 # Filtering out any events from the raw data that aren't from the selected instruments
                 if num_cores == 1:

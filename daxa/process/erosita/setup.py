@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 14:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 21:37. Copyright (c) The Contributors
 
 import re
 from typing import Union
@@ -42,7 +42,7 @@ def _prepare_erosita_info(archive: Archive, mission: BaseMission):
         """
         # In the case that no instrument filtering has taken place, the name of the raw fits file is unchanged
         #  from the output of the get_evlist_path_from_obs method
-        obs_path = rel_miss.get_evlist_path_from_obs(obs_id)
+        obs_path = rel_miss.get_evt_list_path(obs_id)
 
         if len(rel_miss.chosen_instruments) != 7:
             # Otherwise, need to format the name of the fits file according to the instruments
