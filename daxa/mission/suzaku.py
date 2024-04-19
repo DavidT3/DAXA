@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 22:21. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -82,6 +82,19 @@ class Suzaku(BaseMission):
         # Deliberately using the property setter, because it calls the internal _check_chos_insts function
         #  to make sure the input instruments are allowed
         self.chosen_instruments = insts
+
+        # These are the 'translations' required between energy band and filename identifier for ROSAT images/expmaps -
+        #  it is organised so that top level keys are instruments, middle keys are lower energy bounds, and the lower
+        #  level keys are upper energy bounds, then the value is the filename identifier
+        self._template_en_trans = {Quantity(0.2, 'keV'): {Quantity(12, 'keV'): ""}}
+        self._template_inst_trans = {'XIS0': 'xi0', 'XIS1': 'xi1', 'XIS2': 'xi2', 'XIS3': 'xi3'}
+
+        # We set up the ROSAT file name templates, so that the user (or other parts of DAXA) can retrieve paths
+        #  to the event lists, images, exposure maps, and background maps that can be downloaded
+        self._template_evt_name = "xis/event_cl/ae{oi}{i}_*_cl.evt"
+        self._template_img_name = "xis/products/ae{oi}{i}_*_sk.img"
+        self._template_exp_name = None
+        self._template_bck_name = None
 
         # Call the name property to set up the name and pretty name attributes
         self.name
@@ -398,10 +411,9 @@ class Suzaku(BaseMission):
                     with open(local_dir + down_file, 'wb') as writo:
                         copyfileobj(acquiro.raw, writo)
 
-                # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
-                #  event lists, as they're more likely to be used - also decompress the gifs so people can have a quick
-                #  look if they so desire
-                if 'evt.gz' in down_file or 'gif.gz' in down_file:
+                # There are a few compressed fits files in each archive, but I think I'm going to decompress the
+                #  event lists, gifs so people can have a quick look if they so desire, and the fits images
+                if 'evt.gz' in down_file or 'gif.gz' in down_file or 'img.gz' in down_file:
                     # Open and decompress the events file
                     with gzip.open(local_dir + down_file, 'rb') as compresso:
                         # Open a new file handler for the decompressed data, then funnel the decompressed events there
@@ -433,6 +445,12 @@ class Suzaku(BaseMission):
             os.makedirs(self.top_level_path + self.name + '_raw')
         # Grabs the raw data storage path
         stor_dir = self.raw_data_path
+
+        # We store the type of data that was downloaded
+        if download_products:
+            self._download_type = "raw+preprocessed"
+        else:
+            self._download_type = "raw"
 
         # A very unsophisticated way of checking whether raw data have been downloaded before (see issue #30)
         #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
