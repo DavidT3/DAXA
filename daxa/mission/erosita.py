@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 18:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 21:24. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -1483,6 +1483,123 @@ class eRASS1DE(BaseMission):
 
         else:
             warn("The raw data for this mission have already been downloaded.", stacklevel=2)
+
+    def get_evt_list_path(self, obs_id: str, inst: str = None) -> str:
+        """
+        A get method that provides the path to a downloaded pre-generated event list for the current mission (if
+        available). This method will not work if pre-processed data have not been downloaded.
+
+        :param str obs_id: The ObsID of the event list.
+        :param str inst: The instrument of the event list (if applicable).
+        :return: The requested event list path.
+        :rtype: str
+        """
+        # Just setting the instrument to a known instrument - it doesn't matter for eROSITA because they're all
+        #  shipped in the same files - this is the reason this method overrides the base implementation. Sort of wish
+        #  I'd done all of them like this...
+        inst = self.chosen_instruments[0]
+
+        inst, en_bnd_trans, file_inst, lo_en, hi_en = self._get_prod_path_checks(obs_id, inst)
+
+        rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id))
+        # This performs certain checks to make sure the file exists, and fill in any wildcards
+        rel_pth = self._get_prod_path_post_checks(rel_pth, obs_id, inst, 'event list')
+
+        return rel_pth
+
+    def get_image_path(self, obs_id: str, lo_en: Quantity = None, hi_en: Quantity = None, inst: str = None) -> str:
+        """
+        A get method that provides the path to a downloaded pre-generated image for the current mission (if
+        available). This method will not work if pre-processed data have not been downloaded.
+
+        :param str obs_id: The ObsID of the image.
+        :param Quantity lo_en: The lower energy bound of the image.
+        :param Quantity hi_en: The upper energy bound of the image.
+        :param str inst: The instrument of the image (if applicable).
+        :return: The requested image file path.
+        :rtype: str
+        """
+        # Just setting the instrument to a known instrument - it doesn't matter for eROSITA because they're all
+        #  shipped in the same files - this is the reason this method overrides the base implementation. Sort of wish
+        #  I'd done all of them like this...
+        inst = self.chosen_instruments[0]
+
+        if lo_en is not None:
+            # We make sure that the provided energy bounds are in keV
+            lo_en = lo_en.to('keV')
+            hi_en = hi_en.to('keV')
+
+        # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
+        inst, en_bnd_trans, file_inst, lo_en, hi_en = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+
+        # If this quantity is still None by now, it means that the chosen instrument has multiple energy bands
+        #  available and the pre-processing method could not fill in the energy range
+        if lo_en is None:
+            rel_bands = self.preprocessed_energy_bands[inst]
+            # Joining the available energy bands into a string for the energy message
+            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
+            al_eb = ", ".join(eb_strs) + "keV"
+            raise ValueError("The 'lo_en' and 'hi_en' arguments cannot be None, as {m}-{i} has multiple energy "
+                             "bands available for pre-processed products; {eb} are "
+                             "available".format(m=self.pretty_name, i=inst, eb=al_eb))
+
+        # This fishes out the relevant energy-bounds-to-identifying string translation
+        bnd_ident = en_bnd_trans[lo_en][hi_en]
+
+        rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name.format(oi=obs_id, i=file_inst,
+                                                                                          eb=bnd_ident))
+
+        # This performs certain checks to make sure the file exists, and fill in any wildcards
+        rel_pth = self._get_prod_path_post_checks(rel_pth, obs_id, inst, 'image')
+
+        return rel_pth
+
+    def get_expmap_path(self, obs_id: str, lo_en: Quantity = None, hi_en: Quantity = None, inst: str = None) -> str:
+        """
+        A get method that provides the path to a downloaded pre-generated exposure map for the current mission (if
+        available). This method will not work if pre-processed data have not been downloaded.
+
+        :param str obs_id: The ObsID of the exposure map.
+        :param Quantity lo_en: The lower energy bound of the exposure map.
+        :param Quantity hi_en: The upper energy bound of the exposure map.
+        :param str inst: The instrument of the exposure map (if applicable).
+        :return: The requested exposure map file path.
+        :rtype: str
+        """
+        # Just setting the instrument to a known instrument - it doesn't matter for eROSITA because they're all
+        #  shipped in the same files - this is the reason this method overrides the base implementation. Sort of wish
+        #  I'd done all of them like this...
+        inst = self.chosen_instruments[0]
+
+        if lo_en is not None:
+            # We make sure that the provided energy bounds are in keV
+            lo_en = lo_en.to('keV')
+            hi_en = hi_en.to('keV')
+
+        # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
+        inst, en_bnd_trans, file_inst, lo_en, hi_en = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+
+        # If this quantity is still None by now, it means that the chosen instrument has multiple energy bands
+        #  available and the pre-processing method could not fill in the energy range
+        if lo_en is None:
+            rel_bands = self.preprocessed_energy_bands[inst]
+            # Joining the available energy bands into a string for the energy message
+            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
+            al_eb = ", ".join(eb_strs) + "keV"
+            raise ValueError("The 'lo_en' and 'hi_en' arguments cannot be None, as {m}-{i} has multiple energy "
+                             "bands available for pre-processed products; {eb} are "
+                             "available".format(m=self.pretty_name, i=inst, eb=al_eb))
+
+        # This fishes out the relevant energy-bounds-to-identifying string translation
+        bnd_ident = en_bnd_trans[lo_en][hi_en]
+
+        rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_exp_name.format(oi=obs_id, i=file_inst,
+                                                                                          eb=bnd_ident))
+
+        # This performs certain checks to make sure the file exists, and fill in any wildcards
+        rel_pth = self._get_prod_path_post_checks(rel_pth, obs_id, inst, 'exposure map')
+
+        return rel_pth
 
     def assess_process_obs(self, obs_info: dict):
         """
