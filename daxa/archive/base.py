@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 16:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 19/04/2024, 17:11. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -310,18 +310,17 @@ class Archive:
         return [m for m in self._missions]
 
     @property
-    def missions(self) -> Union[List[BaseMission], BaseMission]:
+    def missions(self) -> List[BaseMission]:
         """
-        Property getter that returns either a list of missions associated with this Archive, or a single
-        mission associated with this Archive (if only one mission was supplied).
+        Property getter that returns a list of missions associated with this Archive.
 
-        :return: Missions (or mission) associated with this archive.
-        :rtype: Union[List[BaseMission], BaseMission]
+        :return: Missions associated with this archive.
+        :rtype: List[BaseMission]
         """
-        if len(self._missions) == 1:
-            return list(self._missions.values())[0]
-        else:
-            return list(self._missions.values())
+        return list(self._missions.values())
+
+    # @property
+    # def preprocessed_missions(self) ->:
 
     @property
     def process_success(self) -> dict:
