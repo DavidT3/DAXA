@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 12:28. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 13:05. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -98,7 +98,7 @@ class eROSITACalPV(BaseMission):
         self.chosen_instruments = insts
 
         # The event list name for filling in
-        self._template_evt_name = "fm00_{oi}_020_EventList_c001.fits"
+        self._template_evt_name = "*m00_{oi}_020_EventList_c001.fits"
 
         # Call the name property to set up the name and pretty name attributes
         self.name
