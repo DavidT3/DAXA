@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 18:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 18:24. Copyright (c) The Contributors
 from shutil import copyfile
 
 from tqdm import tqdm
@@ -190,6 +190,17 @@ def preprocessed_in_archive(arch: Archive):
                                 copyfile(og_exp_path, new_exp_path)
                             except (FileNotFoundError, PreProcessedNotSupportedError):
                                 pass
+
+                            # TODO Change the se entry when possible
+                            new_name = bck_file_temp.format(oi=obs_id, i=inst, se=None, l=bnd_pair[0].value,
+                                                            h=bnd_pair[1].value)
+                            new_bck_path = arch.construct_processed_data_path(miss, obs_id) + new_name
+
+                            try:
+                                og_bck_path = miss.get_background_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
+                                copyfile(og_bck_path, new_bck_path)
+                            except (FileNotFoundError, PreProcessedNotSupportedError):
+                                pass
                     onwards.update(1)
                 else:
                     # All missions with one instrument per ObsID will have an instrument column in their obs info
@@ -219,6 +230,17 @@ def preprocessed_in_archive(arch: Archive):
                         try:
                             og_exp_path = miss.get_expmap_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
                             copyfile(og_exp_path, new_exp_path)
+                        except (FileNotFoundError, PreProcessedNotSupportedError):
+                            pass
+
+                        # TODO Change the se entry when possible
+                        new_name = bck_file_temp.format(oi=obs_id, i=inst, se=None, l=bnd_pair[0].value,
+                                                        h=bnd_pair[1].value)
+                        new_bck_path = arch.construct_processed_data_path(miss, obs_id) + new_name
+
+                        try:
+                            og_bck_path = miss.get_background_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
+                            copyfile(og_bck_path, new_bck_path)
                         except (FileNotFoundError, PreProcessedNotSupportedError):
                             pass
                     onwards.update(1)
