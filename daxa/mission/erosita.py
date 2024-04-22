@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 21:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 12:01. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -619,7 +619,7 @@ class eROSITACalPV(BaseMission):
 
         super().filter_on_obs_ids(allowed_obs_ids)
 
-    def download(self, num_cores: int = NUM_CORES):
+    def download(self, num_cores: int = NUM_CORES, download_products: bool = False):
         """
         A method to acquire and download the eROSITA Calibration and Performance Validation data that 
         have not been filtered out (if a filter has been applied, otherwise all data will be downloaded). 
@@ -631,6 +631,9 @@ class eROSITACalPV(BaseMission):
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
+        :param bool download_products: UNLIKE MOST MISSIONS, this does not actually change what is downloaded, but
+            rather changes the DAXA classification of the downloaded event lists from raw to raw+preprocessed. This
+            means they would be included in the processed data storage structure of an archive.
         """
         # Ensures that a directory to store the 'raw' eROSITACalPV data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
@@ -639,8 +642,14 @@ class eROSITACalPV(BaseMission):
         # Grabs the raw data storage path
         stor_dir = self.raw_data_path
 
-        # We can only download raw event lists for eROSITACalPV
-        self._download_type = "raw"
+        if download_products:
+            # We can only download raw event lists for eROSITACalPV, but I'm going to mark it as raw+preprocessed so
+            #  that they can be copied into the processed data structure, as the eROSITA flaring is pretty low it
+            #  should be safe
+            self._download_type = "raw+preprocessed"
+        else:
+            # In this case the classification of the downloaded data is just 'raw', so that processing will be possible
+            self._download_type = 'raw'
 
         # A very unsophisticated way of checking whether raw data have been downloaded before (see issue #30)
         #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
