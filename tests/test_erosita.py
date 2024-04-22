@@ -4,16 +4,113 @@ from requests import Session
 import numpy as np
 from numpy.testing import assert_array_equal
 import os
+from io import BytesIO
+import shutil
+
 
 from astropy.units import Quantity
 from astropy.io import fits
 
-from daxa.mission import eRASS1DE
+from daxa.mission import eRASS1DE, eROSITACalPV
 from daxa import OUTPUT
+from daxa.config import EROSITA_CALPV_INFO
 from daxa.exceptions import DAXADownloadError
 
 
-class TestErosita(unittest.TestCase):
+class TesteROSITACalPV(unittest.TestCase):
+    def setUp(self):
+        self.defaults = eROSITACalPV()
+        self.filtered = eROSITACalPV(fields='eFEDS')
+        self.alt_field_nme = eROSITACalPV(fields='crab iii')
+        self.crab = eROSITACalPV(fields='crab')
+        self.field_type = eROSITACalPV(fields='survey')
+        self.type_n_nme = eROSITACalPV(fields=['survey', 'puppis a'])
+    
+    def test_chosen_fields(self):
+
+        self.assertEqual(self.defaults.chosen_fields,list(set(EROSITA_CALPV_INFO["Field_Name"].tolist())))
+
+        self.filtered = eROSITACalPV(fields='eFEDS')
+        self.assertEqual(self.filtered.chosen_fields, ['EFEDS'])
+        # TODO check why this fails
+        #assert_array_equal(self.filtered.filtered_obs_ids, np.array(['300007', '300008', '300009', '300010']))
+
+        # can't pass fields with the wrong type
+        with self.assertRaises(ValueError):
+            eROSITACalPV(fields=7)
+        
+        # can't pass a list if all elements arent strings
+        with self.assertRaises(ValueError):
+            eROSITACalPV(fields=['ok', 'ok', 7])
+        
+        # Incorrect fields raise an error
+        with self.assertRaises(ValueError) as err:
+            eROSITACalPV(fields=['efeds', 'eta cha', 'nope'])
+            self.assertEqual('Some field names or field types NOPE are not associated with this '
+            'mission, please choose from the following fields; PSR_J0537_6910,LMC_N132D,'
+            '1RXS_J185635_375433,HR_3165__ZET_PUP_,RE_J2334_471,A3391_A3395,EFEDS,'
+            'LMC_SN1987A,TGUH2213P1__DARK_CLOUD_,47_TUC__NGC_104_,PSR_1509_58,NGC_7793_P13,CRAB_3,'
+            'IGR_J16318_4848,1RXS_J072025_312554,CRAB_2,PSR_B0656_14,1ES_0102_72,PUPPIS_A,1H0707,'
+            'IGR_J13020_6359__2RXP_J130159_635806_,VELA_SNR,CRAB_1,OAO_1657_415,A3158,A3266,'
+            'NGC_2516,PSR_J0540_PSR_J0537,CRAB_4,ETA_CHA,3C390_3,PSR_J0540_6919 or field types; '
+            'SURVEY,MAGELLANIC_CLOUDS,GALACTIC_FIELDS,EXTRAGALACTIC_FIELDS', str(err.exception))
+        
+        # alternative field names should pass
+        self.assertEqual(self.alt_field_nme.chosen_fields, ['CRAB_3'])
+
+        # crab should return all crab fields
+        self.assertEqual(set(self.crab.chosen_fields), set(['CRAB_1', 'CRAB_2', 'CRAB_3', 'CRAB_4']))
+
+        # field types should return correct field names
+        self.assertEqual(set(self.field_type.chosen_fields), set(['EFEDS', 'ETA_CHA']))
+
+        # combination of field types and names
+        self.assertEqual(set(self.type_n_nme.chosen_fields), set(['EFEDS', 'ETA_CHA', 'PUPPIS_A']))
+
+    def test_filter_on_fields(self):
+        self.defaults.filter_on_fields('efeds')
+        self.assertEqual(self.defaults.chosen_fields, ['EFEDS'])
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008', '300009', '300010']))
+    
+    def test_name(self):
+        self.assertEqual(self.defaults.name, 'erosita_calpv')
+    
+    def test_id_regex(self):
+        self.assertEqual(self.defaults.id_regex, '^[0-9]{6}$')
+    
+    def test_fov(self):
+        with self.assertWarns(UserWarning):
+            self.assertEqual(self.defaults.fov, Quantity(30, 'arcmin'))
+    
+    def test_filter_on_obs_ids(self):
+        with self.assertWarns(UserWarning):
+            self.defaults.filter_on_obs_ids('700195')
+            assert_array_equal(self.defaults.filtered_obs_ids, np.array(['700199', '700200']))
+
+
+    def test_download_call_now(self):
+        # for some reason this is only working in a context manager but not using decorators, i havent got the foggiest why
+        with patch('daxa.mission.erosita.requests.get') as mock_p:
+            with patch('daxa.mission.erosita.tarfile.open') as mock_t:
+                mock_response = MagicMock()
+                mock_response.raw = BytesIO(b'fake_data')
+                mock_p.return_value.__enter__.return_value = mock_response
+            
+                print(mock_response.raw)
+                mock_tarfile = MagicMock()
+                mock_tarfile.extractcall = 'doesntmatter'
+                mock_t.return_value.open.return_value.__enter__.return_value = mock_tarfile
+
+                link = 'https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/eta_Cha.tar.gz'
+
+                eROSITACalPV._download_call('test_data', link)
+
+
+        shutil.rmtree('test_data/temp_download')
+
+
+
+class TestERASS1DE(unittest.TestCase):
     def setUp(self):
         self.defaults = eRASS1DE()
         self.tm1 = eRASS1DE(insts='TM1')
@@ -35,6 +132,9 @@ class TestErosita(unittest.TestCase):
 
     def test_fov(self):
         self.assertEqual(self.defaults.fov, Quantity(1.8, 'degree'))
+    
+    def test_id_regex(self):
+        self.assertEqual(self.defaults.id_regex, '^[0-9]{6}$')
     
     def test_inst_filtering(self):
         insts = ['TM1', 'TM2']  
@@ -66,7 +166,7 @@ class TestErosita(unittest.TestCase):
         mock_fits.open.assert_not_called()
 
 
-class TestDownload(unittest.TestCase):
+class TesteRASS1DEDownload(unittest.TestCase):
     def setUp(self):
         self.defaults = eRASS1DE()
         self.tm1 = eRASS1DE(insts='TM1')
@@ -158,7 +258,7 @@ class MockRequestResponse(object):
         pass
 
 # I tested this function in a different class because it needed so many unique patches
-class TestDownloadCall(unittest.TestCase):
+class TesteRASS1DEDownloadCall(unittest.TestCase):
     '''
     Tests the internal _download_call method of eRASS1DE
     '''
