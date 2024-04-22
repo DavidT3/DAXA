@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 12:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 12:34. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -966,7 +966,7 @@ class BaseMission(metaclass=ABCMeta):
                                                                     i=inst))
         # In this case we need a low energy, and one was not passed, but the selected instrument only has one available
         #  band for the pre-processed products, so we will just fill it in
-        elif lo_en is None and len(self.preprocessed_energy_bands[inst]) == 1:
+        elif lo_en is None and temp_en_trans is not None and len(self.preprocessed_energy_bands[inst]) == 1:
             lo_en = self.preprocessed_energy_bands[inst][0, 0]
 
         # Now we check the passed hi_en value
@@ -983,7 +983,7 @@ class BaseMission(metaclass=ABCMeta):
                                                 "energy bounds for {i}; only {eb} are "
                                                 "available.".format(m=self.pretty_name, l=lo_en.value, u=hi_en.value,
                                                                     eb=al_eb, i=inst))
-        elif hi_en is None and len(self.preprocessed_energy_bands[inst]) == 1:
+        elif hi_en is None and temp_en_trans is not None and len(self.preprocessed_energy_bands[inst]) == 1:
             hi_en = self.preprocessed_energy_bands[inst][0, 1]
 
         if self._template_inst_trans is not None and inst is not None:
