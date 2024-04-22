@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 13:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 13:22. Copyright (c) The Contributors
 from shutil import copyfile
 
 from daxa.archive import Archive
@@ -28,7 +28,10 @@ def preprocessed_in_archive(arch: Archive):
 
         for obs_id in miss.filtered_obs_ids:
             if miss.name in ['erosita_all_sky_de_dr1', 'erosita_calpv']:
-                rel_act_insts = miss.all_obs_info[miss.all_obs_info['ObsID'] == obs_id].iloc[0]['active_insts']
+                if miss.name == "erosita_calpv":
+                    rel_act_insts = miss.all_obs_info[miss.all_obs_info['ObsID'] == obs_id].iloc[0]['active_insts']
+                else:
+                    rel_act_insts = "TM1,TM2,TM3,TM4,TM5,TM6,TM7"
 
                 insts = "".join([i for i in miss.chosen_instruments if i in rel_act_insts])
                 new_name = "obsid{oi}_inst{i}_subexp{se}.fits".format(oi=obs_id, i=insts, se=None)
