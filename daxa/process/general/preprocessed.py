@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 14:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 14:44. Copyright (c) The Contributors
 from shutil import copyfile
 
 from tqdm import tqdm
@@ -18,6 +18,7 @@ def preprocessed_in_archive(arch: Archive):
 
     :param Archive arch: A DAXA archive that contains at least one mission with pre-processed data.
     """
+    # This is a very inelegant piece of code - but beautiful in function!
 
     # This will iterate through all the missions associated with the passed archive which have pre-processed data, and
     #  if there are none a suitable error will be raised.
@@ -108,10 +109,12 @@ def preprocessed_in_archive(arch: Archive):
                     # Suzaku is irritatingly unique in that it ships the images from the two XIS instruments combined,
                     #  and the images from the two GIS instruments combined - thus we have two iterations, one for
                     #  the combined XIS and one for the combined GIS - only if any XIS or GIS are selected however
-                    insts = [i[:-1] for i in miss.chosen_instruments]
+                    insts = list(set([i[:-1] for i in miss.chosen_instruments]))
                     for inst in insts:
+                        # This is daft, but I am fetching a full instrument name again to access the energy bounds
+                        fetch_inst = [i for i in miss.chosen_instruments if inst in i][0]
                         # Grab the bounds for the first of the chosen elements, as they'll all be the same
-                        for bnd_pair in bounds[inst]:
+                        for bnd_pair in bounds[fetch_inst]:
                             new_name = img_file_temp.format(oi=obs_id, i=inst, se=None, l=bnd_pair[0].value,
                                                             h=bnd_pair[1].value)
                             new_img_path = arch.construct_processed_data_path(miss, obs_id) + new_name
