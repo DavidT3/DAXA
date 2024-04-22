@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 14:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 14:48. Copyright (c) The Contributors
 from shutil import copyfile
 
 from tqdm import tqdm
@@ -120,7 +120,7 @@ def preprocessed_in_archive(arch: Archive):
                             new_img_path = arch.construct_processed_data_path(miss, obs_id) + new_name
 
                             try:
-                                og_img_path = miss.get_image_path(obs_id, bnd_pair[0], bnd_pair[1])
+                                og_img_path = miss.get_image_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
                                 copyfile(og_img_path, new_img_path)
                             except FileNotFoundError:
                                 pass
