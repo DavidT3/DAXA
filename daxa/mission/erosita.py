@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 13:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 16:09. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -929,7 +929,7 @@ class eRASS1DE(BaseMission):
         self._template_evt_name = "EXP_010/em01_{oi}_020_EventList_c010.fits"
         self._template_img_name = "EXP_010/em01_{oi}_02{eb}_Image_c010.fits"
         self._template_exp_name = "DET_010/em01_{oi}_02{eb}_ExposureMap_c010.fits"
-        self._template_bck_name = None
+        self._template_bck_name = "DET_010/em01_{oi}_02{eb}_BackgrImage_c010.fits"
 
         # Call the name property to set up the name and pretty name attributes
         self.name
@@ -1274,7 +1274,7 @@ class eRASS1DE(BaseMission):
             elif 'EXP_' in rd:
                 down_patt = ['_EventList_', '_Image_']
             elif 'DET_' in rd:
-                down_patt = ['_ExposureMap_']
+                down_patt = ['_ExposureMap_', '_BackgrImage_']
 
             # This is the directory to which we will be saving this archive directories files
             local_dir = raw_dir + '/{}/'.format(obs_id) + rd
