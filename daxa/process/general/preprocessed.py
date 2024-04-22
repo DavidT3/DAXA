@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 13:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 13:17. Copyright (c) The Contributors
 from shutil import copyfile
 
 from daxa.archive import Archive
@@ -54,7 +54,7 @@ def preprocessed_in_archive(arch: Archive):
 
             else:
                 # All missions with one instrument per ObsID will have an instrument column in their obs info
-                inst = miss.all_obs_info[miss.all_obs_info['ObsID'] == obs_id].iloc['instrument']
+                inst = miss.all_obs_info[miss.all_obs_info['ObsID'] == obs_id].iloc[0]['instrument']
                 og_evt_path = miss.get_evt_list_path(obs_id)
                 new_name = "obsid{oi}_inst{i}_subexp{se}.fits".format(oi=obs_id, i=inst, se=None)
                 new_evt_path = arch.construct_processed_data_path(miss, obs_id) + new_name
