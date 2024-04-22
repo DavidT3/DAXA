@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 18:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 18:26. Copyright (c) The Contributors
 from shutil import copyfile
 
 from tqdm import tqdm
@@ -33,7 +33,7 @@ def preprocessed_in_archive(arch: Archive):
         evt_file_temp = "events/obsid{oi}-inst{i}-subexp{se}-events.fits"
         img_file_temp = "images/obsid{oi}-inst{i}-subexp{se}-en{l}_{h}keV-image.fits"
         exp_file_temp = "images/obsid{oi}-inst{i}-subexp{se}-en{l}_{h}keV-expmap.fits"
-        bck_file_temp = "images/obsid{oi}-inst{i}-subexp{se}-en{l}_{h}keV-backmap.fits"
+        bck_file_temp = "background/obsid{oi}-inst{i}-subexp{se}-en{l}_{h}keV-backmap.fits"
 
         with tqdm(desc="Including pre-processed {pn} data in the archive".format(pn=miss.pretty_name),
                   total=len(miss)) as onwards:
