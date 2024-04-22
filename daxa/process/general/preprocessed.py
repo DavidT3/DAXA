@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 14:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 14:59. Copyright (c) The Contributors
 from shutil import copyfile
 
 from tqdm import tqdm
@@ -101,20 +101,19 @@ def preprocessed_in_archive(arch: Archive):
                         except FileNotFoundError:
                             pass
 
-                elif miss.name == 'suzaku':
+                elif miss.name == 'asca':
                     # As we know for sure that this mission does have pre-processed energy bands (as this is not
-                    #  a general part of this process, but only for Suzaku) we just read them out
+                    #  a general part of this process, but only for ASCA) we just read them out
                     bounds = miss.preprocessed_energy_bands
 
-                    # Suzaku is irritatingly unique in that it ships the images from the two XIS instruments combined,
+                    # ASCA is irritatingly unique in that it ships the images from the two SIS instruments combined,
                     #  and the images from the two GIS instruments combined - thus we have two iterations, one for
-                    #  the combined XIS and one for the combined GIS - only if any XIS or GIS are selected however
-                    insts = list(set([i[:-1] for i in miss.chosen_instruments]))
+                    #  the combined SIS and one for the combined GIS - we need a full identifier though (e.g. SIS1)
+                    insts = [i for i in miss.chosen_instruments if i[:-1] not in insts]
+                    print(insts)
                     for inst in insts:
-                        # This is daft, but I am fetching a full instrument name again to access the energy bounds
-                        fetch_inst = [i for i in miss.chosen_instruments if inst in i][0]
                         # Grab the bounds for the first of the chosen elements, as they'll all be the same
-                        for bnd_pair in bounds[fetch_inst]:
+                        for bnd_pair in bounds[insts]:
                             new_name = img_file_temp.format(oi=obs_id, i=inst, se=None, l=bnd_pair[0].value,
                                                             h=bnd_pair[1].value)
                             new_img_path = arch.construct_processed_data_path(miss, obs_id) + new_name
