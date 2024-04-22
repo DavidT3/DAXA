@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 15:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 15:23. Copyright (c) The Contributors
 from shutil import copyfile
 
 from tqdm import tqdm
@@ -32,6 +32,7 @@ def preprocessed_in_archive(arch: Archive):
         cur_evt_success = {oi: {} for oi in miss.filtered_obs_ids}
         evt_file_temp = "events/obsid{oi}-inst{i}-subexp{se}-events.fits"
         img_file_temp = "images/obsid{oi}-inst{i}-subexp{se}-en{l}_{h}keV-image.fits"
+        exp_file_temp = "images/obsid{oi}-inst{i}-subexp{se}-en{l}_{h}keV-expmap.fits"
 
         with tqdm(desc="Including pre-processed {pn} data in the archive".format(pn=miss.pretty_name),
                   total=len(miss)) as onwards:
@@ -101,6 +102,17 @@ def preprocessed_in_archive(arch: Archive):
                         except FileNotFoundError:
                             pass
 
+                        # TODO Change the se entry when possible
+                        new_name = exp_file_temp.format(oi=obs_id, i=insts, se=None, l=bnd_pair[0].value,
+                                                        h=bnd_pair[1].value)
+                        new_exp_path = arch.construct_processed_data_path(miss, obs_id) + new_name
+
+                        try:
+                            og_exp_path = miss.get_expmap_path(obs_id, bnd_pair[0], bnd_pair[1])
+                            copyfile(og_exp_path, new_exp_path)
+                        except FileNotFoundError:
+                            pass
+
                 elif miss.name == 'asca':
                     # As we know for sure that this mission does have pre-processed energy bands (as this is not
                     #  a general part of this process, but only for ASCA) we just read them out
@@ -126,6 +138,16 @@ def preprocessed_in_archive(arch: Archive):
                             except FileNotFoundError:
                                 pass
 
+                            new_name = exp_file_temp.format(oi=obs_id, i=inst, se=None, l=bnd_pair[0].value,
+                                                            h=bnd_pair[1].value)
+                            new_exp_path = arch.construct_processed_data_path(miss, obs_id) + new_name
+
+                            try:
+                                og_exp_path = miss.get_expmap_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
+                                copyfile(og_exp_path, new_exp_path)
+                            except FileNotFoundError:
+                                pass
+
                 elif not miss.one_inst_per_obs:
                     for inst in miss.chosen_instruments:
                         try:
@@ -144,6 +166,17 @@ def preprocessed_in_archive(arch: Archive):
                             try:
                                 og_img_path = miss.get_image_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
                                 copyfile(og_img_path, new_img_path)
+                            except FileNotFoundError:
+                                pass
+
+                            # TODO Change the se entry when possible
+                            new_name = exp_file_temp.format(oi=obs_id, i=inst, se=None, l=bnd_pair[0].value,
+                                                            h=bnd_pair[1].value)
+                            new_exp_path = arch.construct_processed_data_path(miss, obs_id) + new_name
+
+                            try:
+                                og_exp_path = miss.get_expmap_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
+                                copyfile(og_exp_path, new_exp_path)
                             except FileNotFoundError:
                                 pass
 
@@ -166,6 +199,16 @@ def preprocessed_in_archive(arch: Archive):
                         try:
                             og_img_path = miss.get_image_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
                             copyfile(og_img_path, new_img_path)
+                        except FileNotFoundError:
+                            pass
+
+                        new_name = exp_file_temp.format(oi=obs_id, i=inst, se=None, l=bnd_pair[0].value,
+                                                        h=bnd_pair[1].value)
+                        new_exp_path = arch.construct_processed_data_path(miss, obs_id) + new_name
+
+                        try:
+                            og_exp_path = miss.get_expmap_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
+                            copyfile(og_exp_path, new_exp_path)
                         except FileNotFoundError:
                             pass
 
