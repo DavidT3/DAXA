@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 16:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 18:21. Copyright (c) The Contributors
 from shutil import copyfile
 
 from tqdm import tqdm
@@ -124,7 +124,7 @@ def preprocessed_in_archive(arch: Archive):
                             copyfile(og_bck_path, new_bck_path)
                         except (FileNotFoundError, PreProcessedNotSupportedError):
                             pass
-
+                    onwards.update(1)
                 elif miss.name == 'asca':
                     # As we know for sure that this mission does have pre-processed energy bands (as this is not
                     #  a general part of this process, but only for ASCA) we just read them out
@@ -159,13 +159,12 @@ def preprocessed_in_archive(arch: Archive):
                                 copyfile(og_exp_path, new_exp_path)
                             except (FileNotFoundError, PreProcessedNotSupportedError):
                                 pass
-
+                    onwards.update(1)
                 elif not miss.one_inst_per_obs:
                     for inst in miss.chosen_instruments:
                         try:
                             bounds = miss.preprocessed_energy_bands
                         except PreProcessedNotSupportedError:
-                            onwards.update(1)
                             break
 
                         for bnd_pair in bounds[inst]:
@@ -191,7 +190,7 @@ def preprocessed_in_archive(arch: Archive):
                                 copyfile(og_exp_path, new_exp_path)
                             except (FileNotFoundError, PreProcessedNotSupportedError):
                                 pass
-
+                    onwards.update(1)
                 else:
                     # All missions with one instrument per ObsID will have an instrument column in their obs info
                     inst = miss.all_obs_info[miss.all_obs_info['ObsID'] == obs_id].iloc[0]['instrument']
@@ -199,8 +198,7 @@ def preprocessed_in_archive(arch: Archive):
                     try:
                         bounds = miss.preprocessed_energy_bands
                     except PreProcessedNotSupportedError:
-                        onwards.update(1)
-                        break
+                        continue
 
                     for bnd_pair in bounds[inst]:
                         # TODO Change the se entry when possible
@@ -223,6 +221,4 @@ def preprocessed_in_archive(arch: Archive):
                             copyfile(og_exp_path, new_exp_path)
                         except (FileNotFoundError, PreProcessedNotSupportedError):
                             pass
-
-                # TODO CANNOT STAY LIKE THIS AS WILL OVER-UPDATE ONES LIKE eROSITACALPV
-                onwards.update(1)
+                    onwards.update(1)
