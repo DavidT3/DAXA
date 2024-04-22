@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 14:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 15:04. Copyright (c) The Contributors
 from shutil import copyfile
 
 from tqdm import tqdm
@@ -109,11 +109,14 @@ def preprocessed_in_archive(arch: Archive):
                     # ASCA is irritatingly unique in that it ships the images from the two SIS instruments combined,
                     #  and the images from the two GIS instruments combined - thus we have two iterations, one for
                     #  the combined SIS and one for the combined GIS - we need a full identifier though (e.g. SIS1)
-                    insts = [i for i in miss.chosen_instruments if i[:-1] not in insts]
+                    insts = []
+                    for i in miss.chosen_instruments:
+                        if i[:-1] not in insts:
+                            insts.append(i)
                     print(insts)
                     for inst in insts:
                         # Grab the bounds for the first of the chosen elements, as they'll all be the same
-                        for bnd_pair in bounds[insts]:
+                        for bnd_pair in bounds[inst]:
                             new_name = img_file_temp.format(oi=obs_id, i=inst, se=None, l=bnd_pair[0].value,
                                                             h=bnd_pair[1].value)
                             new_img_path = arch.construct_processed_data_path(miss, obs_id) + new_name
