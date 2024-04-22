@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 12:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 12:28. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -68,7 +68,7 @@ class eROSITACalPV(BaseMission):
         self._miss_poss_field_types = EROSITA_CALPV_INFO["Field_Type"].unique().tolist()
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = ['Field_Name', 'Field_Type']
+        self._required_mission_specific_cols = ['Field_Name', 'Field_Type', 'active_insts']
         
         # Runs the method which fetches information on all available eROSITACalPV observations and stores that
         #  information in the all_obs_info property
@@ -363,7 +363,7 @@ class eROSITACalPV(BaseMission):
 
         # Including the relevant information for the final all_obs_info DataFrame
         obs_info_pd = calpv_copy[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'Field_Name',
-                                  'Field_Type']]
+                                  'Field_Type', 'active_insts']]
 
         self.all_obs_info = obs_info_pd
 
