@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 15:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 15:26. Copyright (c) The Contributors
 from shutil import copyfile
 
 from tqdm import tqdm
@@ -110,7 +110,7 @@ def preprocessed_in_archive(arch: Archive):
                         try:
                             og_exp_path = miss.get_expmap_path(obs_id, bnd_pair[0], bnd_pair[1])
                             copyfile(og_exp_path, new_exp_path)
-                        except FileNotFoundError:
+                        except (FileNotFoundError, PreProcessedNotSupportedError):
                             pass
 
                 elif miss.name == 'asca':
@@ -145,7 +145,7 @@ def preprocessed_in_archive(arch: Archive):
                             try:
                                 og_exp_path = miss.get_expmap_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
                                 copyfile(og_exp_path, new_exp_path)
-                            except FileNotFoundError:
+                            except (FileNotFoundError, PreProcessedNotSupportedError):
                                 pass
 
                 elif not miss.one_inst_per_obs:
@@ -177,7 +177,7 @@ def preprocessed_in_archive(arch: Archive):
                             try:
                                 og_exp_path = miss.get_expmap_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
                                 copyfile(og_exp_path, new_exp_path)
-                            except FileNotFoundError:
+                            except (FileNotFoundError, PreProcessedNotSupportedError):
                                 pass
 
                 else:
@@ -209,7 +209,7 @@ def preprocessed_in_archive(arch: Archive):
                         try:
                             og_exp_path = miss.get_expmap_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
                             copyfile(og_exp_path, new_exp_path)
-                        except FileNotFoundError:
+                        except (FileNotFoundError, PreProcessedNotSupportedError):
                             pass
 
                 # TODO CANNOT STAY LIKE THIS AS WILL OVER-UPDATE ONES LIKE eROSITACALPV
