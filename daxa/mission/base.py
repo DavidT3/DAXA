@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 10:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 12:29. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -931,12 +931,12 @@ class BaseMission(metaclass=ABCMeta):
                              "selected for this path to be generated; the options are "
                              "{ai}".format(m=self.pretty_name, ai=", ".join(self.chosen_instruments)))
 
-        if self._template_en_trans is None:
+        if lo_en is not None and self._template_en_trans is None:
             raise NotImplementedError("The template for translating energy to filename is not implemented for "
                                       "{}.".format(self.pretty_name))
         # In this case this dictionary is in the "instrument names as top level keys" configuration - so we need an
         #  instrument name in order to do the job
-        elif not isinstance(list(self._template_en_trans.keys())[0], Quantity):
+        elif lo_en is not None and not isinstance(list(self._template_en_trans.keys())[0], Quantity):
             if inst is None:
                 raise ValueError("The {m} mission provides pre-processed products with different energy bounds "
                                  "depending on instrument; as such, an instrument name must be "
@@ -944,8 +944,10 @@ class BaseMission(metaclass=ABCMeta):
             else:
                 temp_en_trans = self._template_en_trans[inst]
         # In this case all instruments have the same energy bounds
-        elif isinstance(list(self._template_en_trans.keys())[0], Quantity):
+        elif lo_en is not None and isinstance(list(self._template_en_trans.keys())[0], Quantity):
             temp_en_trans = self._template_en_trans
+        else:
+            temp_en_trans = None
 
         # The energy translation attribute is in the form of a nested dictionary where the top level keys are lower
         #  energy bounds, and the lower level keys are upper energy bounds
