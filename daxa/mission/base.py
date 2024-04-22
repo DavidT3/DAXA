@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 17:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 10:27. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -261,6 +261,11 @@ class BaseMission(metaclass=ABCMeta):
         #  pre-processed filenames. They will only need to be set in a mission class init when they are required
         self._template_en_trans = None
         self._template_inst_trans = None
+
+        # We can use this to specify whether a mission has only one instrument per ObsID (it is quite handy to codify
+        #  this for a couple of external processes). The default will be False, and it'll only be overridden in
+        #  the missions that need to set it to True (e.g. Chandra)
+        self._one_inst_per_obs = False
 
     # Defining properties first
     @property
@@ -739,6 +744,17 @@ class BaseMission(metaclass=ABCMeta):
                         if i in self._template_en_trans and self._template_en_trans[i] is not None}
 
         return ret_bnds
+
+    @property
+    def one_inst_per_obs(self) -> bool:
+        """
+        This property returns a boolean flag that describes whether this mission has one instrument per ObsID or
+        not. Most DAXA missions have multiple instruments per observation (or can do, if the user has selected them).
+
+        :return: Flag showing whether there are multiple instruments per observation.
+        :rtype: bool
+        """
+        return self._one_inst_per_obs
 
     # Then define internal methods
     def _load_state(self, save_file_path: str):

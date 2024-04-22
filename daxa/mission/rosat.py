@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/04/2024, 12:22. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 10:27. Copyright (c) The Contributors
 
 import io
 import os
@@ -141,6 +141,10 @@ class ROSATPointed(BaseMission):
                                    "PSPCC": "{oi}_mex.fits",
                                    "HRI": None}
         self._template_bck_name = "{oi}_bk{eb}.fits"
+
+        # We use this to specify whether a mission has only one instrument per ObsID (it is quite handy to codify
+        #  this for a couple of external processes).
+        self._one_inst_per_obs = True
 
         # We now will read in the previous state, if there is one to be read in.
         if save_file_path is not None:
