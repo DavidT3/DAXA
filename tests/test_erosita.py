@@ -26,14 +26,22 @@ class TesteROSITACalPV(unittest.TestCase):
         self.field_type = eROSITACalPV(fields='survey')
         self.type_n_nme = eROSITACalPV(fields=['survey', 'puppis a'])
     
+    def tearDown(self):
+        # In some of the testing download function I write files here
+        # I remove these in tearDown in case the test fails, so you dont get test files remaining
+        if os.path.exists('test_data/temp_download'):
+            shutil.rmtree('test_data/temp_download')
+        if os.path.exists('test_data/erosita_calpv_raw'):
+            shutil.rmtree('test_data/erosita_calpv_raw')
+    
     def test_chosen_fields(self):
 
-        self.assertEqual(self.defaults.chosen_fields,list(set(EROSITA_CALPV_INFO["Field_Name"].tolist())))
+        self.assertEqual(self.defaults.chosen_fields,
+                        list(set(EROSITA_CALPV_INFO["Field_Name"].tolist())))
 
         self.filtered = eROSITACalPV(fields='eFEDS')
         self.assertEqual(self.filtered.chosen_fields, ['EFEDS'])
-        # TODO check why this fails
-        #assert_array_equal(self.filtered.filtered_obs_ids, np.array(['300007', '300008', '300009', '300010']))
+        assert_array_equal(self.filtered.filtered_obs_ids, np.array(['300007', '300008', '300009', '300010']))
 
         # can't pass fields with the wrong type
         with self.assertRaises(ValueError):
@@ -88,7 +96,7 @@ class TesteROSITACalPV(unittest.TestCase):
             assert_array_equal(self.defaults.filtered_obs_ids, np.array(['700199', '700200']))
 
 
-    def test_download_call_now(self):
+    def test_download_call(self):
         # for some reason this is only working in a context manager but not using decorators, i havent got the foggiest why
         with patch('daxa.mission.erosita.requests.get') as mock_p:
             with patch('daxa.mission.erosita.tarfile.open') as mock_t:
@@ -96,7 +104,6 @@ class TesteROSITACalPV(unittest.TestCase):
                 mock_response.raw = BytesIO(b'fake_data')
                 mock_p.return_value.__enter__.return_value = mock_response
             
-                print(mock_response.raw)
                 mock_tarfile = MagicMock()
                 mock_tarfile.extractcall = 'doesntmatter'
                 mock_t.return_value.open.return_value.__enter__.return_value = mock_tarfile
@@ -105,10 +112,197 @@ class TesteROSITACalPV(unittest.TestCase):
 
                 eROSITACalPV._download_call('test_data', link)
 
+                mock_p.assert_called_once_with(link, stream=True)
+                mock_t.assert_called_once_with('test_data/temp_download/ETA_CHA/ETA_CHAETA_CHA.tar.gz', 'r:gz')
 
-        shutil.rmtree('test_data/temp_download')
+        self.assertTrue(os.path.exists('test_data/temp_download/ETA_CHA/ETA_CHA/'))
+    
+    def test_directory_formatting_files_in_one_folder(self):
+        # writing some files to test the function with
+        # for testing purposes I am changing this attribute so the test files get written to the test_data folder
+        self.filtered._top_level_output_path = 'test_data/'
+        # self.raw_data_path is now test_data/erosita_calpv_raw
+
+        # setting up my fake downloaded data
+        # defining my path for fake downloaded data to go in
+        path = 'test_data/erosita_calpv_raw/temp_download/EFEDS/'
+        # making the directories
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        # making the files
+        obs_ids = ['300007', '300008', '300009', '300010']
+        for obs in obs_ids:
+            with open(path + obs + '.txt', 'w') as f:
+                f.write('testing')
+        # when downloading calpv data they all come with extra pdfs
+            with open(path + obs + 'eRO' + '.txt', 'w') as f:
+                f.write('testing')
+        
+        self.filtered._directory_formatting()
+
+        self.assertTrue(os.path.exists('test_data/erosita_calpv_raw/300007/300007.txt'))
+        self.assertTrue(os.path.exists('test_data/erosita_calpv_raw/300008/300008.txt'))
+        self.assertTrue(os.path.exists('test_data/erosita_calpv_raw/300009/300009.txt'))
+        self.assertTrue(os.path.exists('test_data/erosita_calpv_raw/300010/300010.txt'))
+        self.assertFalse(os.path.exists('test_data/erosita_calpv_raw/temp_download'))
+
+    def test_directory_formatting_files_in_two_folders(self):
+        # writing some files to test the function with
+        # for testing purposes I am changing this attribute so the test files get written to the test_data folder
+        self.filtered._top_level_output_path = 'test_data/'
+        # self.raw_data_path is now test_data/erosita_calpv_raw
+
+        # setting up my fake downloaded data
+        # defining my path for fake downloaded data to go in
+        path = 'test_data/erosita_calpv_raw/temp_download/EFEDS/EFEDS/'
+        # making the directories
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        # making the files
+        obs_ids = ['300007', '300008', '300009', '300010']
+        for obs in obs_ids:
+            with open(path + obs + '.txt', 'w') as f:
+                f.write('testing')
+        # when downloading calpv data they all come with extra pdfs
+            with open(path + obs + 'eRO' + '.txt', 'w') as f:
+                f.write('testing')
+        
+        self.filtered._directory_formatting()
+
+        self.assertTrue(os.path.exists('test_data/erosita_calpv_raw/300007/300007.txt'))
+        self.assertTrue(os.path.exists('test_data/erosita_calpv_raw/300008/300008.txt'))
+        self.assertTrue(os.path.exists('test_data/erosita_calpv_raw/300009/300009.txt'))
+        self.assertTrue(os.path.exists('test_data/erosita_calpv_raw/300010/300010.txt'))
+        self.assertFalse(os.path.exists('test_data/erosita_calpv_raw/temp_download'))
+
+    def test_directory_formatting_files_in_three_folders(self):
+        # writing some files to test the function with
+        # for testing purposes I am changing this attribute so the test files get written to the test_data folder
+        self.filtered._top_level_output_path = 'test_data/'
+        # self.raw_data_path is now test_data/erosita_calpv_raw
+
+        # setting up my fake downloaded data
+        # defining my path for fake downloaded data to go in
+        path = 'test_data/erosita_calpv_raw/temp_download/EFEDS/EFEDS/EFEDS/'
+        # making the directories
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        # making the files
+        obs_ids = ['300007', '300008', '300009', '300010']
+        for obs in obs_ids:
+            with open(path + obs + '.txt', 'w') as f:
+                f.write('testing')
+        # when downloading calpv data they all come with extra pdfs
+            with open(path + obs + 'eRO' + '.txt', 'w') as f:
+                f.write('testing')
+        
+        self.filtered._directory_formatting()
+
+        self.assertTrue(os.path.exists('test_data/erosita_calpv_raw/300007/300007.txt'))
+        self.assertTrue(os.path.exists('test_data/erosita_calpv_raw/300008/300008.txt'))
+        self.assertTrue(os.path.exists('test_data/erosita_calpv_raw/300009/300009.txt'))
+        self.assertTrue(os.path.exists('test_data/erosita_calpv_raw/300010/300010.txt'))
+        self.assertFalse(os.path.exists('test_data/erosita_calpv_raw/temp_download'))
+    
+    def test_get_evlist_path_from_obs(self):
+        self.defaults._top_level_output_path = 'test_data/'
+        with patch('daxa.mission.erosita.os.listdir') as mock_listdir:
+            mock_listdir.return_value = ['fm00_300004_020_EventList_c001.fits',
+                                         'fm00_300004_020_EventList_c001_if123.fits']
+            
+            result = self.defaults.get_evlist_path_from_obs('300004')
+
+        self.assertEqual(result, 'test_data/erosita_calpv_raw/300004/fm00_300004_020_EventList_c001.fits')
+    
+class TesteROSITACalPV_download(unittest.TestCase):
+    '''
+    Putting this test into a separate class since it needs a lot of patches
+    '''
+    def setUp(self):
+        self.etacha = eROSITACalPV(fields='eta cha')
+        self.etacha_insts = eROSITACalPV(fields='eta cha', insts=['TM1', 'TM2'])
+        self.survey = eROSITACalPV(fields='survey')
+
+        self.mock_dir_frmt = patch.object(eROSITACalPV, '_directory_formatting').start()
+        self.mock_inst_filt = patch.object(eROSITACalPV, '_inst_filtering').start()
+        self.mock_down_call = patch.object(eROSITACalPV, '_download_call').start()
+        self.mock_get_evlist = patch.object(eROSITACalPV, 'get_evlist_path_from_obs').start()
+
+        self.mock_tqdm = patch('daxa.mission.erosita.tqdm').start()
+        self.mock_Pool = patch('daxa.mission.erosita.Pool').start()
+        
+    def tearDown(self):
+        patch.stopall()
+
+        if os.path.exists('test_data/erosita_calpv_raw'):
+            shutil.rmtree('test_data/erosita_calpv_raw')
+
+    def test_successful_download(self):
+        # this object just includes the crab 3 observation
+        self.etacha._top_level_output_path = 'test_data/'
+        
+        self.etacha.download(num_cores=1)
+
+        # making sure the correct directory is made
+        self.assertTrue(os.path.exists('test_data/erosita_calpv_raw'))
+
+        down_link = 'https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/eta_Cha.tar.gz'
+        self.mock_down_call.assert_called_once_with(raw_dir='test_data/erosita_calpv_raw/', link=down_link)
+        self.mock_inst_filt.assert_not_called()
+        self.mock_dir_frmt.assert_called_once()
+        self.assertTrue(self.etacha._download_done)
+    
+    def test_successful_download_w_inst_filtering(self):
+        # this object just includes the crab 3 observation
+        self.etacha_insts._top_level_output_path = 'test_data/'
+
+        self.mock_get_evlist.return_value = 'test_data/erosita_calpv_raw/300004/fm00_300004_020_EventList_c001.fits'
+        
+        self.etacha_insts.download(num_cores=1)
+
+        # making sure the correct directory is made
+        self.assertTrue(os.path.exists('test_data/erosita_calpv_raw'))
+
+        down_link = 'https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/eta_Cha.tar.gz'
+        self.mock_down_call.assert_called_once_with(raw_dir='test_data/erosita_calpv_raw/', link=down_link)
+        path = 'test_data/erosita_calpv_raw/300004/fm00_300004_020_EventList_c001.fits'
+        self.mock_inst_filt.assert_called_once_with(insts=['TM1', 'TM2'], evlist_path=path)
+        self.mock_dir_frmt.assert_called_once()
+        self.assertTrue(self.etacha_insts._download_done)
+    
+    def test_successful_download_some_already_downloaded(self):
+        self.survey._top_level_output_path = 'test_data/'
+
+        # setting up a directory of some of the obs ids to mimic those already being downloaded
+        path = 'test_data/erosita_calpv_raw/{}'
+
+        obs_ids = ['300007/', '300008/', '300009/', '300010/']
+        # making the directories
+        for obs in obs_ids:
+            os.makedirs(os.path.dirname(path.format(obs)), exist_ok=True)
+        
+        # only eta cha is left to be downloaded
+        self.survey.download()
+
+        down_link = 'https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/eta_Cha.tar.gz'
+        self.mock_down_call.assert_called_once_with(raw_dir='test_data/erosita_calpv_raw/', link=down_link)
+        self.mock_inst_filt.assert_not_called()
+        self.mock_dir_frmt.assert_called_once()
+        self.assertTrue(self.survey._download_done)
 
 
+    def test_download_raises_warning(self):
+        self.etacha._top_level_output_path = 'test_data/'
+
+        # This mimics the data already being downloaded
+        path = 'test_data/erosita_calpv_raw/300004/'
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+
+        with self.assertWarns(UserWarning):
+            self.etacha.download()
+    
+    def test_invalid_num_cores(self):
+        self.etacha._top_level_output_path = 'test_data/'
+
+        with self.assertRaises(ValueError):
+            self.etacha.download(num_cores=-3)
 
 class TestERASS1DE(unittest.TestCase):
     def setUp(self):
@@ -137,10 +331,10 @@ class TestERASS1DE(unittest.TestCase):
         self.assertEqual(self.defaults.id_regex, '^[0-9]{6}$')
     
     def test_inst_filtering(self):
-        insts = ['TM1', 'TM2']  
-        # Test fits file of structure: col1 [1, 2, 3, 4, 5] = evts 
-        # col2 [1, 2, 5, 1, 7] = TM_NR
-        evlist_path = 'test_data/inst_filt.fits' 
+        insts = ['TM1', 'TM2']
+        # Test fits file of structure: col1 [1, 2, 3, 4, 5] = evts
+        # col2 [1, 2, 5, 1, 7] = TM_NR
+        evlist_path = 'test_data/inst_filt.fits'
 
         eRASS1DE._inst_filtering(insts, evlist_path)
 
@@ -155,10 +349,10 @@ class TestERASS1DE(unittest.TestCase):
     @patch('daxa.mission.erosita.os.path.exists')
     @patch('daxa.mission.erosita.fits')
     def test_inst_filtering_already_filtered(self, mock_exists, mock_fits):
-        insts = ['TM1', 'TM2']  
-        # Test fits file of structure: col1 [1, 2, 3, 4, 5] = evts 
+        insts = ['TM1', 'TM2']
+        # Test fits file of structure: col1 [1, 2, 3, 4, 5] = evts
         # col2 [1, 2, 5, 1, 7] = TM_NR
-        evlist_path = 'test_data/inst_filt.fits' 
+        evlist_path = 'test_data/inst_filt.fits'
         mock_exists.return_value = True
 
         eRASS1DE._inst_filtering(insts, evlist_path)
@@ -244,7 +438,7 @@ class TesteRASS1DEDownload(unittest.TestCase):
 
 class MockRequestResponse(object):
     '''
-    Mimics the properties of the return value of a session.get object for testing in 
+    Mimics the properties of the return value of a session.get object for testing in
     TestDownloadCall.
     '''
     def __init__(self, text):
@@ -293,8 +487,8 @@ class TesteRASS1DEDownloadCall(unittest.TestCase):
         # If your mocked object needs to return different values at different points in the
         # function, then they should be input as a list in the order of the return values
         self.mock_session.return_value.get.side_effect = [
-            MockRequestResponse(text=respns_1), 
-            MockRequestResponse(text=respns_2), 
+            MockRequestResponse(text=respns_1),
+            MockRequestResponse(text=respns_2),
             MockRequestResponse(text=to_down)]
 
         self.mock_gzip.open.return_value = MagicMock()  # Mock open gzip file
@@ -359,8 +553,8 @@ class TesteRASS1DEDownloadCall(unittest.TestCase):
         # If your mocked object needs to return different values at different points in the
         # function, then they should be input as a list in the order of the return values
         self.mock_session.return_value.get.side_effect = [
-            MockRequestResponse(text=respns_1), 
-            MockRequestResponse(text=respns_2), 
+            MockRequestResponse(text=respns_1),
+            MockRequestResponse(text=respns_2),
             MockRequestResponse(text=to_down[0]),
             MockRequestResponse(text=to_down[1]),
             MockRequestResponse(text=to_down[2]),
@@ -442,33 +636,33 @@ class TesteRASS1DEDownloadCall(unittest.TestCase):
         ]
 
         expected_calls_to_open = [
-            call(local_dir_exp + to_down[0], 'wb'), 
+            call(local_dir_exp + to_down[0], 'wb'),
             call(local_dir_exp + to_down[0].strip('.gz'), 'wb'),
-            call(local_dir_exp + to_down[1], 'wb'), 
+            call(local_dir_exp + to_down[1], 'wb'),
             call(local_dir_exp + to_down[1].strip('.gz'), 'wb'),
-            call(local_dir_exp + to_down[2], 'wb'), 
+            call(local_dir_exp + to_down[2], 'wb'),
             call(local_dir_exp + to_down[2].strip('.gz'), 'wb'),
-            call(local_dir_exp + to_down[3], 'wb'), 
+            call(local_dir_exp + to_down[3], 'wb'),
             call(local_dir_exp + to_down[3].strip('.gz'), 'wb'),
-            call(local_dir_exp + to_down[4], 'wb'), 
+            call(local_dir_exp + to_down[4], 'wb'),
             call(local_dir_exp + to_down[4].strip('.gz'), 'wb'),
-            call(local_dir_exp + to_down[5], 'wb'), 
+            call(local_dir_exp + to_down[5], 'wb'),
             call(local_dir_exp + to_down[5].strip('.gz'), 'wb'),
-            call(local_dir_exp + to_down[6], 'wb'), 
+            call(local_dir_exp + to_down[6], 'wb'),
             call(local_dir_exp + to_down[6].strip('.gz'), 'wb'),
-            call(local_dir_exp + to_down[7], 'wb'), 
+            call(local_dir_exp + to_down[7], 'wb'),
             call(local_dir_exp + to_down[7].strip('.gz'), 'wb'),
-            call(local_dir_det + to_down[8], 'wb'), 
+            call(local_dir_det + to_down[8], 'wb'),
             call(local_dir_det + to_down[8].strip('.gz'), 'wb'),
-            call(local_dir_det + to_down[9], 'wb'), 
+            call(local_dir_det + to_down[9], 'wb'),
             call(local_dir_det + to_down[9].strip('.gz'), 'wb'),
-            call(local_dir_det + to_down[10], 'wb'), 
+            call(local_dir_det + to_down[10], 'wb'),
             call(local_dir_det + to_down[10].strip('.gz'), 'wb'),
-            call(local_dir_det + to_down[11], 'wb'), 
+            call(local_dir_det + to_down[11], 'wb'),
             call(local_dir_det + to_down[11].strip('.gz'), 'wb'),
-            call(local_dir_det + to_down[12], 'wb'), 
+            call(local_dir_det + to_down[12], 'wb'),
             call(local_dir_det + to_down[12].strip('.gz'), 'wb'),
-            call(local_dir_det + to_down[13], 'wb'), 
+            call(local_dir_det + to_down[13], 'wb'),
             call(local_dir_det + to_down[13].strip('.gz'), 'wb')
             ]
         
@@ -504,8 +698,8 @@ class TesteRASS1DEDownloadCall(unittest.TestCase):
         # If your mocked object needs to return different values at different points in the
         # function, then they should be input as a list in the order of the return values
         self.mock_session.return_value.get.side_effect = [
-            MockRequestResponse(text=respns_1), 
-            MockRequestResponse(text=respns_2), 
+            MockRequestResponse(text=respns_1),
+            MockRequestResponse(text=respns_2),
             MockRequestResponse(text=to_down)]
         self.mock_gzip.open.return_value = MagicMock()  # Mock open gzip file
 
