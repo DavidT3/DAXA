@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 10:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 15:44. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -1063,7 +1063,8 @@ class BaseMission(metaclass=ABCMeta):
         """
         return bool(re.match(self.id_regex, obs_id_to_check))
 
-    def check_inst_names(self, insts: Union[List[str], str], error_on_bad_inst: bool = True):
+    def check_inst_names(self, insts: Union[List[str], str], error_on_bad_inst: bool = True,
+                         show_warn: bool = True):
         """
         A method to perform some checks on the validity of chosen instrument names for a given mission.
 
@@ -1072,6 +1073,7 @@ class BaseMission(metaclass=ABCMeta):
         :param bool error_on_bad_inst: Controls whether an exception is raised if the instrument(s) aren't actually
             associated with this mission - intended for DAXA checking operations (see 'get_process_logs' of Archive
             for an example). Default is True.
+        :param bool show_warn: Should warnings produced by this method be shown? Default is True
         :return: The list of instruments (possibly altered to match formats expected by this module).
         :rtype: List
         """
@@ -1125,7 +1127,7 @@ class BaseMission(metaclass=ABCMeta):
             updated_insts = [i for i in updated_insts if i in self._miss_poss_insts]
 
         # I warn the user if the name(s) of instruments have been altered.
-        if altered:
+        if altered and show_warn:
             warn("Some instrument names were converted to alternative forms expected by this module, the instrument "
                  "names are now; {}".format(', '.join(updated_insts)), stacklevel=2)
 
