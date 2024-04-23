@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 13:11. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 13:15. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -593,7 +593,7 @@ def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, d
     # As we are effectively splitting up an existing pipeline, I actually leave the temporary directories (and final
     #  files) in place until later in the chain
     rgp_cmd = "cd {d}; export SAS_CCF={ccf}; export SAS_ODF={odf}; rgsproc entrystage=3:filter finalstage=3:filter " \
-              "withinstexpids=true instexpids={ei}; mv *.FIT ../; cd ..; rm -r {d}; mv {oge} {fe}"
+              "withinstexpids=true instexpids={ei}; mv *EVENLI0000.FIT ../; cd ..; rm -r {d}; mv {oge} {fe}"
 
     # The event list name that we want to check for at the end of the process - a copy of the original event list
     #  but with the filtering of events applied - this is what is produced by the SAS call
