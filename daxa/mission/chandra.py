@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 18:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 18:20. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -101,10 +101,9 @@ class Chandra(BaseMission):
         # Runs the method which fetches information on all available pointed Chandra observations and stores that
         #  information in the all_obs_info property
         self._fetch_obs_info()
-        # In most mission inits this is just a call to reset_filter, but as the chosen instruments effectively act
-        #  as a filter for Chandra, we're doing this manually because reset_filter will fail as there are no
-        #  instruments set yet.
-        self._filter_allowed = self.all_obs_info['science_usable'].values.copy()
+        # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
+        #  column of all_obs_info, rather than the initial None value
+        self.reset_filter()
 
         # Deliberately using the property setter, because it calls the internal _check_chos_insts function
         #  to make sure the input instruments are allowed
