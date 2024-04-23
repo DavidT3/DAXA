@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 12:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 17:00. Copyright (c) The Contributors
 
 import json
 import os
@@ -37,14 +37,14 @@ class Archive:
         that offer it (assuming downloading was not triggered when the missions were declared). Default is
         True, but False may also be passed, as may a dictionary of DAXA mission names with True/False values.
     :param bool/dict use_preprocessed: Whether pre-processed data products should be used rather than re-processing
-        locally with DAXA. If True (the default) then what pre-processed data products are available will be
-        automatically re-organised into the DAXA processed data structure during the setup of this archive. If
-        False then this will not automatically be applied. Just as with 'download_products', a dictionary may
-        be passed for more nuanced control, with mission names as keys and True/False as values.
+        locally with DAXA. If True then what pre-processed data products are available will be automatically
+        re-organised into the DAXA processed data structure during the setup of this archive. If False (the default)
+        then this will not automatically be applied. Just as with 'download_products', a dictionary may be passed for
+        more nuanced control, with mission names as keys and True/False as values.
     """
     def __init__(self, archive_name: str, missions: Union[List[BaseMission], BaseMission] = None,
                  clobber: bool = False, download_products: Union[bool, dict] = True,
-                 use_preprocessed: Union[bool, dict] = True):
+                 use_preprocessed: Union[bool, dict] = False):
         """
         The init of the Archive class, which is to be used to consolidate and provide some interface with a set
         of mission's data. Archives can be passed to processing and cleaning functions in DAXA, and also
@@ -62,10 +62,10 @@ class Archive:
             that offer it (assuming downloading was not triggered when the missions were declared). Default is
             True, but False may also be passed, as may a dictionary of DAXA mission names with True/False values.
         :param bool/dict use_preprocessed: Whether pre-processed data products should be used rather than re-processing
-            locally with DAXA. If True (the default) then what pre-processed data products are available will be
-            automatically re-organised into the DAXA processed data structure during the setup of this archive. If
-            False then this will not automatically be applied. Just as with 'download_products', a dictionary may
-            be passed for more nuanced control, with mission names as keys and True/False as values.
+            locally with DAXA. If True then what pre-processed data products are available will be automatically
+            re-organised into the DAXA processed data structure during the setup of this archive. If False (the default)
+            then this will not automatically be applied. Just as with 'download_products', a dictionary may be passed for
+            more nuanced control, with mission names as keys and True/False as values.
         """
         # Must ensure that the missions variable is iterable even if there's only one mission that has
         #  been passed, makes it easier to generalize things - IF IT ISN'T NONE

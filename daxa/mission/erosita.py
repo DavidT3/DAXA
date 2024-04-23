@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 15:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 17:00. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -813,8 +813,6 @@ class eROSITACalPV(BaseMission):
         #  I'd done all of them like this...
         inst = self.chosen_instruments[0]
 
-        inst, en_bnd_trans, file_inst, lo_en, hi_en = self._get_prod_path_checks(obs_id, inst)
-
         rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id))
         # This performs certain checks to make sure the file exists, and fill in any wildcards
         rel_pth = self._get_prod_path_post_checks(rel_pth, obs_id, inst, 'event list')
@@ -1495,8 +1493,6 @@ class eRASS1DE(BaseMission):
         #  shipped in the same files - this is the reason this method overrides the base implementation. Sort of wish
         #  I'd done all of them like this...
         inst = self.chosen_instruments[0]
-
-        inst, en_bnd_trans, file_inst, lo_en, hi_en = self._get_prod_path_checks(obs_id, inst)
 
         rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id))
         # This performs certain checks to make sure the file exists, and fill in any wildcards
