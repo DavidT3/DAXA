@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 10:38. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 12:51. Copyright (c) The Contributors
 
 import json
 import os
@@ -67,6 +67,11 @@ class Archive:
             False then this will not automatically be applied. Just as with 'download_products', a dictionary may
             be passed for more nuanced control, with mission names as keys and True/False as values.
         """
+        # Must ensure that the missions variable is iterable even if there's only one mission that has
+        #  been passed, makes it easier to generalize things - IF IT ISN'T NONE
+        if missions is not None and isinstance(missions, BaseMission):
+            missions = [missions]
+
         # Check the download_products input - if it is a dictionary - and only if some missions have been passed
         if missions is not None and isinstance(download_products, dict):
             passed_mns = [miss.name for miss in missions]
@@ -99,8 +104,9 @@ class Archive:
                                  "in 'download_products' was False.")
         elif missions is not None:
             # Making sure that the downstream parts of this init can reliably expect use_preprocessed to be a dict
-            use_preprocessed = {mn: True if use_preprocessed and download_products[mn] else False
-                                for mn in download_products}
+            use_preprocessed = {
+                miss.name: True if use_preprocessed and download_products[miss.name] and miss.downloaded_type in [
+                    'preprocessed', 'proprocessed+raw'] else False for miss in missions}
 
         # Store the archive name in an attribute
         self._archive_name = archive_name
@@ -140,11 +146,8 @@ class Archive:
 
         # If the archive is brand new, then we have a lot of setting up attributes to do
         if self._new_arch:
-            # Must ensure that the missions variable is iterable even if there's only one mission that has
-            #  been passed, makes it easier to generalise things.
-            if isinstance(missions, BaseMission):
-                missions = [missions]
-            elif missions is None and self._new_arch:
+
+            if missions is None and self._new_arch:
                 raise ValueError("The 'missions' argument cannot be None when creating a new archive, only when loading"
                                  " an existing one.")
             elif missions is None and not self._new_arch:

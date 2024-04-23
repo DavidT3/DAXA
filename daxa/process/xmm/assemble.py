@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 09:38. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 12:51. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -18,9 +18,6 @@ from daxa.process.xmm._common import _sas_process_setup, sas_call, ALLOWED_XMM_M
 from daxa.process.xmm.check import parse_emanom_out
 
 
-# TODO YOU NEED TO ENSURE THAT THE XMM AND EROSITA PROCESSED FILENAMES MATCH THE NAMING CONVENTION I HAVE ADOPTED
-#  FOR THE PRE-PROCESSED DATA THAT HAS BEEN MOVED INTO THE ARCHIVE. YOU ALSO NEED TO MAKE SURE THE FILES END UP IN
-#  THE CORRECT SUB-DIRECTORIES (EVENTS, IMAGES, ETC.)
 # TODO YOU ALSO NEED TO MAKE SURE THAT THE DOCUMENTATION REFLECTS ALL THE CHANGES YOU HAVE MADE
 
 
@@ -63,11 +60,15 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     ep_cmd = "cd {d}; export SAS_CCF={ccf}; epchain odf={odf} odfaccess=odf exposure={e} schedule={s} ccds={c} " \
              "runbackground=N keepintermediate=raw withoutoftime=Y; epchain odf={odf} odfaccess=odf exposure={e} " \
              "schedule={s} ccds={c} runatthkgen=N runepframes=N runbadpixfind=N runbadpix=N; mv *EVLI*.FIT ../; " \
-             "mv *ATTTSR*.FIT ../;cd ..; rm -r {d}"
+             "mv *ATTTSR*.FIT ../;cd ..; rm -r {d}; mv {oge} {fe}; mv {ogoote} {foote}"
 
-    # The event list pattern that we want to check for at the end of the process
-    evt_list_name = "P{o}PN{eid}PIEVLI0000.FIT"
-    oot_evt_list_name = "P{o}PN{eid}OOEVLI0000.FIT"
+    # The event list pattern that that should exist after the SAS process, which we will rename to our convention
+    prod_evt_list_name = "P{o}PN{eid}PIEVLI0000.FIT"
+    prod_oot_evt_list_name = "P{o}PN{eid}OOEVLI0000.FIT"
+
+    # These represent the final names and resting places of the event lists
+    evt_list_name = "obsid{o}-inst{i}-subexp{se}-events.fits"
+    oot_evt_list_name = "obsid{o}-inst{i}-subexp{se}-ootevents.fits"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -127,9 +128,13 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
             # Set up a temporary directory to work in
             temp_name = "tempdir_{}".format(randint(0, 1e+8))
             temp_dir = dest_dir + temp_name + "/"
-            # This is where the final output event list file will be stored
-            final_path = dest_dir + evt_list_name.format(o=obs_id, eid=exp_id)
-            oot_final_path = dest_dir + oot_evt_list_name.format(o=obs_id, eid=exp_id)
+            # This is where the processes will output the event list files
+            og_out_path = os.path.join(dest_dir, prod_evt_list_name.format(o=obs_id, eid=exp_id))
+            og_oot_out_path = os.path.join(dest_dir, prod_oot_evt_list_name.format(o=obs_id, eid=exp_id))
+
+            # This is where the final output event list file will be stored - after moving and renaming
+            final_path = os.path.join(dest_dir, 'events', evt_list_name.format(o=obs_id, se=exp_id, i='PN'))
+            oot_final_path = os.path.join(dest_dir, 'events', oot_evt_list_name.format(o=obs_id, se=exp_id, i='PN'))
 
             # If it doesn't already exist then we will create commands to generate it - there are no options for
             #  epchain that could be changed between runs (other than processing unscheduled, but we're looping
@@ -144,7 +149,8 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
                 # Format the blank command string defined near the top of this function with information
                 #  particular to the current mission and ObsID
                 cmd = ep_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, e=exp_id[1:], s=exp_id[0],
-                                    c=ccd_str)
+                                    c=ccd_str, oge=og_out_path, ogoote=og_oot_out_path, fe=final_path,
+                                    foote=oot_final_path)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
