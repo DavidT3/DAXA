@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 14:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 15:08. Copyright (c) The Contributors
 import os
 import shutil
 from typing import Tuple
@@ -176,11 +176,11 @@ def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.
         #  lists, and the path to the attitude file.
         # TODO set the attitude file programmatically
         xmm_files = {"root_xmm_dir": obs_archive.archive_path+'processed_data/' + miss.name + '/',
-                     "clean_pn_evts": obs_archive.archive_path+'processed_data/' + miss.name + '/{obs_id}/' +
+                     "clean_pn_evts": obs_archive.archive_path+'processed_data/' + miss.name + '/{obs_id}/events/' +
                                       evt_names['PN'],
-                     "clean_mos1_evts": obs_archive.archive_path+'processed_data/' + miss.name + '/{obs_id}/' +
+                     "clean_mos1_evts": obs_archive.archive_path+'processed_data/' + miss.name + '/{obs_id}/events/' +
                                         evt_names['M1'],
-                     "clean_mos2_evts": obs_archive.archive_path+'processed_data/' + miss.name + '/{obs_id}/' +
+                     "clean_mos2_evts": obs_archive.archive_path+'processed_data/' + miss.name + '/{obs_id}/events/' +
                                         evt_names['M2'],
                      "attitude_file": obs_archive.archive_path+'processed_data/' + miss.name +
                                       '/{obs_id}/P{obs_id}OBX000ATTTSR0000.FIT',

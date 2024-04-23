@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 14:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 15:08. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -1105,17 +1105,17 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                     os.makedirs(temp_dir)
 
                 # If we've got to this point then merging will definitely occur, so we start with the setup command,
-                #  which just moves us to the working directory - its in a list because said list will contain all
+                #  which just moves us to the working directory - it's in a list because said list will contain all
                 #  the stages of this command, and will be joined at the end of this process into a single bash
                 #  command.
                 cur_merge_cmds = [inst_cmds['setup'].format(d=temp_dir)]
                 # Now we can iterate through the files for merging - using enumerate so we get an index for the current
-                #  event path, which we can add one to to retrieve the next event list along - i.e. what we will be
+                #  event path, which we can add one too to retrieve the next event list along - i.e. what we will be
                 #  merging into. This is why we slice the event file list so that we only iterate up to the penultimate
                 #  file, because that file will be accessed by adding one to the last evt_ind.
                 # Frankly I probably should have used a while loop here, but ah well
                 for evt_ind, evt_path in enumerate(to_combine[oi][:-1]):
-                    # If we haven't iterated yet then we use the currently access event list name as the
+                    # If we haven't iterated yet then we use the current event list name as the
                     #  first event list.
                     if evt_ind == 0 and len(evt_path) == 2:
                         first_evt = evt_path[1]
