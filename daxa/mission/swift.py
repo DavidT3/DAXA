@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 17:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 10:22. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -603,6 +603,8 @@ class Swift(BaseMission):
 
         :param str ident: The unique identifier used in a particular processing step.
         """
-        raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
-                                  "clear to me what form the unique identifiers will take once we start processing"
-                                  "{n} data ourselves.".format(n=self.pretty_name))
+        # raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
+        #                           "clear to me what form the unique identifiers will take once we start processing"
+        #                           "{n} data ourselves.".format(n=self.pretty_name))
+        # Swift ObsIDs are always 11 digits, so we just retrieve the first 11
+        return ident[:11]
