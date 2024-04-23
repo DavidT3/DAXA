@@ -1,6 +1,5 @@
 import unittest
 from unittest.mock import patch, MagicMock, call
-from requests import Session
 import numpy as np
 from numpy.testing import assert_array_equal
 import os
@@ -14,7 +13,6 @@ from astropy.io import fits
 from daxa.mission import eRASS1DE, eROSITACalPV
 from daxa import OUTPUT
 from daxa.config import EROSITA_CALPV_INFO
-from daxa.exceptions import DAXADownloadError
 
 
 class TesteROSITACalPV(unittest.TestCase):
