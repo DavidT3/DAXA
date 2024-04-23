@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:39. Copyright (c) The Contributors
 
 import json
 import os
@@ -17,7 +17,6 @@ from daxa.exceptions import DuplicateMissionError, NoProcessingError, NoDependen
     ObsNotAssociatedError, MissionNotAssociatedError, PreProcessedNotAvailableError
 from daxa.misc import dict_search
 from daxa.mission import MISS_INDEX
-from daxa.process.general import preprocessed_in_archive
 
 
 class Archive:
@@ -231,6 +230,9 @@ class Archive:
             # If any of the missions are to be used with pre-processed data products, then we need to trigger the
             #  function that organises that
             if any(list(use_preprocessed.values())):
+                # Avoiding a circular import
+                from daxa.process.general import preprocessed_in_archive
+
                 to_preproc = [mn for mn in use_preprocessed if use_preprocessed[mn]]
                 preprocessed_in_archive(self, to_preproc)
 
