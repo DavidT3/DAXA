@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 22:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 17:27. Copyright (c) The Contributors
 
 import os.path
 from random import randint
@@ -181,8 +181,9 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
                 temp_dir = dest_dir + temp_name + "/"
 
                 # Setting the paths to the output cleaned event list file
-                filt_evt_name = "{i}-{l}-{u}_clean.fits".format(i=insts, l=lo_en, u=hi_en)
-                filt_evt_path = dest_dir + filt_evt_name
+                filt_evt_name = "obsid{o}-inst{i}-subexpALL-en{l}_{u}keV-finalevents.fits".format(i=insts, l=lo_en,
+                                                                                                  u=hi_en, o=obs_id)
+                filt_evt_path = os.path.join(dest_dir, 'events', filt_evt_name)
 
                 # The path that needs to exist is the filtered event list 
                 final_paths = [filt_evt_path]
