@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 10:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 10:38. Copyright (c) The Contributors
 
 import json
 import os
@@ -299,10 +299,11 @@ class Archive:
                                 with open(cur_log_pth, 'r') as loggo:
                                     self._process_logs[miss_name][proc_name][u_id] = loggo.read()
                             except FileNotFoundError:
-                                # Every process run should have this log file, so we throw a warning if it can't
-                                #  be found - I don't see why this should happen without outside interference
-                                warn("The {pn} log file for {mn}-{ui} cannot be "
-                                     "found.".format(pn=proc_name, mn=miss_name, ui=u_id), stacklevel=2)
+                                if 'preprocessed' not in proc_name:
+                                    # Every process run should have this log file, so we throw a warning if it can't
+                                    #  be found - I don't see why this should happen without outside interference
+                                    warn("The {pn} log file for {mn}-{ui} cannot be "
+                                         "found.".format(pn=proc_name, mn=miss_name, ui=u_id), stacklevel=2)
 
                             # Then we construct the name and path to the possibly present stderr storage file - this
                             #  one will quite possibly (hopefully even) not exist, because it is only made when there
