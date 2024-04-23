@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 21:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 21:21. Copyright (c) The Contributors
 from shutil import copyfile
 
 from tqdm import tqdm
@@ -25,6 +25,7 @@ def preprocessed_in_archive(arch: Archive):
     evt_success = {}
     img_success = {}
     exp_success = {}
+    bck_success = {}
     for miss in arch.preprocessed_missions:
         # Very first thing we want to do is to create the directories in which we will be storing the pre-processed
         #  data - this will do just that (and make a 'failed_data' directory as well, in case any of our pre-processed
@@ -86,6 +87,7 @@ def preprocessed_in_archive(arch: Archive):
                     continue
 
                 # ------------------------------ Images/ExpMaps/BackMaps ---------------------------------------
+                # ----------------------------------------------------------------------------------------------
                 # Again the eROSITA All-Sky data has different rules because it ships with all instruments in one
                 #  image/event list/everything
                 if miss.name == 'erosita_all_sky_de_dr1':
@@ -113,7 +115,7 @@ def preprocessed_in_archive(arch: Archive):
                             if bodge_inst not in cur_img_success[obs_id] or not cur_img_success[obs_id][bodge_inst]:
                                 cur_img_success[obs_id] = {i: True for i in miss.chosen_instruments}
                         except FileNotFoundError:
-                            pass
+                            cur_img_success[obs_id] = {i: False for i in miss.chosen_instruments}
 
                         # TODO Change the se entry when possible
                         new_name = exp_file_temp.format(oi=obs_id, i=insts, se=None, l=bnd_pair[0].value,
@@ -126,7 +128,7 @@ def preprocessed_in_archive(arch: Archive):
                             if bodge_inst not in cur_exp_success[obs_id] or not cur_exp_success[obs_id][bodge_inst]:
                                 cur_exp_success[obs_id] = {i: True for i in miss.chosen_instruments}
                         except (FileNotFoundError, PreProcessedNotSupportedError):
-                            pass
+                            cur_exp_success[obs_id] = {i: False for i in miss.chosen_instruments}
 
                         # TODO Change the se entry when possible
                         new_name = bck_file_temp.format(oi=obs_id, i=insts, se=None, l=bnd_pair[0].value,
@@ -139,7 +141,7 @@ def preprocessed_in_archive(arch: Archive):
                             if bodge_inst not in cur_bck_success[obs_id] or not cur_bck_success[obs_id][bodge_inst]:
                                 cur_bck_success[obs_id] = {i: True for i in miss.chosen_instruments}
                         except (FileNotFoundError, PreProcessedNotSupportedError):
-                            pass
+                            cur_bck_success[obs_id] = {i: False for i in miss.chosen_instruments}
                     onwards.update(1)
 
                 elif miss.name == 'asca':
@@ -168,7 +170,8 @@ def preprocessed_in_archive(arch: Archive):
                                     cur_img_success[obs_id] = {i: True for i in miss.chosen_instruments
                                                                if inst[:-1] in i}
                             except FileNotFoundError:
-                                pass
+                                cur_img_success[obs_id] = {i: False for i in miss.chosen_instruments
+                                                           if inst[:-1] in i}
 
                             new_name = exp_file_temp.format(oi=obs_id, i=inst, se=None, l=bnd_pair[0].value,
                                                             h=bnd_pair[1].value)
@@ -181,7 +184,8 @@ def preprocessed_in_archive(arch: Archive):
                                     cur_exp_success[obs_id] = {i: True for i in miss.chosen_instruments
                                                                if inst[:-1] in i}
                             except (FileNotFoundError, PreProcessedNotSupportedError):
-                                pass
+                                cur_exp_success[obs_id] = {i: False for i in miss.chosen_instruments
+                                                           if inst[:-1] in i}
                     onwards.update(1)
                 elif not miss.one_inst_per_obs:
                     for inst in miss.chosen_instruments:
@@ -200,8 +204,10 @@ def preprocessed_in_archive(arch: Archive):
                             try:
                                 og_img_path = miss.get_image_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
                                 copyfile(og_img_path, new_img_path)
+                                if inst not in cur_img_success[obs_id] or not cur_img_success[obs_id]:
+                                    cur_img_success[obs_id][inst] = True
                             except FileNotFoundError:
-                                pass
+                                cur_img_success[obs_id][inst] = False
 
                             # TODO Change the se entry when possible
                             new_name = exp_file_temp.format(oi=obs_id, i=inst, se=None, l=bnd_pair[0].value,
@@ -211,8 +217,10 @@ def preprocessed_in_archive(arch: Archive):
                             try:
                                 og_exp_path = miss.get_expmap_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
                                 copyfile(og_exp_path, new_exp_path)
+                                if inst not in cur_exp_success[obs_id] or not cur_exp_success[obs_id]:
+                                    cur_exp_success[obs_id][inst] = True
                             except (FileNotFoundError, PreProcessedNotSupportedError):
-                                pass
+                                cur_exp_success[obs_id][inst] = False
 
                             # TODO Change the se entry when possible
                             new_name = bck_file_temp.format(oi=obs_id, i=inst, se=None, l=bnd_pair[0].value,
@@ -222,8 +230,10 @@ def preprocessed_in_archive(arch: Archive):
                             try:
                                 og_bck_path = miss.get_background_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
                                 copyfile(og_bck_path, new_bck_path)
+                                if inst not in cur_bck_success[obs_id] or not cur_bck_success[obs_id]:
+                                    cur_bck_success[obs_id][inst] = True
                             except (FileNotFoundError, PreProcessedNotSupportedError):
-                                pass
+                                cur_bck_success[obs_id][inst] = False
                     onwards.update(1)
                 else:
                     # All missions with one instrument per ObsID will have an instrument column in their obs info
@@ -243,8 +253,10 @@ def preprocessed_in_archive(arch: Archive):
                         try:
                             og_img_path = miss.get_image_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
                             copyfile(og_img_path, new_img_path)
+                            if inst not in cur_img_success[obs_id] or not cur_img_success[obs_id]:
+                                cur_img_success[obs_id][inst] = True
                         except FileNotFoundError:
-                            pass
+                            cur_img_success[obs_id][inst] = False
 
                         new_name = exp_file_temp.format(oi=obs_id, i=inst, se=None, l=bnd_pair[0].value,
                                                         h=bnd_pair[1].value)
@@ -253,8 +265,10 @@ def preprocessed_in_archive(arch: Archive):
                         try:
                             og_exp_path = miss.get_expmap_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
                             copyfile(og_exp_path, new_exp_path)
+                            if inst not in cur_exp_success[obs_id] or not cur_exp_success[obs_id]:
+                                cur_exp_success[obs_id][inst] = True
                         except (FileNotFoundError, PreProcessedNotSupportedError):
-                            pass
+                            cur_exp_success[obs_id][inst] = False
 
                         # TODO Change the se entry when possible
                         new_name = bck_file_temp.format(oi=obs_id, i=inst, se=None, l=bnd_pair[0].value,
@@ -264,13 +278,19 @@ def preprocessed_in_archive(arch: Archive):
                         try:
                             og_bck_path = miss.get_background_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
                             copyfile(og_bck_path, new_bck_path)
+                            if inst not in cur_bck_success[obs_id] or not cur_bck_success[obs_id]:
+                                cur_bck_success[obs_id][inst] = True
                         except (FileNotFoundError, PreProcessedNotSupportedError):
-                            pass
+                            cur_bck_success[obs_id][inst] = False
                     onwards.update(1)
 
         evt_success[miss.name] = cur_evt_success
-        img_success[miss.name] = cur_img_success
-        exp_success[miss.name] = cur_exp_success
+        if sum([len(cur_img_success[oi]) for oi in cur_img_success]) != 0:
+            img_success[miss.name] = cur_img_success
+        if sum([len(cur_exp_success[oi]) for oi in cur_exp_success]) != 0:
+            exp_success[miss.name] = cur_exp_success
+        if sum([len(cur_bck_success[oi]) for oi in cur_bck_success]) != 0:
+            bck_success[miss.name] = cur_bck_success
 
     arch.process_success = ('preprocessed_events', evt_success)
     arch.process_success = ('preprocessed_images', img_success)
