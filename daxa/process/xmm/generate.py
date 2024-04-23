@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 15:08. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 15:31. Copyright (c) The Contributors
 import os
 import shutil
 from typing import Tuple
@@ -137,7 +137,7 @@ def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.
             # Grabs the output path for the final event list, then splits it to remove the absolute bit of the
             #  absolute path, leaving just the filename.
             evt_path = obs_archive.process_extra_info[miss.name]['merge_subexposures'][cur_id]['final_evt']
-            evt_names[inst] = evt_path.split('/')[-1]
+            evt_names[inst] = evt_path.split('/')[-1].replace(obs_id, '{obs_id}')
 
         # It is conceivable that there are no observations with a particular instrument, so we check for that and
         #  put a dummy path in the dictionary because whilst it may need to actually point at a file, XGA does need
@@ -237,15 +237,20 @@ def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.
             # We make sure that directory exists (can't think why it wouldn't, but better to be safe).
             if os.path.exists(cur_path):
                 for file_name in os.listdir(cur_path):
-                    inst = file_name.split('_')[1]
-                    inst = miss.check_inst_names(inst, error_on_bad_inst=False)
 
-                    cur_lo, cur_hi = file_name.split("_")[-1].split('keV')[0].split("-")
                     # We convert them to the new DAXA naming convention for files
                     if 'img' in file_name:
+                        inst = file_name.split('_')[1]
+                        inst = miss.check_inst_names(inst, error_on_bad_inst=False)
+
+                        cur_lo, cur_hi = file_name.split("_")[-1].split('keV')[0].split("-")
                         new_name = "obsid{oi}-inst{i}-subexpALL-en{l}_{h}keV-image.fits".format(oi=obs_id, i=inst,
                                                                                                 l=cur_lo, h=cur_hi)
                     elif 'expmap' in file_name:
+                        inst = file_name.split('_')[1]
+                        inst = miss.check_inst_names(inst, error_on_bad_inst=False)
+
+                        cur_lo, cur_hi = file_name.split("_")[-1].split('keV')[0].split("-")
                         new_name = "obsid{oi}-inst{i}-subexpALL-en{l}_{h}keV-expmap.fits".format(oi=obs_id, i=inst,
                                                                                                  l=cur_lo, h=cur_hi)
                     # Move the file to its new home, with its new name
