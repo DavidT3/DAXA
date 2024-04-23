@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 10:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 10:13. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -668,6 +668,10 @@ class Chandra(BaseMission):
 
         :param str ident: The unique identifier used in a particular processing step.
         """
-        raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
-                                  "clear to me what form the unique identifiers will take once we start processing"
-                                  "{n} data ourselves.".format(n=self.pretty_name))
+        # raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
+        #                           "clear to me what form the unique identifiers will take once we start processing"
+        #                           "{n} data ourselves.".format(n=self.pretty_name))
+        # Replaces any instance of any of the instrument names with nothing
+        for i in self._miss_poss_insts:
+            ident = ident.replace(i, '')
+        return ident
