@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 13:28. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 14:14. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -774,7 +774,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
     ev_inst_cmd = {'mos': "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} "
                           "updateexposure=yes; cd ../; rm -r {d}",
                    'pn': "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} "
-                         "updateexposure=yes; mv {fe} ../; echo OOT EVSELECT; evselect table={ootae} "
+                         "updateexposure=yes; echo OOT EVSELECT; evselect table={ootae} "
                          "filteredset={ootfe} expression={expr} updateexposure=yes; cd ../; rm -r {d}"}
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
