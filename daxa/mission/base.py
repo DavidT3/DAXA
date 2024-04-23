@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 12:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:17. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -1838,7 +1838,7 @@ class BaseMission(metaclass=ABCMeta):
             return rel_obs_info[any_rel_data]
 
     @abstractmethod
-    def download(self):
+    def download(self, download_products: bool = False):
         """
         An abstract method to actually acquire and download the mission data that have not been filtered out (if
         a filter has been applied, otherwise all data will be downloaded). This must be overwritten by every subclass

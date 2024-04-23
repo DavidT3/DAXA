@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 10:25. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:17. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -307,7 +307,8 @@ class XMMPointed(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, credentials: Union[dict, str] = None):
+    def download(self, num_cores: int = NUM_CORES, credentials: Union[dict, str] = None,
+                 download_products: bool = False):
         """
         A method to acquire and download the pointed XMM data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -321,6 +322,7 @@ class XMMPointed(BaseMission):
         :param dict/str credentials: The path to an ini file containing credentials, a dictionary containing 'user'
             and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
             for providing different credentials for different observations.
+        :param bool download_products: CURRENTLY NON-FUNCTIONAL.
         """
 
         if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 19/04/2024, 09:20. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:17. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -478,7 +478,7 @@ class INTEGRALPointed(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES):
+    def download(self, num_cores: int = NUM_CORES, download_products: bool = False):
         """
         A method to acquire and download the pointed INTEGRAL data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -491,6 +491,8 @@ class INTEGRALPointed(BaseMission):
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
+        :param bool download_products: PRESENT FOR COMPATIBILITY WITH OTHER DAXA TASKS - the INTEGRAL archive does
+            not provide pre-processed products for download.
         """
 
         if not self.filtered_obs_info['proprietary_usable'].all():
