@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:41. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:44. Copyright (c) The Contributors
 
 import json
 import os
@@ -97,11 +97,10 @@ class Archive:
             elif any([use_preprocessed[mn] and not download_products[mn] for mn in passed_mns]):
                 raise ValueError("A mission entry for 'use_preprocessed' cannot be True if the corresponding entry "
                                  "in 'download_products' was False.")
-
         elif missions is not None:
             # Making sure that the downstream parts of this init can reliably expect use_preprocessed to be a dict
             use_preprocessed = {mn: True if use_preprocessed and download_products[mn] else False
-                                for mn in use_preprocessed}
+                                for mn in download_products}
 
         # Store the archive name in an attribute
         self._archive_name = archive_name
