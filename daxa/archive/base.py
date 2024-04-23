@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 10:01. Copyright (c) The Contributors
 
 import json
 import os
@@ -178,6 +178,10 @@ class Archive:
             #  That means their observation content becomes immutable.
             for mission in self._missions.values():
                 mission: BaseMission
+                # We make sure that the missions are all set to not-fully processed, just in case something odd
+                #  has been going on and they've already been used in an archive in the same script. We do this
+                #  through the attribute because the property won't allow it to be changed
+                mission._processed = False
                 if not mission.locked:
                     mission.locked = True
 

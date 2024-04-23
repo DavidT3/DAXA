@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 10:01. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -707,7 +707,7 @@ class BaseMission(metaclass=ABCMeta):
         """
         if not isinstance(new_val, bool):
             raise TypeError("New values for 'processed' must be boolean.")
-        elif self._processed:
+        elif self._processed and not new_val:
             raise ValueError("The processed property has already been set to True, and is now immutable.")
         elif new_val and not self.locked:
             self.locked = True
