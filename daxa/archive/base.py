@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
 #  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:37. Copyright (c) The Contributors
+
 import json
 import os
 from shutil import rmtree
