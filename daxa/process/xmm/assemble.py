@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 14:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 14:37. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -981,11 +981,11 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
     #  is an entry regarding this change in the log dictionaries.
     # The different instruments need different commands to deal with the fact that PN has OOT event lists as well
     inst_cmds = {'mos': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}",
-                         "clean": "mv {ft} ../{fe}; cd ../ ; rm -r {d}",
+                         "clean": "mv {ft} {fe}; cd ../ ; rm -r {d}",
                          "rename": "mv {cne} {nne}"},
                  'pn': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}; echo OOT MERGE; merge set1={oote_one}"
                                  " set2={oote_two} outset={oote_fin}",
-                        "clean": "mv {ft} ../{fe}; mv {ootft} ../{ootfe}; cd ../ ; rm -r {d}",
+                        "clean": "mv {ft} {fe}; mv {ootft} {ootfe}; cd ../ ; rm -r {d}",
                         "rename": "mv {cne} {nne}; mv {ootcne} {ootnne}"},
                  'setup': "cd {d}"}
 
