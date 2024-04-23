@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 13:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 13:11. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -651,7 +651,7 @@ def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, d
             temp_dir = obs_archive.process_extra_info[miss.name]['rgs_events'][obs_id + inst + exp_id]['temp_dir']
 
             # This is where the final output event list file will be stored
-            og_out_path = dest_dir + evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
+            og_out_path = dest_dir + prod_evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
             # This is where the final output event list file will be stored - after moving and renaming
             final_path = os.path.join(dest_dir, 'events', evt_list_name.format(o=obs_id, se=exp_id, i=inst))
 
