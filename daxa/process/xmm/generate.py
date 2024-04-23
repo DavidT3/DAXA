@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 13:31. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 14:57. Copyright (c) The Contributors
 import os
 import shutil
 from typing import Tuple
@@ -228,17 +228,31 @@ def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.
         # This goes through and
         for obs_id in which_obs:
             # This is the directory where XGA stored the files generated for the current value of ObsID
-            cur_path = new_out + obs_id
+            cur_path = new_out + obs_id + '/'
+
+            # We set up the path we're going to move things too, in the existing DAXA directory structure - file
+            #  names will be added onto the end
+            dest_dir = obs_archive.construct_processed_data_path(miss.name, obs_id) + 'images/'
+
             # We make sure that directory exists (can't think why it wouldn't, but better to be safe).
             if os.path.exists(cur_path):
-                # This is the path we're going to move it to, in the existing DAXA directory structure
-                dest_path = obs_archive.construct_processed_data_path(miss.name, obs_id) + 'images/'
-                # Doing the actual moving of the directory
-                shutil.move(cur_path, dest_path)
-                # Then we check to see if the calibration file exists in the images directory, and if so then
-                #  we remove it, as we already have one of those.
-                if os.path.exists(dest_path + 'ccf.cif'):
-                    os.remove(dest_path + 'ccf.cif')
+                for file_name in os.listdir(cur_path):
+                    inst = file_name.split('_')[1]
+                    inst = miss.check_inst_names(inst, error_on_bad_inst=False)
+
+                    cur_lo, cur_hi = file_name.split("_")[-1].split('keV')[0].split("-")
+                    # We convert them to the new DAXA naming convention for files
+                    if 'img' in file_name:
+                        new_name = "obsid{oi}-inst{i}-subexpALL-en{l}_{h}keV-image.fits".format(oi=obs_id, i=inst,
+                                                                                                l=cur_lo, h=cur_hi)
+                    elif 'expmap' in file_name:
+                        new_name = "obsid{oi}-inst{i}-subexpALL-en{l}_{h}keV-expmap.fits".format(oi=obs_id, i=inst,
+                                                                                                 l=cur_lo, h=cur_hi)
+                    # Move the file to its new home, with its new name
+                    dest_file_path = dest_dir + new_name
+
+                    # Doing the actual moving of the directory
+                    shutil.move(cur_path + file_name, dest_file_path)
 
         # Finally we remove the XGA output directory.
         shutil.rmtree(new_out)
