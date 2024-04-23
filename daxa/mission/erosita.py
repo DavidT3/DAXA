@@ -93,12 +93,6 @@ class eROSITACalPV(BaseMission):
         # Call the name property to set up the name and pretty name attributes
         self.name
 
-        # Runs the method which fetches information on all available RASS observations and stores that
-        #  information in the all_obs_info property
-        self._fetch_obs_info()
-        # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
-        #  column of all_obs_info, rather than the initial None value
-        self.reset_filter()
 
     # Defining properties first
     @property
@@ -385,10 +379,9 @@ class eROSITACalPV(BaseMission):
         # Said boolean array can be multiplied with the existing filter array (by default all ones, which means
         #  all observations are let through) to produce an updated filter.
         new_filter = self.filter_array*sel_obs_mask
-        # Then we set the filter array property with that updated mask
-        self.filter_array = new_filter
 
-        # TODO why doesnt this update the filtered_obs_id_property 
+        # Then we set the filter array property with that updated mask
+        self.filter_array = new_filter    
 
     # Then define user-facing methods
     def _fetch_obs_info(self):
