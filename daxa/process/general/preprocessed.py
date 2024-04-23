@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 09:38. Copyright (c) The Contributors
 
 from shutil import copyfile
 from typing import List
@@ -53,7 +53,7 @@ def preprocessed_in_archive(arch: Archive, missions: List[str] = None):
         create_dirs(arch, miss.name)
 
         # Now we attempt to relocate the products, renaming to our convention
-        cur_evt_success = {oi: {} for oi in miss.filtered_obs_ids}
+        cur_evt_success = {}
         cur_img_success = {oi: {} for oi in miss.filtered_obs_ids}
         cur_exp_success = {oi: {} for oi in miss.filtered_obs_ids}
         cur_bck_success = {oi: {} for oi in miss.filtered_obs_ids}
@@ -77,7 +77,7 @@ def preprocessed_in_archive(arch: Archive, missions: List[str] = None):
 
                     og_evt_path = miss.get_evt_list_path(obs_id)
                     copyfile(og_evt_path, new_evt_path)
-                    cur_evt_success[obs_id] = {i: True for i in miss.chosen_instruments if i in rel_act_insts}
+                    cur_evt_success.update({obs_id+i: True for i in miss.chosen_instruments if i in rel_act_insts})
 
                 elif not miss.one_inst_per_obs:
                     for inst in miss.chosen_instruments:
@@ -88,9 +88,9 @@ def preprocessed_in_archive(arch: Archive, missions: List[str] = None):
                         try:
                             og_evt_path = miss.get_evt_list_path(obs_id, inst)
                             copyfile(og_evt_path, new_evt_path)
-                            cur_evt_success[obs_id][inst] = True
+                            cur_evt_success[obs_id+inst] = True
                         except FileNotFoundError:
-                            cur_evt_success[obs_id][inst] = False
+                            cur_evt_success[obs_id+inst] = False
 
                 else:
                     # All missions with one instrument per ObsID will have an instrument column in their obs info
@@ -99,10 +99,10 @@ def preprocessed_in_archive(arch: Archive, missions: List[str] = None):
                     new_name = evt_file_temp.format(oi=obs_id, i=inst, se=None)
                     new_evt_path = arch.construct_processed_data_path(miss, obs_id) + new_name
                     copyfile(og_evt_path, new_evt_path)
-                    cur_evt_success[obs_id][inst] = True
+                    cur_evt_success[obs_id+inst] = True
 
                 # If the transfer of event lists was not successful, then nothing else is likely to be
-                if not any(cur_evt_success[obs_id].values()):
+                if not any([succ for ident, succ in cur_evt_success.items() if obs_id in ident]):
                     onwards.update(1)
                     continue
 

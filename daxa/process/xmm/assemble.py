@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 12:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 09:38. Copyright (c) The Contributors
+
 import os
 from copy import deepcopy
 from random import randint
@@ -15,6 +16,12 @@ from daxa.process._backend_check import find_lcurve
 from daxa.process._cleanup import _last_process
 from daxa.process.xmm._common import _sas_process_setup, sas_call, ALLOWED_XMM_MISSIONS
 from daxa.process.xmm.check import parse_emanom_out
+
+
+# TODO YOU NEED TO ENSURE THAT THE XMM AND EROSITA PROCESSED FILENAMES MATCH THE NAMING CONVENTION I HAVE ADOPTED
+#  FOR THE PRE-PROCESSED DATA THAT HAS BEEN MOVED INTO THE ARCHIVE. YOU ALSO NEED TO MAKE SURE THE FILES END UP IN
+#  THE CORRECT SUB-DIRECTORIES (EVENTS, IMAGES, ETC.)
+# TODO YOU ALSO NEED TO MAKE SURE THAT THE DOCUMENTATION REFLECTS ALL THE CHANGES YOU HAVE MADE
 
 
 @sas_call
