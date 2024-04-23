@@ -595,5 +595,3 @@ ZeroEffectiveArea,especget
 ZeroExposureLength,odfingest
 zeroRenorm,arfgen
 zeroSumDetmap,arfgen
-NoWCS,evselect
-MergeGeneralWarning,merge
