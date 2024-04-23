@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 17:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 17:33. Copyright (c) The Contributors
 
 import os.path
 from random import randint
@@ -152,9 +152,8 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
         for obs in obs_ids:
             # Collecting all the insts that a certain ObsID has events for
             insts = ''.join([all_obs_info_list[1] for all_obs_info_list in all_obs_info if obs in all_obs_info_list])
-            # The insts are all TM{x} where x is a number from 1-7, I just want to retain the x information, 
-            #   and append it to the dict
-            obs_info_dict[obs] = ''.join(ch for ch in insts if ch.isdigit())
+            # The insts are all TM{x} where x is a number from 1-7, we want to separate them with _ for the file names
+            obs_info_dict[obs] = '_'.join("TM"+ch for ch in insts if ch.isdigit())
 
         # Counter for number of ObsIDs that flaregti has not been run successfully on
         bad_obs_counter = 0
