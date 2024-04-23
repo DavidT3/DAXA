@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 14:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 14:21. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -902,11 +902,11 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             temp_dir = dest_dir + temp_name + "/"
 
             # Setting up the path to the event file
-            filt_evt_name = "obsid{o}-inst{i}-subexp{se}-en{en_id}-finalevents.fits".format(i=inst, se=exp_id,
+            filt_evt_name = "obsid{o}-inst{i}-subexp{se}-en{en_id}-cleanevents.fits".format(i=inst, se=exp_id,
                                                                                             en_id=en_ident, o=obs_id)
             filt_evt_path = os.path.join(dest_dir, 'events', filt_evt_name)
             # And the same deal with the OOT event file, though of course that is only relevant to PN data
-            filt_oot_evt_name = "obsid{o}-inst{i}-subexp{se}-en{en_id}-finalootevents.fits".format(i=inst, se=exp_id,
+            filt_oot_evt_name = "obsid{o}-inst{i}-subexp{se}-en{en_id}-cleanootevents.fits".format(i=inst, se=exp_id,
                                                                                                    en_id=en_ident,
                                                                                                    o=obs_id)
             filt_oot_evt_path = os.path.join(dest_dir, 'events', filt_oot_evt_name)
@@ -1064,11 +1064,13 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
 
             # Setting up the path to the final combined event file
-            final_evt_name = "{i}{en_id}_clean.fits".format(i=inst, en_id=to_combine[oi][0][0])
+            final_evt_name = "obsid{o}-inst{i}-subexpALL-en{en_id}-finalevents.fits".format(o=obs_id, i=inst,
+                                                                                            en_id=to_combine[oi][0][0])
             final_path = dest_dir + final_evt_name
             # And a possible accompanying OOT combined events file, not used if the instrument isn't PN but
             #  always defined because its easier
-            final_oot_evt_name = "{i}{en_id}_oot_clean.fits".format(i=inst, en_id=to_combine[oi][0][0])
+            final_oot_evt_name = ("obsid{o}-inst{i}-subexpALL-en{en_id}-finalootevents."
+                                  "fits").format(o=obs_id, i=inst, en_id=to_combine[oi][0][0])
             final_oot_path = dest_dir + final_oot_evt_name
 
             # If there is only one event list for a particular ObsID-instrument combination, then obviously merging
@@ -1161,12 +1163,12 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                 #  (and all the transient part merged event lists that might have been created along the way).
                 # Again have to account for PN having OOT event lists as well
                 if inst == 'PN':
-                    cur_merge_cmds.append(inst_cmds['pn']['clean'].format(ft=cur_t_name, fe=final_evt_name,
+                    cur_merge_cmds.append(inst_cmds['pn']['clean'].format(ft=cur_t_name, fe=final_path,
                                                                           ootft=cur_oot_t_name,
-                                                                          ootfe=final_oot_evt_name,
+                                                                          ootfe=final_oot_path,
                                                                           d=temp_dir))
                 else:
-                    cur_merge_cmds.append(inst_cmds['mos']['clean'].format(ft=cur_t_name, fe=final_evt_name,
+                    cur_merge_cmds.append(inst_cmds['mos']['clean'].format(ft=cur_t_name, fe=final_path,
                                                                            d=temp_dir))
                 # Finally the list of commands is all joined together so it is one, like the commands of the rest
                 #  of the SAS wrapper functions
