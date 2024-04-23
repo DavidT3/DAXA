@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 17:08. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 17:15. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -226,8 +226,8 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
                    "mask_pimin={mpimi} mask_pimax={mpima} xmin={xmi} xmax={xma} ymin={ymi} ymax={yma} " \
                    "gridsize={gs} binsize={bs} detml={dl} timebin={tb} source_size={ss} source_like={sl} " \
                    "fov_radius={fr} threshold={t} max_threshold={mt} write_mask={wm} mask={m} mask_iter={mit} " \
-                   "write_lightcurve={wl} lightcurve={lcf} write_thresholdimg={wti} thresholdimg={tif} gtifile=el_testo.fits; " \
-                   "mv {olc} {lc}; mv {oti} {ti}; mv {omi} {mi}; "  #rm -r {d}
+                   "write_lightcurve={wl} lightcurve={lcf} write_thresholdimg={wti} thresholdimg={tif}; " \
+                   "mv {olc} {lc}; mv {oti} {ti}; mv {omi} {mi}; rm -r {d}"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
