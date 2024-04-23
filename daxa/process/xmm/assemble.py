@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 14:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 14:27. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -1066,12 +1066,12 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             # Setting up the path to the final combined event file
             final_evt_name = "obsid{o}-inst{i}-subexpALL-en{en_id}-finalevents.fits".format(o=obs_id, i=inst,
                                                                                             en_id=to_combine[oi][0][0])
-            final_path = dest_dir + final_evt_name
+            final_path = os.path.join(dest_dir, 'events', final_evt_name)
             # And a possible accompanying OOT combined events file, not used if the instrument isn't PN but
             #  always defined because its easier
             final_oot_evt_name = ("obsid{o}-inst{i}-subexpALL-en{en_id}-finalootevents."
                                   "fits").format(o=obs_id, i=inst, en_id=to_combine[oi][0][0])
-            final_oot_path = dest_dir + final_oot_evt_name
+            final_oot_path = os.path.join(dest_dir, 'events', final_oot_evt_name)
 
             # If there is only one event list for a particular ObsID-instrument combination, then obviously merging
             #  is impossible/unnecessary, so in that case we just rename the file (which will have sub-exposure ID
