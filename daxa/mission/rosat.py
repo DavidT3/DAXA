@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 10:06. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 18:22. Copyright (c) The Contributors
 
 import io
 import os
@@ -191,10 +191,6 @@ class ROSATPointed(BaseMission):
         """
         # First of all, check whether the new instruments are valid for this mission
         new_insts = super().check_inst_names(new_insts, True)
-
-        # As a part of this, I will reset the filter array - in case the user used the chosen_instruments (property
-        #  setter that calls this function) after the initial declaration phase.
-        self.reset_filter()
 
         # If we've gotten through the super call then the instruments are acceptable, so now we filter the
         #  observation info table using them.
