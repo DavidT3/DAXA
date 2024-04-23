@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:41. Copyright (c) The Contributors
 
 import json
 import os
@@ -100,7 +100,7 @@ class Archive:
 
         elif missions is not None:
             # Making sure that the downstream parts of this init can reliably expect use_preprocessed to be a dict
-            use_preprocessed = {mn: True if use_preprocessed[mn] and download_products[mn] else False
+            use_preprocessed = {mn: True if use_preprocessed and download_products[mn] else False
                                 for mn in use_preprocessed}
 
         # Store the archive name in an attribute
