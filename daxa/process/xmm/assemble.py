@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 12:55. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 13:09. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -593,11 +593,14 @@ def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, d
     # As we are effectively splitting up an existing pipeline, I actually leave the temporary directories (and final
     #  files) in place until later in the chain
     rgp_cmd = "cd {d}; export SAS_CCF={ccf}; export SAS_ODF={odf}; rgsproc entrystage=3:filter finalstage=3:filter " \
-              "withinstexpids=true instexpids={ei}; mv *.FIT ../; cd ..; rm -r {d}"
+              "withinstexpids=true instexpids={ei}; mv *.FIT ../; cd ..; rm -r {d}; mv {oge} {fe}"
 
     # The event list name that we want to check for at the end of the process - a copy of the original event list
-    #  but with the filtering of events applied
-    evt_list_name = "P{o}{i}{ei}EVENLI0000.FIT"
+    #  but with the filtering of events applied - this is what is produced by the SAS call
+    prod_evt_list_name = "P{o}{i}{ei}EVENLI0000.FIT"
+
+    # These represent the final names and resting places of the event lists
+    evt_list_name = "obsid{o}-inst{i}-subexp{se}-finalevents.fits"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -648,7 +651,9 @@ def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, d
             temp_dir = obs_archive.process_extra_info[miss.name]['rgs_events'][obs_id + inst + exp_id]['temp_dir']
 
             # This is where the final output event list file will be stored
-            final_path = dest_dir + evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
+            og_out_path = dest_dir + evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
+            # This is where the final output event list file will be stored - after moving and renaming
+            final_path = os.path.join(dest_dir, 'events', evt_list_name.format(o=obs_id, se=exp_id, i=inst))
 
             # If it doesn't already exist then we will create commands to generate it - there are no options for
             #  rgsproc that could be changed between runs (other than processing unscheduled, but we're looping
@@ -662,7 +667,8 @@ def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, d
 
                 # Format the blank command string defined near the top of this function with information
                 #  particular to the current mission and ObsID
-                cmd = rgp_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=inst + exp_id)
+                cmd = rgp_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=inst + exp_id, fe=final_path,
+                                     oge=og_out_path)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
