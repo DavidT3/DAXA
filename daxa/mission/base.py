@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 15:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 18:14. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -1049,6 +1049,12 @@ class BaseMission(metaclass=ABCMeta):
         # As we store the filtering options in the order they were applied, we have to empty the list when we reset
         #  the filter
         self._filtering_operations = []
+
+        # For most missions this won't do anything, but we set the chosen instruments property again. For missions
+        #  like Chandra however, where there is one instrument per observation, it will reinstate the base filter
+        #  as it should be taking into account the chosen instruments (missions like Chandra overwrite the
+        #  'chosen_instruments' property to include this capability).
+        self.chosen_instruments = self.chosen_instruments
 
     def check_obsid_pattern(self, obs_id_to_check: str):
         """
