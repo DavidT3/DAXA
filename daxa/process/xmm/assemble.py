@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 12:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 12:55. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -214,12 +214,14 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     #  them. Issue #42 discusses this.
     # addtaglenoise and makeflaregti are disabled because DAXA already has equivalents, emanom and espfilt
     em_cmd = "cd {d}; export SAS_CCF={ccf}; emchain odf={odf} instruments={i} exposures={ei} addtaglenoise=no " \
-             "makeflaregti=no; mv *MIEVLI*.FIT ../; mv *ATTTSR*.FIT ../; cd ..; rm -r {d}"
+             "makeflaregti=no; mv *MIEVLI*.FIT ../; mv *ATTTSR*.FIT ../; cd ..; rm -r {d}; mv {oge} {fe}"
 
     # The event list name that we want to check for at the end of the process - the zeros at the end seem to always
     #  be there for emchain-ed event lists, which is why I'm doing it this way rather than with a wildcard * at the
-    #  end (which DAXA does support in the sas_call stage).
-    evt_list_name = "P{o}{i}{ei}MIEVLI0000.FIT"
+    #  end (which DAXA does support in the sas_call stage). This is the name of the file produced by the SAS call
+    prod_evt_list_name = "P{o}{i}{ei}MIEVLI0000.FIT"
+    # This represents the final names and resting places of the event lists
+    evt_list_name = "obsid{o}-inst{i}-subexp{se}-events.fits"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -292,7 +294,9 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
             temp_dir = dest_dir + temp_name + "/"
 
             # This is where the final output event list file will be stored
-            final_path = dest_dir + evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
+            og_out_path = dest_dir + prod_evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
+            # This is where the final output event list file will be stored - after moving and renaming
+            final_path = os.path.join(dest_dir, 'events', evt_list_name.format(o=obs_id, se=exp_id, i=inst))
 
             # If it doesn't already exist then we will create commands to generate it - there are no options for
             #  emchain that could be changed between runs (other than processing unscheduled, but we're looping
@@ -306,7 +310,8 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
 
                 # Format the blank command string defined near the top of this function with information
                 #  particular to the current mission and ObsID
-                cmd = em_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=exp_id)
+                cmd = em_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=exp_id, fe=final_path,
+                                    oge=og_out_path)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
