@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:48. Copyright (c) The Contributors
 
 from shutil import copyfile
 from typing import List
@@ -335,6 +335,9 @@ def preprocessed_in_archive(arch: Archive, missions: List[str] = None):
             exp_success[miss.name] = cur_exp_success
         if sum([len(cur_bck_success[oi]) for oi in cur_bck_success]) != 0:
             bck_success[miss.name] = cur_bck_success
+
+        # This sets the archive status for this mission to fully processed
+        arch[miss.name].processed = True
 
     arch.process_success = ('preprocessed_events', evt_success)
     arch.process_success = ('preprocessed_images', img_success)
