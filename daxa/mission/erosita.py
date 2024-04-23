@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 18:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 10:27. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -1694,8 +1694,10 @@ class eRASS1DE(BaseMission):
 
         :param str ident: The unique identifier used in a particular processing step.
         """
-        # All the eROSITA unique identifiers are just the ObsID, so that's all we return
-        return ident
+        # Most eROSITA unique identifiers are just ObsID, but it is also possible that TM idents are included when
+        #  we deal with pre-processed data using preprocessed_in_archive. That may change if I decide on a more
+        #  elegant way of doing that, but in the meantime we know that all eRASS idents are 6 digits
+        return ident[:6]
 
 
 
