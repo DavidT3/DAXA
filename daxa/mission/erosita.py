@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 10:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 15:24. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -35,8 +35,6 @@ REQUIRED_DIRS = {'erosita_all_sky_de_dr1': {'all': ['EXP'],
                                             'products': ['EXP', 'DET']}}
 
 # TODO Make sure the properties, internal methods, and user-facing methods are in the 'right' order for this project.
-#  Perhaps replace the 'get_evlist_path_from_obs' method?
-
 
 class eROSITACalPV(BaseMission):
     """
@@ -169,7 +167,7 @@ class eROSITACalPV(BaseMission):
             if len(new_insts) != 7:
                 # Getting all the path for each eventlist corresponding to an obs_id for the
                 #  _inst_filtering function later
-                fits_paths = [self.get_evlist_path_from_obs(o) for o in self.filtered_obs_ids]
+                fits_paths = [self.get_evt_list_path(o) for o in self.filtered_obs_ids]
 
                 # Filtering out any events from the raw data that aren't from the selected instruments
                 if NUM_CORES == 1:
@@ -733,7 +731,7 @@ class eROSITACalPV(BaseMission):
             if len(self.chosen_instruments) != 7:
                 # Getting all the path for each eventlist corresponding to an obs_id for the
                 #  _inst_filtering function later
-                fits_paths = [self.get_evlist_path_from_obs(o) for o in self.filtered_obs_ids]
+                fits_paths = [self.get_evt_list_path(o) for o in self.filtered_obs_ids]
 
                 # Filtering out any events from the raw data that arent from the selected instruments
                 if num_cores == 1:

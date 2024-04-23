@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 23:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 15:24. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -275,7 +275,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             # Search through the process_extra_info attribute of the archive to find the paths 
             #   to the event lists
             # evt_list_file = obs_archive._process_extra_info[miss.name][obs_id]['path']
-            evt_list_file = obs_archive[miss.name].get_evlist_path_from_obs(obs_id)
+            evt_list_file = obs_archive[miss.name].get_evt_list_path(obs_id)
 
             # This path is guaranteed to exist, as it was set up in _esass_process_setup. This is where output
             #  files will be written to.
