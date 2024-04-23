@@ -1,15 +1,18 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 21:33. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:36. Copyright (c) The Contributors
+
 from shutil import copyfile
+from typing import List
 
 from tqdm import tqdm
 
 from daxa.archive import Archive
 from .setup import create_dirs
+from ... import BaseMission
 from ...exceptions import PreProcessedNotSupportedError
 
 
-def preprocessed_in_archive(arch: Archive):
+def preprocessed_in_archive(arch: Archive, missions: List[str] = None):
     """
     This function acts on an archive's missions which were created with pre-processed data (with things like
     pre-generated event lists, images, and exposure maps downloaded when the archive was set up). It will take the
@@ -17,8 +20,24 @@ def preprocessed_in_archive(arch: Archive):
     naming scheme.
 
     :param Archive arch: A DAXA archive that contains at least one mission with pre-processed data.
+    :param List[BaseMission] missions: Optionally, a list of mission names that are to have their preprocessed data
+        reorganised into the DAXA archive. Default is None, in which case all 'pre-processed' missions will be
+        acted upon.
     """
     # This is a very inelegant piece of code - but beautiful in function!
+
+    # First of all, check the missions input
+    preproc_miss_names = [miss.name for miss in arch.preprocessed_missions]
+    if missions is not None and (not isinstance(missions, list) and
+                                 all([en in preproc_miss_names for en in missions])):
+        raise TypeError("The 'missions' argument must be a list of names of missions associated with the archive that "
+                        "have been pre-processed.")
+
+    # Make sure that if no list has been passed then we just use all the preprocessed missions
+    if missions is None:
+        rel_miss = arch.preprocessed_missions
+    else:
+        rel_miss = [arch[mn] for mn in missions]
 
     # This will iterate through all the missions associated with the passed archive which have pre-processed data, and
     #  if there are none a suitable error will be raised.
@@ -26,7 +45,8 @@ def preprocessed_in_archive(arch: Archive):
     img_success = {}
     exp_success = {}
     bck_success = {}
-    for miss in arch.preprocessed_missions:
+
+    for miss in rel_miss:
         # Very first thing we want to do is to create the directories in which we will be storing the pre-processed
         #  data - this will do just that (and make a 'failed_data' directory as well, in case any of our pre-processed
         #  data is broken for some reason).
