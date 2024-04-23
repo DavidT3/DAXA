@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 18:01. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -266,8 +266,11 @@ class XMMPointed(BaseMission):
         if not os.path.exists(filename):
             # Set this again here because otherwise its annoyingly verbose
             log.setLevel(0)
-            # Download the requested data
-            AQXMMNewton.download_data(observation_id=observation_id, level=level, filename=filename)
+            try:
+                # Download the requested data
+                AQXMMNewton.download_data(observation_id=observation_id, level=level, filename=filename)
+            except Exception as err:
+                raise Exception("{oi} data failed to download.").with_traceback(err.__traceback__)
             # As the above function downloads the data as compressed tars, we need to decompress them
             with tarfile.open(filename+'.tar.gz') as zippo:
                 zippo.extractall(filename)
