@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 09:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 22:37. Copyright (c) The Contributors
 import json
 import os
 from shutil import rmtree
@@ -16,6 +16,7 @@ from daxa.exceptions import DuplicateMissionError, NoProcessingError, NoDependen
     ObsNotAssociatedError, MissionNotAssociatedError, PreProcessedNotAvailableError
 from daxa.misc import dict_search
 from daxa.mission import MISS_INDEX
+from daxa.process.general import preprocessed_in_archive
 
 
 class Archive:
@@ -32,9 +33,18 @@ class Archive:
         archives, it can only be left as None if an existing archive is being read back in.
     :param bool clobber: If an archive named 'archive_name' already exists, then setting clobber to True
         will cause it to be deleted and overwritten.
+    :param bool/dict download_products: Controls whether pre-processed products should be downloaded for missions
+        that offer it (assuming downloading was not triggered when the missions were declared). Default is
+        True, but False may also be passed, as may a dictionary of DAXA mission names with True/False values.
+    :param bool/dict use_preprocessed: Whether pre-processed data products should be used rather than re-processing
+        locally with DAXA. If True (the default) then what pre-processed data products are available will be
+        automatically re-organised into the DAXA processed data structure during the setup of this archive. If
+        False then this will not automatically be applied. Just as with 'download_products', a dictionary may
+        be passed for more nuanced control, with mission names as keys and True/False as values.
     """
     def __init__(self, archive_name: str, missions: Union[List[BaseMission], BaseMission] = None,
-                 clobber: bool = False):
+                 clobber: bool = False, download_products: Union[bool, dict] = True,
+                 use_preprocessed: Union[bool, dict] = True):
         """
         The init of the Archive class, which is to be used to consolidate and provide some interface with a set
         of mission's data. Archives can be passed to processing and cleaning functions in DAXA, and also
@@ -48,7 +58,51 @@ class Archive:
             archives, it can only be left as None if an existing archive is being read back in.
         :param bool clobber: If an archive named 'archive_name' already exists, then setting clobber to True
             will cause it to be deleted and overwritten.
+        :param bool/dict download_products: Controls whether pre-processed products should be downloaded for missions
+            that offer it (assuming downloading was not triggered when the missions were declared). Default is
+            True, but False may also be passed, as may a dictionary of DAXA mission names with True/False values.
+        :param bool/dict use_preprocessed: Whether pre-processed data products should be used rather than re-processing
+            locally with DAXA. If True (the default) then what pre-processed data products are available will be
+            automatically re-organised into the DAXA processed data structure during the setup of this archive. If
+            False then this will not automatically be applied. Just as with 'download_products', a dictionary may
+            be passed for more nuanced control, with mission names as keys and True/False as values.
         """
+        # Check the download_products input - if it is a dictionary - and only if some missions have been passed
+        if missions is not None and isinstance(download_products, dict):
+            passed_mns = [miss.name for miss in missions]
+            if any([mn not in passed_mns for mn in download_products.keys()]):
+                raise KeyError("If 'download_products' is a dictionary, the keys must be mission names; the names of"
+                               " the passed missions are {}".format(", ".join(passed_mns)))
+            elif any([mn not in download_products for mn in passed_mns]):
+                raise KeyError("If 'download_products' is a dictionary, every passed mission must be included; the "
+                               "names of the passed missions are {}".format(", ".join(passed_mns)))
+            elif any([not isinstance(v, bool) for v in download_products.values()]):
+                raise TypeError("All values in the 'download_products' dictionary must be True or False.")
+        elif missions is not None:
+            # Making sure that the downstream parts of this init can reliably expect download_products to be a dict
+            download_products = {miss.name: download_products for miss in missions}
+
+        # Now check the 'use_preprocessed' input - if it is a dictionary - and only if some missions have been passed
+        if missions is not None and isinstance(use_preprocessed, dict):
+            passed_mns = [miss.name for miss in missions]
+            if any([mn not in passed_mns for mn in use_preprocessed.keys()]):
+                raise KeyError(
+                    "If 'use_preprocessed' is a dictionary, the keys must be mission names; the names of"
+                    " the passed missions are {}".format(", ".join(passed_mns)))
+            elif any([mn not in use_preprocessed for mn in passed_mns]):
+                raise KeyError("If 'use_preprocessed' is a dictionary, every passed mission must be included; the "
+                               "names of the passed missions are {}".format(", ".join(passed_mns)))
+            elif any([not isinstance(v, bool) for v in use_preprocessed.values()]):
+                raise TypeError("All values in the 'use_preprocessed' dictionary must be True or False.")
+            elif any([use_preprocessed[mn] and not download_products[mn] for mn in passed_mns]):
+                raise ValueError("A mission entry for 'use_preprocessed' cannot be True if the corresponding entry "
+                                 "in 'download_products' was False.")
+
+        elif missions is not None:
+            # Making sure that the downstream parts of this init can reliably expect use_preprocessed to be a dict
+            use_preprocessed = {mn: True if use_preprocessed[mn] and download_products[mn] else False
+                                for mn in use_preprocessed}
+
         # Store the archive name in an attribute
         self._archive_name = archive_name
 
@@ -130,7 +184,7 @@ class Archive:
 
                 # We also make sure that the data are downloaded
                 if not mission.download_completed:
-                    mission.download()
+                    mission.download(download_products=download_products[mission.name])
 
             # These attributes are to store outputs from command-line based processes (such as the SAS processing
             #  tools for XMM missions). Top level keys are mission names, one level down from that uses process names
@@ -172,6 +226,12 @@ class Archive:
             # This attribute will store regions for the observations associated with different missions. By the time
             #  they are stored in this attribute they SHOULD be in RA-Dec, not in pixel coords or anything like that
             self._source_regions = {mn: {} for mn in self.mission_names}
+
+            # If any of the missions are to be used with pre-processed data products, then we need to trigger the
+            #  function that organises that
+            if any(list(use_preprocessed.values())):
+                to_preproc = [mn for mn in use_preprocessed if use_preprocessed[mn]]
+                preprocessed_in_archive(self, to_preproc)
 
         # HOWEVER, in this case the archive is being loaded back in from disk, and all those attributes (particularly
         #  all the dictionaries) will be loaded back in from the save file
