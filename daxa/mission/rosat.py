@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/04/2024, 14:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 18:22. Copyright (c) The Contributors
 
 import io
 import os
@@ -121,6 +121,31 @@ class ROSATPointed(BaseMission):
         #  filtering operation rather than the download-time operation is has been for NuSTAR for instance
         self.chosen_instruments = insts
 
+        # These are the 'translations' required between energy band and filename identifier for ROSAT images/expmaps -
+        #  it is organised so that top level keys are instruments, middle keys are lower energy bounds, and the lower
+        #  level keys are upper energy bounds, then the value is the filename identifier
+        self._template_en_trans = {'PSPCB': {Quantity(0.07, 'keV'): {Quantity(2.4, 'keV'): "1",
+                                                                     Quantity(0.4, 'keV'): "3"},
+                                             Quantity(0.4, 'keV'): {Quantity(2.4, 'keV'): "2"}},
+                                   'PSPCC': {Quantity(0.07, 'keV'): {Quantity(2.4, 'keV'): "1",
+                                                                     Quantity(0.4, 'keV'): "3"},
+                                             Quantity(0.4, 'keV'): {Quantity(2.4, 'keV'): "2"}},
+                                   'HRI': {Quantity(0.07, 'keV'): {Quantity(2.4, 'keV'): "1"}}
+                                   }
+
+        # We set up the ROSAT file name templates, so that the user (or other parts of DAXA) can retrieve paths
+        #  to the event lists, images, exposure maps, and background maps that can be downloaded
+        self._template_evt_name = "{oi}_bas.fits"
+        self._template_img_name = "{oi}_im{eb}.fits"
+        self._template_exp_name = {"PSPCB": "{oi}_mex.fits",
+                                   "PSPCC": "{oi}_mex.fits",
+                                   "HRI": None}
+        self._template_bck_name = "{oi}_bk{eb}.fits"
+
+        # We use this to specify whether a mission has only one instrument per ObsID (it is quite handy to codify
+        #  this for a couple of external processes).
+        self._one_inst_per_obs = True
+
         # We now will read in the previous state, if there is one to be read in.
         if save_file_path is not None:
             self._load_state(save_file_path)
@@ -145,8 +170,8 @@ class ROSATPointed(BaseMission):
     def chosen_instruments(self) -> List[str]:
         """
         Property getter for the names of the currently selected instruments associated with this mission which
-        will be processed into an archive by DAXA functions. Overwritten here because I want to use a custom
-        version of _check_chos_insts for ROSAT pointed.
+        will be processed into an archive by DAXA functions. Overwritten here because there are custom behaviours
+        for ROSATPointed, as it has one instrument per ObsID.
 
         :return: A list of instrument names.
         :rtype: List[str]
@@ -158,13 +183,31 @@ class ROSATPointed(BaseMission):
     def chosen_instruments(self, new_insts: List[str]):
         """
         Property setter for the instruments associated with this mission that should be processed. This property
-        may only be set to a list that is a subset of the existing property value. Overwritten here because I want
-        to use a custom version of _check_chos_insts for ROSAT pointed.
+        may only be set to a list that is a subset of the existing property value. Overwritten here because there
+        are custom behaviours for ROSATPointed, as it has one instrument per ObsID.
 
         :param List[str] new_insts: The new list of instruments associated with this mission which should
             be processed into the archive.
         """
-        self._chos_insts = self.check_inst_names(new_insts)
+        # First of all, check whether the new instruments are valid for this mission
+        new_insts = super().check_inst_names(new_insts, True)
+
+        # If we've gotten through the super call then the instruments are acceptable, so now we filter the
+        #  observation info table using them.
+        sel_inst_mask = self._obs_info['instrument'].isin(new_insts)
+
+        # I can't think of a way this would happen, but I will just quickly ensure that this filtering didn't
+        #  return zero results
+        if sel_inst_mask.sum() == 0:
+            raise NoObsAfterFilterError("No ROSAT observations are left after instrument filtering.")
+
+        # The boolean mask can be multiplied with the existing filter array (by default all ones, which means
+        #  all observations are let through) to produce an updated filter.
+        new_filter = self.filter_array * sel_inst_mask
+        # Then we set the filter array property with that updated mask
+        self.filter_array = new_filter
+
+        self._chos_insts = new_insts
 
     @property
     def coord_frame(self) -> BaseRADecFrame:
@@ -251,40 +294,6 @@ class ROSATPointed(BaseMission):
         self._obs_info_checks(new_info)
         self._obs_info = new_info
         self.reset_filter()
-
-    def check_inst_names(self, insts: Union[List[str], str]) -> List[str]:
-        """
-        An internal function to perform some checks on the validity of chosen instrument names for ROSAT pointed. This
-        overwrites the version of this method declared in BaseMission, though it does call the super method. This
-        sub-class of BaseMission re-implements this method so that setting chosen instruments becomes another
-        filtering action, as ROSAT pointed has only one instrument per observation.
-
-        :param List[str]/str insts:
-        :return: The list of instruments (possibly altered to match formats expected by this module).
-        :rtype: List
-        """
-        # As a part of this, I will reset the filter array - in case the user used the chosen_instruments (property
-        #  setter that calls this function) after the initial declaration phase.
-        self.reset_filter()
-
-        insts = super().check_inst_names(insts)
-
-        # If we've gotten through the super call then the instruments are acceptable, so now we filter the
-        #  observation info table using them.
-        sel_inst_mask = self._obs_info['instrument'].isin(insts)
-
-        # I can't think of a way this would happen, but I will just quickly ensure that this filtering didn't
-        #  return zero results
-        if sel_inst_mask.sum() == 0:
-            raise NoObsAfterFilterError("No ROSAT observations are left after instrument filtering.")
-
-        # The boolean mask can be multiplied with the existing filter array (by default all ones, which means
-        #  all observations are let through) to produce an updated filter.
-        new_filter = self.filter_array * sel_inst_mask
-        # Then we set the filter array property with that updated mask
-        self.filter_array = new_filter
-
-        return insts
 
     def _fetch_obs_info(self):
         """
@@ -524,6 +533,12 @@ class ROSATPointed(BaseMission):
         if all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in self.filtered_obs_ids]):
             self._download_done = True
 
+        # We store the type of data that was downloaded
+        if download_products:
+            self._download_type = "raw+preprocessed"
+        else:
+            self._download_type = "raw"
+
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
             if num_cores == 1:
@@ -611,9 +626,11 @@ class ROSATPointed(BaseMission):
 
         :param str ident: The unique identifier used in a particular processing step.
         """
-        raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
-                                  "clear to me what form the unique identifiers will take once we start processing"
-                                  "{n} data ourselves.".format(n=self.pretty_name))
+        # raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
+        #                           "clear to me what form the unique identifiers will take once we start processing"
+        #                           "{n} data ourselves.".format(n=self.pretty_name))
+        # Will just replace any of the instrument names with nothing, if they are present
+        return ident.replace('HRI', '').replace('PSPCC', '').replace('PSPCB', '')
 
 
 class ROSATAllSky(BaseMission):
@@ -660,6 +677,20 @@ class ROSATAllSky(BaseMission):
         # Setting the chosen instruments property, still using the BaseMission infrastructure even though we know
         #  there will only ever be the PSPC instrument for this mission
         self.chosen_instruments = insts
+
+        # These are the 'translations' required between energy band and filename identifier for ROSAT images/expmaps -
+        #  it is organised so that top level keys are instruments, middle keys are lower energy bounds, and the lower
+        #  level keys are upper energy bounds, then the value is the filename identifier
+        self._template_en_trans = {Quantity(0.07, 'keV'): {Quantity(2.4, 'keV'): "1",
+                                                           Quantity(0.4, 'keV'): "3"},
+                                   Quantity(0.4, 'keV'): {Quantity(2.4, 'keV'): "2"}}
+
+        # We set up the ROSAT file name templates, so that the user (or other parts of DAXA) can retrieve paths
+        #  to the event lists, images, exposure maps, and background maps that can be downloaded
+        self._template_evt_name = "{oi}_bas.fits"
+        self._template_img_name = "{oi}_im{eb}.fits"
+        self._template_exp_name = "{oi}_mex.fits"
+        self._template_bck_name = "{oi}_bk{eb}.fits"
 
         # Call the name property to set up the name and pretty name attributes
         self.name
@@ -975,6 +1006,12 @@ class ROSATAllSky(BaseMission):
         if all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in self.filtered_obs_ids]):
             self._download_done = True
 
+        # We store the type of data that was downloaded
+        if download_products:
+            self._download_type = "raw+preprocessed"
+        else:
+            self._download_type = "raw"
+
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
             if num_cores == 1:
@@ -1042,7 +1079,7 @@ class ROSATAllSky(BaseMission):
             self._download_done = True
 
         else:
-            warn("The raw data for this mission have already been downloaded.")
+            warn("The raw data for this mission have already been downloaded.", stacklevel=2)
 
     def assess_process_obs(self, obs_info: dict):
         raise NotImplementedError("The observation assessment process has not been implemented for ROSATAllSky.")
@@ -1062,6 +1099,8 @@ class ROSATAllSky(BaseMission):
 
         :param str ident: The unique identifier used in a particular processing step.
         """
-        raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
-                                  "clear to me what form the unique identifiers will take once we start processing"
-                                  "{n} data ourselves.".format(n=self.pretty_name))
+        # raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
+        #                           "clear to me what form the unique identifiers will take once we start processing"
+        #                           "{n} data ourselves.".format(n=self.pretty_name))
+        # Will just replace the one instrument identifier possible for this mission with nothing, if it is present
+        return ident.replace('PSPC', '')

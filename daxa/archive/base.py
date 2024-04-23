@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 14:53. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 17:00. Copyright (c) The Contributors
+
 import json
 import os
 from shutil import rmtree
@@ -13,7 +14,7 @@ from regions import Region, read_ds9, PixelRegion, write_ds9
 
 from daxa import BaseMission, OUTPUT
 from daxa.exceptions import DuplicateMissionError, NoProcessingError, NoDependencyProcessError, \
-    ObsNotAssociatedError, MissionNotAssociatedError
+    ObsNotAssociatedError, MissionNotAssociatedError, PreProcessedNotAvailableError
 from daxa.misc import dict_search
 from daxa.mission import MISS_INDEX
 
@@ -32,9 +33,18 @@ class Archive:
         archives, it can only be left as None if an existing archive is being read back in.
     :param bool clobber: If an archive named 'archive_name' already exists, then setting clobber to True
         will cause it to be deleted and overwritten.
+    :param bool/dict download_products: Controls whether pre-processed products should be downloaded for missions
+        that offer it (assuming downloading was not triggered when the missions were declared). Default is
+        True, but False may also be passed, as may a dictionary of DAXA mission names with True/False values.
+    :param bool/dict use_preprocessed: Whether pre-processed data products should be used rather than re-processing
+        locally with DAXA. If True then what pre-processed data products are available will be automatically
+        re-organised into the DAXA processed data structure during the setup of this archive. If False (the default)
+        then this will not automatically be applied. Just as with 'download_products', a dictionary may be passed for
+        more nuanced control, with mission names as keys and True/False as values.
     """
     def __init__(self, archive_name: str, missions: Union[List[BaseMission], BaseMission] = None,
-                 clobber: bool = False):
+                 clobber: bool = False, download_products: Union[bool, dict] = True,
+                 use_preprocessed: Union[bool, dict] = False):
         """
         The init of the Archive class, which is to be used to consolidate and provide some interface with a set
         of mission's data. Archives can be passed to processing and cleaning functions in DAXA, and also
@@ -48,7 +58,56 @@ class Archive:
             archives, it can only be left as None if an existing archive is being read back in.
         :param bool clobber: If an archive named 'archive_name' already exists, then setting clobber to True
             will cause it to be deleted and overwritten.
+        :param bool/dict download_products: Controls whether pre-processed products should be downloaded for missions
+            that offer it (assuming downloading was not triggered when the missions were declared). Default is
+            True, but False may also be passed, as may a dictionary of DAXA mission names with True/False values.
+        :param bool/dict use_preprocessed: Whether pre-processed data products should be used rather than re-processing
+            locally with DAXA. If True then what pre-processed data products are available will be automatically
+            re-organised into the DAXA processed data structure during the setup of this archive. If False (the default)
+            then this will not automatically be applied. Just as with 'download_products', a dictionary may be passed for
+            more nuanced control, with mission names as keys and True/False as values.
         """
+        # Must ensure that the missions variable is iterable even if there's only one mission that has
+        #  been passed, makes it easier to generalize things - IF IT ISN'T NONE
+        if missions is not None and isinstance(missions, BaseMission):
+            missions = [missions]
+
+        # Check the download_products input - if it is a dictionary - and only if some missions have been passed
+        if missions is not None and isinstance(download_products, dict):
+            passed_mns = [miss.name for miss in missions]
+            if any([mn not in passed_mns for mn in download_products.keys()]):
+                raise KeyError("If 'download_products' is a dictionary, the keys must be mission names; the names of"
+                               " the passed missions are {}".format(", ".join(passed_mns)))
+            elif any([mn not in download_products for mn in passed_mns]):
+                raise KeyError("If 'download_products' is a dictionary, every passed mission must be included; the "
+                               "names of the passed missions are {}".format(", ".join(passed_mns)))
+            elif any([not isinstance(v, bool) for v in download_products.values()]):
+                raise TypeError("All values in the 'download_products' dictionary must be True or False.")
+        elif missions is not None:
+            # Making sure that the downstream parts of this init can reliably expect download_products to be a dict
+            download_products = {miss.name: download_products for miss in missions}
+
+        # Now check the 'use_preprocessed' input - if it is a dictionary - and only if some missions have been passed
+        if missions is not None and isinstance(use_preprocessed, dict):
+            passed_mns = [miss.name for miss in missions]
+            if any([mn not in passed_mns for mn in use_preprocessed.keys()]):
+                raise KeyError(
+                    "If 'use_preprocessed' is a dictionary, the keys must be mission names; the names of"
+                    " the passed missions are {}".format(", ".join(passed_mns)))
+            elif any([mn not in use_preprocessed for mn in passed_mns]):
+                raise KeyError("If 'use_preprocessed' is a dictionary, every passed mission must be included; the "
+                               "names of the passed missions are {}".format(", ".join(passed_mns)))
+            elif any([not isinstance(v, bool) for v in use_preprocessed.values()]):
+                raise TypeError("All values in the 'use_preprocessed' dictionary must be True or False.")
+            elif any([use_preprocessed[mn] and not download_products[mn] for mn in passed_mns]):
+                raise ValueError("A mission entry for 'use_preprocessed' cannot be True if the corresponding entry "
+                                 "in 'download_products' was False.")
+        elif missions is not None:
+            # Making sure that the downstream parts of this init can reliably expect use_preprocessed to be a dict
+            use_preprocessed = {
+                miss.name: True if use_preprocessed and download_products[miss.name] and miss.downloaded_type in [
+                    'preprocessed', 'proprocessed+raw'] else False for miss in missions}
+
         # Store the archive name in an attribute
         self._archive_name = archive_name
 
@@ -87,11 +146,8 @@ class Archive:
 
         # If the archive is brand new, then we have a lot of setting up attributes to do
         if self._new_arch:
-            # Must ensure that the missions variable is iterable even if there's only one mission that has
-            #  been passed, makes it easier to generalise things.
-            if isinstance(missions, BaseMission):
-                missions = [missions]
-            elif missions is None and self._new_arch:
+
+            if missions is None and self._new_arch:
                 raise ValueError("The 'missions' argument cannot be None when creating a new archive, only when loading"
                                  " an existing one.")
             elif missions is None and not self._new_arch:
@@ -125,12 +181,16 @@ class Archive:
             #  That means their observation content becomes immutable.
             for mission in self._missions.values():
                 mission: BaseMission
+                # We make sure that the missions are all set to not-fully processed, just in case something odd
+                #  has been going on and they've already been used in an archive in the same script. We do this
+                #  through the attribute because the property won't allow it to be changed
+                mission._processed = False
                 if not mission.locked:
                     mission.locked = True
 
                 # We also make sure that the data are downloaded
                 if not mission.download_completed:
-                    mission.download()
+                    mission.download(download_products=download_products[mission.name])
 
             # These attributes are to store outputs from command-line based processes (such as the SAS processing
             #  tools for XMM missions). Top level keys are mission names, one level down from that uses process names
@@ -172,6 +232,15 @@ class Archive:
             # This attribute will store regions for the observations associated with different missions. By the time
             #  they are stored in this attribute they SHOULD be in RA-Dec, not in pixel coords or anything like that
             self._source_regions = {mn: {} for mn in self.mission_names}
+
+            # If any of the missions are to be used with pre-processed data products, then we need to trigger the
+            #  function that organises that
+            if any(list(use_preprocessed.values())):
+                # Avoiding a circular import
+                from daxa.process.general import preprocessed_in_archive
+
+                to_preproc = [mn for mn in use_preprocessed if use_preprocessed[mn]]
+                preprocessed_in_archive(self, to_preproc)
 
         # HOWEVER, in this case the archive is being loaded back in from disk, and all those attributes (particularly
         #  all the dictionaries) will be loaded back in from the save file
@@ -233,10 +302,11 @@ class Archive:
                                 with open(cur_log_pth, 'r') as loggo:
                                     self._process_logs[miss_name][proc_name][u_id] = loggo.read()
                             except FileNotFoundError:
-                                # Every process run should have this log file, so we throw a warning if it can't
-                                #  be found - I don't see why this should happen without outside interference
-                                warn("The {pn} log file for {mn}-{ui} cannot be "
-                                     "found.".format(pn=proc_name, mn=miss_name, ui=u_id), stacklevel=2)
+                                if 'preprocessed' not in proc_name:
+                                    # Every process run should have this log file, so we throw a warning if it can't
+                                    #  be found - I don't see why this should happen without outside interference
+                                    warn("The {pn} log file for {mn}-{ui} cannot be "
+                                         "found.".format(pn=proc_name, mn=miss_name, ui=u_id), stacklevel=2)
 
                             # Then we construct the name and path to the possibly present stderr storage file - this
                             #  one will quite possibly (hopefully even) not exist, because it is only made when there
@@ -310,18 +380,31 @@ class Archive:
         return [m for m in self._missions]
 
     @property
-    def missions(self) -> Union[List[BaseMission], BaseMission]:
+    def missions(self) -> List[BaseMission]:
         """
-        Property getter that returns either a list of missions associated with this Archive, or a single
-        mission associated with this Archive (if only one mission was supplied).
+        Property getter that returns a list of missions associated with this Archive.
 
-        :return: Missions (or mission) associated with this archive.
-        :rtype: Union[List[BaseMission], BaseMission]
+        :return: Missions associated with this archive.
+        :rtype: List[BaseMission]
         """
-        if len(self._missions) == 1:
-            return list(self._missions.values())[0]
-        else:
-            return list(self._missions.values())
+        return list(self._missions.values())
+
+    @property
+    def preprocessed_missions(self) -> List[BaseMission]:
+        """
+        Gets a list of missions that have pre-processed data downloaded, if there are none an error will be raised.
+
+        :return: A list of the mission instances in this archive which have pre-processed data downloaded.
+        :rtype: List[BaseMission]
+        """
+        preproc = [miss for miss in self.missions if miss.downloaded_type == 'raw+preprocessed' or
+                   miss.downloaded_type == 'preprocessed']
+        # Check if there actually are any preprocessed missions - we'll error if not
+        if len(preproc) == 0:
+            raise PreProcessedNotAvailableError("This archive ({a}) does not contain any pre-processed "
+                                                "missions.".format(a=self.archive_name))
+
+        return preproc
 
     @property
     def process_success(self) -> dict:
@@ -1603,6 +1686,53 @@ class Archive:
                                                             full_ident=flat_idents)
 
         return failed_logs, failed_raw_errors
+
+    def delete_raw_data(self, force_del: bool = False, all_raw_data: bool = False):
+        """
+        This method will delete raw data downloaded for the missions in this archive; by default only directories
+        corresponding to ObsIDs currently accepted through a mission's filter will be deleted, but if all_raw_data is
+        set to True then the WHOLE raw data directory corresponding to a particular mission will be removed.
+
+        Confirmation from the user will be sought that they wish to delete the data, unless force_del is set to
+        True - in which case the removal will be performed straight away.
+
+        :param bool force_del: This argument can be used to ensure that the delete option can be performed entirely
+            programmatically, without requiring a user input. Default is False, but if set to True then the delete
+            operation will be performed immediately.
+        :param bool all_raw_data: This controls whether only the data selected by the current instance of each mission
+            are deleted (when False, the default behaviour) or if the whole directory associated with each mission is
+            removed.
+        """
+
+        # If the user hasn't set force_del to True, then we need to ask them if they're sure - this is essentially
+        #  identical to what happens within the mission delete_raw_data method, but if we have a bunch of missions
+        #  in an archive we don't want the user to be asked N different times
+        if not force_del:
+            # Urgh a while loop, I feel like I'm a first year undergrad again
+            proc_flag = None
+            # This will keep going until the proc_flag has a value that the next step will understand
+            while proc_flag is None:
+                # We ask the question
+                init_proc_flag = input("Proceed with deletion of raw data for {} missions "
+                                       "[Y/N]?".format(self.archive_name))
+                # If they answer Y then we'll delete (I could have used lower() for this, but I thought this was
+                #  safer in case they pass a non-string).
+                if init_proc_flag == 'Y' or init_proc_flag == 'y':
+                    proc_flag = True
+                # If they answer N we won't delete
+                elif init_proc_flag == 'N' or init_proc_flag == 'n':
+                    proc_flag = False
+                # Got to tell them if they pass an illegal value - and we'll go around again
+                else:
+                    warn("Please enter either Y or N!", stacklevel=2)
+        else:
+            # In this case the user has force deleted, so no question is asked and proc_flag is True
+            proc_flag = True
+
+        # If the last step returned True, then we start deleting
+        if proc_flag:
+            for miss in self.missions:
+                miss.delete_raw_data(True, all_raw_data)
 
     def save(self):
         """

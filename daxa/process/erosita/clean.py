@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 23:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 17:33. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -211,7 +211,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
 
     # These parameters we want DAXA to have control over, not the user
     gridsize = 18   # Sections of the image a source detection is run over to determine a dynamic threshold
-    fov_radius = 30 # Not sure about this parameter yet
+    fov_radius = 30  # Not sure about this parameter yet
     xmin = -108000  # These are for making the image
     xmax = 108000
     ymin = -108000
@@ -262,9 +262,9 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
         for obs in obs_ids:
             # Collecting all the insts that a certain ObsID has events for
             insts = ''.join([all_obs_info_list[1] for all_obs_info_list in all_obs_info if obs in all_obs_info_list])
-            # The insts are all TM{x} where x is a number from 1-7, I just want to retain the x information, 
-            #   and append it to the dict
-            obs_info_dict[obs] = ''.join(ch for ch in insts if ch.isdigit())
+
+            # The insts are all TM{x} where x is a number from 1-7, we want to separate them with _ for the file names
+            obs_info_dict[obs] = '_'.join("TM"+ch for ch in insts if ch.isdigit())
 
         # We iterate through the valid identifying information
         for obs_id in obs_info_dict:
@@ -274,8 +274,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
 
             # Search through the process_extra_info attribute of the archive to find the paths 
             #   to the event lists
-            # evt_list_file = obs_archive._process_extra_info[miss.name][obs_id]['path']
-            evt_list_file = obs_archive[miss.name].get_evlist_path_from_obs(obs_id)
+            evt_list_file = obs_archive[miss.name].get_evt_list_path(obs_id)
 
             # This path is guaranteed to exist, as it was set up in _esass_process_setup. This is where output
             #  files will be written to.
@@ -290,9 +289,17 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             og_thresholdimg_name = "{i}-thresholdimg-{l}-{u}.fits".format(i=insts, l=pimin, u=pimax)
             og_maskimg_name = "{i}-maskimg-{l}-{u}.fits".format(i=insts, l=mask_pimin, u=mask_pimax)
  
-            lc_path = dest_dir + og_lc_name
-            threshold_path = dest_dir + og_thresholdimg_name
-            maskimg_path = dest_dir + og_maskimg_name
+            lc_name = "obsid{oi}-inst{i}-subexpNone-en{l}_{h}PI-lightcurve.fits".format(i=insts, l=pimin, h=pimax,
+                                                                                        oi=obs_id)
+            thresholdimg_name = "obsid{oi}-inst{i}-subexpNone-en{l}_{h}PI-thresholdimage.fits".format(i=insts, l=pimin,
+                                                                                                      h=pimax,
+                                                                                                      oi=obs_id)
+            maskimg_name = "obsid{oi}-inst{i}-subexpNone-en{l}_{h}PI-maskimage.fits".format(i=insts, l=mask_pimin,
+                                                                                            h=mask_pimax, oi=obs_id)
+
+            lc_path = os.path.join(dest_dir, 'cleaning', lc_name)
+            threshold_path = os.path.join(dest_dir, 'cleaning', thresholdimg_name)
+            maskimg_path = os.path.join(dest_dir, 'cleaning', maskimg_name)
 
             final_paths = [lc_path, threshold_path, maskimg_path]
 

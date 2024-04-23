@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/04/2024, 16:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 13:50. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
@@ -176,16 +176,16 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
         #  cleaned events list within the energy bands, and the diagnostic histogram
         ef_cmd = "cd {d}; export SAS_CCF={ccf}; espfilt eventfile={ef} withoot={woot} ootfile={oot} method={me} " \
                  "withsmoothing={ws} smooth={s} withbinning={wb} binsize={bs} ratio={r} withlongnames=yes elow={el} " \
-                 "ehigh={eh} rangescale={rs} allowsigma={asi} keepinterfiles=no limits={gls}; mv {ogti} ../{gti}; " \
-                 "mv {oallev} ../{allev}; mv {ohist} ../{hist}; cd ../; rm -r {d}"
+                 "ehigh={eh} rangescale={rs} allowsigma={asi} keepinterfiles=no limits={gls}; mv {ogti} {gti}; " \
+                 "mv {oallev} {allev}; mv {ohist} {hist}; cd ../; rm -r {d}"
 
     else:
         if method != 'ratio':
             warn("SAS v{} does not support the 'histogram' method, this was only added in v20.0.0, switching to "
                  "'ratio' method.".format(str(sas_version)), stacklevel=2)
         ef_cmd = "cd {d}; export SAS_CCF={ccf}; espfilt eventset={ef} method={me} withsmoothing={ws} smooth={s} " \
-                 "withbinning={wb} binsize={bs} ratio={r}; mv {ogti} ../{gti}; mv {oallev} ../{allev}; mv {ohist} " \
-                 "../{hist}; cd ../; rm -r {d}"
+                 "withbinning={wb} binsize={bs} ratio={r}; mv {ogti} {gti}; mv {oallev} {allev}; mv {ohist} {hist}; " \
+                 "cd ../; rm -r {d}"
 
     # Need to change parameter to turn on smoothing if the user wants it. The parameter
     #  must be changed from boolean to a 'yes' or 'no' string because that is what espfilt wants
@@ -313,21 +313,23 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
             #  for at the end to ensure that the process worked. Need to use 'alt_inst' here because the files
             #  produced have mos1 rather than M1, mos2 rather than M2 in their names. I don't want those files
             #  to remain named with the alt instrument though, so we also define paths to move them to.
+            # TODO Do I really need whatever the 'all events' file is?
             og_evt_name = "{i}{exp_id}-allevc-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id, l=filter_lo_en,
                                                                    u=filter_hi_en)
             evt_name = "{i}{exp_id}-allevc-{l}-{u}.fits".format(i=inst, exp_id=exp_id, l=filter_lo_en,
                                                                 u=filter_hi_en)
             og_gti_name = "{i}{exp_id}-gti-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id, l=filter_lo_en,
                                                                 u=filter_hi_en)
-            gti_name = "{i}{exp_id}-gti-{l}-{u}.fits".format(i=inst, exp_id=exp_id, l=filter_lo_en,
-                                                             u=filter_hi_en)
+            gti_name = "obsid{o}-inst{i}-subexp{se}-en{l}_{u}keV-gti.fits".format(i=inst, se=exp_id, l=filter_lo_en,
+                                                                                  u=filter_hi_en, o=obs_id)
             og_hist_name = "{i}{exp_id}-hist-{l}-{u}.qdp".format(i=alt_inst, exp_id=exp_id, l=filter_lo_en,
                                                                  u=filter_hi_en)
-            hist_name = "{i}{exp_id}-hist-{l}-{u}.qdp".format(i=inst, exp_id=exp_id, l=filter_lo_en,
-                                                              u=filter_hi_en)
-            evt_path = dest_dir + evt_name
-            gti_path = dest_dir + gti_name
-            hist_path = dest_dir + hist_name
+            hist_name = "obsid{o}-inst{i}-subexp{se}-en{l}_{u}keV-hist.qdp".format(i=inst, se=exp_id, l=filter_lo_en,
+                                                                                   u=filter_hi_en, o=obs_id)
+
+            evt_path = os.path.join(dest_dir, 'cleaning', evt_name)
+            gti_path = os.path.join(dest_dir, 'cleaning', gti_name)
+            hist_path = os.path.join(dest_dir, 'cleaning', hist_name)
             final_paths = [evt_path, gti_path, hist_path]
 
             # If it doesn't already exist then we will create commands to generate it
@@ -348,7 +350,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
             cmd = ef_cmd.format(d=temp_dir, ccf=ccf_path, ef=evt_list_file, woot=with_oot, oot=oot_evt_list_file,
                                 me=method, ws=with_smoothing, s=smooth_factor, wb=with_binning, bs=bin_size,
                                 r=ratio, el=filter_lo_en, eh=filter_hi_en, rs=rs, asi=allowed_sigma, gls=gauss_fit_lims,
-                                gti=gti_name, hist=hist_name, allev=evt_name, ogti=og_gti_name, ohist=og_hist_name,
+                                gti=gti_path, hist=hist_path, allev=evt_path, ogti=og_gti_name, ohist=og_hist_name,
                                 oallev=og_evt_name)
 
             # Now store the bash command, the path, and extra info in the dictionaries

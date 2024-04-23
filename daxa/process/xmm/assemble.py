@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 12:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 15:08. Copyright (c) The Contributors
+
 import os
 from copy import deepcopy
 from random import randint
@@ -15,6 +16,9 @@ from daxa.process._backend_check import find_lcurve
 from daxa.process._cleanup import _last_process
 from daxa.process.xmm._common import _sas_process_setup, sas_call, ALLOWED_XMM_MISSIONS
 from daxa.process.xmm.check import parse_emanom_out
+
+
+# TODO YOU ALSO NEED TO MAKE SURE THAT THE DOCUMENTATION REFLECTS ALL THE CHANGES YOU HAVE MADE
 
 
 @sas_call
@@ -56,11 +60,15 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     ep_cmd = "cd {d}; export SAS_CCF={ccf}; epchain odf={odf} odfaccess=odf exposure={e} schedule={s} ccds={c} " \
              "runbackground=N keepintermediate=raw withoutoftime=Y; epchain odf={odf} odfaccess=odf exposure={e} " \
              "schedule={s} ccds={c} runatthkgen=N runepframes=N runbadpixfind=N runbadpix=N; mv *EVLI*.FIT ../; " \
-             "mv *ATTTSR*.FIT ../;cd ..; rm -r {d}"
+             "mv *ATTTSR*.FIT ../;cd ..; rm -r {d}; mv {oge} {fe}; mv {ogoote} {foote}"
 
-    # The event list pattern that we want to check for at the end of the process
-    evt_list_name = "P{o}PN{eid}PIEVLI0000.FIT"
-    oot_evt_list_name = "P{o}PN{eid}OOEVLI0000.FIT"
+    # The event list pattern that that should exist after the SAS process, which we will rename to our convention
+    prod_evt_list_name = "P{o}PN{eid}PIEVLI0000.FIT"
+    prod_oot_evt_list_name = "P{o}PN{eid}OOEVLI0000.FIT"
+
+    # These represent the final names and resting places of the event lists
+    evt_list_name = "obsid{o}-inst{i}-subexp{se}-events.fits"
+    oot_evt_list_name = "obsid{o}-inst{i}-subexp{se}-ootevents.fits"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -120,9 +128,13 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
             # Set up a temporary directory to work in
             temp_name = "tempdir_{}".format(randint(0, 1e+8))
             temp_dir = dest_dir + temp_name + "/"
-            # This is where the final output event list file will be stored
-            final_path = dest_dir + evt_list_name.format(o=obs_id, eid=exp_id)
-            oot_final_path = dest_dir + oot_evt_list_name.format(o=obs_id, eid=exp_id)
+            # This is where the processes will output the event list files
+            og_out_path = os.path.join(dest_dir, prod_evt_list_name.format(o=obs_id, eid=exp_id))
+            og_oot_out_path = os.path.join(dest_dir, prod_oot_evt_list_name.format(o=obs_id, eid=exp_id))
+
+            # This is where the final output event list file will be stored - after moving and renaming
+            final_path = os.path.join(dest_dir, 'events', evt_list_name.format(o=obs_id, se=exp_id, i='PN'))
+            oot_final_path = os.path.join(dest_dir, 'events', oot_evt_list_name.format(o=obs_id, se=exp_id, i='PN'))
 
             # If it doesn't already exist then we will create commands to generate it - there are no options for
             #  epchain that could be changed between runs (other than processing unscheduled, but we're looping
@@ -137,7 +149,8 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
                 # Format the blank command string defined near the top of this function with information
                 #  particular to the current mission and ObsID
                 cmd = ep_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, e=exp_id[1:], s=exp_id[0],
-                                    c=ccd_str)
+                                    c=ccd_str, oge=og_out_path, ogoote=og_oot_out_path, fe=final_path,
+                                    foote=oot_final_path)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
@@ -201,12 +214,14 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     #  them. Issue #42 discusses this.
     # addtaglenoise and makeflaregti are disabled because DAXA already has equivalents, emanom and espfilt
     em_cmd = "cd {d}; export SAS_CCF={ccf}; emchain odf={odf} instruments={i} exposures={ei} addtaglenoise=no " \
-             "makeflaregti=no; mv *MIEVLI*.FIT ../; mv *ATTTSR*.FIT ../; cd ..; rm -r {d}"
+             "makeflaregti=no; mv *MIEVLI*.FIT ../; mv *ATTTSR*.FIT ../; cd ..; rm -r {d}; mv {oge} {fe}"
 
     # The event list name that we want to check for at the end of the process - the zeros at the end seem to always
     #  be there for emchain-ed event lists, which is why I'm doing it this way rather than with a wildcard * at the
-    #  end (which DAXA does support in the sas_call stage).
-    evt_list_name = "P{o}{i}{ei}MIEVLI0000.FIT"
+    #  end (which DAXA does support in the sas_call stage). This is the name of the file produced by the SAS call
+    prod_evt_list_name = "P{o}{i}{ei}MIEVLI0000.FIT"
+    # This represents the final names and resting places of the event lists
+    evt_list_name = "obsid{o}-inst{i}-subexp{se}-events.fits"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -279,7 +294,9 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
             temp_dir = dest_dir + temp_name + "/"
 
             # This is where the final output event list file will be stored
-            final_path = dest_dir + evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
+            og_out_path = dest_dir + prod_evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
+            # This is where the final output event list file will be stored - after moving and renaming
+            final_path = os.path.join(dest_dir, 'events', evt_list_name.format(o=obs_id, se=exp_id, i=inst))
 
             # If it doesn't already exist then we will create commands to generate it - there are no options for
             #  emchain that could be changed between runs (other than processing unscheduled, but we're looping
@@ -293,7 +310,8 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
 
                 # Format the blank command string defined near the top of this function with information
                 #  particular to the current mission and ObsID
-                cmd = em_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=exp_id)
+                cmd = em_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=exp_id, fe=final_path,
+                                    oge=og_out_path)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
@@ -575,11 +593,14 @@ def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, d
     # As we are effectively splitting up an existing pipeline, I actually leave the temporary directories (and final
     #  files) in place until later in the chain
     rgp_cmd = "cd {d}; export SAS_CCF={ccf}; export SAS_ODF={odf}; rgsproc entrystage=3:filter finalstage=3:filter " \
-              "withinstexpids=true instexpids={ei}; mv *.FIT ../; cd ..; rm -r {d}"
+              "withinstexpids=true instexpids={ei}; mv *EVENLI0000.FIT ../; cd ..; rm -r {d}; mv {oge} {fe}"
 
     # The event list name that we want to check for at the end of the process - a copy of the original event list
-    #  but with the filtering of events applied
-    evt_list_name = "P{o}{i}{ei}EVENLI0000.FIT"
+    #  but with the filtering of events applied - this is what is produced by the SAS call
+    prod_evt_list_name = "P{o}{i}{ei}EVENLI0000.FIT"
+
+    # These represent the final names and resting places of the event lists
+    evt_list_name = "obsid{o}-inst{i}-subexp{se}-finalevents.fits"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -630,7 +651,9 @@ def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, d
             temp_dir = obs_archive.process_extra_info[miss.name]['rgs_events'][obs_id + inst + exp_id]['temp_dir']
 
             # This is where the final output event list file will be stored
-            final_path = dest_dir + evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
+            og_out_path = dest_dir + prod_evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
+            # This is where the final output event list file will be stored - after moving and renaming
+            final_path = os.path.join(dest_dir, 'events', evt_list_name.format(o=obs_id, se=exp_id, i=inst))
 
             # If it doesn't already exist then we will create commands to generate it - there are no options for
             #  rgsproc that could be changed between runs (other than processing unscheduled, but we're looping
@@ -644,7 +667,8 @@ def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, d
 
                 # Format the blank command string defined near the top of this function with information
                 #  particular to the current mission and ObsID
-                cmd = rgp_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=inst + exp_id)
+                cmd = rgp_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=inst + exp_id, fe=final_path,
+                                     oge=og_out_path)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
@@ -748,10 +772,10 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
     #  storage structure for recording processing success/logs. There is an echo in the PN command to give something
     #  to search for in the logs to see where the OOT processing begins
     ev_inst_cmd = {'mos': "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} "
-                          "updateexposure=yes; mv {fe} ../; cd ../; rm -r {d}",
+                          "updateexposure=yes; cd ../; rm -r {d}",
                    'pn': "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} "
-                         "updateexposure=yes; mv {fe} ../; echo OOT EVSELECT; evselect table={ootae} "
-                         "filteredset={ootfe} expression={expr} updateexposure=yes; mv {ootfe}; cd ../; rm -r {d}"}
+                         "updateexposure=yes; echo OOT EVSELECT; evselect table={ootae} "
+                         "filteredset={ootfe} expression={expr} updateexposure=yes; cd ../; rm -r {d}"}
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -878,11 +902,14 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             temp_dir = dest_dir + temp_name + "/"
 
             # Setting up the path to the event file
-            filt_evt_name = "{i}{exp_id}{en_id}_clean.fits".format(i=inst, exp_id=exp_id, en_id=en_ident)
-            filt_evt_path = dest_dir + filt_evt_name
+            filt_evt_name = "obsid{o}-inst{i}-subexp{se}-en{en_id}-cleanevents.fits".format(i=inst, se=exp_id,
+                                                                                            en_id=en_ident, o=obs_id)
+            filt_evt_path = os.path.join(dest_dir, 'events', filt_evt_name)
             # And the same deal with the OOT event file, though of course that is only relevant to PN data
-            filt_oot_evt_name = "{i}{exp_id}{en_id}_oot_clean.fits".format(i=inst, exp_id=exp_id, en_id=en_ident)
-            filt_oot_evt_path = dest_dir + filt_oot_evt_name
+            filt_oot_evt_name = "obsid{o}-inst{i}-subexp{se}-en{en_id}-cleanootevents.fits".format(i=inst, se=exp_id,
+                                                                                                   en_id=en_ident,
+                                                                                                   o=obs_id)
+            filt_oot_evt_path = os.path.join(dest_dir, 'events', filt_oot_evt_name)
 
             # The default final_paths declaration
             final_paths = [filt_evt_path]
@@ -954,11 +981,11 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
     #  is an entry regarding this change in the log dictionaries.
     # The different instruments need different commands to deal with the fact that PN has OOT event lists as well
     inst_cmds = {'mos': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}",
-                         "clean": "mv {ft} ../{fe}; cd ../ ; rm -r {d}",
+                         "clean": "mv {ft} {fe}; cd ../ ; rm -r {d}",
                          "rename": "mv {cne} {nne}"},
                  'pn': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}; echo OOT MERGE; merge set1={oote_one}"
                                  " set2={oote_two} outset={oote_fin}",
-                        "clean": "mv {ft} ../{fe}; mv {ootft} ../{ootfe}; cd ../ ; rm -r {d}",
+                        "clean": "mv {ft} {fe}; mv {ootft} {ootfe}; cd ../ ; rm -r {d}",
                         "rename": "mv {cne} {nne}; mv {ootcne} {ootnne}"},
                  'setup': "cd {d}"}
 
@@ -1037,12 +1064,14 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
 
             # Setting up the path to the final combined event file
-            final_evt_name = "{i}{en_id}_clean.fits".format(i=inst, en_id=to_combine[oi][0][0])
-            final_path = dest_dir + final_evt_name
+            final_evt_name = "obsid{o}-inst{i}-subexpALL-en{en_id}-finalevents.fits".format(o=obs_id, i=inst,
+                                                                                            en_id=to_combine[oi][0][0])
+            final_path = os.path.join(dest_dir, 'events', final_evt_name)
             # And a possible accompanying OOT combined events file, not used if the instrument isn't PN but
             #  always defined because its easier
-            final_oot_evt_name = "{i}{en_id}_oot_clean.fits".format(i=inst, en_id=to_combine[oi][0][0])
-            final_oot_path = dest_dir + final_oot_evt_name
+            final_oot_evt_name = ("obsid{o}-inst{i}-subexpALL-en{en_id}-finalootevents."
+                                  "fits").format(o=obs_id, i=inst, en_id=to_combine[oi][0][0])
+            final_oot_path = os.path.join(dest_dir, 'events', final_oot_evt_name)
 
             # If there is only one event list for a particular ObsID-instrument combination, then obviously merging
             #  is impossible/unnecessary, so in that case we just rename the file (which will have sub-exposure ID
@@ -1076,17 +1105,17 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                     os.makedirs(temp_dir)
 
                 # If we've got to this point then merging will definitely occur, so we start with the setup command,
-                #  which just moves us to the working directory - its in a list because said list will contain all
+                #  which just moves us to the working directory - it's in a list because said list will contain all
                 #  the stages of this command, and will be joined at the end of this process into a single bash
                 #  command.
                 cur_merge_cmds = [inst_cmds['setup'].format(d=temp_dir)]
                 # Now we can iterate through the files for merging - using enumerate so we get an index for the current
-                #  event path, which we can add one to to retrieve the next event list along - i.e. what we will be
+                #  event path, which we can add one too to retrieve the next event list along - i.e. what we will be
                 #  merging into. This is why we slice the event file list so that we only iterate up to the penultimate
                 #  file, because that file will be accessed by adding one to the last evt_ind.
                 # Frankly I probably should have used a while loop here, but ah well
                 for evt_ind, evt_path in enumerate(to_combine[oi][:-1]):
-                    # If we haven't iterated yet then we use the currently access event list name as the
+                    # If we haven't iterated yet then we use the current event list name as the
                     #  first event list.
                     if evt_ind == 0 and len(evt_path) == 2:
                         first_evt = evt_path[1]
@@ -1134,12 +1163,12 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                 #  (and all the transient part merged event lists that might have been created along the way).
                 # Again have to account for PN having OOT event lists as well
                 if inst == 'PN':
-                    cur_merge_cmds.append(inst_cmds['pn']['clean'].format(ft=cur_t_name, fe=final_evt_name,
+                    cur_merge_cmds.append(inst_cmds['pn']['clean'].format(ft=cur_t_name, fe=final_path,
                                                                           ootft=cur_oot_t_name,
-                                                                          ootfe=final_oot_evt_name,
+                                                                          ootfe=final_oot_path,
                                                                           d=temp_dir))
                 else:
-                    cur_merge_cmds.append(inst_cmds['mos']['clean'].format(ft=cur_t_name, fe=final_evt_name,
+                    cur_merge_cmds.append(inst_cmds['mos']['clean'].format(ft=cur_t_name, fe=final_path,
                                                                            d=temp_dir))
                 # Finally the list of commands is all joined together so it is one, like the commands of the rest
                 #  of the SAS wrapper functions

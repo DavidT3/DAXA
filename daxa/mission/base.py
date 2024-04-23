@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 14:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 18:20. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -8,6 +8,7 @@ from abc import ABCMeta, abstractmethod
 from copy import deepcopy
 from datetime import datetime
 from functools import wraps
+from shutil import rmtree
 from typing import List, Union
 from warnings import warn
 
@@ -21,7 +22,7 @@ from tabulate import tabulate
 
 from daxa import OUTPUT
 from daxa.exceptions import MissionLockedError, NoObsAfterFilterError, IllegalSourceType, NoTargetSourceTypeInfo, \
-    DAXANotDownloadedError, IncompatibleSaveError
+    DAXANotDownloadedError, IncompatibleSaveError, PreProcessedNotSupportedError, PreProcessedNotAvailableError
 
 # This global helps to ensure that filtering functions that call another filtering function don't end up storing
 #  every single filter in the filtering operations history - we only want the outer call (see _capture_filter for use)
@@ -245,6 +246,26 @@ class BaseMission(metaclass=ABCMeta):
         #  configurations that were used - they are stored in the order they were performed; i.e. element 0 is the
         #  first applied and element N is the last
         self._filtering_operations = []
+
+        # These attributes store template names for pre-processed images, exposure maps, backgrounds, and event lists
+        #  They will not be made available to the user through a property because I don't think the user has any need
+        #  for them, instead there are get methods for evt list, image, etc. paths.
+        # Each mission will need to implement these in their init, otherwise the get methods will error out for that
+        #  mission class (deliberately, as for some missions it will not be possible to fill these attributes in
+        self._template_evt_name = None
+        self._template_img_name = None
+        self._template_exp_name = None
+        self._template_bck_name = None
+
+        # These attributes are for when a 'translation layer' is required between things like energy ranges and
+        #  pre-processed filenames. They will only need to be set in a mission class init when they are required
+        self._template_en_trans = None
+        self._template_inst_trans = None
+
+        # We can use this to specify whether a mission has only one instrument per ObsID (it is quite handy to codify
+        #  this for a couple of external processes). The default will be False, and it'll only be overridden in
+        #  the missions that need to set it to True (e.g. Chandra)
+        self._one_inst_per_obs = False
 
     # Defining properties first
     @property
@@ -686,11 +707,54 @@ class BaseMission(metaclass=ABCMeta):
         """
         if not isinstance(new_val, bool):
             raise TypeError("New values for 'processed' must be boolean.")
-        elif self._processed:
+        elif self._processed and not new_val:
             raise ValueError("The processed property has already been set to True, and is now immutable.")
         elif new_val and not self.locked:
             self.locked = True
         self._processed = new_val
+
+    @property
+    def preprocessed_energy_bands(self) -> dict:
+        """
+        Property getter for a non-scalar astropy Quantity containing the energy bands of the pre-processed products
+        supplied by this mission. The return will be in the form of a dictionary with instrument names as keys and an
+        array of pairs of energies, in keV, as values.
+
+        :return: A dictionary with mission instrument names as keys, and non-scalar astropy Quantities as values, with
+            the first column being lower energy bounds and the second column being upper energy bounds.
+        :rtype: Quantity
+        """
+        # If this attribute is not set then we're going to assume that the archive doesn't provide any products
+        #  which are energy bound
+        if self._template_en_trans is None:
+            raise PreProcessedNotSupportedError("This mission's archive does not supply pre-processed products within "
+                                                "specific energy bands.")
+
+        # The attribute is organized as a nested dictionary - with two possible configurations, one with instrument
+        #  names as top level keys, then lower level keys being lower energy bounds, and the
+        #  lowest level keys being upper energy bounds - the other configuration is the same, but doesn't have top
+        #  level instrument keys (these then apply to all instruments of a mission).
+        if isinstance(list(self._template_en_trans.keys())[0], Quantity):
+            en_bnds = Quantity([Quantity([l_en, h_en]) for l_en, u_en_dict in self._template_en_trans.items()
+                                for h_en in u_en_dict])
+            ret_bnds = {i: en_bnds for i in self.chosen_instruments}
+        else:
+            ret_bnds = {i: Quantity([Quantity([l_en, h_en]) for l_en, u_en_dict in self._template_en_trans[i].items()
+                                     for h_en in u_en_dict]) for i in self.chosen_instruments
+                        if i in self._template_en_trans and self._template_en_trans[i] is not None}
+
+        return ret_bnds
+
+    @property
+    def one_inst_per_obs(self) -> bool:
+        """
+        This property returns a boolean flag that describes whether this mission has one instrument per ObsID or
+        not. Most DAXA missions have multiple instruments per observation (or can do, if the user has selected them).
+
+        :return: Flag showing whether there are multiple instruments per observation.
+        :rtype: bool
+        """
+        return self._one_inst_per_obs
 
     # Then define internal methods
     def _load_state(self, save_file_path: str):
@@ -806,6 +870,171 @@ class BaseMission(metaclass=ABCMeta):
         # self.all_obs_info = None
         pass
 
+    def _get_prod_path_checks(self, obs_id: str, inst: str, lo_en: Quantity = None,
+                              hi_en: Quantity = None) -> Union[str, dict, str, Quantity, Quantity]:
+        """
+        Checks on inputs common to the several get methods for paths to pre-processed products downloaded with
+        this mission.
+
+        :param str obs_id: The ObsID of the product for which a path has been requested.
+        :param str inst: The instrument of the product for which a path has been requested.
+        :return: The 'inst' argument, corrected to the standard expected for this mission, if necessary, and the
+            relevant part of the energy bound to string identifier translation dictionary for the pre-processed
+            products of this mission. Also, if the instrument names in the file names are different from the
+            filenames used by the mission class, the third return is the 'correct' version for the filenames. The
+            checked low and high energy bounds are also returned, as if None values were passed but only one band
+            is available for the chose instrument it will be filled in.
+        :rtype: Union[str, dict, str, Quantity, Quantity]
+        """
+        # Checking that the data are actually downloaded - what is the point in providing a path that leads to nothing?
+        if not self._download_done:
+            raise DAXANotDownloadedError("The data have not yet been downloaded, so the requested path cannot "
+                                         "be provided.")
+
+        # The path get methods are for the pre-processed event lists and products which we support downloading for
+        #  many of the missions - if the data type that was requested to be downloaded is not one of these, then
+        #  those pre-processed data have not been downloaded.
+        if self.downloaded_type not in ['raw+preprocessed', 'preprocessed']:
+            raise DAXANotDownloadedError("The downloaded data are not preprocessed, thus the requested path "
+                                         "cannot be provided.")
+
+        # Checking the ObsID that has been passed; a) is it the right pattern for this particular mission, and b) is
+        #  it a part of the filtered dataset
+        if not self.check_obsid_pattern(obs_id):
+            raise ValueError("The supplied ObsID ({oi}) does not match this mission's ObsID formatting "
+                             "standard.".format(oi=obs_id))
+        elif obs_id not in self.filtered_obs_ids:
+            raise ValueError("The supplied ObsID ({oi}) is not a part of this mission's filtered "
+                             "dataset.".format(oi=obs_id))
+
+        # Also check the supplied instrument (assuming there is one) - this should correct the instrument name to
+        #  the standard we expect, or throw an error if it is completely wrong
+        if inst is not None:
+            inst = self.check_inst_names(inst)[0]
+
+        # Some missions will have one instrument per ObsID - in these cases we don't NEED the instrument argument
+        #  to be passed, as we can get that info ourselves
+        if inst is None and 'instrument' in self.filtered_obs_info.columns:
+            inst = self.all_obs_info[self.all_obs_info['ObsID'] == obs_id].iloc[0]['instrument']
+        elif (inst is not None and 'instrument' in self.filtered_obs_info.columns and
+              self.all_obs_info[self.all_obs_info['ObsID'] == obs_id].iloc[0]['instrument'] != inst):
+            corr_inst = self.all_obs_info[self.all_obs_info['ObsID'] == obs_id].iloc[0]['instrument']
+            warn("Your passed instrument ({i}) does not match the instrument that was used for observation {oi} of "
+                 "{m}, and has been replaced with the correct instrument name "
+                 "({ci}).".format(oi=obs_id, m=self.pretty_name, i=inst, ci=corr_inst), stacklevel=2)
+            inst = corr_inst
+        # We'll fill in the instrument for them if there is only one chosen for the instrument
+        elif inst is None and len(self._chos_insts) == 1:
+            inst = self._chos_insts[0]
+        elif inst is None and len(self._chos_insts) > 1:
+            raise ValueError("The {m} mission has multiple instruments that can observe simultaneously, one must be "
+                             "selected for this path to be generated; the options are "
+                             "{ai}".format(m=self.pretty_name, ai=", ".join(self.chosen_instruments)))
+
+        if lo_en is not None and self._template_en_trans is None:
+            raise NotImplementedError("The template for translating energy to filename is not implemented for "
+                                      "{}.".format(self.pretty_name))
+        # In this case this dictionary is in the "instrument names as top level keys" configuration - so we need an
+        #  instrument name in order to do the job
+        elif lo_en is not None and not isinstance(list(self._template_en_trans.keys())[0], Quantity):
+            if inst is None:
+                raise ValueError("The {m} mission provides pre-processed products with different energy bounds "
+                                 "depending on instrument; as such, an instrument name must be "
+                                 "passed.".format(m=self.pretty_name))
+            else:
+                temp_en_trans = self._template_en_trans[inst]
+        # In this case all instruments have the same energy bounds
+        elif lo_en is not None and isinstance(list(self._template_en_trans.keys())[0], Quantity):
+            temp_en_trans = self._template_en_trans
+        else:
+            temp_en_trans = None
+
+        # The energy translation attribute is in the form of a nested dictionary where the top level keys are lower
+        #  energy bounds, and the lower level keys are upper energy bounds
+        if lo_en is not None and lo_en not in temp_en_trans:
+            # If we've gotten this far with instrument being None, then there will only be one set of energy bands
+            #  for this mission, regardless of instrument - thus we can just take the entry from
+            #  preprocessed_energy_bands
+            rel_bands = list(self.preprocessed_energy_bands.values())[0] if inst is None \
+                else self.preprocessed_energy_bands[inst]
+            # Joining the available energy bands into a string for the energy message
+            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
+            al_eb = ", ".join(eb_strs) + "keV"
+            raise PreProcessedNotAvailableError("The {m} archive does not provide products with {l}keV as the lower "
+                                                "energy bound for {i}; only {eb} are "
+                                                "available.".format(m=self.pretty_name, l=lo_en.value, eb=al_eb,
+                                                                    i=inst))
+        # In this case we need a low energy, and one was not passed, but the selected instrument only has one available
+        #  band for the pre-processed products, so we will just fill it in
+        elif lo_en is None and temp_en_trans is not None and len(self.preprocessed_energy_bands[inst]) == 1:
+            lo_en = self.preprocessed_energy_bands[inst][0, 0]
+
+        # Now we check the passed hi_en value
+        if hi_en is not None and hi_en not in temp_en_trans[lo_en]:
+            # If we've gotten this far with instrument being None, then there will only be one set of energy bands
+            #  for this mission, regardless of instrument - thus we can just take the entry from
+            #  preprocessed_energy_bands
+            rel_bands = list(self.preprocessed_energy_bands.values())[0] if inst is None \
+                else self.preprocessed_energy_bands[inst]
+            # Joining the available energy bands into a string for the energy message
+            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
+            al_eb = ", ".join(eb_strs) + "keV"
+            raise PreProcessedNotAvailableError("The {m} archive does not provide products with {l}-{u}keV "
+                                                "energy bounds for {i}; only {eb} are "
+                                                "available.".format(m=self.pretty_name, l=lo_en.value, u=hi_en.value,
+                                                                    eb=al_eb, i=inst))
+        elif hi_en is None and temp_en_trans is not None and len(self.preprocessed_energy_bands[inst]) == 1:
+            hi_en = self.preprocessed_energy_bands[inst][0, 1]
+
+        if self._template_inst_trans is not None and inst is not None:
+            file_inst = self._template_inst_trans[inst]
+        else:
+            file_inst = inst
+
+        return inst, temp_en_trans, file_inst, lo_en, hi_en
+
+    def _get_prod_path_post_checks(self, rel_pth: str, obs_id: str, inst: str, req_type: str) -> str:
+        """
+        This internal function performs some checks common to all pre-processed product path get methods - basically
+        makes sure the file exists, and figures out exactly which file is the right one in the case that there is a
+        wildcard in the filename (looking at you Chandra).
+
+        :param str rel_pth: The generated file path that needs checking.
+        :param str obs_id: The ObsID of the product for which the path was generated.
+        :param str inst: The instrument of the product for which the path was generated.
+        :param str req_type: The type of file that was requested.
+        :return: The final file path (it may have been altered if there was a wildcard).
+        :rtype: str
+        """
+        # This is unfortunate, but because Chandra includes a revision number in their file name (admirable, but they
+        #  have formatted them inconsistently which makes this the most elegant way of dealing with it), the Chandra
+        #  templates have a * in them (like the unix wildcard) - as such we'll split things up and find a matching file
+        if '*' in rel_pth:
+            # We don't just use the raw data path because some archives have sub-directories downloaded. As such we'll
+            #  split the path we already created - this creates a path including any sub-directories there might be
+            just_dir_path = "/".join(rel_pth.split("/")[:-1]) + "/"
+            just_file_name_parts = rel_pth.split("/")[-1].split('*')
+            poss_files = [fn for fn in os.listdir(just_dir_path) if all([fn_p in fn for fn_p in just_file_name_parts])]
+            if len(poss_files) != 1:
+                msg = ("The requested {m}-{oi} {t} file ({f}) cannot be uniquely "
+                       "identified.").format(m=self.pretty_name, oi=obs_id, f=rel_pth, t=req_type) \
+                    if inst is None else ("The requested {m}-{oi}-{i} {t} file ({f}) cannot be uniquely "
+                                          "identified.").format(m=self.pretty_name, oi=obs_id, i=inst, f=rel_pth,
+                                                                t=req_type)
+
+                raise FileNotFoundError(msg)
+            else:
+                rel_pth = just_dir_path + poss_files[0]
+
+        elif not os.path.exists(rel_pth):
+            msg = "The requested {m}-{oi} {t} file ({f}) does not exist.".format(m=self.pretty_name, oi=obs_id,
+                                                                                 f=rel_pth, t=req_type) \
+                if inst is None else ("The requested {m}-{oi}-{i} {t} file ({f}) does not "
+                                      "exist.").format(m=self.pretty_name, oi=obs_id, i=inst, f=rel_pth, t=req_type)
+            raise FileNotFoundError(msg)
+
+        return rel_pth
+
     # Then define user-facing methods
     def reset_filter(self):
         """
@@ -821,6 +1050,15 @@ class BaseMission(metaclass=ABCMeta):
         #  the filter
         self._filtering_operations = []
 
+        # For most missions this won't do anything, but we set the chosen instruments property again. For missions
+        #  like Chandra however, where there is one instrument per observation, it will reinstate the base filter
+        #  as it should be taking into account the chosen instruments (missions like Chandra overwrite the
+        #  'chosen_instruments' property to include this capability).
+        # We'll only do this if the chosen instruments have been set though, as otherwise we run into problems
+        #  during the various set up phases of the mission inits
+        if len(self.chosen_instruments) != 0:
+            self.chosen_instruments = self.chosen_instruments
+
     def check_obsid_pattern(self, obs_id_to_check: str):
         """
         A simple method that will check an input ObsID against the ObsID regular expression pattern defined
@@ -834,7 +1072,8 @@ class BaseMission(metaclass=ABCMeta):
         """
         return bool(re.match(self.id_regex, obs_id_to_check))
 
-    def check_inst_names(self, insts: Union[List[str], str], error_on_bad_inst: bool = True):
+    def check_inst_names(self, insts: Union[List[str], str], error_on_bad_inst: bool = True,
+                         show_warn: bool = True):
         """
         A method to perform some checks on the validity of chosen instrument names for a given mission.
 
@@ -843,6 +1082,7 @@ class BaseMission(metaclass=ABCMeta):
         :param bool error_on_bad_inst: Controls whether an exception is raised if the instrument(s) aren't actually
             associated with this mission - intended for DAXA checking operations (see 'get_process_logs' of Archive
             for an example). Default is True.
+        :param bool show_warn: Should warnings produced by this method be shown? Default is True
         :return: The list of instruments (possibly altered to match formats expected by this module).
         :rtype: List
         """
@@ -854,7 +1094,7 @@ class BaseMission(metaclass=ABCMeta):
         if not all(isinstance(inst, str) for inst in insts):
             raise TypeError("Instruments must be input as a string or a list of strings.")
 
-        # Making sure the input is capitalised for compatibilty with the rest of the module
+        # Making sure the input is capitalized for compatibility with the rest of the module
         insts = [i.upper() for i in insts]
 
         # I just check that there are actually entries in this list of instruments, because it would be silly if
@@ -896,7 +1136,7 @@ class BaseMission(metaclass=ABCMeta):
             updated_insts = [i for i in updated_insts if i in self._miss_poss_insts]
 
         # I warn the user if the name(s) of instruments have been altered.
-        if altered:
+        if altered and show_warn:
             warn("Some instrument names were converted to alternative forms expected by this module, the instrument "
                  "names are now; {}".format(', '.join(updated_insts)), stacklevel=2)
 
@@ -1608,6 +1848,364 @@ class BaseMission(metaclass=ABCMeta):
         if return_obs_info:
             return rel_obs_info[any_rel_data]
 
+    @abstractmethod
+    def download(self, download_products: bool = False):
+        """
+        An abstract method to actually acquire and download the mission data that have not been filtered out (if
+        a filter has been applied, otherwise all data will be downloaded). This must be overwritten by every subclass
+        as each mission might need a different method of downloading the data, the same reason fetch_obs_info
+        must be overwritten in each subclass.
+        """
+        pass
+
+    @abstractmethod
+    def assess_process_obs(self, obs_info: dict):
+        """
+        A slightly unusual abstract method which will allow each mission to assess the information on a particular
+        observation that has been put together by an Archive (the archive assembles it because sometimes this
+        detailed information only becomes available at the first stages of processing), and make a decision on whether
+        that particular observation-instrument-subexposure (for missions like XMM) should be processed further for
+        scientific use.
+
+        Implemented as an abstract method because the information and decision-making process will likely be
+        different for every mission.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param dict obs_info: The multi-level dictionary containing available observation information for an
+            observation.
+        """
+        pass
+
+    @abstractmethod
+    def ident_to_obsid(self, ident: dict):
+        """
+        A slightly unusual abstract method which will allow each mission convert a unique identifier being used
+        in the processing steps to the ObsID (as these unique identifiers will contain the ObsID). This is necessary
+        because XMM, for instance, has processing steps that act on whole ObsIDs (e.g. cifbuild), and processing steps
+        that act on individual sub-exposures of instruments of ObsIDs, so the ID could be '0201903501M1S001'.
+
+        Implemented as an abstract method because the unique identifier style may well be different for different
+        missions - many will just always be the ObsID, but we want to be able to have low level control.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param str ident: The unique identifier used in a particular processing step.
+        """
+        pass
+
+    @staticmethod
+    def show_allowed_target_types(table_format: str = 'fancy_grid'):
+        """
+        This simple method just displays the DAXA source type taxonomy (the target source types you can filter by)
+        in a nice table, with descriptions of what each source type means. Filtering on target source type is not
+        guaranteed to work with every mission, as target type information is not necessarily available, but this
+        filtering is used through the filter_on_target_type method.
+
+        :param str table_format: The style format for the table to be displayed (should be one of the 'tabulate'
+            module formats). The default is 'fancy_grid'.
+        """
+        # Reads out the keys (i.e. what the user can filter with), and their descriptions
+        data = [[k, v] for k, v in SRC_TYPE_TAXONOMY.items()]
+        # Create the two column titles
+        cols = ['Target Type', 'Description']
+        # Now simply print them in a nice table
+        print(tabulate(data, cols, tablefmt=table_format))
+
+    def get_evt_list_path(self, obs_id: str, inst: str = None) -> str:
+        """
+        A get method that provides the path to a downloaded pre-generated event list for the current mission (if
+        available). This method will not work if pre-processed data have not been downloaded.
+
+        :param str obs_id: The ObsID of the event list.
+        :param str inst: The instrument of the event list (if applicable).
+        :return: The requested event list path.
+        :rtype: str
+        """
+        if self._template_evt_name is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "event lists, so a path cannot be provided.".format(m=self.pretty_name))
+
+        inst, en_bnd_trans, file_inst, lo_en, hi_en = self._get_prod_path_checks(obs_id, inst)
+
+        # The template path can take two forms, one is a straight string and can just be filled in, but the
+        #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
+        #  need to check which is applicable to this mission and treat it accordingly
+        if isinstance(self._template_evt_name, str):
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id, i=file_inst))
+        # In some cases the instrument name will have to be supplied, otherwise we will not be able to
+        #  create a path
+        elif isinstance(self._template_evt_name, dict) and inst is None:
+            raise ValueError("The 'inst' argument cannot be None for this mission, as the different instruments have "
+                             "differently formatted pre-processed file names.")
+        # It is possible for only some instruments of a mission to have images, so we check
+        elif isinstance(self._template_evt_name, dict) and self._template_evt_name[inst] is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "event lists for the {i} instrument, so a path cannot be "
+                                                "provided.".format(m=self.pretty_name, i=inst))
+        elif isinstance(self._template_evt_name, dict):
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name[inst].format(oi=obs_id,
+                                                                                                    i=file_inst))
+
+        # This performs certain checks to make sure the file exists, and fill in any wildcards
+        rel_pth = self._get_prod_path_post_checks(rel_pth, obs_id, inst, 'event list')
+
+        return rel_pth
+
+    def get_image_path(self, obs_id: str, lo_en: Quantity = None, hi_en: Quantity = None, inst: str = None) -> str:
+        """
+        A get method that provides the path to a downloaded pre-generated image for the current mission (if
+        available). This method will not work if pre-processed data have not been downloaded.
+
+        :param str obs_id: The ObsID of the image.
+        :param Quantity lo_en: The lower energy bound of the image.
+        :param Quantity hi_en: The upper energy bound of the image.
+        :param str inst: The instrument of the image (if applicable).
+        :return: The requested image file path.
+        :rtype: str
+        """
+        if self._template_img_name is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "images, so a path cannot be provided.".format(m=self.pretty_name))
+
+        if lo_en is not None:
+            # We make sure that the provided energy bounds are in keV
+            lo_en = lo_en.to('keV')
+            hi_en = hi_en.to('keV')
+
+        # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
+        inst, en_bnd_trans, file_inst, lo_en, hi_en = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+
+        # If this quantity is still None by now, it means that the chosen instrument has multiple energy bands
+        #  available and the pre-processing method could not fill in the energy range
+        if lo_en is None:
+            rel_bands = self.preprocessed_energy_bands[inst]
+            # Joining the available energy bands into a string for the energy message
+            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
+            al_eb = ", ".join(eb_strs) + "keV"
+            raise ValueError("The 'lo_en' and 'hi_en' arguments cannot be None, as {m}-{i} has multiple energy "
+                             "bands available for pre-processed products; {eb} are "
+                             "available".format(m=self.pretty_name, i=inst, eb=al_eb))
+
+        # This fishes out the relevant energy-bounds-to-identifying string translation
+        bnd_ident = en_bnd_trans[lo_en][hi_en]
+
+        # The image template path can take two forms, one is a straight string and can just be filled in, but the
+        #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
+        #  need to check which is applicable to this mission and treat it accordingly
+        if isinstance(self._template_img_name, str):
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name.format(oi=obs_id, i=file_inst,
+                                                                                              eb=bnd_ident))
+        # In some cases the instrument name will have to be supplied, otherwise we will not be able to
+        #  create a path
+        elif isinstance(self._template_img_name, dict) and inst is None:
+            raise ValueError("The 'inst' argument cannot be None for this mission, as the different instruments have "
+                             "differently formatted pre-processed file names.")
+        # It is possible for only some instruments of a mission to have images, so we check
+        elif isinstance(self._template_img_name, dict) and self._template_img_name[inst] is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "images for the {i} instrument, so a path cannot be "
+                                                "provided.".format(m=self.pretty_name, i=inst))
+        elif isinstance(self._template_img_name, dict):
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name[inst].format(oi=obs_id,
+                                                                                                    i=file_inst,
+                                                                                                    eb=bnd_ident))
+
+        # This performs certain checks to make sure the file exists, and fill in any wildcards
+        rel_pth = self._get_prod_path_post_checks(rel_pth, obs_id, inst, 'image')
+
+        return rel_pth
+
+    def get_expmap_path(self, obs_id: str, lo_en: Quantity = None, hi_en: Quantity = None, inst: str = None) -> str:
+        """
+        A get method that provides the path to a downloaded pre-generated exposure map for the current mission (if
+        available). This method will not work if pre-processed data have not been downloaded.
+
+        :param str obs_id: The ObsID of the exposure map.
+        :param Quantity lo_en: The lower energy bound of the exposure map.
+        :param Quantity hi_en: The upper energy bound of the exposure map.
+        :param str inst: The instrument of the exposure map (if applicable).
+        :return: The requested exposure map file path.
+        :rtype: str
+        """
+        if self._template_exp_name is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "exposure maps, so a path cannot be "
+                                                "provided.".format(m=self.pretty_name))
+
+        if lo_en is not None:
+            # We make sure that the provided energy bounds are in keV
+            lo_en = lo_en.to('keV')
+            hi_en = hi_en.to('keV')
+
+        # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
+        inst, en_bnd_trans, file_inst, lo_en, hi_en = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+
+        # If this quantity is still None by now, it means that the chosen instrument has multiple energy bands
+        #  available and the pre-processing method could not fill in the energy range
+        if lo_en is None:
+            rel_bands = self.preprocessed_energy_bands[inst]
+            # Joining the available energy bands into a string for the energy message
+            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
+            al_eb = ", ".join(eb_strs) + "keV"
+            raise ValueError("The 'lo_en' and 'hi_en' arguments cannot be None, as {m}-{i} has multiple energy "
+                             "bands available for pre-processed products; {eb} are "
+                             "available".format(m=self.pretty_name, i=inst, eb=al_eb))
+
+        # This fishes out the relevant energy-bounds-to-identifying string translation
+        bnd_ident = en_bnd_trans[lo_en][hi_en]
+
+        # The image template path can take two forms, one is a straight string and can just be filled in, but the
+        #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
+        #  need to check which is applicable to this mission and treat it accordingly
+        if isinstance(self._template_exp_name, str):
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_exp_name.format(oi=obs_id, i=file_inst,
+                                                                                              eb=bnd_ident))
+        # In some cases the instrument name will have to be supplied, otherwise we will not be able to
+        #  create a path
+        elif isinstance(self._template_exp_name, dict) and inst is None:
+            raise ValueError(
+                "The 'inst' argument cannot be None for this mission, as the different instruments have "
+                "differently formatted pre-processed file names.")
+        # It is possible for only some instruments of a mission to have exposure maps, so we check
+        elif isinstance(self._template_exp_name, dict) and self._template_exp_name[inst] is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "exposure maps for the {i} instrument, so a path cannot be "
+                                                "provided.".format(m=self.pretty_name, i=inst))
+        elif isinstance(self._template_exp_name, dict):
+            rel_pth = os.path.join(self.raw_data_path, obs_id,
+                                   self._template_exp_name[inst].format(oi=obs_id, i=file_inst,
+                                                                        eb=bnd_ident))
+
+        # This performs certain checks to make sure the file exists, and fill in any wildcards
+        rel_pth = self._get_prod_path_post_checks(rel_pth, obs_id, inst, 'exposure map')
+
+        return rel_pth
+
+    def get_background_path(self, obs_id: str, lo_en: Quantity = None, hi_en: Quantity = None, inst: str = None) -> str:
+        """
+        A get method that provides the path to a downloaded pre-generated background map for the current mission (if
+        available). This method will not work if pre-processed data have not been downloaded.
+
+        :param str obs_id: The ObsID of the background map.
+        :param Quantity lo_en: The lower energy bound of the background map.
+        :param Quantity hi_en: The upper energy bound of the background map.
+        :param str inst: The instrument of the background map (if applicable).
+        :return: The requested background map file path.
+        :rtype: str
+        """
+        if self._template_bck_name is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "background maps, so a path cannot be "
+                                                "provided.".format(m=self.pretty_name))
+
+        if lo_en is not None:
+            # We make sure that the provided energy bounds are in keV
+            lo_en = lo_en.to('keV')
+            hi_en = hi_en.to('keV')
+
+        # Run the pre-checks to make sure inputs are valid and the mission is compatible with the request
+        inst, en_bnd_trans, file_inst, lo_en, hi_en = self._get_prod_path_checks(obs_id, inst, lo_en, hi_en)
+
+        # If this quantity is still None by now, it means that the chosen instrument has multiple energy bands
+        #  available and the pre-processing method could not fill in the energy range
+        if lo_en is None:
+            rel_bands = self.preprocessed_energy_bands[inst]
+            # Joining the available energy bands into a string for the energy message
+            eb_strs = [str(eb[0].value) + "-" + str(eb[1].value) for eb_ind, eb in enumerate(rel_bands)]
+            al_eb = ", ".join(eb_strs) + "keV"
+            raise ValueError("The 'lo_en' and 'hi_en' arguments cannot be None, as {m}-{i} has multiple energy "
+                             "bands available for pre-processed products; {eb} are "
+                             "available".format(m=self.pretty_name, i=inst, eb=al_eb))
+
+        # This fishes out the relevant energy-bounds-to-identifying string translation
+        bnd_ident = en_bnd_trans[lo_en][hi_en]
+
+        # The image template path can take two forms, one is a straight string and can just be filled in, but the
+        #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
+        #  need to check which is applicable to this mission and treat it accordingly
+        if isinstance(self._template_bck_name, str):
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_bck_name.format(oi=obs_id, i=file_inst,
+                                                                                              eb=bnd_ident))
+        # In some cases the instrument name will have to be supplied, otherwise we will not be able to
+        #  create a path
+        elif isinstance(self._template_bck_name, dict) and inst is None:
+            raise ValueError("The 'inst' argument cannot be None for this mission, as the different instruments have "
+                             "differently formatted pre-processed file names.")
+        # It is possible for only some instruments of a mission to have background maps, so we check
+        elif isinstance(self._template_bck_name, dict) and self._template_bck_name[inst] is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "background maps for the {i} instrument, so a path cannot be "
+                                                "provided.".format(m=self.pretty_name, i=inst))
+        elif isinstance(self._template_bck_name, dict):
+            rel_pth = os.path.join(self.raw_data_path, obs_id,
+                                   self._template_bck_name[inst].format(oi=obs_id, i=file_inst,
+                                                                        eb=bnd_ident))
+
+        # This performs certain checks to make sure the file exists, and fill in any wildcards
+        rel_pth = self._get_prod_path_post_checks(rel_pth, obs_id, inst, 'background map')
+
+        return rel_pth
+
+    def delete_raw_data(self, force_del: bool = False, all_raw_data: bool = False):
+        """
+        This method will delete raw data downloaded for this mission; by default only directories corresponding to
+        ObsIDs currently accepted through the filter will be deleted, but if all_raw_data is set to True then the
+        WHOLE raw data directory corresponding to this mission will be removed.
+
+        Confirmation from the user will be sought that they wish to delete the data, unless force_del is set to
+        True - in which case the removal will be performed straight away.
+
+        :param bool force_del: This argument can be used to ensure that the delete option can be performed entirely
+            programmatically, without requiring a user input. Default is False, but if set to True then the delete
+            operation will be performed immediately.
+        :param bool all_raw_data: This controls whether only the data selected by the current instance of the mission
+            are deleted (when False, the default behaviour) or if the whole directory associated with the mission is
+            removed.
+        """
+        # We make sure to unlock the mission, update the download done attribute to False, and remove the knowledge
+        #  of which type of data were downloaded previously
+        self._locked = False
+        self._download_done = False
+        self._download_type = None
+
+        # This uses the user input to decide whether to just delete the ObsID directories associated with the
+        #  currently filtered mission (the default), or to delete the mission's whole directory
+        if not all_raw_data:
+            rm_dirs = [self.raw_data_path + oi for oi in self.filtered_obs_ids]
+        else:
+            rm_dirs = [self.raw_data_path]
+
+        # If the user hasn't set force_del to True, then we need to ask them if they're sure
+        if not force_del:
+            # Urgh a while loop, I feel like I'm a first year undergrad again
+            proc_flag = None
+            # This will keep going until the proc_flag has a value that the next step will understand
+            while proc_flag is None:
+                # We ask the question
+                init_proc_flag = input("Proceed with deletion of {} raw data [Y/N]?".format(self.pretty_name))
+                # If they answer Y then we'll delete (I could have used lower() for this, but I thought this was
+                #  safer in case they pass a non-string).
+                if init_proc_flag == 'Y' or init_proc_flag == 'y':
+                    proc_flag = True
+                # If they answer N we won't delete
+                elif init_proc_flag == 'N' or init_proc_flag == 'n':
+                    proc_flag = False
+                # Got to tell them if they pass an illegal value - and we'll go around again
+                else:
+                    warn("Please enter either Y or N!", stacklevel=2)
+        else:
+            # In this case the user has force deleted, so no question is asked and proc_flag is True
+            proc_flag = True
+
+        # If the last step returned True, then we start deleting
+        if proc_flag:
+            # Iterate through the previously defined list of directories.
+            for rm_dir in rm_dirs:
+                rmtree(rm_dir)
+
     def save(self, save_root_path: str):
         """
         A method to save a file representation of the current state of a DAXA mission object. This may be used by
@@ -1712,72 +2310,6 @@ class BaseMission(metaclass=ABCMeta):
         print("Earliest Filtered Observation Date - {}".format(self.filtered_obs_info['start'].min()))
         print("Latest Filtered Observation Date - {}".format(self.filtered_obs_info['end'].max()))
         print("-----------------------------------------------------\n")
-
-    @abstractmethod
-    def download(self):
-        """
-        An abstract method to actually acquire and download the mission data that have not been filtered out (if
-        a filter has been applied, otherwise all data will be downloaded). This must be overwritten by every subclass
-        as each mission might need a different method of downloading the data, the same reason fetch_obs_info
-        must be overwritten in each subclass.
-        """
-        pass
-
-    @abstractmethod
-    def assess_process_obs(self, obs_info: dict):
-        """
-        A slightly unusual abstract method which will allow each mission to assess the information on a particular
-        observation that has been put together by an Archive (the archive assembles it because sometimes this
-        detailed information only becomes available at the first stages of processing), and make a decision on whether
-        that particular observation-instrument-subexposure (for missions like XMM) should be processed further for
-        scientific use.
-
-        Implemented as an abstract method because the information and decision-making process will likely be
-        different for every mission.
-
-        This method should never need to be triggered by the user, as it will be called automatically when detailed
-        observation information becomes available to the Archive.
-
-        :param dict obs_info: The multi-level dictionary containing available observation information for an
-            observation.
-        """
-        pass
-
-    @abstractmethod
-    def ident_to_obsid(self, ident: dict):
-        """
-        A slightly unusual abstract method which will allow each mission convert a unique identifier being used
-        in the processing steps to the ObsID (as these unique identifiers will contain the ObsID). This is necessary
-        because XMM, for instance, has processing steps that act on whole ObsIDs (e.g. cifbuild), and processing steps
-        that act on individual sub-exposures of instruments of ObsIDs, so the ID could be '0201903501M1S001'.
-
-        Implemented as an abstract method because the unique identifier style may well be different for different
-        missions - many will just always be the ObsID, but we want to be able to have low level control.
-
-        This method should never need to be triggered by the user, as it will be called automatically when detailed
-        observation information becomes available to the Archive.
-
-        :param str ident: The unique identifier used in a particular processing step.
-        """
-        pass
-
-    @staticmethod
-    def show_allowed_target_types(table_format: str = 'fancy_grid'):
-        """
-        This simple method just displays the DAXA source type taxonomy (the target source types you can filter by)
-        in a nice table, with descriptions of what each source type means. Filtering on target source type is not
-        guaranteed to work with every mission, as target type information is not necessarily available, but this
-        filtering is used through the filter_on_target_type method.
-
-        :param str table_format: The style format for the table to be displayed (should be one of the 'tabulate'
-            module formats). The default is 'fancy_grid'.
-        """
-        # Reads out the keys (i.e. what the user can filter with), and their descriptions
-        data = [[k, v] for k, v in SRC_TYPE_TAXONOMY.items()]
-        # Create the two column titles
-        cols = ['Target Type', 'Description']
-        # Now simply print them in a nice table
-        print(tabulate(data, cols, tablefmt=table_format))
 
     def __len__(self):
         """

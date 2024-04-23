@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 18:01. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -266,8 +266,11 @@ class XMMPointed(BaseMission):
         if not os.path.exists(filename):
             # Set this again here because otherwise its annoyingly verbose
             log.setLevel(0)
-            # Download the requested data
-            AQXMMNewton.download_data(observation_id=observation_id, level=level, filename=filename)
+            try:
+                # Download the requested data
+                AQXMMNewton.download_data(observation_id=observation_id, level=level, filename=filename)
+            except Exception as err:
+                raise Exception("{oi} data failed to download.").with_traceback(err.__traceback__)
             # As the above function downloads the data as compressed tars, we need to decompress them
             with tarfile.open(filename+'.tar.gz') as zippo:
                 zippo.extractall(filename)
@@ -307,7 +310,8 @@ class XMMPointed(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, credentials: Union[dict, str] = None):
+    def download(self, num_cores: int = NUM_CORES, credentials: Union[dict, str] = None,
+                 download_products: bool = False):
         """
         A method to acquire and download the pointed XMM data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -321,6 +325,7 @@ class XMMPointed(BaseMission):
         :param dict/str credentials: The path to an ini file containing credentials, a dictionary containing 'user'
             and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
             for providing different credentials for different observations.
+        :param bool download_products: CURRENTLY NON-FUNCTIONAL.
         """
 
         if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():
@@ -337,6 +342,9 @@ class XMMPointed(BaseMission):
             os.makedirs(self.top_level_path + self.name + '_raw')
         # Grabs the raw data storage path
         stor_dir = self.raw_data_path
+
+        # This XMM mission currently only supports the downloading of raw data - I should try to address that
+        self._download_type = 'raw'
 
         # A very unsophisticated way of checking whether raw data have been downloaded before (see issue #30)
         #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in

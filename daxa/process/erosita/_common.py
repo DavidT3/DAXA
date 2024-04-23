@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 16:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 09:50. Copyright (c) The Contributors
+
 import glob
 import os.path
 from enum import Flag
@@ -16,6 +17,7 @@ from tqdm import tqdm
 from daxa.archive.base import Archive
 from daxa.exceptions import NoEROSITAMissionsError
 from daxa.process._backend_check import find_esass
+from daxa.process.general import create_dirs
 
 ALLOWED_EROSITA_MISSIONS = ['erosita_calpv', 'erosita_all_sky_de_dr1']
 
@@ -130,25 +132,9 @@ def _esass_process_setup(obs_archive: Archive) -> bool:
         if any(processed):
             warn("One or more eROSITA missions have already been fully processed")
 
+    # This section generates the storage directory structure for each eROSITA mission
     for miss in erosita_miss:
-        # We make sure that the archive directory has folders to store the processed eROSITA data that will eventually
-        #  be created by most functions that call this _esass_process_setup function
-        for obs_id in miss.filtered_obs_ids:
-            stor_dir = obs_archive.construct_processed_data_path(miss, obs_id)
-            if not os.path.exists(stor_dir):
-                os.makedirs(stor_dir)
-
-            # We also make a directory within the storage directory, specifically for logs
-            if not os.path.exists(stor_dir + 'logs'):
-                os.makedirs(stor_dir + 'logs')
-    
-        # We also ensure that an overall directory for failed processing observations exists - this will give
-        #  observation directories which have no useful data in (i.e. they do not have a successful final
-        #  processing step) somewhere to be copied to (see daxa.process._cleanup._last_process).
-        # This is the overall path, there might not ever be anything in it, so we don't pre-make ObsID sub-directories
-        fail_proc_dir = obs_archive.construct_failed_data_path(miss, None).format(oi='')[:-1]
-        if not os.path.exists(fail_proc_dir):
-            os.makedirs(fail_proc_dir)
+        create_dirs(obs_archive, miss.name)
 
     return esass_in_docker
 
