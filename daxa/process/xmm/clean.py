@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 13:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 13:50. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
@@ -350,7 +350,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
             cmd = ef_cmd.format(d=temp_dir, ccf=ccf_path, ef=evt_list_file, woot=with_oot, oot=oot_evt_list_file,
                                 me=method, ws=with_smoothing, s=smooth_factor, wb=with_binning, bs=bin_size,
                                 r=ratio, el=filter_lo_en, eh=filter_hi_en, rs=rs, asi=allowed_sigma, gls=gauss_fit_lims,
-                                gti=gti_name, hist=hist_name, allev=evt_name, ogti=og_gti_name, ohist=og_hist_name,
+                                gti=gti_path, hist=hist_path, allev=evt_path, ogti=og_gti_name, ohist=og_hist_name,
                                 oallev=og_evt_name)
 
             # Now store the bash command, the path, and extra info in the dictionaries
