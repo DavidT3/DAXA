@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 19:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 21:00. Copyright (c) The Contributors
 from shutil import copyfile
 
 from tqdm import tqdm
@@ -22,6 +22,9 @@ def preprocessed_in_archive(arch: Archive):
 
     # This will iterate through all the missions associated with the passed archive which have pre-processed data, and
     #  if there are none a suitable error will be raised.
+    evt_success = {}
+    img_success = {}
+    exp_success = {}
     for miss in arch.preprocessed_missions:
         # Very first thing we want to do is to create the directories in which we will be storing the pre-processed
         #  data - this will do just that (and make a 'failed_data' directory as well, in case any of our pre-processed
@@ -30,6 +33,9 @@ def preprocessed_in_archive(arch: Archive):
 
         # Now we attempt to relocate the products, renaming to our convention
         cur_evt_success = {oi: {} for oi in miss.filtered_obs_ids}
+        cur_img_success = {oi: {} for oi in miss.filtered_obs_ids}
+        cur_exp_success = {oi: {} for oi in miss.filtered_obs_ids}
+        cur_bck_success = {oi: {} for oi in miss.filtered_obs_ids}
         evt_file_temp = "events/obsid{oi}-inst{i}-subexp{se}-finalevents.fits"
         img_file_temp = "images/obsid{oi}-inst{i}-subexp{se}-en{l}_{h}keV-image.fits"
         exp_file_temp = "images/obsid{oi}-inst{i}-subexp{se}-en{l}_{h}keV-expmap.fits"
@@ -79,6 +85,7 @@ def preprocessed_in_archive(arch: Archive):
                     onwards.update(1)
                     continue
 
+                # ------------------------------ Images/ExpMaps/BackMaps ---------------------------------------
                 # Again the eROSITA All-Sky data has different rules because it ships with all instruments in one
                 #  image/event list/everything
                 if miss.name == 'erosita_all_sky_de_dr1':
@@ -89,8 +96,11 @@ def preprocessed_in_archive(arch: Archive):
                     # As we know for sure that this mission does have pre-processed energy bands (as this is not
                     #  a general part of this process, but only for eRASS) we just read them out
                     bounds = miss.preprocessed_energy_bands
+
+                    # This is just the first of the chosen instruments, as they're all lumped together
+                    bodge_inst = miss.chosen_instruments[0]
                     # Grab the bounds for the first of the chosen elements, as they'll all be the same
-                    for bnd_pair in bounds[miss.chosen_instruments[0]]:
+                    for bnd_pair in bounds[bodge_inst]:
 
                         # TODO Change the se entry when possible
                         new_name = img_file_temp.format(oi=obs_id, i=insts, se=None, l=bnd_pair[0].value,
@@ -100,6 +110,8 @@ def preprocessed_in_archive(arch: Archive):
                         try:
                             og_img_path = miss.get_image_path(obs_id, bnd_pair[0], bnd_pair[1])
                             copyfile(og_img_path, new_img_path)
+                            if bodge_inst not in cur_img_success[obs_id] or not cur_img_success[obs_id][bodge_inst]:
+                                cur_img_success[obs_id] = {i: True for i in miss.chosen_instruments}
                         except FileNotFoundError:
                             pass
 
@@ -111,6 +123,8 @@ def preprocessed_in_archive(arch: Archive):
                         try:
                             og_exp_path = miss.get_expmap_path(obs_id, bnd_pair[0], bnd_pair[1])
                             copyfile(og_exp_path, new_exp_path)
+                            if bodge_inst not in cur_exp_success[obs_id] or not cur_exp_success[obs_id][bodge_inst]:
+                                cur_exp_success[obs_id] = {i: True for i in miss.chosen_instruments}
                         except (FileNotFoundError, PreProcessedNotSupportedError):
                             pass
 
@@ -122,9 +136,12 @@ def preprocessed_in_archive(arch: Archive):
                         try:
                             og_bck_path = miss.get_background_path(obs_id, bnd_pair[0], bnd_pair[1])
                             copyfile(og_bck_path, new_bck_path)
+                            if bodge_inst not in cur_bck_success[obs_id] or not cur_bck_success[obs_id][bodge_inst]:
+                                cur_bck_success[obs_id] = {i: True for i in miss.chosen_instruments}
                         except (FileNotFoundError, PreProcessedNotSupportedError):
                             pass
                     onwards.update(1)
+
                 elif miss.name == 'asca':
                     # As we know for sure that this mission does have pre-processed energy bands (as this is not
                     #  a general part of this process, but only for ASCA) we just read them out
@@ -147,6 +164,9 @@ def preprocessed_in_archive(arch: Archive):
                             try:
                                 og_img_path = miss.get_image_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
                                 copyfile(og_img_path, new_img_path)
+                                if inst not in cur_img_success[obs_id] or not cur_img_success[obs_id][inst]:
+                                    cur_img_success[obs_id] = {i: True for i in miss.chosen_instruments
+                                                               if inst[:-1] in i}
                             except FileNotFoundError:
                                 pass
 
@@ -157,6 +177,9 @@ def preprocessed_in_archive(arch: Archive):
                             try:
                                 og_exp_path = miss.get_expmap_path(obs_id, bnd_pair[0], bnd_pair[1], inst)
                                 copyfile(og_exp_path, new_exp_path)
+                                if inst not in cur_exp_success[obs_id] or not cur_exp_success[obs_id][inst]:
+                                    cur_exp_success[obs_id] = {i: True for i in miss.chosen_instruments
+                                                               if inst[:-1] in i}
                             except (FileNotFoundError, PreProcessedNotSupportedError):
                                 pass
                     onwards.update(1)
@@ -244,3 +267,11 @@ def preprocessed_in_archive(arch: Archive):
                         except (FileNotFoundError, PreProcessedNotSupportedError):
                             pass
                     onwards.update(1)
+
+        evt_success[miss.name] = cur_evt_success
+        img_success[miss.name] = cur_img_success
+        exp_success[miss.name] = cur_exp_success
+
+    arch.process_success = ('preprocessed_events', evt_success)
+    arch.process_success = ('preprocessed_images', img_success)
+    arch.process_success = ('preprocessed_expmaps', exp_success)
