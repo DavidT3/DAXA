@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 13:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 13:28. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -772,10 +772,10 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
     #  storage structure for recording processing success/logs. There is an echo in the PN command to give something
     #  to search for in the logs to see where the OOT processing begins
     ev_inst_cmd = {'mos': "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} "
-                          "updateexposure=yes; mv {fe} ../; cd ../; rm -r {d}",
+                          "updateexposure=yes; cd ../; rm -r {d}",
                    'pn': "cd {d}; export SAS_CCF={ccf}; evselect table={ae} filteredset={fe} expression={expr} "
                          "updateexposure=yes; mv {fe} ../; echo OOT EVSELECT; evselect table={ootae} "
-                         "filteredset={ootfe} expression={expr} updateexposure=yes; mv {ootfe}; cd ../; rm -r {d}"}
+                         "filteredset={ootfe} expression={expr} updateexposure=yes; cd ../; rm -r {d}"}
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -902,11 +902,14 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             temp_dir = dest_dir + temp_name + "/"
 
             # Setting up the path to the event file
-            filt_evt_name = "{i}{exp_id}{en_id}_clean.fits".format(i=inst, exp_id=exp_id, en_id=en_ident)
-            filt_evt_path = dest_dir + filt_evt_name
+            filt_evt_name = "obsid{o}-inst{i}-subexp{se}-en{en_id}-finalevents.fits".format(i=inst, se=exp_id,
+                                                                                            en_id=en_ident, o=obs_id)
+            filt_evt_path = os.path.join(dest_dir, 'events', filt_evt_name)
             # And the same deal with the OOT event file, though of course that is only relevant to PN data
-            filt_oot_evt_name = "{i}{exp_id}{en_id}_oot_clean.fits".format(i=inst, exp_id=exp_id, en_id=en_ident)
-            filt_oot_evt_path = dest_dir + filt_oot_evt_name
+            filt_oot_evt_name = "obsid{o}-inst{i}-subexp{se}-en{en_id}-finalootevents.fits".format(i=inst, se=exp_id,
+                                                                                                   en_id=en_ident,
+                                                                                                   o=obs_id)
+            filt_oot_evt_path = os.path.join(dest_dir, 'events', filt_oot_evt_name)
 
             # The default final_paths declaration
             final_paths = [filt_evt_path]
