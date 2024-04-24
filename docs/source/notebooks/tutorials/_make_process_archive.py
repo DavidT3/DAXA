@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 14:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 15:33. Copyright (c) The Contributors
 
 # This script will create and process (XMM process anyway) an archive of observations of the quasar PHL 1811, so I
 #  have something to load in for the archives tutorial
@@ -50,7 +50,7 @@ for oi in arch['xmm_pointed'].filtered_obs_ids:
     if any([oi in rf for rf in reg_files]):
         # Generating the path to the image we need for pixel to RA-Dec conversion
         im_pth = arch.get_current_data_path('xmm_pointed', oi) + \
-        'images/{}_mos1_0.5-2.0keVimg.fits'.format(oi)
+        'images/obsid{}-instM2-subexpALL-en0.5_2.0keV-image.fits'.format(oi)
         # Setting up the entry in the final dictionary, with the path to the regions and the image
         reg_paths['xmm_pointed'][oi] = {'regions': 'region_files/{}.reg'.format(oi), 'wcs_src': im_pth}
 
