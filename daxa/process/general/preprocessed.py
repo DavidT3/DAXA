@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 09:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 13:30. Copyright (c) The Contributors
 
 from shutil import copyfile
 from typing import List
@@ -344,3 +344,5 @@ def preprocessed_in_archive(arch: Archive, missions: List[str] = None):
     arch.process_success = ('preprocessed_images', img_success)
     arch.process_success = ('preprocessed_expmaps', exp_success)
     arch.process_success = ('preprocessed_backmaps', bck_success)
+    # Make sure to save the archive at the end of this
+    arch.save()

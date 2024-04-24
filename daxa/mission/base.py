@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 18:20. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 11:38. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -936,7 +936,7 @@ class BaseMission(metaclass=ABCMeta):
                                       "{}.".format(self.pretty_name))
         # In this case this dictionary is in the "instrument names as top level keys" configuration - so we need an
         #  instrument name in order to do the job
-        elif lo_en is not None and not isinstance(list(self._template_en_trans.keys())[0], Quantity):
+        elif not isinstance(list(self._template_en_trans.keys())[0], Quantity):
             if inst is None:
                 raise ValueError("The {m} mission provides pre-processed products with different energy bounds "
                                  "depending on instrument; as such, an instrument name must be "
@@ -944,7 +944,7 @@ class BaseMission(metaclass=ABCMeta):
             else:
                 temp_en_trans = self._template_en_trans[inst]
         # In this case all instruments have the same energy bounds
-        elif lo_en is not None and isinstance(list(self._template_en_trans.keys())[0], Quantity):
+        elif isinstance(list(self._template_en_trans.keys())[0], Quantity):
             temp_en_trans = self._template_en_trans
         else:
             temp_en_trans = None
@@ -2206,23 +2206,32 @@ class BaseMission(metaclass=ABCMeta):
             for rm_dir in rm_dirs:
                 rmtree(rm_dir)
 
-    def save(self, save_root_path: str):
+    def save(self, save_root_path: str, state_file_name: str = None):
         """
         A method to save a file representation of the current state of a DAXA mission object. This may be used by
         the user, and can be safely sent to another user or system to recreate a mission. It is also used by the
         archive saving mechanic, so that mission objects can be re-set up - it is worth noting that the archive save
-        files ARE NOT how to make a portable archive,
+        files ARE NOT how to make a portable archive.
 
-        :param str save_root_path: The DIRECTORY where you wish a save file to be stored, DO NOT pass a path
-            with a filename at the end, as this method will create its own filename.
+        :param str save_root_path: The DIRECTORY where you wish a save file to be stored.
+        :param str state_file_name: Optionally, the name of the file to be stored in the root save directory. If this
+            is not supplied (the default is None) then the output file will be called {mission name}_state.json. Any
+            filename passed to this argument must end in '.json'.
         """
 
         # We check to see whether the output root path exists, and if it doesn't then we shall create it
         if not os.path.exists(save_root_path):
             os.makedirs(save_root_path)
 
-        # We set up the actual name of the same file, then the full path to it
-        file_name = self.name + '_state.json'
+        if state_file_name is None:
+            # We set up the automatic name of the same file
+            file_name = self.name + '_state.json'
+        elif state_file_name[-5:] != '.json':
+            raise ValueError("The 'state_file_name' argument string must end in '.json'.")
+        else:
+            file_name = state_file_name
+
+        # Now we create the full path to the file
         miss_file_path = os.path.join(save_root_path, file_name)
 
         # This is where we set up the dictionary of information that will actually be saved - all the information

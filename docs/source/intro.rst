@@ -16,8 +16,9 @@ no filters on the desired observations, and as such process every observation av
 Which missions are supported?
 -----------------------------
 
-*DAXA is still in an early stage of development, and as such the list of supported telescopes is currently
-limited. Support for more telescopes is either currently under development or being actively planned.*
+*DAXA is still in a relatively early stage of development, and as such the support for local re-processing is
+limited; however, support for the acquisition and use of pre-processed data is implemented for a wide selection
+of telescopes:*
 
     * XMM-Newton Pointed
     * eROSITA Commissioning

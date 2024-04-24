@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 18:20. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 10:27. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -514,7 +514,7 @@ class Chandra(BaseMission):
         return None
 
     def download(self, num_cores: int = NUM_CORES, credentials: Union[str, dict] = None,
-                 download_products: bool = False):
+                 download_products: bool = True):
         """
         A method to acquire and download the pointed Chandra data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -531,9 +531,8 @@ class Chandra(BaseMission):
             and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
             for providing different credentials for different observations.
         :param bool download_products: Whether the 'standard' Chandra data structure should be downloaded (i.e. with
-            'primary' and 'secondary' directories, including pre-generated images. The default is False, as DAXA will
-            do its own processing, but if you just wish to use DAXA for data acquisition, and then use the CIAO
-            scripts, this should be set to True.
+            'primary' and 'secondary' directories, including pre-generated images. The default is True, if set to
+            False only event lists will be downloaded.
         """
 
         if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():

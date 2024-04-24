@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 10:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 10:27. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -478,7 +478,7 @@ class INTEGRALPointed(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, download_products: bool = False):
+    def download(self, num_cores: int = NUM_CORES, download_products: bool = True):
         """
         A method to acquire and download the pointed INTEGRAL data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
