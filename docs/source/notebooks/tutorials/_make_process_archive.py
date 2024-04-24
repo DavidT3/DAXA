@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/04/2024, 12:08. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 14:22. Copyright (c) The Contributors
 
 # This script will create and process (XMM process anyway) an archive of observations of the quasar PHL 1811, so I
 #  have something to load in for the archives tutorial
@@ -32,7 +32,9 @@ ch.download(download_products=True)
 ra.download(download_products=True)
 nu.download(download_products=True)
 
-arch = Archive("PHL1811_made_earlier", [xm, ch, nu, ra], clobber=True)
+arch = Archive("PHL1811_made_earlier", [xm, ch, nu, ra], clobber=True, use_preprocessed={'xmm_pointed': False, 'chandra': True, 
+                                                                                         'nustar_pointed': True, 
+                                                                                         'rosat_all_sky': True})
 
 full_process_xmm(arch)
 
