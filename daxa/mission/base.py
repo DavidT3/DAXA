@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 18:20. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 11:11. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -936,7 +936,7 @@ class BaseMission(metaclass=ABCMeta):
                                       "{}.".format(self.pretty_name))
         # In this case this dictionary is in the "instrument names as top level keys" configuration - so we need an
         #  instrument name in order to do the job
-        elif lo_en is not None and not isinstance(list(self._template_en_trans.keys())[0], Quantity):
+        elif not isinstance(list(self._template_en_trans.keys())[0], Quantity):
             if inst is None:
                 raise ValueError("The {m} mission provides pre-processed products with different energy bounds "
                                  "depending on instrument; as such, an instrument name must be "
@@ -944,7 +944,7 @@ class BaseMission(metaclass=ABCMeta):
             else:
                 temp_en_trans = self._template_en_trans[inst]
         # In this case all instruments have the same energy bounds
-        elif lo_en is not None and isinstance(list(self._template_en_trans.keys())[0], Quantity):
+        elif isinstance(list(self._template_en_trans.keys())[0], Quantity):
             temp_en_trans = self._template_en_trans
         else:
             temp_en_trans = None
