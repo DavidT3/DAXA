@@ -26,8 +26,11 @@ process.simple
 
 Mission Specific
 ----------------------
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
 
-daxa.process.xmm <daxa.process.xmm.rst>
-daxa.process.erosita <daxa.process.erosita.rst>
-daxa.process.general <daxa.process.general.rst>
+    daxa.process.xmm <daxa.process.xmm.rst>
+    daxa.process.erosita <daxa.process.erosita.rst>
+    daxa.process.general <daxa.process.general.rst>
 
