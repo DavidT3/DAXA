@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 18:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 13:58. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -266,6 +266,12 @@ class XMMPointed(BaseMission):
         if not os.path.exists(filename):
             # Set this again here because otherwise its annoyingly verbose
             log.setLevel(0)
+
+            # It is possible for a download to be interrupted and the incomplete tar.gz to hand around and cause
+            #  us problems, so we check and delete the offending tar.gz if it is present
+            if os.path.exists(filename+'.tar.gz'):
+                os.remove(filename+'.tar.gz')
+
             try:
                 # Download the requested data
                 AQXMMNewton.download_data(observation_id=observation_id, level=level, filename=filename)
