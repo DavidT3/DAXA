@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 10:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 10:27. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -416,7 +416,7 @@ class NuSTARPointed(BaseMission):
         return None
 
     def download(self, num_cores: int = NUM_CORES, credentials: Union[str, dict] = None,
-                 download_products: bool = False):
+                 download_products: bool = True):
         """
         A method to acquire and download the pointed NuSTAR data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -430,8 +430,7 @@ class NuSTARPointed(BaseMission):
             and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
             for providing different credentials for different observations.
         :param bool download_products: This controls whether the data downloaded include the pre-processed event lists
-            and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
-            raw data.
+            and images stored by HEASArc, or whether they are the original raw event lists. Default is True.
         """
 
         if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():

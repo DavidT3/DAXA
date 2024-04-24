@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 10:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 10:27. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -424,7 +424,7 @@ class Suzaku(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, download_products: bool = False):
+    def download(self, num_cores: int = NUM_CORES, download_products: bool = True):
         """
         A method to acquire and download the Suzaku data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -435,8 +435,7 @@ class Suzaku(BaseMission):
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
         :param bool download_products: This controls whether the data downloaded include the pre-processed event lists
-            and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
-            raw data.
+            and images stored by HEASArc, or whether they are the original raw event lists. Default is True.
         """
 
         # Ensures that a directory to store the 'raw' Suzaku data in exists - once downloaded and unpacked

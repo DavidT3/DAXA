@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 18:22. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 10:27. Copyright (c) The Contributors
 
 import io
 import os
@@ -504,7 +504,7 @@ class ROSATPointed(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, download_products: bool = False):
+    def download(self, num_cores: int = NUM_CORES, download_products: bool = True):
         """
         A method to acquire and download the ROSAT pointed data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded).
@@ -517,7 +517,7 @@ class ROSATPointed(BaseMission):
             of the cores available on the current machine.
         :param bool download_products: This controls whether the HEASArc-published images and exposure maps are
             downloaded alongside the event lists and attitude files. Setting this to True will download the
-            images/exposure maps. The default is False.
+            images/exposure maps. The default is True.
         """
 
         # Ensures that a directory to store the 'raw' RASS data in exists - once downloaded and unpacked
@@ -977,7 +977,7 @@ class ROSATAllSky(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, download_products: bool = False):
+    def download(self, num_cores: int = NUM_CORES, download_products: bool = True):
         """
         A method to acquire and download the ROSAT All-Sky Survey data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded).
@@ -990,7 +990,7 @@ class ROSATAllSky(BaseMission):
             of the cores available on the current machine.
         :param bool download_products: This controls whether the HEASArc-published images and exposure maps are
             downloaded alongside the event lists and attitude files. Setting this to True will download the
-            images/exposure maps. The default is False.
+            images/exposure maps. The default is True.
         """
 
         # Ensures that a directory to store the 'raw' RASS data in exists - once downloaded and unpacked
