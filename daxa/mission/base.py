@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 11:11. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 11:38. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2206,23 +2206,32 @@ class BaseMission(metaclass=ABCMeta):
             for rm_dir in rm_dirs:
                 rmtree(rm_dir)
 
-    def save(self, save_root_path: str):
+    def save(self, save_root_path: str, state_file_name: str = None):
         """
         A method to save a file representation of the current state of a DAXA mission object. This may be used by
         the user, and can be safely sent to another user or system to recreate a mission. It is also used by the
         archive saving mechanic, so that mission objects can be re-set up - it is worth noting that the archive save
-        files ARE NOT how to make a portable archive,
+        files ARE NOT how to make a portable archive.
 
-        :param str save_root_path: The DIRECTORY where you wish a save file to be stored, DO NOT pass a path
-            with a filename at the end, as this method will create its own filename.
+        :param str save_root_path: The DIRECTORY where you wish a save file to be stored.
+        :param str state_file_name: Optionally, the name of the file to be stored in the root save directory. If this
+            is not supplied (the default is None) then the output file will be called {mission name}_state.json. Any
+            filename passed to this argument must end in '.json'.
         """
 
         # We check to see whether the output root path exists, and if it doesn't then we shall create it
         if not os.path.exists(save_root_path):
             os.makedirs(save_root_path)
 
-        # We set up the actual name of the same file, then the full path to it
-        file_name = self.name + '_state.json'
+        if state_file_name is None:
+            # We set up the automatic name of the same file
+            file_name = self.name + '_state.json'
+        elif state_file_name[-5:] != '.json':
+            raise ValueError("The 'state_file_name' argument string must end in '.json'.")
+        else:
+            file_name = state_file_name
+
+        # Now we create the full path to the file
         miss_file_path = os.path.join(save_root_path, file_name)
 
         # This is where we set up the dictionary of information that will actually be saved - all the information
