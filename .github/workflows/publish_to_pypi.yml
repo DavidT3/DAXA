@@ -1,5 +1,7 @@
-# Large parts of this are directly copied or adapted from 
-#  https://packaging.python.org/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
+# Created with the help of:
+# https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
+# and
+# https://medium.com/@VersuS_/automate-pypi-releases-with-github-actions-4c5a9cfe947d
 
 # This action triggers the second stage of publishing this module. When a new release is created this action will begin. It builds the module, then
 #  publishes it to the real PyPI index
@@ -13,26 +15,32 @@ on:
   release:
       types: [published]
 
-# Now the actual jobs we want the action to do are setup
+# Now the actual jobs we want the action to do are set up
 jobs:
   # The only job in this action, building and publishing the DAXA Python module
   build-n-publish:
     name: Build and publish DAXA
-    # The build/publishing process runs on Ubuntu 20.04 - not super important what this is for this use case, so long as its not Windows
-    runs-on: ubuntu-20.04
-    
+    # The build/publishing process runs on latest Ubuntu - not super important what this is for this use case
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/daxa  # Replace <package-name> with your PyPI project name
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+
     # This job has several steps
     steps:
-      # Checks out the master branch (what we want to build and publish - hopefully with the VCS info that versioneer needs), then 
-      #  activates a relatively recent version of Python
-    - uses: actions/checkout@v2
+      # Checks out the master branch and then activates a relatively recent version of Python
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
+
+
     - name: Setup the Python install
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
-        python-version: 3.7
-    
+        python-version: 3.8
+
     # The next two chunks set up PIP properly and build the module
     - name: Install pypa/build
       run: >-
@@ -41,24 +49,27 @@ jobs:
         build
         --user
 
-    - name: Install wheel
-      run: >- 
-        pip install wheel
-    
-#     - name: Build a binary wheel and source tarball
-#       run: >-
-#         python -m
-#         build
-#         --sdist
-#         --wheel
-#         --outdir dist/
-#         .
     - name: Build a binary wheel and source tarball
       run: >-
-        python3 setup.py sdist bdist_wheel
-    
-    # Then the module is published to the real PyPI index
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@master
+        python -m
+        build
+        --sdist
+        --wheel
+        --outdir dist/
+        .
+
+    - name: Store the distribution packages
+      uses: actions/upload-artifact@v3
       with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
+        name: python-package-distributions
+        path: dist/
+
+
+    - name: Download all the dists
+      uses: actions/download-artifact@v3
+      with:
+        name: python-package-distributions
+        path: dist/
+    - name: Publish distribution 📦 to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+
