@@ -1,9 +1,9 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 25/04/2024, 17:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 25/04/2024, 18:11. Copyright (c) The Contributors
 
 from os import path
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 # Uses the README as the long description
 this_directory = path.abspath(path.dirname(__file__))
@@ -13,7 +13,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 setup(
     name='daxa',
     version='{{VERSION_PLACEHOLDER}}',
-    packages=['daxa'],
+    packages=find_packages(),
     url='https://github.com/DavidT3/DAXA',
     license='BSD 3',
     author='David J Turner',
