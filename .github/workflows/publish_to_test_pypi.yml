@@ -45,7 +45,7 @@ jobs:
       with:
         python-version: 3.8
     
-    # The next two chunks set up PIP properly and build the module
+    # Sets up PIP properly
     - name: Install pypa/build
       run: >-
         python -m
@@ -61,6 +61,7 @@ jobs:
       run: >-
         sed -i "s/{{VERSION_PLACEHOLDER}}/${{ steps.tag.outputs.TAG_NAME }}/g" setup.py
 
+    # Builds the module
     - name: Build a binary wheel and source tarball
       run: >-
         python -m
