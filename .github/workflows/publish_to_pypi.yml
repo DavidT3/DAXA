@@ -1,0 +1,83 @@
+# Created with the help of:
+# https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
+# and
+# https://medium.com/@VersuS_/automate-pypi-releases-with-github-actions-4c5a9cfe947d
+
+# This action triggers the second stage of publishing this module. When a new release is created this action will begin. It builds the module, then
+#  publishes it to the real PyPI index
+
+
+# The overall name of the action
+name: Publish DAXA to real PyPI, triggered on creation of release
+
+# This action triggers when there is a release to the repo, but only when the release is published
+on: 
+  release:
+      types: [published]
+
+# Now the actual jobs we want the action to do are set up
+jobs:
+  # The only job in this action, building and publishing the DAXA Python module
+  build-n-publish:
+    name: Build and publish DAXA
+    # The build/publishing process runs on latest Ubuntu - not super important what this is for this use case
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/daxa  # Replace <package-name> with your PyPI project name
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+
+    # This job has several steps
+    steps:
+      # Checks out the master branch and then activates a relatively recent version of Python
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+
+    - name: Setup the Python install
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.8
+
+    # The next two chunks set up PIP properly and build the module
+    - name: Install pypa/build
+      run: >-
+        python -m
+        pip install
+        build
+        --user
+
+    # This SHOULD set the correct version in setup.py, taken from the tag
+    - name: Extract tag name
+      id: tag
+      run: echo ::set-output name=TAG_NAME::$(echo $GITHUB_REF | cut -d / -f 3)
+    - name: Update version in setup.py
+      run: >-
+        sed -i "s/{{VERSION_PLACEHOLDER}}/${{ steps.tag.outputs.TAG_NAME }}/g" setup.py
+
+    - name: Build a binary wheel and source tarball
+      run: >-
+        python -m
+        build
+        --sdist
+        --wheel
+        --outdir dist/
+        .
+
+    - name: Store the distribution packages
+      uses: actions/upload-artifact@v3
+      with:
+        name: python-package-distributions
+        path: dist/
+
+
+    - name: Download all the dists
+      uses: actions/download-artifact@v3
+      with:
+        name: python-package-distributions
+        path: dist/
+    - name: Publish distribution 📦 to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+
