@@ -1,13 +1,17 @@
-# Large parts of this are directly copied or adapted from 
-#  https://packaging.python.org/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
+# Created with the help of:
+# https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
+# and
+# https://medium.com/@VersuS_/automate-pypi-releases-with-github-actions-4c5a9cfe947d
 
-# This action triggers the first stage of publishing this module. When a new tag is created and pushed to the remote repository, this action
-#  will begin. It builds the module, just as it would for an actual PyPI release, then uploads it to the Test PyPI index. That way I can test install 
-#  the package from the test PyPI and not expose the real PyPI index to a potentially buggered version. When I verify that it works, a real publishing can 
-#  be triggered by releasing the module.
+# This action triggers the first stage of publishing this module. When a new tag is created and pushed to the remote
+#  repository, this action will begin. It builds the module, just as it would for an actual PyPI release, then uploads
+#  it to the Test PyPI index. That way I can test install the package from the test PyPI and not expose the real PyPI
+#  index to a potentially buggered version. When I verify that it works, a real publishing can be triggered by
+#  releasing the module.
 
-# As a reminder to myself, the installation from test PyPI has to be done using this command:
-# pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple DAXA
+# As a reminder to myself, the installation from test PyPI has to be done using this command (THE TEST PYPI PROJECT
+#  NAME IS DIFFERENT FROM THE ACTUAL NAME, BECAUSE THERE IS ALREADY A 'DAXA' PROJECT ON TEST PYPI):
+# pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple daxa-xray
 
 # The overall name of the action
 name: Publish DAXA to test PyPI, triggered on creation of tags
@@ -23,19 +27,23 @@ jobs:
     # I actually only want to run this one if the pushed commit has a tag - I will only do this for new versions of the module
     if: startsWith(github.ref, 'refs/tags')
     # The build/publishing process runs on Ubuntu 20.04 - not super important what this is for this use case, so long as its not Windows
-    runs-on: ubuntu-20.04
-    
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://test.pypi.org/p/daxa-xray  # Replace <package-name> with your PyPI project name
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+
     # This job has several steps
     steps:
-      # Checks out the master branch (what we want to build and publish - hopefully with the VCS info that versioneer needs), then 
-      #  activates a relatively recent version of Python
-    - uses: actions/checkout@v2
+      # Checks out the master branch and then activates a relatively recent version of Python
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - name: Setup the Python install
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
-        python-version: 3.7
+        python-version: 3.8
     
     # The next two chunks set up PIP properly and build the module
     - name: Install pypa/build
@@ -53,12 +61,25 @@ jobs:
         --wheel
         --outdir dist/
         .
-    
-    # Then the module is published to the test PyPI index
-    - name: Publish to TestPyPI
-      uses: pypa/gh-action-pypi-publish@master
+
+    - name: Store the distribution packages
+      uses: actions/upload-artifact@v3
       with:
-        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-        repository_url: https://test.pypi.org/legacy/
+        name: python-package-distributions
+        path: dist/
+
+#    # Then the module is published to the test PyPI index
+#    - name: Publish to TestPyPI
+#      uses: pypa/gh-action-pypi-publish@master
+#      with:
+#        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+#        repository_url: https://test.pypi.org/legacy/
+    - name: Download all the dists
+      uses: actions/download-artifact@v3
+      with:
+        name: python-package-distributions
+        path: dist/
+    - name: Publish distribution 📦 to TestPyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
     
     
