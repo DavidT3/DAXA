@@ -29,23 +29,23 @@ We **strongly recommend** that you make use of Python virtual environments, or (
 DAXA is available on the popular Python Package Index (PyPI), and can be installed like this:
 
 ```
-    pip install daxa
+pip install daxa
 ```
 
 You can also fetch the current working version from the git repository, and install it (this method has replaced 'python setup.py install'):
 
 ```
-    git clone https://github.com/DavidT3/DAXA
-    cd DAXA
-    python -m pip install .
+git clone https://github.com/DavidT3/DAXA
+cd DAXA
+python -m pip install .
 ```
 
 Alternatively you could use the 'editable' option (this has replaced running setup.py and passing 'develop') so that any changes you pull from the remote repository are reflected without having to reinstall DAXA.
 
 ```
-    git clone https://github.com/DavidT3/DAXA
-    cd DAXA
-    python -m pip install --editable .
+git clone https://github.com/DavidT3/DAXA
+cd DAXA
+python -m pip install --editable .
 ```
 
 # Which missions are supported?
