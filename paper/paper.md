@@ -82,8 +82,7 @@ ability to download pre-processed data from many of the data archives.
 ![A flowchart giving a brief overview of the [Daxa]{.smallcaps} workflow. \label{fig:flowchart}](figures/daxa_paper_flowchart.pdf)
 
 Almost every sub-field of astronomy, astrophysics, and cosmology has benefited significantly from X-ray coverage over 
-the last three decades; calibrating weak-lensing mis-centering for galaxy cluster studies [@miscen], identifying 
-**...COME UP WITH MORE IMPORTANT X-RAY PAPERS**, even probing the irradiation of exoplanets [@xrayirrexo]. The 
+the last three decades; calibrating weak-lensing mis-centering for galaxy cluster studies [@miscen], even probing the irradiation of exoplanets [@xrayirrexo]. The 
 current workhorse X-ray observatories (_XMM_-Newton [@xmm] and _Chandra_; other telescopes are 
 online but are more specialised) are ageing however, with _Chandra_ in particular experiencing a decline in 
 low-energy sensitivity that might limit science cases; these missions cannot last forever. If we are to enter an 
