@@ -7,11 +7,15 @@ having issues feel free to contact me.
 The Module
 ----------
 
-**DAXA is not yet available on PyPi or Conda, though it will be in the future**
+I **strongly recommend** that you make use of Python virtual environments, or (even better) Conda/Mamba virtual environments when installing DAXA.
 
-I strongly recommend that you make use of Python virtual environments, or (even better) Conda/Mamba virtual environments when installing DAXA.
+DAXA is available on the popular Python Package Index (PyPI), and can be installed like this:
 
-You can fetch the current working version from the git repository, and install it (this method has replaced 'python setup.py install'):
+.. code-block::
+
+    pip install daxa
+
+You can also fetch the current working version from the git repository, and install it (this method has replaced 'python setup.py install'):
 
 .. code-block::
 
