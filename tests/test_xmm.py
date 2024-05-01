@@ -10,10 +10,12 @@ class TestXMMPointed(unittest.TestCase):
         self.defaults = XMMPointed()
 
     def test_valid_inst_selection(self):
+        # Checking that inst argument is working correctly
         mission = XMMPointed(insts=['M1', 'M2'])
         self.assertEqual(mission.chosen_instruments, ['M1', 'M2'])
     
     def test_valid_inst_selection_alt_names(self):
+        # Alternative instrument names should be able to be parsed
         with self.assertWarns(UserWarning):
             mission = XMMPointed(insts=['MOS1', 'MOS2'])
 
@@ -24,9 +26,11 @@ class TestXMMPointed(unittest.TestCase):
             XMMPointed(insts='OM')
     
     def test_wrong_insts(self):
+        # Shouldnt be able to declare an invalid instrument
         with self.assertRaises(ValueError):
             XMMPointed(insts=['wrong'])
 
+    # the basic properties of the class are returning what is expected
     def test_name(self):
         self.assertEqual(self.defaults.name, 'xmm_pointed')
     
