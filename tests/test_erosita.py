@@ -5,14 +5,19 @@ from numpy.testing import assert_array_equal
 import os
 from io import BytesIO
 import shutil
+from datetime import datetime
 
-
+import pandas as pd
 from astropy.units import Quantity
+import astropy.units as u
 from astropy.io import fits
+from astropy.coordinates import SkyCoord, FK5, Galactic
+from astropy.coordinates.name_resolve import NameResolveError
 
 from daxa.mission import eRASS1DE, eROSITACalPV
 from daxa import OUTPUT
 from daxa.config import EROSITA_CALPV_INFO
+from daxa.exceptions import NoObsAfterFilterError, IllegalSourceType, NoTargetSourceTypeInfo
 
 
 class TesteROSITACalPV(unittest.TestCase):
@@ -35,7 +40,7 @@ class TesteROSITACalPV(unittest.TestCase):
     def test_chosen_fields(self):
 
         self.assertEqual(self.defaults.chosen_fields,
-                        list(set(EROSITA_CALPV_INFO["Field_Name"].tolist())))
+                         list(set(EROSITA_CALPV_INFO["Field_Name"].tolist())))
 
         self.filtered = eROSITACalPV(fields='eFEDS')
         self.assertEqual(self.filtered.chosen_fields, ['EFEDS'])
@@ -63,21 +68,169 @@ class TesteROSITACalPV(unittest.TestCase):
         
         # alternative field names should pass
         self.assertEqual(self.alt_field_nme.chosen_fields, ['CRAB_3'])
-
         # crab should return all crab fields
         self.assertEqual(set(self.crab.chosen_fields), set(['CRAB_1', 'CRAB_2', 'CRAB_3', 'CRAB_4']))
-
         # field types should return correct field names
         self.assertEqual(set(self.field_type.chosen_fields), set(['EFEDS', 'ETA_CHA']))
-
         # combination of field types and names
         self.assertEqual(set(self.type_n_nme.chosen_fields), set(['EFEDS', 'ETA_CHA', 'PUPPIS_A']))
-
+    
     def test_filter_on_fields(self):
         self.defaults.filter_on_fields('efeds')
         self.assertEqual(self.defaults.chosen_fields, ['EFEDS'])
         assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008', '300009', '300010']))
     
+    def test_filter_on_obs_ids(self):
+        # testing one obs
+        self.defaults.filter_on_obs_ids('300004')
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300004']))
+
+        # testing on multiple obs
+        self.field_type.filter_on_obs_ids(['300004', '300007', '300008'])
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300004', '300007', '300008']))
+    
+    def test_filter_on_obs_ids_invalid_obs(self):
+        with self.assertRaises(ValueError):
+            self.defaults.filter_on_obs_ids('wrong')
+        
+        with self.assertRaises(ValueError):
+            self.defaults.filter_on_obs_ids(['300004', 'wrong', '300007'])
+    
+    def test_no_obs_after_filter(self):
+        with self.assertRaises(NoObsAfterFilterError):
+            self.filtered.filter_on_obs_ids(['300004'])
+    
+    def test_filter_on_rect_region(self):
+        # checking it works as expected
+        self.defaults.filter_on_rect_region([129, 1], [145, 2])
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008', '300009', '300010']))
+        expected_ra_decs = SkyCoord([129.55, 133.86, 138.14, 142.45], [1.50, 1.50, 1.50, 1.50], unit=u.deg, frame=FK5)
+        assert_array_equal(self.defaults.filtered_ra_decs, expected_ra_decs)
+
+        # an error is raised when no obs are found
+        with self.assertRaises(NoObsAfterFilterError):
+            self.defaults.filter_on_rect_region([129, 0], [145, 1])
+
+    def test_filter_on_positions_one_pos(self):
+        # Testing for one RA and DEC
+        self.defaults.filter_on_positions([129.55, 1.50])
+        self.assertEqual(self.defaults.filtered_obs_ids, ['300007'])
+
+    def test_filter_on_positions_mult_pos(self):
+        # Testing for multiple RA and DECs
+        self.defaults.filter_on_positions([[129.55, 1.50], [133.86, 1.5]])
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008']))
+
+    def test_filter_on_positions_skycoord(self):
+        self.defaults.filter_on_positions(SkyCoord(129.55, 1.50, unit=u.deg, frame=FK5))
+        self.assertEqual(self.defaults.filtered_obs_ids, ['300007'])
+
+    def test_filter_on_positions_skycoord_alt_frame(self):
+        self.defaults.filter_on_positions(SkyCoord(224.415, 24.303, unit=u.deg, frame=Galactic))
+        self.assertEqual(self.defaults.filtered_obs_ids, ['300007'])
+    
+    def test_filter_on_positions_return(self):
+        ret_val = self.defaults.filter_on_positions([129.55, 1.50], return_pos_obs_info=True)
+        self.assertTrue(isinstance(ret_val, pd.DataFrame))
+        self.assertEqual(float(ret_val['pos_ra'][0]), 129.55)
+        self.assertAlmostEqual(float(ret_val['pos_dec'][0]), 1.5)
+        self.assertEqual(ret_val['ObsIDs'][0], '300007')
+
+    def test_filter_on_positions_sd_quantity(self):
+        self.defaults.filter_on_positions([129.55, 1.5], search_distance=Quantity(5, 'deg'))
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008']))
+
+    def test_filter_on_positions_sd_list(self):
+        coords_to_search = [[129.55, 1.5], [130.33, -78.96], [284.15, -37.91]]
+        search_dist = [5, 1, 0.5]
+        self.defaults.filter_on_positions(coords_to_search, search_distance=search_dist)
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008', '300004', '700008']))
+
+    def test_filter_on_positions_sd_list_wrong_length(self):
+        coords_to_search = [[129.55, 1.5], [130.33, -78.96], [284.15, -37.91]]
+        search_dist = [5, 1]
+        with self.assertRaises(ValueError):
+            self.defaults.filter_on_positions(coords_to_search, search_distance=search_dist)
+    
+    def test_filter_on_positions_sd_quantity(self):
+        coords_to_search = [129.55, 1.5]
+        search_dist = Quantity(5, 'deg')
+        self.defaults.filter_on_positions(coords_to_search, search_distance=search_dist)
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008']))
+    
+    def test_filter_on_positions_no_obs_after_filter(self):
+        with self.assertRaises(NoObsAfterFilterError):
+            self.defaults.filter_on_positions([180, 2])
+    
+    def test_filter_on_name(self):
+        self.defaults.filter_on_name('A3158')
+        self.assertEqual(self.defaults.filtered_obs_ids, ['700177'])
+
+    def test_filter_on_bad_name(self):
+        with self.assertRaises(NameResolveError):
+            self.defaults.filter_on_name('wrong')
+    
+    def test_filter_on_some_bad_names(self):
+        with self.assertWarns(UserWarning):
+            self.defaults.filter_on_name(['A3158', 'wrong'])
+    
+    def test_filter_on_time(self):
+        start = datetime.fromisoformat('2019-11-03T02:42:50.227')
+        end = datetime.fromisoformat('2019-11-04T03:36:37.671')
+        self.defaults.filter_on_time(start_datetime=start, end_datetime=end)
+        self.assertEqual(self.defaults.filtered_obs_ids, ['300007'])
+    
+    def test_filter_on_time_overrun(self):
+        start = datetime.fromisoformat('2019-11-03T02:42:50.227')
+        end = datetime.fromisoformat('2019-11-04T03:15:00.000')
+        with self.assertRaises(NoObsAfterFilterError):
+            self.defaults.filter_on_time(start_datetime=start, end_datetime=end, over_run=False)
+
+    def test_filter_on_target_type(self):
+        with self.assertRaises(IllegalSourceType):
+            self.defaults.filter_on_target_type('wrong')
+        
+        with self.assertRaises(NoTargetSourceTypeInfo):
+            self.defaults.filter_on_target_type('XRB')
+    
+    def test_filter_on_positions_at_time(self):
+        start = datetime.fromisoformat('2019-11-03T02:42:50.227')
+        end = datetime.fromisoformat('2019-11-04T03:36:37.671')
+
+        with self.assertRaises(TypeError):
+            self.defaults.filter_on_positions_at_time([129.55, 1.5], start, 'end')
+        
+        with self.assertRaises(ValueError):
+            pos = [[1, 2], [3, 4], [4, 5]]
+            self.defaults.filter_on_positions_at_time(pos, start, end)
+        
+        with self.assertRaises(ValueError):
+            pos = SkyCoord([[1, 2], [3, 4], [4, 5]], unit=u.deg, frame=FK5)
+            self.defaults.filter_on_positions_at_time(pos, start, end)
+        
+        with self.assertRaises(TypeError):
+            pos = [1, 2]
+            multi_start = np.array([datetime.fromisoformat('2019-11-03T02:42:50.227'),
+                                    datetime.fromisoformat('2019-11-03T02:41:50.227')])
+            self.defaults.filter_on_positions_at_time(pos, multi_start, end)
+        
+        with self.assertRaises(TypeError):
+            pos = SkyCoord(1, 2, unit=u.deg, frame=FK5)
+            multi_start = np.array([datetime.fromisoformat('2019-11-03T02:42:50.227'),
+                                    datetime.fromisoformat('2019-11-03T02:41:50.227')])
+            self.defaults.filter_on_positions_at_time(pos, multi_start, end)
+
+        with self.assertRaises(ValueError):
+            pos = [1, 2]
+            multi_start = np.array([datetime.fromisoformat('2019-11-03T02:42:50.227'),
+                                    datetime.fromisoformat('2019-11-03T02:41:50.227')])
+            multi_end = np.array([datetime.fromisoformat('2019-11-04T03:36:37.671'),
+                                  datetime.fromisoformat('2019-11-04T03:37:37.671')])
+            self.defaults.filter_on_positions_at_time(pos, multi_start, multi_end)
+
+        self.defaults.filter_on_positions_at_time([129.55, 1.5], start, end)
+        self.assertEqual(self.defaults.filtered_obs_ids, ['300007'])
+
     def test_name(self):
         self.assertEqual(self.defaults.name, 'erosita_calpv')
     
@@ -92,7 +245,6 @@ class TesteROSITACalPV(unittest.TestCase):
         with self.assertWarns(UserWarning):
             self.defaults.filter_on_obs_ids('700195')
             assert_array_equal(self.defaults.filtered_obs_ids, np.array(['700199', '700200']))
-
 
     def test_download_call(self):
         # for some reason this is only working in a context manager but not using decorators, i havent got the foggiest why
