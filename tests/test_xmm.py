@@ -38,7 +38,6 @@ class TestXMMPointed(unittest.TestCase):
     
     def test_fov(self):
         self.assertEqual(self.defaults.fov, Quantity(15, 'arcmin'))
-        
     
 
 
