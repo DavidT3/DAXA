@@ -177,7 +177,7 @@ class XMMPointed(BaseMission):
         #  I'll explain in a second
         count_tab = AQXMMNewton.query_xsa_tap('select count(observation_id) from xsa.v_all_observations')
         # Then I round up to the nearest 1000, probably unnecessary but oh well
-        num_obs = np.ceil(count_tab['count'].tolist()[0] / 1000).astype(int) * 1000
+        num_obs = np.ceil(count_tab['COUNT'].tolist()[0] / 1000).astype(int) * 1000
         # Now I have to be a bit cheesy - If I used select * (which is what I would normally do in an SQL-derived
         #  language to grab every row) it actually only returns the top 2000. I think that * is replaced with TOP 2000
         #  before the query is sent to the server. However if I specify a TOP N, where N is greater than 2000, then it
