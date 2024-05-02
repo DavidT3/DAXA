@@ -320,6 +320,8 @@ class eROSITACalPV(BaseMission):
         :return: A list of field names.
         :rtype: List[str]
         """
+        # _miss_poss_fields returns all the field_name column of EROSITA_CALPV_INFO
+        # so set() is used to remove duplicate field names where obs_ids have the same field name
         return list(set(self._miss_poss_fields))
     
     @property
