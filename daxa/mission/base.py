@@ -1242,26 +1242,26 @@ class BaseMission(metaclass=ABCMeta):
 
         # Checking if positions is scalar or not. This is checked for np.ndarrays, lists and skycoord differently
         if isinstance(positions, SkyCoord):
-            isscalar = positions.isscalar
+            pos_scalar = positions.isscalar
         
         elif isinstance(positions, list):
             if len(positions) == 1:
-                isscalar = True
+                pos_scalar = True
             
             else:
-                isscalar = False
+                pos_scalar = False
         
         else:
             # In this indent positions should be an np.ndarray, which should be not scalar
-            isscalar = False
+            pos_scalar = False
 
         # We initially check that the arguments we will be basing the time filtering on are of the right length,
         #  i.e. every position must have corresponding start and end times
-        if not isscalar and (len(start_datetimes) != len(positions) or len(end_datetimes) != len(positions)):
+        if not pos_scalar and (len(start_datetimes) != len(positions) or len(end_datetimes) != len(positions)):
             raise ValueError("The 'start_datetimes' (len={sd}) and 'end_datetimes' (len={ed}) arguments must have one "
                              "entry per position specified by the 'positions' (len={p}) "
                              "arguments.".format(sd=len(start_datetimes), ed=len(end_datetimes), p=len(positions)))
-        elif isscalar and (len(start_datetimes) != 1 or len(end_datetimes) != 1):
+        elif pos_scalar and (len(start_datetimes) != 1 or len(end_datetimes) != 1):
             raise ValueError("The 'start_datetimes' (len={sd}) and 'end_datetimes' (len={ed}) arguments must be "
                              "scalar if a single position is passed".format(sd=len(start_datetimes),
                                                                             ed=len(end_datetimes)))
