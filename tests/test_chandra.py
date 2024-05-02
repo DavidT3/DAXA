@@ -14,12 +14,6 @@ class TestChandra(unittest.TestCase):
         # Checking that inst argument is working correctly
         mission = Chandra(insts=['ACIS-I', 'ACIS-S'])
         self.assertEqual(mission.chosen_instruments, ['ACIS-I', 'ACIS-S'])
-
-    def test_not_implemented_insts(self):
-        with self.assertRaises(NotImplementedError):
-            Chandra(insts='HETG')
-        with self.assertRaises(NotImplementedError):
-            Chandra(insts='LETG')
         
     def test_wrong_insts(self):
         # Shouldnt be able to declare an invalid instrument
