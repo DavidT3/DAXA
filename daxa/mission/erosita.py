@@ -445,7 +445,7 @@ class eROSITACalPV(BaseMission):
                              "choose from the following fields; {gf} or field types; "
                              "{gft}".format(bf=",".join(bad_fields),
                                             gf=",".join(list(set(self._miss_poss_fields))),
-                                            gft=",".join(self._miss_poss_field_types)))
+                                            gft=",".join(self.all_mission_field_types)))
         
         # Extracting the alt_fields from fields
         alt_fields = [field for field in fields if field in poss_alt_field_names]
