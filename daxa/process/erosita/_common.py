@@ -1,11 +1,12 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 11:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 09:50. Copyright (c) The Contributors
+
 import glob
 import os.path
 from enum import Flag
 from functools import wraps
 from multiprocessing.dummy import Pool
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, TimeoutExpired
 from typing import Tuple, List
 from warnings import warn
 
@@ -16,8 +17,10 @@ from tqdm import tqdm
 from daxa.archive.base import Archive
 from daxa.exceptions import NoEROSITAMissionsError
 from daxa.process._backend_check import find_esass
+from daxa.process.general import create_dirs
 
 ALLOWED_EROSITA_MISSIONS = ['erosita_calpv', 'erosita_all_sky_de_dr1']
+
 
 # TODO Make this compliant with how I normally do docstrings
 class _eSASS_Flag(Flag):
@@ -81,6 +84,7 @@ class _eSASS_Flag(Flag):
     def get_hex(self):
         return hex(self.value)
 
+
 def _is_valid_flag(flag):
     """
     This function is to be called within the cleaned_evt_lists function to check that the user has
@@ -99,13 +103,14 @@ def _is_valid_flag(flag):
         # If the flag is invalid then a ValueError is thrown
         return False
 
+
 def _esass_process_setup(obs_archive: Archive) -> bool:
     """
     This function is to be called at the beginning of eROSITA specific processing functions, and contains several
     checks to ensure that passed data common to multiple process function calls is suitable.
 
     :param Archive obs_archive: The observation archive passed to the processing function that called this function.
-    :return: A bool indicating whether or not eSASS is being used via Docker or not, set to True if Docker is being used. 
+    :return: A bool indicating whether eSASS is being used via Docker or not, set to True if Docker is being used.
     :rtype: Bool
     """
 
@@ -121,29 +126,18 @@ def _esass_process_setup(obs_archive: Archive) -> bool:
     erosita_miss = [mission for mission in obs_archive if mission.name in ALLOWED_EROSITA_MISSIONS]
     if len(erosita_miss) == 0:
         raise NoEROSITAMissionsError("None of the missions that make up the passed observation archive are "
-                                 "eROSITA missions, and thus this eROSITA-specific function cannot continue.")
+                                     "eROSITA missions, and thus this eROSITA-specific function cannot continue.")
     else:
         processed = [em.processed for em in erosita_miss]
         if any(processed):
             warn("One or more eROSITA missions have already been fully processed")
 
+    # This section generates the storage directory structure for each eROSITA mission
     for miss in erosita_miss:
-        # We make sure that the archive directory has folders to store the processed eROSITA data that will eventually
-        #  be created by most functions that call this _esass_process_setup function
-        for obs_id in miss.filtered_obs_ids:
-            stor_dir = obs_archive.get_processed_data_path(miss, obs_id)
-            if not os.path.exists(stor_dir):
-                os.makedirs(stor_dir)
-    
-        # We also ensure that an overall directory for failed processing observations exists - this will give
-        #  observation directories which have no useful data in (i.e. they do not have a successful final
-        #  processing step) somewhere to be copied to (see daxa.process._cleanup._last_process).
-        # This is the overall path, there might not ever be anything in it, so we don't pre-make ObsID sub-directories
-        fail_proc_dir = obs_archive.get_failed_data_path(miss, None).format(oi='')[:-1]
-        if not os.path.exists(fail_proc_dir):
-            os.makedirs(fail_proc_dir)
+        create_dirs(obs_archive, miss.name)
 
     return esass_in_docker
+
 
 def execute_cmd(cmd: str, esass_in_docker: bool, rel_id: str, miss_name: str, check_path: str,
                 extra_info: dict, timeout: float = None) -> Tuple[str, str, List[bool], str, str, dict]:
@@ -194,6 +188,9 @@ def execute_cmd(cmd: str, esass_in_docker: bool, rel_id: str, miss_name: str, ch
     out = out.decode("UTF-8", errors='ignore')
     err = err.decode("UTF-8", errors='ignore')
 
+    # We also add the command string to the beginning of the stdout - this is for logging purposes
+    out = cmd + '\n\n' + out
+
     # Simple check on whether the 'final file' passed into this function actually exists or not - even if there is only
     #  one path to check we made sure that its in a list so the check can be done easily for multiple paths
     files_exist = []
@@ -207,6 +204,7 @@ def execute_cmd(cmd: str, esass_in_docker: bool, rel_id: str, miss_name: str, ch
         else:
             files_exist.append(False)
     return rel_id, miss_name, files_exist, out, err, extra_info
+
 
 def esass_call(esass_func):
     """
@@ -223,7 +221,7 @@ def esass_call(esass_func):
         obs_archive = args[0]
         obs_archive: Archive  # Just for autocomplete purposes in my IDE
 
-        # Seeing if any of the erosita missions in the archive have had any processing done yet
+        # Seeing if any of the erosita missions in the archive have had any processing done yet
         erosita_miss = [mission for mission in obs_archive if mission.name in ALLOWED_EROSITA_MISSIONS]
         for miss in erosita_miss:
             # Getting the process_logs for each mission
@@ -232,12 +230,14 @@ def esass_call(esass_func):
                 # If no processing has been done yet, we need to run the _prepare_erositacalpv_info function.
                 #   This will fill out the mission observation summaries, which are needed for later 
                 #   processing functions. It will also populate the _process_extra_info dictionary for the archive
-                #   with top level keys of the erositacalpv mission and lower level keys of obs_ids with lower level keys
+                #   with top level keys of the erositacalpv mission and lower level keys of obs_ids with
+                #   lower level keys
                 #   of 'path', which will store the raw data path for that obs id.
                 _prepare_erosita_info(obs_archive, miss)
 
         # This is the output from whatever function this is a decorator for
-        miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout, esass_in_docker = esass_func(*args, **kwargs)
+        (miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout,
+         esass_in_docker) = esass_func(*args, **kwargs)
 
         # Converting the timeout from whatever time units it is in, to seconds - but first checking that the user
         #  hasn't been daft and passed a non-time quantity
@@ -357,7 +357,8 @@ def esass_call(esass_func):
                         rel_fin_path = miss_final_paths[miss_name][rel_id]
                         rel_einfo = miss_extras[miss_name][rel_id]
 
-                        pool.apply_async(execute_cmd, args=(cmd, esass_in_docker, rel_id, miss_name, rel_fin_path, rel_einfo, timeout),
+                        pool.apply_async(execute_cmd, args=(cmd, esass_in_docker, rel_id, miss_name, rel_fin_path,
+                                                            rel_einfo, timeout),
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
@@ -371,5 +372,8 @@ def esass_call(esass_func):
         obs_archive.raw_process_errors = (esass_func.__name__, process_raw_stderrs)
         obs_archive.process_logs = (esass_func.__name__, process_stdouts)
         obs_archive.process_extra_info = (esass_func.__name__, process_einfo)
+
+        # We automatically save after every process run
+        obs_archive.save()
 
     return wrapper

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/10/2023, 21:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 10:27. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -20,7 +20,7 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 from daxa import NUM_CORES
-from daxa.exceptions import DAXADownloadError
+from daxa.exceptions import DAXADownloadError, PreProcessedNotSupportedError
 from daxa.mission.base import BaseMission
 
 # There are a lot of directories in the ASCA archives it would seem. There also isn't a great explanation of them
@@ -41,9 +41,11 @@ class ASCA(BaseMission):
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
             pass either a single string value or a list of strings. They may include SIS0, SIS1, GIS2, and GIS3 (the
             default is all of them).
+    :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+        state of a previously defined mission (the same filters having been applied etc.)
     """
 
-    def __init__(self, insts: Union[List[str], str] = None):
+    def __init__(self, insts: Union[List[str], str] = None, save_file_path: str = None):
         """
         The mission class for ASCA observations, both from the GIS AND SIS instruments.
         The available observation information is fetched from the HEASArc ASCAMASTER table, and data are downloaded from
@@ -52,6 +54,8 @@ class ASCA(BaseMission):
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
                 pass either a single string value or a list of strings. They may include SIS0, SIS1, GIS2, and GIS3 (the
                 default is all of them).
+        :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+            state of a previously defined mission (the same filters having been applied etc.)
         """
         super().__init__()
 
@@ -76,6 +80,40 @@ class ASCA(BaseMission):
         #  to make sure the input instruments are allowed
         self.chosen_instruments = insts
 
+        # These are the 'translations' required between energy band and filename identifier for ROSAT images/expmaps -
+        #  it is organised so that top level keys are instruments, middle keys are lower energy bounds, and the lower
+        #  level keys are upper energy bounds, then the value is the filename identifier
+        # GIS all -> 0-1023 PI, LO -> 0-170 PI, HI -> 170-1024 PI
+        # SIS all -> 0-2047 PI, LO -> 0-547 PI, HI -> 547-2048 PI
+        # Apparently low is below 2 keV, high is above 2 keV, all is 'everything', might choose 0.4-10 keV for
+        #  SIS, and 0.7-10 keV for GIS
+        self._template_en_trans = {"SIS0": {Quantity(0.4, 'keV'): {Quantity(2, 'keV'): 'lo',
+                                                                   Quantity(10.0, 'keV'): 'all'},
+                                            Quantity(2, 'keV'): {Quantity(10.0, 'keV'): 'hi'}},
+                                   "SIS1": {Quantity(0.4, 'keV'): {Quantity(2, 'keV'): 'lo',
+                                                                   Quantity(10.0, 'keV'): 'all'},
+                                            Quantity(2, 'keV'): {Quantity(10.0, 'keV'): 'hi'}},
+                                   "GIS2": {Quantity(0.7, 'keV'): {Quantity(2, 'keV'): 'lo',
+                                                                   Quantity(10.0, 'keV'): 'all'},
+                                            Quantity(2, 'keV'): {Quantity(10.0, 'keV'): 'hi'}},
+                                   "GIS3": {Quantity(0.7, 'keV'): {Quantity(2, 'keV'): 'lo',
+                                                                   Quantity(10.0, 'keV'): 'all'},
+                                            Quantity(2, 'keV'): {Quantity(10.0, 'keV'): 'hi'}},
+                                   }
+        # This does strip the specific instrument number from the name, which doesn't work for the event lists
+        #  because they are provided individually, but it DOES work for the images and exposure maps as they exist
+        #  as combinations of the paired instruments. That means we only have to override the get_evt_list_path method
+        self._template_inst_trans = {'GIS2': 'gis', 'GIS3': 'gis', 'SIS0': 'sis', 'SIS1': 'sis'}
+
+        # We set up the ROSAT file name templates, so that the user (or other parts of DAXA) can retrieve paths
+        #  to the event lists, images, exposure maps, and background maps that can be downloaded
+        # TODO This isn't completely adequate - there can be different bit rates (h, l, m), AND INDEED MULTIPLE
+        #  sub-exposures of the same bit rate!
+        self._template_evt_name = "screened/ad{oi}{i}*h.evt"
+        self._template_img_name = "images/ad{oi}{i}*_{eb}.totsky"
+        self._template_exp_name = "images/ad{oi}{i}*.totexpo"
+        self._template_bck_name = None
+
         # Call the name property to set up the name and pretty name attributes
         self.name
 
@@ -88,6 +126,10 @@ class ASCA(BaseMission):
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
+
+        # We now will read in the previous state, if there is one to be read in.
+        if save_file_path is not None:
+            self._load_state(save_file_path)
 
     @property
     def name(self) -> str:
@@ -299,7 +341,7 @@ class ASCA(BaseMission):
         self.all_obs_info = rel_asca
 
     @staticmethod
-    def _download_call(observation_id: str, insts: List[str], raw_dir: str, download_processed: bool):
+    def _download_call(observation_id: str, insts: List[str], raw_dir: str, download_products: bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
@@ -307,13 +349,13 @@ class ASCA(BaseMission):
         :param str observation_id: The ObsID of the observation to be downloaded.
         :param List[str] insts: The instruments which the user wishes to acquire data for.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
-        :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
+        :param bool download_products: This controls whether the data downloaded include the pre-processed event lists
             and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
             raw data.
         """
         insts = [inst.lower() for inst in insts]
 
-        if download_processed:
+        if download_products:
             req_dir = REQUIRED_DIRS['processed']
         else:
             req_dir = REQUIRED_DIRS['raw']
@@ -373,7 +415,7 @@ class ASCA(BaseMission):
 
                 # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
                 #  event lists, as they're more likely to be used
-                if 'evt.gz' in down_file:
+                if 'evt.gz' in down_file or 'totsky.gz' in down_file or 'totexpo.gz' in down_file:
                     # Open and decompress the events file
                     with gzip.open(local_dir + down_file, 'rb') as compresso:
                         # Open a new file handler for the decompressed data, then funnel the decompressed events there
@@ -384,7 +426,7 @@ class ASCA(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, download_processed: bool = False):
+    def download(self, num_cores: int = NUM_CORES, download_products: bool = True):
         """
         A method to acquire and download the ASCA data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -394,9 +436,8 @@ class ASCA(BaseMission):
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
-        :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
-            and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
-            raw data.
+        :param bool download_products: This controls whether the data downloaded include the pre-processed event lists
+            and images stored by HEASArc, or whether they are the original raw event lists. Default is True.
         """
 
         # Ensures that a directory to store the 'raw' ASCA data in exists - once downloaded and unpacked
@@ -405,6 +446,12 @@ class ASCA(BaseMission):
             os.makedirs(self.top_level_path + self.name + '_raw')
         # Grabs the raw data storage path
         stor_dir = self.raw_data_path
+
+        # We store the type of data that was downloaded
+        if download_products:
+            self._download_type = "raw+preprocessed"
+        else:
+            self._download_type = "raw"
 
         # A very unsophisticated way of checking whether raw data have been downloaded before (see issue #30)
         #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
@@ -420,7 +467,7 @@ class ASCA(BaseMission):
                         # Use the internal static method I set up which both downloads and unpacks the ASCA data
                         self._download_call(obs_id, insts=self.chosen_instruments,
                                             raw_dir=stor_dir + '{o}'.format(o=obs_id),
-                                            download_processed=download_processed)
+                                            download_products=download_products)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -464,7 +511,7 @@ class ASCA(BaseMission):
                         pool.apply_async(self._download_call,
                                          kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
                                                'raw_dir': stor_dir + '{o}'.format(o=obs_id),
-                                               'download_processed': download_processed},
+                                               'download_products': download_products},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
@@ -483,6 +530,50 @@ class ASCA(BaseMission):
         else:
             warn("The raw data for this mission have already been downloaded.")
 
+    def get_evt_list_path(self, obs_id: str, inst: str = None) -> str:
+        """
+        A get method that provides the path to a downloaded pre-generated event list for the current mission (if
+        available). This method will not work if pre-processed data have not been downloaded.
+
+        :param str obs_id: The ObsID of the event list.
+        :param str inst: The instrument of the event list (if applicable).
+        :return: The requested event list path.
+        :rtype: str
+        """
+
+        inst, en_bnd_trans, file_inst, lo_en, hi_en = self._get_prod_path_checks(obs_id, inst)
+
+        # The reason we needed to override the base get method for event list path - the naming scheme for event lists
+        #  is different from images + exposure maps, as those are shipped with SIS0+1 and GIS2+3 added together.
+        if file_inst == 'sis':
+            file_inst = 's' + inst[-1]
+        elif file_inst[0] == 'gis':
+            file_inst = 'g' + inst[-1]
+
+        # The template path can take two forms, one is a straight string and can just be filled in, but the
+        #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
+        #  need to check which is applicable to this mission and treat it accordingly
+        if isinstance(self._template_evt_name, str):
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id, i=file_inst))
+        # In some cases the instrument name will have to be supplied, otherwise we will not be able to
+        #  create a path
+        elif isinstance(self._template_evt_name, dict) and inst is None:
+            raise ValueError("The 'inst' argument cannot be None for this mission, as the different instruments have "
+                             "differently formatted pre-processed file names.")
+        # It is possible for only some instruments of a mission to have images, so we check
+        elif isinstance(self._template_evt_name, dict) and self._template_evt_name[inst] is None:
+            raise PreProcessedNotSupportedError("This mission ({m}) does not support the download of pre-processed "
+                                                "event lists for the {i} instrument, so a path cannot be "
+                                                "provided.".format(m=self.pretty_name, i=inst))
+        elif isinstance(self._template_evt_name, dict):
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name[inst].format(oi=obs_id,
+                                                                                                    i=file_inst))
+
+        # This performs certain checks to make sure the file exists, and fill in any wildcards
+        rel_pth = self._get_prod_path_post_checks(rel_pth, obs_id, inst, 'event list')
+
+        return rel_pth
+
     def assess_process_obs(self, obs_info: dict):
         """
         A slightly unusual method which will allow the ASCA mission to assess the information on a particular
@@ -499,3 +590,24 @@ class ASCA(BaseMission):
         raise NotImplementedError("The check_process_obs method has not yet been implemented for ASCA, as "
                                   "we need to see what detailed information are available once processing downloaded "
                                   "data has begun.")
+
+    def ident_to_obsid(self, ident: str):
+        """
+        A slightly unusual abstract method which will allow each mission convert a unique identifier being used
+        in the processing steps to the ObsID (as these unique identifiers will contain the ObsID). This is necessary
+        because XMM, for instance, has processing steps that act on whole ObsIDs (e.g. cifbuild), and processing steps
+        that act on individual sub-exposures of instruments of ObsIDs, so the ID could be '0201903501M1S001'.
+
+        Implemented as an abstract method because the unique identifier style may well be different for different
+        missions - many will just always be the ObsID, but we want to be able to have low level control.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param str ident: The unique identifier used in a particular processing step.
+        """
+        # raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
+        #                           "clear to me what form the unique identifiers will take once we start processing"
+        #                           "{n} data ourselves.".format(n=self.pretty_name))
+        # All ASCA ObsIDs are 8 digits, so that is what we select
+        return ident[:8]

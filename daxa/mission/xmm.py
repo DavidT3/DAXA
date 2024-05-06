@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/08/2023, 15:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/05/2024, 10:25. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -30,9 +30,12 @@ class XMMPointed(BaseMission):
 
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from. The EPIC PN,
         MOS1, and MOS2 instruments are selected by default. You may also select RGS1 (R1) and RGS2 (R2), though
-        as they less widely used they are not selected by default.
+        as they less widely used they are not selected by default. It is also possible to select the
+        Optical Monitor (OM), though it is an optical/UV telescope, and as such it is not selected by default.
+    :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+        state of a previously defined mission (the same filters having been applied etc.)
     """
-    def __init__(self, insts: Union[List[str], str] = None):
+    def __init__(self, insts: Union[List[str], str] = None, save_file_path: str = None):
         """
         The mission class init for pointed XMM observations (i.e. slewing observations are NOT included in the data
         accessed and collected by instances of this class). The available observation information is fetched from
@@ -40,7 +43,10 @@ class XMMPointed(BaseMission):
 
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. The EPIC
             PN, MOS1, and MOS2 instruments are selected by default. You may also select RGS1 (R1) and RGS2
-            (R2), though as they less widely used they are not selected by default.
+            (R2), though as they less widely used they are not selected by default. It is also possible to select the
+            Optical Monitor (OM), though it is an optical/UV telescope, and as such it is not selected by default.
+        :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+            state of a previously defined mission (the same filters having been applied etc.)
         """
         # Call the init of parent class with the required information
         super().__init__()
@@ -54,9 +60,6 @@ class XMMPointed(BaseMission):
             insts = [insts]
         # Makes sure everything is uppercase
         insts = [i.upper() for i in insts]
-
-        if 'OM' in insts:
-            raise NotImplementedError("The OM instrument is not currently supported by this class.")
 
         self._miss_poss_insts = ['M1', 'M2', 'PN', 'OM', 'R1', 'R2']
         # The chosen_instruments property setter (see below) will use these to convert possible contractions
@@ -78,9 +81,14 @@ class XMMPointed(BaseMission):
         # Runs the method which fetches information on all available pointed XMM observations and stores that
         #  information in the all_obs_info property
         self._fetch_obs_info()
+
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
+
+        # We now will read in the previous state, if there is one to be read in.
+        if save_file_path is not None:
+            self._load_state(save_file_path)
 
     # Defining properties first
     @property
@@ -258,8 +266,17 @@ class XMMPointed(BaseMission):
         if not os.path.exists(filename):
             # Set this again here because otherwise its annoyingly verbose
             log.setLevel(0)
-            # Download the requested data
-            AQXMMNewton.download_data(observation_id=observation_id, level=level, filename=filename)
+
+            # It is possible for a download to be interrupted and the incomplete tar.gz to hand around and cause
+            #  us problems, so we check and delete the offending tar.gz if it is present
+            if os.path.exists(filename+'.tar.gz'):
+                os.remove(filename+'.tar.gz')
+
+            try:
+                # Download the requested data
+                AQXMMNewton.download_data(observation_id=observation_id, level=level, filename=filename)
+            except Exception as err:
+                raise Exception("{oi} data failed to download.").with_traceback(err.__traceback__)
             # As the above function downloads the data as compressed tars, we need to decompress them
             with tarfile.open(filename+'.tar.gz') as zippo:
                 zippo.extractall(filename)
@@ -299,7 +316,8 @@ class XMMPointed(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, credentials: Union[dict, str] = None):
+    def download(self, num_cores: int = NUM_CORES, credentials: Union[dict, str] = None,
+                 download_products: bool = False):
         """
         A method to acquire and download the pointed XMM data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -313,6 +331,7 @@ class XMMPointed(BaseMission):
         :param dict/str credentials: The path to an ini file containing credentials, a dictionary containing 'user'
             and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
             for providing different credentials for different observations.
+        :param bool download_products: CURRENTLY NON-FUNCTIONAL.
         """
 
         if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():
@@ -329,6 +348,9 @@ class XMMPointed(BaseMission):
             os.makedirs(self.top_level_path + self.name + '_raw')
         # Grabs the raw data storage path
         stor_dir = self.raw_data_path
+
+        # This XMM mission currently only supports the downloading of raw data - I should try to address that
+        self._download_type = 'raw'
 
         # A very unsophisticated way of checking whether raw data have been downloaded before (see issue #30)
         #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
@@ -475,3 +497,24 @@ class XMMPointed(BaseMission):
         to_return.update({inst: {} for inst in insts if 'exposures' not in obs_info[inst]})
 
         return to_return
+
+    def ident_to_obsid(self, ident: str):
+        """
+        A slightly unusual abstract method which will allow each mission convert a unique identifier being used
+        in the processing steps to the ObsID (as these unique identifiers will contain the ObsID). This is necessary
+        because XMM, for instance, has processing steps that act on whole ObsIDs (e.g. cifbuild), and processing steps
+        that act on individual sub-exposures of instruments of ObsIDs, so the ID could be '0201903501M1S001'.
+
+        Implemented as an abstract method because the unique identifier style may well be different for different
+        missions - many will just always be the ObsID, but we want to be able to have low level control.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param str ident: The unique identifier used in a particular processing step.
+        """
+        # The XMM unique processing identifiers can take a few forms - the simplest is just the ObsID, the second
+        #  simplest is ObsID + two character instrument identifier (e.g. 0201903501PN), and the final layer of
+        #  complexity is where there is a sub-exposure identifier as well (e.g. 0201903501PNS003).
+        # Thankfully, all XMM ObsIDs are 10 digits long, so we're just going to take the first 10 digits
+        return ident[:10]

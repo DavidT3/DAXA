@@ -869,3 +869,4 @@ NoSummaryFile,cifbuild
 IllegalIdentifier,emtaglenoise
 noCounts,espfilt
 noPNSmallWindow,espfilt
+FITSIO,espfilt

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/01/2024, 11:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 14:49. Copyright (c) The Contributors
 
 import os
 from configparser import ConfigParser
@@ -7,6 +7,7 @@ from warnings import warn
 
 import pandas as pd
 import pkg_resources
+from astropy.units import def_unit, ct, deg, s
 from numpy import floor
 
 from .exceptions import DAXAConfigError
@@ -82,3 +83,6 @@ ERASS_DE_DR1_INFO = pd.read_csv(pkg_resources.resource_filename(__name__, "files
                                 header="infer", dtype={'ObsID': str, 'FIELD1': str, 'FIELD2': str, 'FIELD3': str,
                                                        'FIELD4': str, 'FIELD5': str, 'FIELD6': str, 'FIELD7': str,
                                                        'FIELD8': str, 'FIELD9': str})
+
+# We define a surface brightness rate astropy unit for use in flaregti to measure thresholds in
+sb_rate = def_unit('sb_rate', ct / (deg**2 * s))

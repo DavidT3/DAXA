@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 00:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 10:27. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -49,9 +49,11 @@ class Swift(BaseMission):
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
         pass either a single string value or a list of strings. They may include XRT, BAT, and UVOT (the default
         is both XRT and BAT).
+    :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+        state of a previously defined mission (the same filters having been applied etc.)
     """
 
-    def __init__(self, insts: Union[List[str], str] = None):
+    def __init__(self, insts: Union[List[str], str] = None, save_file_path: str = None):
         """
         The mission class for observations by the Neil Gehrels Swift Observatory.
         The available observation information is fetched from the HEASArc SWIFTMASTR table, and data are downloaded
@@ -60,6 +62,8 @@ class Swift(BaseMission):
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
             pass either a single string value or a list of strings. They may include XRT, BAT, and UVOT (the default
             is both XRT and BAT).
+        :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+            state of a previously defined mission (the same filters having been applied etc.)
         """
         super().__init__()
 
@@ -86,6 +90,27 @@ class Swift(BaseMission):
         #  to make sure the input instruments are allowed
         self.chosen_instruments = insts
 
+        # These are the 'translations' required between energy band and filename identifier for ROSAT images/expmaps -
+        #  it is organised so that top level keys are instruments, middle keys are lower energy bounds, and the lower
+        #  level keys are upper energy bounds, then the value is the filename identifier
+        self._template_en_trans = {'XRT': {Quantity(0.01, 'keV'): {Quantity(10.23, 'keV'): ""}},
+                                   'BAT': None,
+                                   'UVOT': {Quantity(0, 'keV'): {Quantity(0, 'keV'): ""}}}
+        self._template_inst_trans = None
+
+        # We set up the ROSAT file name templates, so that the user (or other parts of DAXA) can retrieve paths
+        #  to the event lists, images, exposure maps, and background maps that can be downloaded
+        # I added wildcards before the ObsID (and I hope this isn't going to break things) because irritatingly they
+        #  fill in zeroes before shorted ObsIDs I think - could add that functionality to the general get methods #
+        #  but this could be easier
+        self._template_evt_name = {'XRT': "xrt/event/sw{oi}xpc*po_cl.evt", "UVOT": None,
+                                   'BAT': "sw{oi}msbevshsp uf.evt"}
+        self._template_img_name = {'XRT': "xrt/products/sw{oi}xpc_sk.img", "UVOT": "uvot/products/sw{oi}u_sk.img",
+                                   "BAT": None}
+        self._template_exp_name = {'XRT': "xrt/products/sw{oi}xpc_ex.img", "UVOT": "uvot/products/sw{oi}u_ex.img",
+                                   "BAT": None}
+        self._template_bck_name = None
+
         # Call the name property to set up the name and pretty name attributes
         self.name
 
@@ -98,6 +123,10 @@ class Swift(BaseMission):
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
+
+        # We now will read in the previous state, if there is one to be read in.
+        if save_file_path is not None:
+            self._load_state(save_file_path)
 
     @property
     def name(self) -> str:
@@ -300,7 +329,7 @@ class Swift(BaseMission):
 
     @staticmethod
     def _download_call(observation_id: str, insts: List[str], start_year: str, start_month: str, raw_dir: str,
-                       download_processed: bool):
+                       download_products: bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
@@ -312,13 +341,13 @@ class Swift(BaseMission):
         :param str start_month: The start month of the observation to be downloaded - this is necessary as
             the HEASArc Swift data are split into yyyy-mm directories.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
-        :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
+        :param bool download_products: This controls whether the data downloaded include the pre-processed event lists
             and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
             raw data.
         """
         insts = [inst.lower() for inst in insts]
         req_dir = REQUIRED_DIRS['all'] + [inst + '/' for inst in insts]
-        if download_processed:
+        if download_products:
             dir_lookup = REQUIRED_DIRS['processed']
         else:
             dir_lookup = REQUIRED_DIRS['raw']
@@ -386,7 +415,7 @@ class Swift(BaseMission):
                         files = [en['href'] + '/' + fil['href'] for fil in BeautifulSoup(session.get(low_rel_url).text,
                                                                                          "html.parser").find_all("a")
                                  if '?' not in fil['href'] and obs_dir not in fil['href'] and
-                                 ('cl.evt' not in fil['href'] or download_processed)]
+                                 ('cl.evt' not in fil['href'] or download_products)]
                     else:
                         files = []
 
@@ -406,7 +435,7 @@ class Swift(BaseMission):
 
                 # There are a few compressed fits files in each archive, but I think I'm only going to decompress the
                 #  event lists, as they're more likely to be used
-                if 'evt.gz' in down_file:
+                if 'evt.gz' in down_file or 'img.gz':
                     # Open and decompress the events file
                     with gzip.open(local_dir + down_file, 'rb') as compresso:
                         # Open a new file handler for the decompressed data, then funnel the decompressed events there
@@ -417,7 +446,7 @@ class Swift(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES, download_processed: bool = False):
+    def download(self, num_cores: int = NUM_CORES, download_products: bool = True):
         """
         A method to acquire and download the Swift data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -427,9 +456,8 @@ class Swift(BaseMission):
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
-        :param bool download_processed: This controls whether the data downloaded include the pre-processed event lists
-            and images stored by HEASArc, or whether they are the original raw event lists. Default is to download
-            raw data.
+        :param bool download_products: This controls whether the data downloaded include the pre-processed event lists
+            and images stored by HEASArc, or whether they are the original raw event lists. Default is True.
         """
 
         # Ensures that a directory to store the 'raw' Swift data in exists - once downloaded and unpacked
@@ -445,17 +473,30 @@ class Swift(BaseMission):
         if all([os.path.exists(stor_dir + '{o}'.format(o=o)) for o in self.filtered_obs_ids]):
             self._download_done = True
 
+        # We store the type of data that was downloaded
+        if download_products:
+            self._download_type = "raw+preprocessed"
+        else:
+            self._download_type = "raw"
+
         if not self._download_done:
             # If only one core is to be used, then it's simply a case of a nested loop through ObsIDs and instruments
             if num_cores == 1:
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
                     for row_ind, row in self.filtered_obs_info.iterrows():
                         obs_id = row['ObsID']
+                        # While the user may have chosen multiple instruments, it is possible for Swift to have an
+                        #  instrument switched off for a given observation, in which case an expected instrument
+                        #  directory that the internal download method checks for will be missing. As such we ensure
+                        #  that we only request instruments that have a non-zero exposure
+                        rel_insts = [ci for ci in self.chosen_instruments
+                                     if row[ci.lower() + '_exposure'].total_seconds() != 0]
+
                         # Use the internal static method I set up which both downloads and unpacks the Swift data
-                        self._download_call(obs_id, insts=self.chosen_instruments, start_year=str(row['start'].year),
+                        self._download_call(obs_id, insts=rel_insts, start_year=str(row['start'].year),
                                             start_month=str(row['start'].month),
                                             raw_dir=stor_dir + '{o}'.format(o=obs_id),
-                                            download_processed=download_processed)
+                                            download_products=download_products)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -496,13 +537,21 @@ class Swift(BaseMission):
                     # Again nested for loop through ObsIDs and instruments
                     for row_ind, row in self.filtered_obs_info.iterrows():
                         obs_id = row['ObsID']
+
+                        # While the user may have chosen multiple instruments, it is possible for Swift to have an
+                        #  instrument switched off for a given observation, in which case an expected instrument
+                        #  directory that the internal download method checks for will be missing. As such we ensure
+                        #  that we only request instruments that have a non-zero exposure
+                        rel_insts = [ci for ci in self.chosen_instruments
+                                     if row[ci.lower() + '_exposure'].total_seconds() != 0]
+
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
-                                         kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
+                                         kwds={'observation_id': obs_id, 'insts': rel_insts,
                                                'start_year': str(row['start'].year),
                                                'start_month': str(row['start'].month),
                                                'raw_dir': stor_dir + '{o}'.format(o=obs_id),
-                                               'download_processed': download_processed},
+                                               'download_products': download_products},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
@@ -519,7 +568,7 @@ class Swift(BaseMission):
             self._download_done = True
 
         else:
-            warn("The raw data for this mission have already been downloaded.")
+            warn("The raw data for this mission have already been downloaded.", stacklevel=2)
 
     def assess_process_obs(self, obs_info: dict):
         """
@@ -537,3 +586,24 @@ class Swift(BaseMission):
         raise NotImplementedError("The check_process_obs method has not yet been implemented for Swift, as "
                                   "we need to see what detailed information are available once processing downloaded "
                                   "data has begun.")
+
+    def ident_to_obsid(self, ident: str):
+        """
+        A slightly unusual abstract method which will allow each mission convert a unique identifier being used
+        in the processing steps to the ObsID (as these unique identifiers will contain the ObsID). This is necessary
+        because XMM, for instance, has processing steps that act on whole ObsIDs (e.g. cifbuild), and processing steps
+        that act on individual sub-exposures of instruments of ObsIDs, so the ID could be '0201903501M1S001'.
+
+        Implemented as an abstract method because the unique identifier style may well be different for different
+        missions - many will just always be the ObsID, but we want to be able to have low level control.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param str ident: The unique identifier used in a particular processing step.
+        """
+        # raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
+        #                           "clear to me what form the unique identifiers will take once we start processing"
+        #                           "{n} data ourselves.".format(n=self.pretty_name))
+        # Swift ObsIDs are always 11 digits, so we just retrieve the first 11
+        return ident[:11]

@@ -18,17 +18,45 @@ set of coordinates), and the time frame in which the observations were taken. As
 identify what archival data might be available for a set of objects you wish to study. It is also possible to place
 no filters on the desired observations, and as such process every observation available for a set of missions. 
 
-Documentation is available **_[Under Development]_** on ReadTheDocs, and can be [found here](https://daxa.readthedocs.io), or
+Documentation is available on ReadTheDocs, and [can be found here](https://daxa.readthedocs.io), or
 accessed by clicking on the documentation build status at the top of the README. The source for the documentation can
 be found in the 'docs' directory in this repository.
 
+# Installing DAXA
+
+We **strongly recommend** that you make use of Python virtual environments, or (even better) Conda/Mamba virtual environments when installing DAXA.
+
+DAXA is available on the popular Python Package Index (PyPI), and can be installed like this:
+
+```
+pip install daxa
+```
+
+You can also fetch the current working version from the git repository, and install it (this method has replaced 'python setup.py install'):
+
+```
+git clone https://github.com/DavidT3/DAXA
+cd DAXA
+python -m pip install .
+```
+
+Alternatively you could use the 'editable' option (this has replaced running setup.py and passing 'develop') so that any changes you pull from the remote repository are reflected without having to reinstall DAXA.
+
+```
+git clone https://github.com/DavidT3/DAXA
+cd DAXA
+python -m pip install --editable .
+```
+
 # Which missions are supported?
 
-**_DAXA is still in an early stage of development, and as such the list of supported telescopes is currently
-limited. Support for more telescopes is either currently under development or being actively planned._** 
+_DAXA is still in a relatively early stage of development, and as such the support for local re-processing is 
+limited; however, support for the acquisition and use of pre-processed data is implemented for a wide selection 
+of telescopes:_ 
 
 * XMM-Newton Pointed
-* **_[Under Development - data acquisition/some processing implemented]_** eROSITA Commissioning
+* eROSITA Commissioning
+* eROSITA All-Sky Survey DR1 (German Half)
 * **_[Under Development - data acquisition implemented]_** NuSTAR
 * **_[Under Development - data acquisition implemented]_** Chandra
 * **_[Under Development - RASS/pointed data acquisition implemented]_** ROSAT

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/05/2023, 14:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/04/2024, 17:59. Copyright (c) The Contributors
 
 # Configuration file for the Sphinx documentation builder.
 #
@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 # -- Project information -----------------------------------------------------
 
 project = 'Democratising Archival X-ray Astronomy (DAXA)'
-copyright = '2023, The Contributors'
+copyright = '2024, The Contributors'
 author = 'David J Turner, Jessica E Pilling, Agrim Gupta'
 
 # The full version, including alpha/beta/rc tags

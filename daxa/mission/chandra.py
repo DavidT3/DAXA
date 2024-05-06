@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 28/01/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 10:27. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -48,9 +48,11 @@ class Chandra(BaseMission):
 
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
             pass either a single string value or a list of strings. They may include ACIS-I, ACIS-S, HRC-I, and HRC-S.
+    :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+        state of a previously defined mission (the same filters having been applied etc.)
     """
 
-    def __init__(self, insts: Union[List[str], str] = None):
+    def __init__(self, insts: Union[List[str], str] = None, save_file_path: str = None):
         """
         The mission class for Chandra observations. The available observation information is fetched from the HEASArc
         CHANMASTER table, and data are downloaded from the HEASArc https access to their FTP server. Proprietary data
@@ -66,6 +68,8 @@ class Chandra(BaseMission):
 
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
             pass either a single string value or a list of strings. They may include ACIS-I, ACIS-S, HRC-I, and HRC-S.
+        :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+            state of a previously defined mission (the same filters having been applied etc.)
         """
         super().__init__()
 
@@ -80,10 +84,6 @@ class Chandra(BaseMission):
             insts = [insts]
         # Makes sure everything is uppercase
         insts = [i.upper() for i in insts]
-
-        # TODO Remove this once HETG and LETG are supported
-        if 'HETG' in insts or 'LETG' in insts:
-            raise NotImplementedError("The HETG and LETG gratings are not currently supported by this class.")
 
         # These are the allowed instruments for this mission - Chandra has two sets of instruments (HRC and
         #  ACIS), each with two sets of detectors (one for imaging one for grating spectroscopy). It also has
@@ -112,6 +112,33 @@ class Chandra(BaseMission):
         #  filtering operation rather than the download-time operation is has been for NuSTAR for instance
         self.chosen_instruments = insts
 
+        # These are the 'translations' required between energy band and filename identifier for ROSAT images/expmaps -
+        #  it is organised so that top level keys are instruments, middle keys are lower energy bounds, and the lower
+        #  level keys are upper energy bounds, then the value is the filename identifier
+        self._template_en_trans = {'ACIS-I': {Quantity(0.5, 'keV'): {Quantity(7.0, 'keV'): ""}},
+                                   'ACIS-S': {Quantity(0.5, 'keV'): {Quantity(7.0, 'keV'): ""}},
+                                   'HRC-I': {Quantity(0.06, 'keV'): {Quantity(10.0, 'keV'): ""}},
+                                   'HRC-S': {Quantity(0.06, 'keV'): {Quantity(10.0, 'keV'): ""}}}
+        self._template_inst_trans = {'ACIS-I': 'acis', 'ACIS-S': 'acis', 'HRC-I': 'hrc', 'HRC-S': 'hrc'}
+
+        # We set up the ROSAT file name templates, so that the user (or other parts of DAXA) can retrieve paths
+        #  to the event lists, images, exposure maps, and background maps that can be downloaded
+        # I added wildcards before the ObsID (and I hope this isn't going to break things) because irritatingly they
+        #  fill in zeroes before shorted ObsIDs I think - could add that functionality to the general get methods #
+        #  but this could be easier
+        self._template_evt_name = "primary/{i}f*{oi}N*_evt2.fits"
+        self._template_img_name = "primary/{i}f*{oi}N*_full_img2.fits"
+        self._template_exp_name = None
+        self._template_bck_name = None
+
+        # We use this to specify whether a mission has only one instrument per ObsID (it is quite handy to codify
+        #  this for a couple of external processes).
+        self._one_inst_per_obs = True
+
+        # We now will read in the previous state, if there is one to be read in.
+        if save_file_path is not None:
+            self._load_state(save_file_path)
+
     @property
     def name(self) -> str:
         """
@@ -132,8 +159,8 @@ class Chandra(BaseMission):
     def chosen_instruments(self) -> List[str]:
         """
         Property getter for the names of the currently selected instruments associated with this mission which
-        will be processed into an archive by DAXA functions. Overwritten here because I want to use a custom
-        version of _check_chos_insts for Chandra.
+        will be processed into an archive by DAXA functions. Overwritten here because there
+        are custom behaviours for Chandra, as it has one instrument per ObsID.
 
         :return: A list of instrument names
         :rtype: List[str]
@@ -145,13 +172,43 @@ class Chandra(BaseMission):
     def chosen_instruments(self, new_insts: List[str]):
         """
         Property setter for the instruments associated with this mission that should be processed. This property
-        may only be set to a list that is a subset of the existing property value. Overwritten here because I want
-        to use a custom version of _check_chos_insts for Chandra.
+        may only be set to a list that is a subset of the existing property value. Overwritten here because there
+        are custom behaviours for Chandra, as it has one instrument per ObsID.
 
         :param List[str] new_insts: The new list of instruments associated with this mission which should
             be processed into the archive.
         """
-        self._chos_insts = self._check_chos_insts(new_insts)
+        # First of all, check whether the new instruments are valid for this mission
+        new_insts = super().check_inst_names(new_insts)
+
+        # If we've gotten through the super call then the instruments are acceptable, so now we filter the
+        #  observation info table using them. This is complicated slightly by the fact that the gratings are
+        #  considered separately from the detectors by the table (they have their own column).
+
+        all_gratings = ['HETG', 'LETG']
+        val_gratings = [ag for ag in all_gratings if ag in new_insts]
+        if len(val_gratings) == 0:
+            # If no grating was used, the entry in the grating column will be 'NONE' - and as I'm using isin I
+            #  want it to be in a list
+            val_gratings = ['NONE']
+
+        # I considered removing any gratings entries from inst, but it doesn't matter because I will just check
+        #  which rows in the obs info table have instrument (i.e. detector) entries in the insts list, doesn't
+        #  matter that gratings might be in there.
+        sel_inst_mask = (self._obs_info['instrument'].isin(new_insts)) & (self._obs_info['grating'].isin(val_gratings))
+
+        # I can't think of a way this would happen, but I will just quickly ensure that this filtering didn't
+        #  return zero results
+        if sel_inst_mask.sum() == 0:
+            raise NoObsAfterFilterError("No Chandra observations are left after instrument filtering.")
+
+        # The boolean mask can be multiplied with the existing filter array (by default all ones, which means
+        #  all observations are let through) to produce an updated filter.
+        new_filter = self.filter_array * sel_inst_mask
+        # Then we set the filter array property with that updated mask
+        self.filter_array = new_filter
+
+        self._chos_insts = new_insts
 
     @property
     def coord_frame(self) -> BaseRADecFrame:
@@ -234,51 +291,6 @@ class Chandra(BaseMission):
         self._obs_info_checks(new_info)
         self._obs_info = new_info
         self.reset_filter()
-
-    def _check_chos_insts(self, insts: Union[List[str], str]) -> List[str]:
-        """
-        An internal function to perform some checks on the validity of chosen instrument names for Chandra. This
-        overwrites the version of this method declared in BaseMission, though it does call the super method. This
-        sub-class of BaseMission re-implements this method so that setting chosen instruments becomes another
-        filtering action, as Chandra has only one instrument per observation.
-
-        :param List[str]/str insts:
-        :return: The list of instruments (possibly altered to match formats expected by this module).
-        :rtype: List
-        """
-        # As a part of this, I will reset the filter array - in case the user used the chosen_instruments (property
-        #  setter that calls this function) after the initial declaration phase.
-        self.reset_filter()
-
-        insts = super()._check_chos_insts(insts)
-        # If we've gotten through the super call then the instruments are acceptable, so now we filter the
-        #  observation info table using them. This is complicated slightly by the fact that the gratings are
-        #  considered separately from the detectors by the table (they have their own column).
-
-        all_gratings = ['HETG', 'LETG']
-        val_gratings = [ag for ag in all_gratings if ag in insts]
-        if len(val_gratings) == 0:
-            # If no grating was used, the entry in the grating column will be 'NONE' - and as I'm using isin I
-            #  want it to be in a list
-            val_gratings = ['NONE']
-
-        # I considered removing any gratings entries from inst, but it doesn't matter because I will just check
-        #  which rows in the obs info table have instrument (i.e. detector) entries in the insts list, doesn't
-        #  matter that gratings might be in there.
-        sel_inst_mask = (self._obs_info['instrument'].isin(insts)) & (self._obs_info['grating'].isin(val_gratings))
-
-        # I can't think of a way this would happen, but I will just quickly ensure that this filtering didn't
-        #  return zero results
-        if sel_inst_mask.sum() == 0:
-            raise NoObsAfterFilterError("No Chandra observations are left after instrument filtering.")
-
-        # The boolean mask can be multiplied with the existing filter array (by default all ones, which means
-        #  all observations are let through) to produce an updated filter.
-        new_filter = self.filter_array * sel_inst_mask
-        # Then we set the filter array property with that updated mask
-        self.filter_array = new_filter
-
-        return insts
 
     def _fetch_obs_info(self):
         """
@@ -418,16 +430,16 @@ class Chandra(BaseMission):
         self.all_obs_info = rel_chandra
 
     @staticmethod
-    def _download_call(observation_id: str, raw_dir: str, download_standard: bool):
+    def _download_call(observation_id: str, raw_dir: str, download_products: bool):
         """
         The internal method called (in a couple of different possible ways) by the download method. This will check
         the availability of, acquire, and decompress the specified observation.
 
         :param str observation_id: The ObsID of the observation to be downloaded.
         :param str raw_dir: The raw data directory in which to create an ObsID directory and store the downloaded data.
-        :param bool download_standard: Whether the 'standard' Chandra data distribution should be downloaded, with
-            'primary' and 'secondary' folders. This is False by default (in the download method) because DAXA
-            normally only wants the raw data.
+        :param bool download_products: Whether the 'standard' Chandra data distribution should be downloaded, with
+            'primary' and 'secondary' folders, which includes pre-generated images. This is False by default (in the
+            download method) because DAXA normally only wants the raw data.
         """
         # The Chandra data are stored in observatories that are named to correspond with the last digit of
         #  the particular observation's ObsID, so we shall extract that for later
@@ -438,7 +450,7 @@ class Chandra(BaseMission):
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
 
         # This defines the 'required' directories depending on the type of download that we're doing
-        if not download_standard:
+        if not download_products:
             req_dir = REQUIRED_DIRS['raw']
         else:
             req_dir = REQUIRED_DIRS['standard']
@@ -502,7 +514,7 @@ class Chandra(BaseMission):
         return None
 
     def download(self, num_cores: int = NUM_CORES, credentials: Union[str, dict] = None,
-                 download_standard: bool = False):
+                 download_products: bool = True):
         """
         A method to acquire and download the pointed Chandra data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -510,7 +522,7 @@ class Chandra(BaseMission):
         a new value to the chosen_instruments property.
 
         If you're using DAXA only for data acquisition, and wish to use CIAO scripts for reprocessing (e.g.
-        'chandra_repro'), then set 'download_standard=True'.
+        'chandra_repro'), then set 'download_products=True'.
 
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
@@ -518,9 +530,9 @@ class Chandra(BaseMission):
         :param dict/str credentials: The path to an ini file containing credentials, a dictionary containing 'user'
             and 'password' entries, or a dictionary of ObsID top level keys, with 'user' and 'password' entries
             for providing different credentials for different observations.
-        :param bool download_standard: Whether the 'standard' Chandra data structure should be downloaded (i.e. with
-            'primary' and 'secondary' directories. The default is False, as DAXA will do its own processing, but if
-            you just wish to use DAXA for data acquisition, and then use the CIAO scripts, this should be set to True.
+        :param bool download_products: Whether the 'standard' Chandra data structure should be downloaded (i.e. with
+            'primary' and 'secondary' directories, including pre-generated images. The default is True, if set to
+            False only event lists will be downloaded.
         """
 
         if credentials is not None and not self.filtered_obs_info['proprietary_usable'].all():
@@ -538,6 +550,12 @@ class Chandra(BaseMission):
         # Grabs the raw data storage path
         stor_dir = self.raw_data_path
 
+        # We store the type of data that was downloaded
+        if download_products:
+            self._download_type = "raw+preprocessed"
+        else:
+            self._download_type = "raw"
+
         # A very unsophisticated way of checking whether raw data have been downloaded before
         #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
         #  the _download_call method
@@ -551,7 +569,7 @@ class Chandra(BaseMission):
                     for obs_id in self.filtered_obs_ids:
                         # Use the internal static method I set up which both downloads and unpacks the Chandra data
                         self._download_call(obs_id, raw_dir=stor_dir + '{o}'.format(o=obs_id),
-                                            download_standard=download_standard)
+                                            download_products=download_products)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -594,7 +612,7 @@ class Chandra(BaseMission):
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
                                          kwds={'observation_id': obs_id, 'raw_dir': stor_dir + '{o}'.format(o=obs_id),
-                                               'download_standard': download_standard},
+                                               'download_products': download_products},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
@@ -611,7 +629,7 @@ class Chandra(BaseMission):
             self._download_done = True
 
         else:
-            warn("The raw data for this mission have already been downloaded.")
+            warn("The raw data for this mission have already been downloaded.", stacklevel=2)
 
     def assess_process_obs(self, obs_info: dict):
         """
@@ -629,3 +647,26 @@ class Chandra(BaseMission):
         raise NotImplementedError("The check_process_obs method has not yet been implemented for Chandra, as we need "
                                   "to see what detailed information are available once processing downloaded data has"
                                   "begun.")
+
+    def ident_to_obsid(self, ident: str):
+        """
+        A slightly unusual abstract method which will allow each mission convert a unique identifier being used
+        in the processing steps to the ObsID (as these unique identifiers will contain the ObsID). This is necessary
+        because XMM, for instance, has processing steps that act on whole ObsIDs (e.g. cifbuild), and processing steps
+        that act on individual sub-exposures of instruments of ObsIDs, so the ID could be '0201903501M1S001'.
+
+        Implemented as an abstract method because the unique identifier style may well be different for different
+        missions - many will just always be the ObsID, but we want to be able to have low level control.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param str ident: The unique identifier used in a particular processing step.
+        """
+        # raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
+        #                           "clear to me what form the unique identifiers will take once we start processing"
+        #                           "{n} data ourselves.".format(n=self.pretty_name))
+        # Replaces any instance of any of the instrument names with nothing
+        for i in self._miss_poss_insts:
+            ident = ident.replace(i, '')
+        return ident

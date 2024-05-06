@@ -1,34 +1,36 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/02/2024, 09:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 17:33. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
 
 from astropy.units import Quantity, UnitConversionError, add_enabled_units
 
-from daxa import NUM_CORES
+from daxa import NUM_CORES, sb_rate
 from daxa.archive.base import Archive
 from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call
-from daxa.process.erosita.setup import sb_rate
 
 # Adding this to the enabled astropy units so that it can be used in flaregti to define thresholds
 add_enabled_units([sb_rate])
 
 
 @esass_call
-def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax: Quantity = Quantity(10000, 'eV'), mask_pimin: Quantity = Quantity(200, 'eV'), 
-            mask_pimax: Quantity = Quantity(10000, 'eV'), binsize: int = 1200, detml: Union[float, int] = 10, timebin: Quantity = Quantity(20, 's'), 
-            source_size: Quantity = Quantity(25, 'arcsec'), source_like: Union[float, int] = 10, threshold: Quantity = Quantity(-1, 'sb_rate'), 
-            max_threshold: Quantity = Quantity(-1, 'sb_rate'), mask_iter: int = 3, num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
+def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax: Quantity = Quantity(10000, 'eV'),
+             mask_pimin: Quantity = Quantity(200, 'eV'), mask_pimax: Quantity = Quantity(10000, 'eV'),
+             binsize: int = 1200, detml: Union[float, int] = 10, timebin: Quantity = Quantity(20, 's'),
+             source_size: Quantity = Quantity(25, 'arcsec'), source_like: Union[float, int] = 10,
+             threshold: Quantity = Quantity(-1, 'ct/(deg^2 * s)'),
+             max_threshold: Quantity = Quantity(-1, 'ct/(deg^2 * s)'),
+             mask_iter: int = 3, num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
     """
-    The DAXA wrapper for the eROSITA eSASS task flaregti, which attempts to identify good time intervals with minimal flaring.
-    This has been tested up to flaregti v1.20.
+    The DAXA wrapper for the eROSITA eSASS task flaregti, which attempts to identify good time intervals with
+    minimal flaring. This has been tested up to flaregti v1.20.
 
     This function does not generate final event lists, but instead is used to create good-time-interval files
     which are then applied to the creation of final event lists, along with other user-specified filters, in the
     'cleaned_evt_lists' function.
 
-    :param obs_archive Archive: An Archive instance containing eROSITA mission instances with observations for
+    :param Archive obs_archive: An Archive instance containing eROSITA mission instances with observations for
         which flaregti should be run. This function will fail if no eROSITA missions are present in the archive.
     :param float pimin:  Lower PI bound of energy range for lightcurve creation.
     :param float pimax:  Upper PI bound of energy range for lightcurve creation.
@@ -37,7 +39,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     :param int binsize: Bin size of mask image (unit: sky pixels).
     :param int detml: Likelihood threshold for mask creation.
     :param int timebin: Bin size for lightcurve (unit: seconds).
-    :param int source_size: Diameter of source extracton area for dynamic threshold calculation (unit: arcsec);
+    :param int source_size: Diameter of source extraction area for dynamic threshold calculation (unit: arcsec);
         this is the most important parameter if optimizing for extended sources.
     :param int source_like: Source likelihood for automatic threshold calculation.
     :param float threshold: Flare threshold; dynamic if negative (unit: counts/deg^2/sec).
@@ -209,7 +211,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
 
     # These parameters we want DAXA to have control over, not the user
     gridsize = 18   # Sections of the image a source detection is run over to determine a dynamic threshold
-    fov_radius = 30 # Not sure about this parameter yet
+    fov_radius = 30  # Not sure about this parameter yet
     xmin = -108000  # These are for making the image
     xmax = 108000
     ymin = -108000
@@ -218,14 +220,14 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     write_mask = 'yes'
     write_lightcurve = 'yes' 
 
-    # Defining the command 
-    flaregti_cmd = "cd {d}; flaregti eventfile={ef} pimin={pimi} pimax={pima} " \
-         "mask_pimin={mpimi} mask_pimax={mpima} xmin={xmi} xmax={xma} ymin={ymi} ymax={yma} " \
-         "gridsize={gs} binsize={bs} detml={dl} timebin={tb} source_size={ss} source_like={sl} " \
-         "fov_radius={fr} threshold={t} max_threshold={mt} write_mask={wm} mask={m} mask_iter={mit} " \
-         "write_lightcurve={wl} lightcurve={lcf} write_thresholdimg={wti} thresholdimg={tif}; " \
-         "mv {olc} {lc}; mv {oti} {ti}; mv {omi} {mi}" \
-         "; rm -r {d}"
+    # Defining the command - we create a symlink to the event list primarily because we had some issues with
+    #  flaregti being able to read in the event lists, but only on some systems - this seems more consistent
+    flaregti_cmd = "cd {d}; ln -s {ef} {lef}; flaregti eventfile={lef} pimin={pimi} pimax={pima} " \
+                   "mask_pimin={mpimi} mask_pimax={mpima} xmin={xmi} xmax={xma} ymin={ymi} ymax={yma} " \
+                   "gridsize={gs} binsize={bs} detml={dl} timebin={tb} source_size={ss} source_like={sl} " \
+                   "fov_radius={fr} threshold={t} max_threshold={mt} write_mask={wm} mask={m} mask_iter={mit} " \
+                   "write_lightcurve={wl} lightcurve={lcf} write_thresholdimg={wti} thresholdimg={tif}; " \
+                   "mv {olc} {lc}; mv {oti} {ti}; mv {omi} {mi}; rm -r {d}"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -251,18 +253,18 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             raise FileNotFoundError("No valid observations have been found, so flaregti may not be run.")
 
         # all_obs_info is a list of lists, where each list is of the format: [ObsID, Inst, 'usable'].
-        #   There is a new list for each instrument, but I just want to loop over the ObsID in the following bit of code, 
-        #   I also want to know all the instruments that the ObsID contains events for
-        #   So here I am just making a dictionary of the format: {ObsID: insts}
+        # There is a new list for each instrument, but I just want to loop over the ObsID in the following bit of code,
+        #  I also want to know all the instruments that the ObsID contains events for
+        #  So here I am just making a dictionary of the format: {ObsID: insts}
         # Getting unique obs_ids in all_obs_info
         obs_ids = list(set([all_obs_info_list[0] for all_obs_info_list in all_obs_info]))
         obs_info_dict = {}
         for obs in obs_ids:
             # Collecting all the insts that a certain ObsID has events for
             insts = ''.join([all_obs_info_list[1] for all_obs_info_list in all_obs_info if obs in all_obs_info_list])
-            # The insts are all TM{x} where x is a number from 1-7, I just want to retain the x information, 
-            #   and append it to the dict
-            obs_info_dict[obs] = ''.join(ch for ch in insts if ch.isdigit())
+
+            # The insts are all TM{x} where x is a number from 1-7, we want to separate them with _ for the file names
+            obs_info_dict[obs] = '_'.join("TM"+ch for ch in insts if ch.isdigit())
 
         # We iterate through the valid identifying information
         for obs_id in obs_info_dict:
@@ -272,11 +274,11 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
 
             # Search through the process_extra_info attribute of the archive to find the paths 
             #   to the event lists
-            evt_list_file = obs_archive._process_extra_info[miss.name][obs_id]['path']
+            evt_list_file = obs_archive[miss.name].get_evt_list_path(obs_id)
 
             # This path is guaranteed to exist, as it was set up in _esass_process_setup. This is where output
             #  files will be written to.
-            dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
+            dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
             # Set up a temporary directory to work in (probably not really necessary in this case, but will be
             #  in other processing functions).
             temp_name = "tempdir_{}".format(randint(0, 1e+8))
@@ -287,9 +289,17 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             og_thresholdimg_name = "{i}-thresholdimg-{l}-{u}.fits".format(i=insts, l=pimin, u=pimax)
             og_maskimg_name = "{i}-maskimg-{l}-{u}.fits".format(i=insts, l=mask_pimin, u=mask_pimax)
  
-            lc_path = dest_dir + og_lc_name
-            threshold_path = dest_dir + og_thresholdimg_name
-            maskimg_path = dest_dir + og_maskimg_name
+            lc_name = "obsid{oi}-inst{i}-subexpNone-en{l}_{h}PI-lightcurve.fits".format(i=insts, l=pimin, h=pimax,
+                                                                                        oi=obs_id)
+            thresholdimg_name = "obsid{oi}-inst{i}-subexpNone-en{l}_{h}PI-thresholdimage.fits".format(i=insts, l=pimin,
+                                                                                                      h=pimax,
+                                                                                                      oi=obs_id)
+            maskimg_name = "obsid{oi}-inst{i}-subexpNone-en{l}_{h}PI-maskimage.fits".format(i=insts, l=mask_pimin,
+                                                                                            h=mask_pimax, oi=obs_id)
+
+            lc_path = os.path.join(dest_dir, 'cleaning', lc_name)
+            threshold_path = os.path.join(dest_dir, 'cleaning', thresholdimg_name)
+            maskimg_path = os.path.join(dest_dir, 'cleaning', maskimg_name)
 
             final_paths = [lc_path, threshold_path, maskimg_path]
 
@@ -299,13 +309,14 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             if not os.path.exists(temp_dir):
                 os.makedirs(temp_dir)
 
-            cmd = flaregti_cmd.format(d=temp_dir, ef=evt_list_file, pimi=pimin, pima=pimax,
-                                      mpimi=mask_pimin, mpima=mask_pimax, xmi=xmin, xma=xmax, ymi=ymin,
-                                      yma=ymax, gs=gridsize, bs=binsize, dl=detml, tb=timebin, ss=source_size,
-                                      sl=source_like, fr=fov_radius, t=threshold, mt=max_threshold, wm=write_mask,
-                                      m=og_maskimg_name, mit=mask_iter, wl=write_lightcurve, lcf=og_lc_name,
-                                      wti=write_thresholdimg, tif=og_thresholdimg_name, olc=og_lc_name, lc=lc_path, 
-                                      oti=og_thresholdimg_name, ti=threshold_path, omi=og_maskimg_name, mi=maskimg_path)
+            cmd = flaregti_cmd.format(d=temp_dir, lef="temp_{oi}_evt_pth".format(oi=obs_id), ef=evt_list_file,
+                                      pimi=pimin, pima=pimax, mpimi=mask_pimin, mpima=mask_pimax, xmi=xmin, xma=xmax,
+                                      ymi=ymin, yma=ymax, gs=gridsize, bs=binsize, dl=detml, tb=timebin,
+                                      ss=source_size, sl=source_like, fr=fov_radius, t=threshold, mt=max_threshold,
+                                      wm=write_mask, m=og_maskimg_name, mit=mask_iter, wl=write_lightcurve,
+                                      lcf=og_lc_name, wti=write_thresholdimg, tif=og_thresholdimg_name,
+                                      olc=og_lc_name, lc=lc_path, oti=og_thresholdimg_name, ti=threshold_path,
+                                      omi=og_maskimg_name, mi=maskimg_path)
 
             # Now store the bash command, the path, and extra info in the dictionaries
             miss_cmds[miss.name][obs_id] = cmd
@@ -316,4 +327,5 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
     # This is just used for populating a progress bar during the process run
     process_message = 'Finding flares in observations'
 
-    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout, esass_in_docker
+    return (miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress,
+            timeout, esass_in_docker)

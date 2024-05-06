@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/04/2023, 15:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 09:50. Copyright (c) The Contributors
+
 import glob
 import os.path
 from functools import wraps
@@ -17,6 +18,7 @@ from daxa.archive.base import Archive
 from daxa.config import SASERROR_LIST, SASWARNING_LIST
 from daxa.exceptions import NoXMMMissionsError
 from daxa.process._backend_check import find_sas
+from daxa.process.general import create_dirs
 
 ALLOWED_XMM_MISSIONS = ['xmm_pointed', 'xmm_slew']
 
@@ -52,21 +54,9 @@ def _sas_process_setup(obs_archive: Archive) -> Version:
         raise NotImplementedError("This process has not yet been implemented/tested for slew "
                                   "XMM observations.")
 
+    # This bit creates the storage directories for XMM missions
     for miss in xmm_miss:
-        # We make sure that the archive directory has folders to store the processed XMM data that will eventually
-        #  be created by most functions that call this _sas_process_setup function
-        for obs_id in miss.filtered_obs_ids:
-            stor_dir = obs_archive.get_processed_data_path(miss, obs_id)
-            if not os.path.exists(stor_dir):
-                os.makedirs(stor_dir)
-
-        # We also ensure that an overall directory for failed processing observations exists - this will give
-        #  observation directories which have no useful data in (i.e. they do not have a successful final
-        #  processing step) somewhere to be copied to (see daxa.process._cleanup._last_process).
-        # This is the overall path, there might not ever be anything in it, so we don't pre-make ObsID sub-directories
-        fail_proc_dir = obs_archive.get_failed_data_path(miss, None).format(oi='')[:-1]
-        if not os.path.exists(fail_proc_dir):
-            os.makedirs(fail_proc_dir)
+        create_dirs(obs_archive, miss.name)
 
     return sas_vers
 
@@ -402,6 +392,9 @@ def sas_call(sas_func):
         #  added to the observation_summaries property of the archive
         if run_odf_sum_parse:
             obs_archive.observation_summaries = parsed_obs_info
+
+        # We automatically save after every process run
+        obs_archive.save()
 
     return wrapper
 

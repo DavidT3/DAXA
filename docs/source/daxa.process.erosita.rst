@@ -1,4 +1,4 @@
-process.xmm
+process.erosita
 ===========
 
 process.erosita.assemble

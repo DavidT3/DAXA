@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/10/2023, 20:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 10:27. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -54,9 +54,11 @@ class INTEGRALPointed(BaseMission):
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
         pass either a single string value or a list of strings. They may include JEMX1, JEMX2, ISGRI, PICsIT, and
         SPI (the default is JEMX1, JEMX2, and ISGRI). OMC is not supported by DAXA.
+    :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+        state of a previously defined mission (the same filters having been applied etc.)
     """
 
-    def __init__(self, insts: Union[List[str], str] = None):
+    def __init__(self, insts: Union[List[str], str] = None, save_file_path: str = None):
         """
         The mission class for pointed observations by the INTErnational Gamma-Ray Astrophysics Laboratory
         (INTEGRAL); i.e. observations taken when the spacecraft isn't slewing, and is not in an engineering
@@ -71,6 +73,8 @@ class INTEGRALPointed(BaseMission):
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
             pass either a single string value or a list of strings. They may include JEMX1, JEMX2, ISGRI, PICsIT, and
             SPI (the default is JEMX1, JEMX2, and ISGRI). OMC is not supported by DAXA.
+        :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+            state of a previously defined mission (the same filters having been applied etc.)
         """
         super().__init__()
 
@@ -107,6 +111,10 @@ class INTEGRALPointed(BaseMission):
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
+
+        # We now will read in the previous state, if there is one to be read in.
+        if save_file_path is not None:
+            self._load_state(save_file_path)
 
     @property
     def name(self) -> str:
@@ -470,7 +478,7 @@ class INTEGRALPointed(BaseMission):
 
         return None
 
-    def download(self, num_cores: int = NUM_CORES):
+    def download(self, num_cores: int = NUM_CORES, download_products: bool = True):
         """
         A method to acquire and download the pointed INTEGRAL data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
@@ -483,6 +491,8 @@ class INTEGRALPointed(BaseMission):
         :param int num_cores: The number of cores that can be used to parallelise downloading the data. Default is
             the value of NUM_CORES, specified in the configuration file, or if that hasn't been set then 90%
             of the cores available on the current machine.
+        :param bool download_products: PRESENT FOR COMPATIBILITY WITH OTHER DAXA TASKS - the INTEGRAL archive does
+            not provide pre-processed products for download.
         """
 
         if not self.filtered_obs_info['proprietary_usable'].all():
@@ -497,6 +507,10 @@ class INTEGRALPointed(BaseMission):
             os.makedirs(self.top_level_path + self.name + '_raw')
         # Grabs the raw data storage path
         stor_dir = self.raw_data_path
+
+        # This INTEGRAL mission currently only supports the downloading of raw data, they don't store anything
+        #  else in their online archive so far as I can tell
+        self._download_type = 'raw'
 
         # A very unsophisticated way of checking whether raw data have been downloaded before (see issue #30)
         #  If not all data have been downloaded there are also secondary checks on an ObsID by ObsID basis in
@@ -618,3 +632,24 @@ class INTEGRALPointed(BaseMission):
         raise NotImplementedError("The check_process_obs method has not yet been implemented for INTEGRALPointed, as "
                                   "we need to see what detailed information are available once processing downloaded "
                                   "data has begun.")
+
+    def ident_to_obsid(self, ident: str):
+        """
+        A slightly unusual abstract method which will allow each mission convert a unique identifier being used
+        in the processing steps to the ObsID (as these unique identifiers will contain the ObsID). This is necessary
+        because XMM, for instance, has processing steps that act on whole ObsIDs (e.g. cifbuild), and processing steps
+        that act on individual sub-exposures of instruments of ObsIDs, so the ID could be '0201903501M1S001'.
+
+        Implemented as an abstract method because the unique identifier style may well be different for different
+        missions - many will just always be the ObsID, but we want to be able to have low level control.
+
+        This method should never need to be triggered by the user, as it will be called automatically when detailed
+        observation information becomes available to the Archive.
+
+        :param str ident: The unique identifier used in a particular processing step.
+        """
+        # raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
+        #                           "clear to me what form the unique identifiers will take once we start processing"
+        #                           "{n} data ourselves.".format(n=self.pretty_name))
+        # INTEGRAL ObsIDs (or rather science window IDs) are always 12 digits, so we just retrieve the first 12
+        return ident[:12]
