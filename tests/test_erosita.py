@@ -141,21 +141,21 @@ class TesteROSITACalPV(unittest.TestCase):
     def test_filter_on_positions_one_pos(self):
         # Testing for one RA and DEC input as a list
         self.defaults.filter_on_positions([129.55, 1.50])
-        self.assertEqual(self.defaults.filtered_obs_ids, ['300007'])
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008']))
 
     def test_filter_on_positions_mult_pos(self):
         # Testing for multiple RA and DECs input as nested list
         self.defaults.filter_on_positions([[129.55, 1.50], [133.86, 1.5]])
-        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008']))
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008', '300009']))
 
     def test_filter_on_positions_skycoord(self):
         self.defaults.filter_on_positions(SkyCoord(129.55, 1.50, unit=u.deg, frame=FK5))
-        self.assertEqual(self.defaults.filtered_obs_ids, ['300007'])
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008']))
 
     def test_filter_on_positions_skycoord_alt_frame(self):
         # Testing for one RA and DEC input as a skycoord
         self.defaults.filter_on_positions(SkyCoord(224.415, 24.303, unit=u.deg, frame=Galactic))
-        self.assertEqual(self.defaults.filtered_obs_ids, ['300007'])
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008']))
     
     def test_filter_on_positions_return(self):
         # Testing correct df is returned
@@ -163,7 +163,7 @@ class TesteROSITACalPV(unittest.TestCase):
         self.assertTrue(isinstance(ret_val, pd.DataFrame))
         self.assertEqual(float(ret_val['pos_ra'][0]), 129.55)
         self.assertAlmostEqual(float(ret_val['pos_dec'][0]), 1.5)
-        self.assertEqual(ret_val['ObsIDs'][0], '300007')
+        self.assertEqual(ret_val['ObsIDs'][0], '300007,300008')
 
     def test_filter_on_positions_sd_quantity(self):
         # check search distance is working when input as a quantity
@@ -409,7 +409,7 @@ class TesteROSITACalPV(unittest.TestCase):
             mock_listdir.return_value = ['fm00_300004_020_EventList_c001.fits',
                                          'fm00_300004_020_EventList_c001_if123.fits']
             
-            result = self.defaults.get_evlist_path_from_obs('300004')
+            result = self.defaults.get_evt_list_path(obs_id='300004')
 
         self.assertEqual(result, 'test_data/erosita_calpv_raw/300004/fm00_300004_020_EventList_c001.fits')
     
@@ -428,7 +428,7 @@ class TesteROSITACalPV_download(unittest.TestCase):
         self.mock_dir_frmt = patch.object(eROSITACalPV, '_directory_formatting').start()
         self.mock_inst_filt = patch.object(eROSITACalPV, '_inst_filtering').start()
         self.mock_down_call = patch.object(eROSITACalPV, '_download_call').start()
-        self.mock_get_evlist = patch.object(eROSITACalPV, 'get_evlist_path_from_obs').start()
+        self.mock_get_evlist = patch.object(eROSITACalPV, 'get_evt_list_path').start()
 
         self.mock_tqdm = patch('daxa.mission.erosita.tqdm').start()
         self.mock_Pool = patch('daxa.mission.erosita.Pool').start()
@@ -598,7 +598,7 @@ class TesteRASS1DEDownload(unittest.TestCase):
         self.tm1 = eRASS1DE(insts='TM1')
 
         self.mock_download_call = patch.object(eRASS1DE, '_download_call').start()
-        self.mock_get_evlist_from_obs = patch.object(eRASS1DE, 'get_evlist_path_from_obs').start()
+        self.mock_get_evlist_from_obs = patch.object(eRASS1DE, 'get_evt_list_path').start()
         self.mock_inst_filter = patch.object(eRASS1DE, '_inst_filtering').start()
 
         self.mock_session = patch('daxa.mission.erosita.requests.Session').start()
