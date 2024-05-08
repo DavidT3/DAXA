@@ -101,12 +101,6 @@ class eROSITACalPV(BaseMission):
         # Call the name property to set up the name and pretty name attributes
         self.name
 
-        # Runs the method which fetches information on all available RASS observations and stores that
-        #  information in the all_obs_info property
-        self._fetch_obs_info()
-        # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
-        #  column of all_obs_info, rather than the initial None value
-        self.reset_filter()
 
         # We now will read in the previous state, if there is one to be read in.
         if save_file_path is not None:
@@ -307,7 +301,9 @@ class eROSITACalPV(BaseMission):
         :return: A list of field names.
         :rtype: List[str]
         """
-        return self._miss_poss_fields
+        # _miss_poss_fields returns all the field_name column of EROSITA_CALPV_INFO
+        # so set() is used to remove duplicate field names where obs_ids have the same field name
+        return list(set(self._miss_poss_fields))
     
     @property
     def all_mission_field_types(self) -> List[str]:
@@ -341,7 +337,8 @@ class eROSITACalPV(BaseMission):
             be processed into the archive.
         """
         self._chos_fields = self._check_chos_fields(new_fields)
-    
+
+    # Then define user-facing methods
     def _fetch_obs_info(self):
         """
         This method uses the hard coded csv file to pull information on all eROSITACalPV observations.
@@ -399,11 +396,12 @@ class eROSITACalPV(BaseMission):
         bad_fields = [f for f in fields if f not in poss_alt_field_names and f not in self._miss_poss_fields
                       and f not in self._miss_poss_field_types and f != 'CRAB']
         if len(bad_fields) != 0:
-            raise ValueError("Some field names or field types {bf} are not associated with this mission, please "
+            raise ValueError("Some field names or field types: {bf} are not associated with this mission, please "
                              "choose from the following fields; {gf} or field types; "
                              "{gft}".format(bf=",".join(bad_fields),
-                                            gf=",".join(self._miss_poss_fields),
-                                            gft=",".join(self._miss_poss_field_types)))
+                                            gf=",".join(list(set(self._miss_poss_fields))),
+                                            gft=",".join(self.all_mission_field_types)))
+        
 
         # Extracting the alt_fields from fields
         alt_fields = [field for field in fields if field in poss_alt_field_names]
@@ -1246,13 +1244,12 @@ class eRASS1DE(BaseMission):
         #  as the user can specify the version (and as we want to use the latest version if they didn't) we need to
         #  see what is available
         vers = list(set([td.split('_')[-1].replace('/', '') for td in top_data]))
-
         if pipeline_version is not None and pipeline_version not in vers:
             raise ValueError("The specified pipeline version ({p}) is not available for "
                              "{oi}".format(p=pipeline_version, oi=obs_id))
         else:
             pipeline_version = vers[np.argmax([int(pv) for pv in vers])]
-
+        
         # Final check that the online archive directory that we're pointing at does actually contain the data
         #  directories we expect it too. Every mission I've implemented I seem to have done this in a slightly
         #  different way, but as eROSITA is an active project things are more liable to change and I think this
@@ -1288,7 +1285,6 @@ class eRASS1DE(BaseMission):
             # Finally we strip anything that doesn't match the file pattern defined by whether the user wants
             #  pre-generated products or not
             to_down = [f for patt in down_patt for f in all_files if patt in f]
-
             # Now we cycle through the files and download them
             for down_file in to_down:
                 down_url = cur_url + down_file

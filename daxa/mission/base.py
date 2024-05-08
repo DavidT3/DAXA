@@ -1289,7 +1289,16 @@ class BaseMission(metaclass=ABCMeta):
 
         # Checks to see if a list/array of coordinates has been passed, in which case we convert it to a
         #  SkyCoord (or a SkyCoord catalogue).
-        if isinstance(positions, (list, np.ndarray)):
+        # Firstly checking if it is a nested list or a list
+        if isinstance(positions, list):
+            if all(isinstance(i, list) for i in positions):
+                # Then it is a nested list
+                positions = SkyCoord(positions, unit=u.deg, frame=self.coord_frame)
+            else:
+                # Then it is one position in a list
+                positions = SkyCoord(positions[0], positions[1], unit=u.deg, frame=self.coord_frame)
+
+        if isinstance(positions, np.ndarray):
             positions = SkyCoord(positions, unit=u.deg, frame=self.coord_frame)
         # If the input was already a SkyCoord, we should make sure that it is in the same frame as the current
         #  mission's observation position information (honestly probably doesn't make that much of a difference, but
@@ -1753,7 +1762,7 @@ class BaseMission(metaclass=ABCMeta):
         """
         # Check that the start and end information is in the same style
         if isinstance(start_datetimes, datetime) != isinstance(end_datetimes, datetime):
-            raise TypeError("The 'start_datetimes' and 'start_datetimes' must either both be individual datetimes, or "
+            raise TypeError("The 'start_datetimes' and 'end_datetimes' must either both be individual datetimes, or "
                             "arrays of datetimes (for multiple positions).")
         # Need to make sure we make the datetimes iterable - even if there is only one position/time period being
         #  investigated
@@ -1766,13 +1775,28 @@ class BaseMission(metaclass=ABCMeta):
         if isinstance(positions, list) and not isinstance(positions[0], (list, SkyCoord)):
             positions = [positions]
 
+        # Checking if positions is scalar or not. This is checked for np.ndarrays, lists and skycoord differently
+        if isinstance(positions, SkyCoord):
+            pos_scalar = positions.isscalar
+        
+        elif isinstance(positions, list):
+            if len(positions) == 1:
+                pos_scalar = True
+            
+            else:
+                pos_scalar = False
+        
+        else:
+            # In this indent positions should be an np.ndarray, which should be not scalar
+            pos_scalar = False
+
         # We initially check that the arguments we will be basing the time filtering on are of the right length,
         #  i.e. every position must have corresponding start and end times
-        if not positions.isscalar and (len(start_datetimes) != len(positions) or len(end_datetimes) != len(positions)):
+        if not pos_scalar and (len(start_datetimes) != len(positions) or len(end_datetimes) != len(positions)):
             raise ValueError("The 'start_datetimes' (len={sd}) and 'end_datetimes' (len={ed}) arguments must have one "
                              "entry per position specified by the 'positions' (len={p}) "
                              "arguments.".format(sd=len(start_datetimes), ed=len(end_datetimes), p=len(positions)))
-        elif positions.isscalar and (len(start_datetimes) != 1 or len(end_datetimes) != 1):
+        elif pos_scalar and (len(start_datetimes) != 1 or len(end_datetimes) != 1):
             raise ValueError("The 'start_datetimes' (len={sd}) and 'end_datetimes' (len={ed}) arguments must be "
                              "scalar if a single position is passed".format(sd=len(start_datetimes),
                                                                             ed=len(end_datetimes)))
