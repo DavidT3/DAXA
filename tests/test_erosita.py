@@ -281,7 +281,7 @@ class TesteROSITACalPV(unittest.TestCase):
     
     def test_fov(self):
         with self.assertWarns(UserWarning):
-            self.assertEqual(self.defaults.fov, Quantity(30, 'arcmin'))
+            self.assertEqual(self.defaults.fov, Quantity(4.5, 'deg'))
     
     # there is a special case with ones obsid that was input wrong on the erosita website
     # checking that a warning is raised and the correct obsids are returned instead
