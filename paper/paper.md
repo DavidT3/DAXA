@@ -162,7 +162,7 @@ the complementary extended SAS (eSAS; @esascook) packages, which allow us to pro
 complex, multi-step, processes that are required to prepare raw _XMM_ data for scientific use. The analogous 
 _eROSITA_ Science Analysis Software System (eSASS; @erosita) must also be mentioned, as it provides the tools needed to
 reduce and prepare _eROSITA_ data. In this vein we must also acknowledge the HEASoft package, which is almost 
-ubiquitous in X-ray data analyses, and is used by both SAS and eSASS.
+ubiquitous in X-ray data analyses, and is used by both SAS and eSASS. 
 
 Another related software package is the other module in our open-source X-ray astronomy ecosystem, X-ray: Generate 
 and Analyse ([Xga]{.smallcaps}; @xga). It has none of the same features as [Daxa]{.smallcaps}, as it exists to 
