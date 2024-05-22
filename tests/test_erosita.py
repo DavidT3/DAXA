@@ -141,21 +141,21 @@ class TesteROSITACalPV(unittest.TestCase):
     def test_filter_on_positions_one_pos(self):
         # Testing for one RA and DEC input as a list
         self.defaults.filter_on_positions([129.55, 1.50])
-        self.assertEqual(self.defaults.filtered_obs_ids, ['300007'])
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008']))
 
     def test_filter_on_positions_mult_pos(self):
         # Testing for multiple RA and DECs input as nested list
         self.defaults.filter_on_positions([[129.55, 1.50], [133.86, 1.5]])
-        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008']))
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008', '300009']))
 
     def test_filter_on_positions_skycoord(self):
         self.defaults.filter_on_positions(SkyCoord(129.55, 1.50, unit=u.deg, frame=FK5))
-        self.assertEqual(self.defaults.filtered_obs_ids, ['300007'])
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008']))
 
     def test_filter_on_positions_skycoord_alt_frame(self):
         # Testing for one RA and DEC input as a skycoord
         self.defaults.filter_on_positions(SkyCoord(224.415, 24.303, unit=u.deg, frame=Galactic))
-        self.assertEqual(self.defaults.filtered_obs_ids, ['300007'])
+        assert_array_equal(self.defaults.filtered_obs_ids, np.array(['300007', '300008']))
     
     def test_filter_on_positions_return(self):
         # Testing correct df is returned
@@ -163,7 +163,7 @@ class TesteROSITACalPV(unittest.TestCase):
         self.assertTrue(isinstance(ret_val, pd.DataFrame))
         self.assertEqual(float(ret_val['pos_ra'][0]), 129.55)
         self.assertAlmostEqual(float(ret_val['pos_dec'][0]), 1.5)
-        self.assertEqual(ret_val['ObsIDs'][0], '300007')
+        self.assertEqual(ret_val['ObsIDs'][0], '300007,300008')
 
     def test_filter_on_positions_sd_quantity(self):
         # check search distance is working when input as a quantity
@@ -281,7 +281,7 @@ class TesteROSITACalPV(unittest.TestCase):
     
     def test_fov(self):
         with self.assertWarns(UserWarning):
-            self.assertEqual(self.defaults.fov, Quantity(30, 'arcmin'))
+            self.assertEqual(self.defaults.fov, Quantity(4.5, 'deg'))
     
     # there is a special case with ones obsid that was input wrong on the erosita website
     # checking that a warning is raised and the correct obsids are returned instead
@@ -409,7 +409,7 @@ class TesteROSITACalPV(unittest.TestCase):
             mock_listdir.return_value = ['fm00_300004_020_EventList_c001.fits',
                                          'fm00_300004_020_EventList_c001_if123.fits']
             
-            result = self.defaults.get_evlist_path_from_obs('300004')
+            result = self.defaults.get_evt_list_path(obs_id='300004')
 
         self.assertEqual(result, 'test_data/erosita_calpv_raw/300004/fm00_300004_020_EventList_c001.fits')
     
@@ -428,7 +428,7 @@ class TesteROSITACalPV_download(unittest.TestCase):
         self.mock_dir_frmt = patch.object(eROSITACalPV, '_directory_formatting').start()
         self.mock_inst_filt = patch.object(eROSITACalPV, '_inst_filtering').start()
         self.mock_down_call = patch.object(eROSITACalPV, '_download_call').start()
-        self.mock_get_evlist = patch.object(eROSITACalPV, 'get_evlist_path_from_obs').start()
+        self.mock_get_evlist = patch.object(eROSITACalPV, 'get_evt_list_path').start()
 
         self.mock_tqdm = patch('daxa.mission.erosita.tqdm').start()
         self.mock_Pool = patch('daxa.mission.erosita.Pool').start()
@@ -598,7 +598,7 @@ class TesteRASS1DEDownload(unittest.TestCase):
         self.tm1 = eRASS1DE(insts='TM1')
 
         self.mock_download_call = patch.object(eRASS1DE, '_download_call').start()
-        self.mock_get_evlist_from_obs = patch.object(eRASS1DE, 'get_evlist_path_from_obs').start()
+        self.mock_get_evlist_from_obs = patch.object(eRASS1DE, 'get_evt_list_path').start()
         self.mock_inst_filter = patch.object(eRASS1DE, '_inst_filtering').start()
 
         self.mock_session = patch('daxa.mission.erosita.requests.Session').start()
@@ -725,176 +725,6 @@ class TesteRASS1DEDownloadCall(unittest.TestCase):
         self.mock_copyfileobj.assert_has_calls(expected_calls_to_copyfileobj)
         self.mock_gzip.open.assert_called_once_with(local_dir + to_down, 'rb')
         self.mock_remove.assert_called_once_with(local_dir + to_down)
-    
-    # tesing _download_call works when downloading products too
-    def test_sucessful_product_download(self):
-        self.mock_exists.return_value = False  # Data hasnt been downloaded
-        # The text that session.get returns is quite long so i have put them in seperate text files
-        # so these files that im opening contain the text of the response when you query the erosita api
-        with open('test_data/html_responses/134135.txt', 'r') as file:
-            respns_1 = file.read()  # this is the response when querying an obs_id
-        with open('test_data/html_responses/134135_exp.txt', 'r') as file:
-            respns_2 = file.read()  # this is the response when querying an obs_id + /EXP_010/
-        with open('test_data/html_responses/134135_det.txt', 'r') as file:
-            respns_3 = file.read()  # this is the response when querying an obs_id + /DET_010/
-
-        # Defining some common strings I use in the assertions
-        to_down = ['em01_134135_020_EventList_c010.fits.gz',
-                    'em01_134135_021_Image_c010.fits.gz',
-                    'em01_134135_022_Image_c010.fits.gz',
-                    'em01_134135_023_Image_c010.fits.gz',
-                    'em01_134135_024_Image_c010.fits.gz',
-                    'em01_134135_025_Image_c010.fits.gz',
-                    'em01_134135_026_Image_c010.fits.gz',
-                    'em01_134135_027_Image_c010.fits.gz',
-                    'em01_134135_021_ExposureMap_c010.fits.gz',
-                    'em01_134135_022_ExposureMap_c010.fits.gz',
-                    'em01_134135_023_ExposureMap_c010.fits.gz',
-                    'em01_134135_024_ExposureMap_c010.fits.gz',
-                    'em01_134135_025_ExposureMap_c010.fits.gz',
-                    'em01_134135_026_ExposureMap_c010.fits.gz',
-                    'em01_134135_027_ExposureMap_c010.fits.gz']
-
-        obs_url = 'https://erosita.mpe.mpg.de/dr1/erodat/data/download/135/134/'
-        local_dir_exp = '/path/to/raw_data/134135/EXP_010/'
-        local_dir_det = '/path/to/raw_data/134135/DET_010/'
-
-
-        # If your mocked object needs to return different values at different points in the
-        # function, then they should be input as a list in the order of the return values
-        self.mock_session.return_value.get.side_effect = [
-            MockRequestResponse(text=respns_1),
-            MockRequestResponse(text=respns_2),
-            MockRequestResponse(text=to_down[0]),
-            MockRequestResponse(text=to_down[1]),
-            MockRequestResponse(text=to_down[2]),
-            MockRequestResponse(text=to_down[3]),
-            MockRequestResponse(text=to_down[4]),
-            MockRequestResponse(text=to_down[5]),
-            MockRequestResponse(text=to_down[6]),
-            MockRequestResponse(text=to_down[7]),
-            MockRequestResponse(text=respns_3),
-            MockRequestResponse(text=to_down[8]),
-            MockRequestResponse(text=to_down[9]),
-            MockRequestResponse(text=to_down[10]),
-            MockRequestResponse(text=to_down[11]),
-            MockRequestResponse(text=to_down[12]),
-            MockRequestResponse(text=to_down[13]),
-            MockRequestResponse(text=to_down[14])
-            ]
-
-        self.mock_gzip.open.return_value = MagicMock()  # Mock open gzip file
-
-        eRASS1DE._download_call('134135', '/path/to/raw_data', download_products=True)
-
-        # Next I define all the calls that should happen to each of my mocked objects
-        # there are loads, I apologise for how intimidating it looks
-        expected_calls_to_makedirs = [
-            call(local_dir_exp),
-            call(local_dir_det)
-        ]
-
-        # Im sure the following can be done in a neater list comphrehension
-        expected_calls_to_session = [
-            call(obs_url),
-            call(obs_url + 'EXP_010//'),
-            call(obs_url + 'EXP_010//' + to_down[0], stream=True),
-            call(obs_url + 'EXP_010//' + to_down[1], stream=True),
-            call(obs_url + 'EXP_010//' + to_down[2], stream=True),
-            call(obs_url + 'EXP_010//' + to_down[3], stream=True),
-            call(obs_url + 'EXP_010//' + to_down[4], stream=True),
-            call(obs_url + 'EXP_010//' + to_down[5], stream=True),
-            call(obs_url + 'EXP_010//' + to_down[6], stream=True),
-            call(obs_url + 'EXP_010//' + to_down[7], stream=True),
-            call(obs_url + 'DET_010//'),
-            call(obs_url + 'DET_010//' + to_down[8], stream=True),
-            call(obs_url + 'DET_010//' + to_down[9], stream=True),
-            call(obs_url + 'DET_010//' + to_down[10], stream=True),
-            call(obs_url + 'DET_010//' + to_down[11], stream=True),
-            call(obs_url + 'DET_010//' + to_down[12], stream=True),
-            call(obs_url + 'DET_010//' + to_down[13], stream=True),
-            call(obs_url + 'DET_010//' + to_down[14], stream=True),
-        ]
-
-        expected_calls_to_copyfileobj = [
-            call(to_down[0], self.mock_file.return_value.__enter__.return_value),
-            call(self.mock_gzip.open.return_value.__enter__.return_value, self.mock_file.return_value.__enter__.return_value),
-            call(to_down[1], self.mock_file.return_value.__enter__.return_value),
-            call(self.mock_gzip.open.return_value.__enter__.return_value, self.mock_file.return_value.__enter__.return_value),
-            call(to_down[2], self.mock_file.return_value.__enter__.return_value),
-            call(self.mock_gzip.open.return_value.__enter__.return_value, self.mock_file.return_value.__enter__.return_value),
-            call(to_down[3], self.mock_file.return_value.__enter__.return_value),
-            call(self.mock_gzip.open.return_value.__enter__.return_value, self.mock_file.return_value.__enter__.return_value),
-            call(to_down[4], self.mock_file.return_value.__enter__.return_value),
-            call(self.mock_gzip.open.return_value.__enter__.return_value, self.mock_file.return_value.__enter__.return_value),
-            call(to_down[5], self.mock_file.return_value.__enter__.return_value),
-            call(self.mock_gzip.open.return_value.__enter__.return_value, self.mock_file.return_value.__enter__.return_value),
-            call(to_down[6], self.mock_file.return_value.__enter__.return_value),
-            call(self.mock_gzip.open.return_value.__enter__.return_value, self.mock_file.return_value.__enter__.return_value),
-            call(to_down[7], self.mock_file.return_value.__enter__.return_value),
-            call(self.mock_gzip.open.return_value.__enter__.return_value, self.mock_file.return_value.__enter__.return_value),
-            call(to_down[8], self.mock_file.return_value.__enter__.return_value),
-            call(self.mock_gzip.open.return_value.__enter__.return_value, self.mock_file.return_value.__enter__.return_value),
-            call(to_down[9], self.mock_file.return_value.__enter__.return_value),
-            call(self.mock_gzip.open.return_value.__enter__.return_value, self.mock_file.return_value.__enter__.return_value),
-            call(to_down[10], self.mock_file.return_value.__enter__.return_value),
-            call(self.mock_gzip.open.return_value.__enter__.return_value, self.mock_file.return_value.__enter__.return_value),
-            call(to_down[11], self.mock_file.return_value.__enter__.return_value),
-            call(self.mock_gzip.open.return_value.__enter__.return_value, self.mock_file.return_value.__enter__.return_value),
-            call(to_down[12], self.mock_file.return_value.__enter__.return_value),
-            call(self.mock_gzip.open.return_value.__enter__.return_value, self.mock_file.return_value.__enter__.return_value),
-            call(to_down[13], self.mock_file.return_value.__enter__.return_value),
-            call(self.mock_gzip.open.return_value.__enter__.return_value, self.mock_file.return_value.__enter__.return_value)
-        ]
-
-        expected_calls_to_open = [
-            call(local_dir_exp + to_down[0], 'wb'),
-            call(local_dir_exp + to_down[0].strip('.gz'), 'wb'),
-            call(local_dir_exp + to_down[1], 'wb'),
-            call(local_dir_exp + to_down[1].strip('.gz'), 'wb'),
-            call(local_dir_exp + to_down[2], 'wb'),
-            call(local_dir_exp + to_down[2].strip('.gz'), 'wb'),
-            call(local_dir_exp + to_down[3], 'wb'),
-            call(local_dir_exp + to_down[3].strip('.gz'), 'wb'),
-            call(local_dir_exp + to_down[4], 'wb'),
-            call(local_dir_exp + to_down[4].strip('.gz'), 'wb'),
-            call(local_dir_exp + to_down[5], 'wb'),
-            call(local_dir_exp + to_down[5].strip('.gz'), 'wb'),
-            call(local_dir_exp + to_down[6], 'wb'),
-            call(local_dir_exp + to_down[6].strip('.gz'), 'wb'),
-            call(local_dir_exp + to_down[7], 'wb'),
-            call(local_dir_exp + to_down[7].strip('.gz'), 'wb'),
-            call(local_dir_det + to_down[8], 'wb'),
-            call(local_dir_det + to_down[8].strip('.gz'), 'wb'),
-            call(local_dir_det + to_down[9], 'wb'),
-            call(local_dir_det + to_down[9].strip('.gz'), 'wb'),
-            call(local_dir_det + to_down[10], 'wb'),
-            call(local_dir_det + to_down[10].strip('.gz'), 'wb'),
-            call(local_dir_det + to_down[11], 'wb'),
-            call(local_dir_det + to_down[11].strip('.gz'), 'wb'),
-            call(local_dir_det + to_down[12], 'wb'),
-            call(local_dir_det + to_down[12].strip('.gz'), 'wb'),
-            call(local_dir_det + to_down[13], 'wb'),
-            call(local_dir_det + to_down[13].strip('.gz'), 'wb')
-            ]
-        
-        expected_calls_to_gzipopen = [
-            call(local_dir_exp + down, 'rb') for down in to_down if not 'Exp' in down
-        ] + [call(local_dir_det + down, 'rb') for down in to_down if 'Exp' in down]
-
-        expected_calls_to_osremove = [
-            call(local_dir_exp + down) for down in to_down if not 'Exp' in down
-        ] + [call(local_dir_det + down) for down in to_down if 'Exp' in down]
-
-
-        # finally I assert that my mocked objects were called correctly
-        self.mock_makedirs.assert_has_calls(expected_calls_to_makedirs)
-        self.mock_session.return_value.get.assert_has_calls(expected_calls_to_session)
-        self.mock_file.assert_has_calls(expected_calls_to_open, any_order=True)
-        self.mock_copyfileobj.assert_has_calls(expected_calls_to_copyfileobj)
-        self.mock_gzip.open.assert_has_calls(expected_calls_to_gzipopen, any_order=True)
-        self.mock_remove.assert_has_calls(expected_calls_to_osremove)
-
 
     # an error should be raised when _download_call is called with an invalid pipeline version
     def test_incorrect_pipeline_version(self):

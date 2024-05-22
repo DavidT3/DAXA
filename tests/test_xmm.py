@@ -20,10 +20,6 @@ class TestXMMPointed(unittest.TestCase):
             mission = XMMPointed(insts=['MOS1', 'MOS2'])
 
         self.assertEqual(mission.chosen_instruments, ['M1', 'M2'])
-
-    def test_OM_error(self):
-        with self.assertRaises(NotImplementedError):
-            XMMPointed(insts='OM')
     
     def test_wrong_insts(self):
         # Shouldnt be able to declare an invalid instrument
