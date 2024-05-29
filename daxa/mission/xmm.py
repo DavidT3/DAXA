@@ -260,6 +260,11 @@ class XMMPointed(BaseMission):
         :return: A None value.
         :rtype: Any
         """
+        # The astroquery module will only download to the cwd, so need to change to where we want the data downloaded
+        og_dir = os.getcwd()  # storing this info so we can return here after the download is done
+        dest_dir_path = filename.replace(observation_id, '')  # this is a static method, so I cant use self.raw_data_path
+        os.chdir(dest_dir_path)  # changing to where we want the file downloaded
+        
         # Another part of the very unsophisticated method I currently have for checking whether a raw XMM data
         #  download has already been performed (see issue #30). If the ObsID directory doesn't exist then
         #  an attempt will be made.
@@ -269,14 +274,15 @@ class XMMPointed(BaseMission):
 
             # It is possible for a download to be interrupted and the incomplete tar.gz to hand around and cause
             #  us problems, so we check and delete the offending tar.gz if it is present
-            if os.path.exists(filename+'.tar.gz'):
+            if os.path.exists(filename +'.tar.gz'):
                 os.remove(filename+'.tar.gz')
 
             try:
                 # Download the requested data
                 AQXMMNewton.download_data(observation_id=observation_id, level=level, filename=filename)
             except Exception as err:
-                raise Exception("{oi} data failed to download.").with_traceback(err.__traceback__)
+                os.chdir(og_dir)  # if an error is raised we still need to return to the original dir
+                raise Exception("{oi} data failed to download.".format(oi=observation_id)).with_traceback(err.__traceback__)
             # As the above function downloads the data as compressed tars, we need to decompress them
             with tarfile.open(filename+'.tar.gz') as zippo:
                 zippo.extractall(filename)
@@ -291,6 +297,7 @@ class XMMPointed(BaseMission):
             # Checks to make sure there is only one tarred file (otherwise I don't know what this will be
             #  unzipping)
             if len(rel_tars) == 0 or len(rel_tars) > 1:
+                os.chdir(og_dir)  # if an error is raised we still need to return to the original dir
                 raise ValueError("Multiple tarred ODFs were detected for {o}, and cannot be "
                                  "unpacked".format(o=observation_id))
 
@@ -313,6 +320,8 @@ class XMMPointed(BaseMission):
                           and f.split(observation_id+'_')[1][:2] not in to_keep]
             for for_removal in throw_away:
                 os.remove(untar_path + for_removal)
+
+        os.chdir(og_dir)  # returning to the original working dir
 
         return None
 
