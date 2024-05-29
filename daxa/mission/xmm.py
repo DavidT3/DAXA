@@ -274,7 +274,7 @@ class XMMPointed(BaseMission):
 
             # It is possible for a download to be interrupted and the incomplete tar.gz to hand around and cause
             #  us problems, so we check and delete the offending tar.gz if it is present
-            if os.path.exists(filename +'.tar.gz'):
+            if os.path.exists(filename+'.tar.gz'):
                 os.remove(filename+'.tar.gz')
 
             try:
