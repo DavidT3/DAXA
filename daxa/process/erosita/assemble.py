@@ -81,7 +81,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
 
     # Checking user's lo_en and hi_en inputs are in the valid energy range for eROSITA
     if (lo_en < Quantity(200, 'eV') or lo_en > Quantity(10000, 'eV')) or \
-        (hi_en < Quantity(200, 'eV') or hi_en > Quantity(10000, 'eV')):
+       (hi_en < Quantity(200, 'eV') or hi_en > Quantity(10000, 'eV')):
         raise ValueError("The lo_en and hi_en value must be between 0.2 keV and 10 keV.")
 
     # The eSASS software has a bug when the user specifies the flag inversion parameter
@@ -89,7 +89,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
     if flag != 0xc0000000:
         raise NotImplementedError("Daxa currently doesn't support flag selection due to a bug "
                                   "within the eSASS software.")
-    if flag_invert != True:
+    if not flag_invert:
         raise NotImplementedError("Daxa currently doesn't support flag selection due to a bug "
                                   "within the eSASS software.")
         
