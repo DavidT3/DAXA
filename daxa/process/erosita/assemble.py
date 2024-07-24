@@ -12,7 +12,6 @@ from daxa.exceptions import NoDependencyProcessError
 from daxa.process._cleanup import _last_process
 from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call, _is_valid_flag
 
-
 @_last_process(ALLOWED_EROSITA_MISSIONS, 1)
 @esass_call
 def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV'),
@@ -85,15 +84,15 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
         (hi_en < Quantity(200, 'eV') or hi_en > Quantity(10000, 'eV')):
         raise ValueError("The lo_en and hi_en value must be between 0.2 keV and 10 keV.")
 
-    # Checking user has input the flag parameter as an integer
-    if not isinstance(flag, int):
-        raise TypeError("The flag parameter must be an integer.")
-
-    # Checking the input is a valid hexidecimal number
-    if not _is_valid_flag(flag):
-        raise ValueError("{} is not a valid eSASS flag, see the eROSITA website"
-                         " for valid flags.".format(flag))
-    
+    # The eSASS software has a bug when the user specifies the flag inversion parameter
+    # so for the moment we wont let the user chose the flag
+    if flag != 0xc0000000:
+        raise NotImplementedError("Daxa currently doesn't support flag selection due to a bug "
+                                  "within the eSASS software.")
+    if flag_invert != True:
+        raise NotImplementedError("Daxa currently doesn't support flag selection due to a bug "
+                                  "within the eSASS software.")
+        
     # Checking user has input flag_invert as a boolean
     if not isinstance(flag_invert, bool):
         raise TypeError("The flag_invert parameter must be a boolean.")
@@ -109,13 +108,9 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
     # Converting the parameters to the correct format for the esass command
     lo_en = lo_en.value
     hi_en = hi_en.value
-    if flag_invert:
-        flag_invert = 'yes'
-    else:
-        flag_invert = 'no'
 
     # Define the form of the evtool command that must be run for event list filtering to take place
-    evtool_cmd = "cd {d}; evtool eventfiles={ef} gti=FLAREGTI outfile={of} flag={f} flag_invert={fi} pattern={p} " \
+    evtool_cmd = "cd {d}; evtool eventfiles={ef} gti=FLAREGTI outfile={of} pattern={p} " \
                  "emin={emin} emax={emax}; mv {of} {fep}; rm -r {d}"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
