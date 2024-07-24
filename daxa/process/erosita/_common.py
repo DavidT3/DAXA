@@ -103,6 +103,27 @@ def _is_valid_flag(flag):
         # If the flag is invalid then a ValueError is thrown
         return False
 
+def _make_flagsel_keword(flag, invert=True):
+    """
+    This function is to be called within the cleaned_evt_lists function to generate the correct
+    header keyword based on the user's input eSASS flag. This is a workaround a bug within eSASS.
+
+    :param flag Flag: The user input of the flag parameter in the cleaned_evt_list function.
+        This may be in hexidecimal or its equivalent decimal format, both are accepted by evtool.
+    """
+
+    #TODO I think that the pattern selection might effect the FLAGSEL keyword - need to check
+
+    if invert:
+        value = _eSASS_Flag(flag).value
+    
+    else:
+        # This returns a flag containing all the bits apart from those specified by the user
+        value = ~_eSASS_Flag(flag).value
+
+    return value
+
+
 
 def _esass_process_setup(obs_archive: Archive) -> bool:
     """
