@@ -89,6 +89,15 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
     if flag != 0xc0000000:
         raise NotImplementedError("Daxa currently doesn't support flag selection due to a bug "
                                   "within the eSASS software.")
+    # Checking user has input the flag parameter as an integer
+    #if not isinstance(flag, int):
+    #    raise TypeError("The flag parameter must be an integer.")
+
+    # Checking the input is a valid hexidecimal number
+    #if not _is_valid_flag(flag):
+    #    raise ValueError("{} is not a valid eSASS flag, see the eROSITA website"
+    #                    " for valid flags.".format(flag))
+    
     if not flag_invert:
         raise NotImplementedError("Daxa currently doesn't support flag selection due to a bug "
                                   "within the eSASS software.")
@@ -109,9 +118,16 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
     lo_en = lo_en.value
     hi_en = hi_en.value
 
+    #if flag_invert:
+    #    flag_invert = 'yes'
+    #else:
+    #    flag_invert = 'no'
+
     # Define the form of the evtool command that must be run for event list filtering to take place
     evtool_cmd = "cd {d}; evtool eventfiles={ef} gti=FLAREGTI outfile={of} pattern={p} " \
                  "emin={emin} emax={emax}; mv {of} {fep}; rm -r {d}"
+    #evtool_cmd = "cd {d}; evtool eventfiles={ef} gti=FLAREGTI outfile={of} pattern={p} " \
+    #             " flag={f} flag_invert={fi} emin={emin} emax={emax}; mv {of} {fep}; rm -r {d}"
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
