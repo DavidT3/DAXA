@@ -82,9 +82,20 @@ ability to download pre-processed data from many of the data archives.
 ![A flowchart giving a brief overview of the [Daxa]{.smallcaps} workflow. \label{fig:flowchart}](figures/daxa_paper_flowchart.pdf)
 
 Almost every sub-field of astronomy, astrophysics, and cosmology has benefited significantly from X-ray coverage over 
-the last three decades; calibrating weak-lensing mis-centering for galaxy cluster studies [@miscen], identifying 
-**...COME UP WITH MORE IMPORTANT X-RAY PAPERS**, even probing the irradiation of exoplanets [@xrayirrexo]. The 
-current workhorse X-ray observatories (_XMM_-Newton [@xmm] and _Chandra_; other telescopes are 
+the last three decades; the observation of X-ray cavities in galaxy clusters caused by central AGN helped to shed light 
+on the cooling-flow problem [@cavities]; further X-ray observations allowed for the measurement of spatially-resolved 
+entropy in hundreds of clusters, dramatically increasing understanding of cooling and heating processes in their 
+cores; the discovery of quasi-periodic eruptions (QPE) from active galactic nuclei (AGN) [@qpedisco] provided a 
+high-energy view of young stars and insights into their magnetic fields and stellar winds [@coup, @xest], calibrating 
+weak-lensing mis-centering for galaxy cluster studies of cosmology [@miscen], and even probing the irradiation of 
+exoplanets [@xrayirrexo]. Indeed, X-ray telescopes have created many entirely new fields of study; they provided the 
+first evidence of X-ray sources outside the solar system [@theOG]; discovered the first widely accepted black hole, and 
+launched the study of supernova remnants [@cygx1andfriends]; and found ionized, volume-filling, gas within the Coma 
+galaxy cluster (the intra-cluster medium) [@clusterdisco], with the implication that clusters were more than 
+collections of galaxies. These non-exhaustive lists make evident the importance of X-ray observations to the 
+astronomy, astrophysics, and cosmology communities.
+
+The current workhorse X-ray observatories (_XMM_-Newton [@xmm] and _Chandra_; other telescopes are 
 online but are more specialised) are ageing however, with _Chandra_ in particular experiencing a decline in 
 low-energy sensitivity that might limit science cases; these missions cannot last forever. If we are to enter an 
 X-ray desert, where the astrophysics community has only limited access to new X-ray observations from specialised 
