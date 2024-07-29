@@ -37,13 +37,14 @@ authors:
   - name: Toby Wallage
     affiliation: 2
   - name: Ray Wang
+    orcid: 0000-0003-2102-8646
     affiliation: 1
 affiliations:
   - name: Department of Physics and Astronomy, Michigan State University, East Lansing, Michigan, USA
     index: 1
   - name: Department of Physics and Astronomy, University of Sussex, Brighton, UK
     index: 2
-date: 26 July 2024
+date: 29 July 2024
 bibliography: paper.bib
 ---
 
