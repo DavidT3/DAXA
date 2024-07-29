@@ -87,7 +87,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
     # The eSASS software has a bug when the user specifies the flag inversion parameter
     # so for the moment we wont let the user chose the flag
     if flag != 0xc0000000:
-        raise NotImplementedError("Daxa currently doesn't support flag selection due to a bug "
+        raise NotImplementedError("DAXA currently doesn't support flag selection due to a bug "
                                   "within the eSASS software.")
     # Checking user has input the flag parameter as an integer
     #if not isinstance(flag, int):
@@ -99,7 +99,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
     #                    " for valid flags.".format(flag))
     
     if not flag_invert:
-        raise NotImplementedError("Daxa currently doesn't support flag selection due to a bug "
+        raise NotImplementedError("DAXA currently doesn't support flag selection due to a bug "
                                   "within the eSASS software.")
         
     # Checking user has input flag_invert as a boolean
