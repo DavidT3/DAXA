@@ -48,6 +48,13 @@ cd DAXA
 python -m pip install --editable .
 ```
 
+We also provide a Conda lock file in the conda_envs directory (see [conda-lock GitHub README](https://github.com/conda/conda-lock/blob/main/README.md) on how to install conda-lock), which can be used to create an Anaconda environment with the required dependencies:
+
+```shell script
+conda-lock install -n <YOUR ENVIRONMENT NAME GOES HERE>
+conda activate <YOUR ENVIRONMENT NAME GOES HERE>
+```
+
 # Which missions are supported?
 
 _DAXA is still in a relatively early stage of development, and as such the support for local re-processing is 
