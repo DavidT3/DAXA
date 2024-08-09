@@ -1,0 +1,22 @@
+name: daxa
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - astropy[version='>=6.1.2']
+  - astroquery[version='>=0.4.7']
+  - beautifulsoup4[version='>=4.12.3']
+  - exceptiongroup[version='>=1.0.4']
+  - numpy[version='>=1.26.4']
+  - packaging[version='>=24.1']
+  - pandas[version='>=2.2.2']
+  - regions[version='>=0.9']
+  - requests[version='>=2.32.3']
+  - scipy[version='>=1.14.0']
+  - setuptools[version='>=71.0.4']
+  - tabulate[version='>=0.9.0']
+  - tqdm[version='>=4.66.4']
+  - unlzw3[version='>=0.2.2']
+  - versioneer[version='>=0.29']
+prefix: /Users/dt237/software/anaconda3/envs/new_daxa_dev
