@@ -1,23 +1,27 @@
-import unittest
-from unittest.mock import patch, MagicMock, call
-import numpy as np
-from numpy.testing import assert_array_equal
-import os
-from io import BytesIO
-import shutil
-from datetime import datetime
+#  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
+#  Last modified by David J Turner (turne540@msu.edu) 14/08/2024, 09:16. Copyright (c) The Contributors
 
-import pandas as pd
-from astropy.units import Quantity
+import os
+import shutil
+import unittest
+from datetime import datetime
+from io import BytesIO
+from unittest.mock import patch, MagicMock, call
+
 import astropy.units as u
-from astropy.io import fits
+import numpy as np
+import pandas as pd
 from astropy.coordinates import SkyCoord, FK5, Galactic
 from astropy.coordinates.name_resolve import NameResolveError
+from astropy.io import fits
+from astropy.units import Quantity
+from numpy.testing import assert_array_equal
 
-from daxa.mission import eRASS1DE, eROSITACalPV
 from daxa import OUTPUT
 from daxa.config import EROSITA_CALPV_INFO
 from daxa.exceptions import NoObsAfterFilterError, IllegalSourceType, NoTargetSourceTypeInfo
+from daxa.mission import eRASS1DE, eROSITACalPV
+
 
 # This class is used to mock a request response, it is used in the unittests of eRASS1DE._download_call()
 class MockRequestResponse(object):
@@ -161,7 +165,7 @@ class TesteROSITACalPV(unittest.TestCase):
         # Testing correct df is returned
         ret_val = self.defaults.filter_on_positions([129.55, 1.50], return_pos_obs_info=True)
         self.assertTrue(isinstance(ret_val, pd.DataFrame))
-        self.assertEqual(float(ret_val['pos_ra'][0]), 129.55)
+        self.assertAlmostEqual(float(ret_val['pos_ra'][0]), 129.55)
         self.assertAlmostEqual(float(ret_val['pos_dec'][0]), 1.5)
         self.assertEqual(ret_val['ObsIDs'][0], '300007,300008')
 
