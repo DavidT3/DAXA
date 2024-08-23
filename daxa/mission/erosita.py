@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/08/2024, 10:58. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/08/2024, 11:42. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -1139,7 +1139,7 @@ class eRASS1DE(BaseMission):
         # Converting the start and end time columns to datetimes
         erass_dr1_copy['start'] = pd.to_datetime(erass_dr1_copy['start'], utc=False, format="%Y-%m-%dT%H:%M:%S",
                                                  errors='coerce')
-        erass_dr1_copy['end'] = pd.to_datetime(erass_dr1_copy['end'], utc=False, format="%Y-%m-%dT%H:s%M:%S",
+        erass_dr1_copy['end'] = pd.to_datetime(erass_dr1_copy['end'], utc=False, format="%Y-%m-%dT%H:%M:%S",
                                                errors='coerce')
         erass_dr1_copy['duration'] = erass_dr1_copy['end'] - erass_dr1_copy['start']
 
