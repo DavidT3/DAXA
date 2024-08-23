@@ -1,6 +1,6 @@
 
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 09/08/2024, 15:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/08/2024, 16:43. Copyright (c) The Contributors
 
 # This file helps to compute a version number in source trees obtained from
 # git-archive tarball (such as those provided by githubs download-from-tag
@@ -287,7 +287,7 @@ def git_pieces_from_vcs(
     # if there isn't one, this yields HEX[-dirty] (no NUM)
     describe_out, rc = runner(GITS, [
         "describe", "--tags", "--dirty", "--always", "--long",
-        "--match", f"{tag_prefix}[[:digit:]]*"
+        "--match", f"v*"  # TODO THIS IS WHERE I BODGED IT
     ], cwd=root)
     # --long was added in git-1.5.5
     if describe_out is None:
