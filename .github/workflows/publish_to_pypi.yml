@@ -30,16 +30,16 @@ jobs:
 
     # This job has several steps
     steps:
-      # Checks out the master branch and then activates a relatively recent version of Python
+      # Checks out the master branch and then activates a recent version of Python
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
-
+        fetch-tags: true
 
     - name: Setup the Python install
       uses: actions/setup-python@v4
       with:
-        python-version: 3.8
+        python-version: 3.12
 
     # The next two chunks set up PIP properly and build the module
     - name: Install pypa/build
@@ -50,12 +50,12 @@ jobs:
         --user
 
     # This SHOULD set the correct version in setup.py, taken from the tag
-    - name: Extract tag name
-      id: tag
-      run: echo ::set-output name=TAG_NAME::$(echo $GITHUB_REF | cut -d / -f 3)
-    - name: Update version in setup.py
-      run: >-
-        sed -i "s/{{VERSION_PLACEHOLDER}}/${{ steps.tag.outputs.TAG_NAME }}/g" setup.py
+#    - name: Extract tag name
+#      id: tag
+#      run: echo ::set-output name=TAG_NAME::$(echo $GITHUB_REF | cut -d / -f 3)
+#    - name: Update version in setup.py
+#      run: >-
+#        sed -i "s/{{VERSION_PLACEHOLDER}}/${{ steps.tag.outputs.TAG_NAME }}/g" setup.py
 
     - name: Build a binary wheel and source tarball
       run: >-
