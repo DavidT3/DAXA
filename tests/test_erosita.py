@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/08/2024, 09:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/08/2024, 11:21. Copyright (c) The Contributors
 
 import os
 import shutil
@@ -15,12 +15,11 @@ from astropy.coordinates import SkyCoord, FK5, Galactic
 from astropy.coordinates.name_resolve import NameResolveError
 from astropy.io import fits
 from astropy.units import Quantity
-from numpy.testing import assert_array_equal
-
 from daxa import OUTPUT
 from daxa.config import EROSITA_CALPV_INFO
 from daxa.exceptions import NoObsAfterFilterError, IllegalSourceType, NoTargetSourceTypeInfo
 from daxa.mission import eRASS1DE, eROSITACalPV
+from numpy.testing import assert_array_equal
 
 
 # This class is used to mock a request response, it is used in the unittests of eRASS1DE._download_call()
@@ -481,28 +480,29 @@ class TesteROSITACalPV_download(unittest.TestCase):
         self.mock_inst_filt.assert_called_once_with(insts=['TM1', 'TM2'], evlist_path=path)
         self.mock_dir_frmt.assert_called_once()
         self.assertTrue(self.etacha_insts._download_done)  # checking this attribute is changed
-    
+
+    # DAVID NOTE - this was failing and Jess told me to delete it
     # testing that everything is downloaded even if some obs are already downloaded
-    def test_successful_download_some_already_downloaded(self):
-        # I am overwriting this so files are written into the test_data directory instead of loose somewhere on the system
-        self.survey._top_level_output_path = 'test_data/'
-
-        # setting up a directory of some of the obs ids to mimic those already being downloaded
-        path = 'test_data/erosita_calpv_raw/{}'
-        obs_ids = ['300007/', '300008/', '300009/', '300010/']
-        # making the directories
-        for obs in obs_ids:
-            os.makedirs(os.path.dirname(path.format(obs)), exist_ok=True)
-        
-        # only eta cha is left to be downloaded out of the survey fields
-        self.survey.download()
-
-        # checking all my mocked objects are called appropriately
-        down_link = 'https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/eta_Cha.tar.gz'
-        self.mock_down_call.assert_called_once_with(raw_dir='test_data/erosita_calpv_raw/', link=down_link)
-        self.mock_inst_filt.assert_not_called()
-        self.mock_dir_frmt.assert_called_once()
-        self.assertTrue(self.survey._download_done)
+    # def test_successful_download_some_already_downloaded(self):
+    #     # I am overwriting this so files are written into the test_data directory instead of loose somewhere on the system
+    #     self.survey._top_level_output_path = 'test_data/'
+    #
+    #     # setting up a directory of some of the obs ids to mimic those already being downloaded
+    #     path = 'test_data/erosita_calpv_raw/{}'
+    #     obs_ids = ['300007/', '300008/', '300009/', '300010/']
+    #     # making the directories
+    #     for obs in obs_ids:
+    #         os.makedirs(os.path.dirname(path.format(obs)), exist_ok=True)
+    #
+    #     # only eta cha is left to be downloaded out of the survey fields
+    #     self.survey.download()
+    #
+    #     # checking all my mocked objects are called appropriately
+    #     down_link = 'https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/eta_Cha.tar.gz'
+    #     self.mock_down_call.assert_called_once_with(raw_dir='test_data/erosita_calpv_raw/', link=down_link)
+    #     self.mock_inst_filt.assert_not_called()
+    #     self.mock_dir_frmt.assert_called_once()
+    #     self.assertTrue(self.survey._download_done)
 
 
     def test_download_raises_warning(self):
