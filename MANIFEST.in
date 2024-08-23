@@ -1,3 +1,3 @@
-# include versioneer.py
-# include daxa/_version.py
+include versioneer.py
+include daxa/_version.py
 recursive-include daxa/files *

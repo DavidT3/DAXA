@@ -3,3 +3,4 @@
 *.ipynb linguist-vendored
 *.pl linguist-vendored
 *.SAS linguist-vendored
+daxa/_version.py export-subst

@@ -31,6 +31,12 @@ Alternatively you could use the 'editable' option (this has replaced running set
     cd DAXA
     python -m pip install --editable .
 
+We also provide a Conda lock file in the conda_envs directory (see `conda-lock GitHub README <https://github.com/conda/conda-lock/README.md>`_ on how to install conda-lock), which can be used to create an Anaconda environment with the required dependencies:
+
+.. code-block::
+    conda-lock install -n <YOUR ENVIRONMENT NAME GOES HERE>
+    conda activate <YOUR ENVIRONMENT NAME GOES HERE>
+
 Once installed, you can import DAXA in the usual way (the command will be lowercase, 'import daxa'). If you have stayed
 in the DAXA directory cloned from GitHub and opened Python there then it is possible to 'import DAXA', but that will behave
 very strangely as it hasn't actually imported the module, but the directory.

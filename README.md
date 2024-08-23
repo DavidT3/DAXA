@@ -3,6 +3,7 @@
 </p>
 
 [![Documentation Status](https://readthedocs.org/projects/daxa/badge/?version=latest)](https://daxa.readthedocs.io/en/latest/?badge=latest)
+[![Coverage Percentage](https://raw.githubusercontent.com/DavidT3/DAXA/master/tests/coverage_badge.svg)](https://raw.githubusercontent.com/DavidT3/DAXA/master/tests/coverage_badge.svg)
 
 # What is Democratising Archival X-ray Astronomy (DAXA)?
 
@@ -46,6 +47,13 @@ Alternatively you could use the 'editable' option (this has replaced running set
 git clone https://github.com/DavidT3/DAXA
 cd DAXA
 python -m pip install --editable .
+```
+
+We also provide a Conda lock file in the conda_envs directory (see [conda-lock GitHub README](https://github.com/conda/conda-lock/blob/main/README.md) on how to install conda-lock), which can be used to create an Anaconda environment with the required dependencies:
+
+```shell script
+conda-lock install -n <YOUR ENVIRONMENT NAME GOES HERE>
+conda activate <YOUR ENVIRONMENT NAME GOES HERE>
 ```
 
 # Which missions are supported?
