@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 10:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/08/2024, 11:15. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -17,11 +17,10 @@ from astropy.table import Table
 from astropy.time import Time
 from astropy.units import Quantity
 from bs4 import BeautifulSoup
-from tqdm import tqdm
-
 from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
+from tqdm import tqdm
 
 # Don't require that the event_cl directory be present (cleaned events), as we download the level-1 data (event_uf)
 #  and process it ourselves - THAT IS UNLESS the user wants to download the processed data
@@ -283,8 +282,15 @@ class NuSTARPointed(BaseMission):
         #  conversion routine quite upset (0 is not valid) - as such I convert only those which aren't 0, then
         #  replace the 0 valued ones with Pandas' Not a Time (NaT) value
         val_end_dates = rel_nustar['proprietary_end_date'] != 0
+
+        # We make a copy of the proprietary end dates to work on because pandas will soon not allow us to set what
+        #  was previously an int column with a datetime - so we need to convert it but retain the original
+        #  data as well
+        prop_end_datas = rel_nustar['proprietary_end_date'].copy()
+        # Convert the original column to datetime
+        rel_nustar['proprietary_end_date'] = rel_nustar['proprietary_end_date'].astype('datetime64[ns]')
         rel_nustar.loc[val_end_dates, 'proprietary_end_date'] = pd.to_datetime(
-            Time(rel_nustar.loc[val_end_dates, 'proprietary_end_date'].values, format='mjd', scale='utc').to_datetime())
+            Time(prop_end_datas[val_end_dates.values], format='mjd', scale='utc').to_datetime())
         rel_nustar.loc[~val_end_dates, 'proprietary_end_date'] = pd.NaT
         # Grab the current date and time
         today = datetime.today()
