@@ -8,7 +8,8 @@ from subprocess import Popen, PIPE
 from packaging.version import Version
 from shutil import which 
 
-from ..exceptions import SASNotFoundError, SASVersionError, eSASSNotFoundError, BackendSoftwareError
+from ..exceptions import SASNotFoundError, SASVersionError, eSASSNotFoundError, BackendSoftwareError, CIAONotFoundError
+
 
 def find_sas() -> Version:
     """
@@ -46,6 +47,7 @@ def find_sas() -> Version:
                               "later.".format(v=sas_version))
 
     return sas_version
+
 
 def find_esass() -> bool:
     """
@@ -103,6 +105,7 @@ def find_esass() -> bool:
         # If docker and esass are both present, use esass outside of docker 
         return False
 
+
 def find_lcurve() -> Version:
     """
     This function searches for the lcurve tool (makes light curves) and raises an exception of it cannot be found
@@ -124,3 +127,59 @@ def find_lcurve() -> Version:
                                    "found, you may not have installed HEASoft with the right software selections.")
         
     return lc_version
+
+
+def find_ciao() -> Version:
+    """
+    This function checks to ensure the presence of CIAO on the host system, and it will be called before performing
+    any data processing/reduction of Chandra data. An error will be thrown if CIAO (or CalDB Chandra calibration 
+    files) cannot be identified on the system.
+
+    :return: The CIAO version that has been successfully identified, as an instance of the 'packaging'
+        module's Version class.
+    :rtype: Version
+    """
+    # Here we check to see whether SAS is installed (along with all the necessary paths)
+
+    ciao_out, ciao_err = Popen("ciaover", stdout=PIPE, stderr=PIPE, shell=True).communicate()
+    
+    ciao_out = ciao_out.decode("UTF-8")
+    ciao_err = ciao_err.decode("UTF-8")
+    #ciao_version = Version(ciao_out.decode("UTF-8").strip("]\n").split('-')[-1])
+
+    ciao_verson = None
+    if "ciaover: command not found" in ciao_err:
+        raise CIAONotFoundError("We cannot identify CIAO on your system, so the Chandra data cannot be processed")
+        ciao_version = None
+        ciao_avail = False
+
+    print(ciao_out)
+    print(ciao_err)
+
+
+
+    # sas_version = None
+    # if "SAS_DIR" not in os.environ:
+    #     raise SASNotFoundError("SAS_DIR environment variable is not set, unable to verify SAS is present on "
+    #                            "system, as such XMM raw data (ODFs) cannot be processed.")
+    #     sas_version = None
+    #     sas_avail = False
+    # else:
+    #     sas_out, sas_err = Popen("sas --version", stdout=PIPE, stderr=PIPE, shell=True).communicate()
+    #     sas_version = Version(sas_out.decode("UTF-8").strip("]\n").split('-')[-1])
+    #     sas_avail = True
+
+    # # This checks for the CCF path, which is required to use cifbuild, which is required to do basically
+    # #  anything with SAS (including processing ODFs)
+    # if sas_avail and "SAS_CCFPATH" not in os.environ:
+    #     raise SASNotFoundError("SAS_CCFPATH environment variable is not set, this is required to generate "
+    #                            "calibration files. As such XMM raw data (ODFs) cannot be processed.")
+    # elif sas_avail and not os.path.exists(os.environ['SAS_CCFPATH']):
+    #     raise SASNotFoundError("Though the SAS_CCFPATH environment variable is set, the path ({p}) does not "
+    #                            "exist".format(p=os.environ['SAS_CCFPATH']))
+
+    # if sas_version < Version('14.0.0'):
+    #     raise SASVersionError("The detected SAS installation is of too low a version ({v}), please use version 14 or "
+    #                           "later.".format(v=sas_version))
+
+    return sas_version
