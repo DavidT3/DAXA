@@ -467,3 +467,21 @@ class PreProcessedNotAvailableError(Exception):
         else:
             return 'PreProcessedNotAvailableError has been raised'
 
+class CIAONotFoundError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if the CIAO software for Chandra can not be found on the system.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'CIAONotFoundError has been raised'
