@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/08/2024, 11:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/08/2024, 11:02. Copyright (c) The Contributors
 
 import json
 import os
@@ -932,7 +932,7 @@ class Archive:
                 # If the region is a string and we've got here, then that file must exist so we use the regions
                 #  module to read it in (assuming it is in a DS9 format).
                 elif isinstance(cur_reg, str):
-                    cur_reg = read_ds9(cur_reg)
+                    cur_reg = Regions.read(cur_reg, format='ds9').regions
                 # If none of the above were triggered then something weird has been passed and we throw a (hopefully)
                 #  useful diagnostic error
                 elif not isinstance(cur_reg, list):
