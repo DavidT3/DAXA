@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 17:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/08/2024, 11:00. Copyright (c) The Contributors
 
 import json
 import os
@@ -10,7 +10,7 @@ from warnings import warn
 import numpy as np
 from astropy import wcs
 from astropy.units import Quantity
-from regions import Region, read_ds9, PixelRegion, write_ds9
+from regions import Region, PixelRegion, Regions
 
 from daxa import BaseMission, OUTPUT
 from daxa.exceptions import DuplicateMissionError, NoProcessingError, NoDependencyProcessError, \
@@ -333,7 +333,9 @@ class Archive:
                     for oi in self[miss_name].filtered_obs_ids:
                         cur_reg_path = gen_reg_path.format(oi=oi)
                         if os.path.exists(cur_reg_path):
-                            self._source_regions[miss_name][oi] = read_ds9(cur_reg_path)
+                            # This reads in the region file, and the 'regions' property here is used to turn
+                            #  it into a list of Region objects rather than a Regions object
+                            self._source_regions[miss_name][oi] = Regions.read(cur_reg_path, format='ds9').regions
 
         # We save at the end of this if it is a new archive, just to set the ball rolling and get the file created.
         if self._new_arch:
