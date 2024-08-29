@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 17:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/08/2024, 11:03. Copyright (c) The Contributors
 
 import json
 import os
@@ -10,7 +10,7 @@ from warnings import warn
 import numpy as np
 from astropy import wcs
 from astropy.units import Quantity
-from regions import Region, read_ds9, PixelRegion, write_ds9
+from regions import Region, PixelRegion, Regions
 
 from daxa import BaseMission, OUTPUT
 from daxa.exceptions import DuplicateMissionError, NoProcessingError, NoDependencyProcessError, \
@@ -333,7 +333,9 @@ class Archive:
                     for oi in self[miss_name].filtered_obs_ids:
                         cur_reg_path = gen_reg_path.format(oi=oi)
                         if os.path.exists(cur_reg_path):
-                            self._source_regions[miss_name][oi] = read_ds9(cur_reg_path)
+                            # This reads in the region file, and the 'regions' property here is used to turn
+                            #  it into a list of Region objects rather than a Regions object
+                            self._source_regions[miss_name][oi] = Regions.read(cur_reg_path, format='ds9').regions
 
         # We save at the end of this if it is a new archive, just to set the ball rolling and get the file created.
         if self._new_arch:
@@ -930,7 +932,7 @@ class Archive:
                 # If the region is a string and we've got here, then that file must exist so we use the regions
                 #  module to read it in (assuming it is in a DS9 format).
                 elif isinstance(cur_reg, str):
-                    cur_reg = read_ds9(cur_reg)
+                    cur_reg = Regions.read(cur_reg, format='ds9').regions
                 # If none of the above were triggered then something weird has been passed and we throw a (hopefully)
                 #  useful diagnostic error
                 elif not isinstance(cur_reg, list):
@@ -990,7 +992,7 @@ class Archive:
                     os.makedirs(stor_dir)
                 # This will overwrite an existing file so no need to delete one that might already be there if the
                 #  ObsID has already had regions added to it
-                write_ds9(fin_reg, stor_dir + 'source_regions_radec.reg')
+                Regions(fin_reg).write(stor_dir + 'source_regions_radec.reg', format='ds9')
 
     # Then define internal methods
     def _check_process_inputs(self, process_vals: Tuple[str, dict]) -> Tuple[str, dict]:
