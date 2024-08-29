@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/08/2024, 11:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 29/08/2024, 11:03. Copyright (c) The Contributors
 
 import json
 import os
@@ -992,7 +992,7 @@ class Archive:
                     os.makedirs(stor_dir)
                 # This will overwrite an existing file so no need to delete one that might already be there if the
                 #  ObsID has already had regions added to it
-                write_ds9(fin_reg, stor_dir + 'source_regions_radec.reg')
+                Regions(fin_reg).write(stor_dir + 'source_regions_radec.reg', format='ds9')
 
     # Then define internal methods
     def _check_process_inputs(self, process_vals: Tuple[str, dict]) -> Tuple[str, dict]:
