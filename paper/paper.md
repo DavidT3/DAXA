@@ -82,8 +82,7 @@ packages (some of which can be difficult for new users), allowing for the easy p
 scientifically useful state; this is in addition to the ability to download pre-processed data from many of the 
 data archives.
 
-![A flowchart giving a brief overview of the [Daxa]{.smallcaps} workflow. We indicate the different ways that 
-[Daxa]{.smallcaps} can be used to access, process, and use archival X-ray data. \label{fig:flowchart}](figures/daxa_paper_flowchart.pdf)
+![A flowchart giving a brief overview of the [Daxa]{.smallcaps} workflow. We indicate the different ways that [Daxa]{.smallcaps} can be used to access, process, and use archival X-ray data. \label{fig:flowchart}](figures/daxa_paper_flowchart.pdf)
 
 Every sub-field of astronomy, astrophysics, and cosmology has benefited significantly from X-ray coverage over 
 the last three decades; the observation of X-ray cavities in galaxy clusters caused by central AGN helped to shed light 
