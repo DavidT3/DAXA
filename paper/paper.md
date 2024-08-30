@@ -40,7 +40,7 @@ authors:
     orcid: 0000-0003-2102-8646
     affiliation: 1
 affiliations:
-  - name: Department of Physics and Astronomy, Michigan State University, East Lansing, Michigan, USA<br>
+  - name: Department of Physics and Astronomy, Michigan State University, East Lansing, USA
     index: 1
   - name: Department of Physics and Astronomy, University of Sussex, Brighton, UK
     index: 2
