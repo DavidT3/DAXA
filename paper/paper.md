@@ -63,8 +63,6 @@ no new X-ray missions coming online, during the next decade, archival data will 
 enhanced access to those archives will be vital to the continuation of X-ray astronomy.
 
 # Statement of need
-[//]: # (; from in-solar-system objects, to )
-[//]: # (supernovae, to galaxies and galaxy clusters.)
 X-ray observations provide a powerful view of some of the most extreme processes in the Universe, and have had a 
 profound impact on our understanding of many types of astrophysical objects. As such, access to X-ray data should be 
 made as simple as possible, both for X-ray experts and non-specialists whose research benefits from a high-energy 
@@ -154,14 +152,8 @@ processing it in the same way; this renders making fully processed, and large, X
 of research unnecessary. This feature in particular can be used to further one of the tenets of open-source 
 science, reproducibility. 
 
-[//]: # (Any such change will be recorded in the archive history, and processed )
-
-[//]: # (observations version controlled, so that the data archive can have a specific version that refers to its exact state )
-
-[//]: # (at any given time; this version can be referred to in published work using the data archive.)
 
 # Existing software packages
-
 There are no direct analogues to our module, though we must acknowledge the many pieces of software (and data
 archives), that greatly helped the development of [Daxa]{.smallcaps}. Data access is made 
 possible primarily by the HEASARC data archive, though the Astroquery [@astroquery] package is also used. 
