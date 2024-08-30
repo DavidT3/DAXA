@@ -89,7 +89,7 @@ the last three decades; the observation of X-ray cavities in galaxy clusters cau
 on the cooling-flow problem [@cavities]; further X-ray observations allowed for the measurement of spatially-resolved 
 entropy in hundreds of clusters, dramatically increasing understanding of cooling and heating processes in their 
 cores; quasi-periodic eruptions (QPE) from active galactic nuclei (AGN) where discovered [@qpedisco]; the high-energy 
-view of young stars gave insights into their magnetic fields and stellar winds [@coup; @xest]; calibrating 
+view of young stars gave insights into their magnetic fields and stellar winds [@coup, @xest]; calibrating 
 mis-centering for galaxy cluster weak-lensing studies helped constrain cosmological parameters [@miscen]; and X-rays 
 even helped probe the irradiation of exoplanets [@xrayirrexo]. Indeed, X-ray telescopes have created many 
 entirely new fields of study; they provided the first evidence of X-ray sources outside the solar 
