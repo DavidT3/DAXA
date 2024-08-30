@@ -208,7 +208,6 @@ the quasars, and the data that [Daxa]{.smallcaps} identified and retrieved allow
 properties of these groups.
 
 # Future Work
-
 The most significant new features implemented in [Daxa]{.smallcaps} will be new mission classes added when new X-ray 
 telescope archives become available, or one of the existing missions that we have not yet implemented is added (for 
 instance _XMM_ observations taken whilst slewing). We will also seek to include support for more telescope-specific 
