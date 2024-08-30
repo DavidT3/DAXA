@@ -85,22 +85,23 @@ data archives.
 ![A flowchart giving a brief overview of the [Daxa]{.smallcaps} workflow. We indicate the different ways that 
 [Daxa]{.smallcaps} can be used to access, process, and use archival X-ray data. \label{fig:flowchart}](figures/daxa_paper_flowchart.pdf)
 
-Almost every sub-field of astronomy, astrophysics, and cosmology has benefited significantly from X-ray coverage over 
+Every sub-field of astronomy, astrophysics, and cosmology has benefited significantly from X-ray coverage over 
 the last three decades; the observation of X-ray cavities in galaxy clusters caused by central AGN helped to shed light 
 on the cooling-flow problem [@cavities]; further X-ray observations allowed for the measurement of spatially-resolved 
 entropy in hundreds of clusters, dramatically increasing understanding of cooling and heating processes in their 
-cores; the discovery of quasi-periodic eruptions (QPE) from active galactic nuclei (AGN) [@qpedisco] provided a 
-high-energy view of young stars and insights into their magnetic fields and stellar winds [@coup, @xest], calibrating 
-weak-lensing mis-centering for galaxy cluster studies of cosmology [@miscen], and even probing the irradiation of 
-exoplanets [@xrayirrexo]. Indeed, X-ray telescopes have created many entirely new fields of study; they provided the 
-first evidence of X-ray sources outside the solar system [@theOG]; discovered the first widely accepted black hole, and 
-launched the study of supernova remnants [@cygx1andfriends]; and found ionized, volume-filling, gas within the Coma 
-galaxy cluster (the intra-cluster medium) [@clusterdisco], with the implication that clusters were more than 
-collections of galaxies. These non-exhaustive lists make evident the importance of X-ray observations to the 
-astronomy, astrophysics, and cosmology communities.
+cores; quasi-periodic eruptions (QPE) from active galactic nuclei (AGN) where discovered [@qpedisco]; the high-energy 
+view of young stars gave insights into their magnetic fields and stellar winds [@coup; @xest]; calibrating 
+mis-centering for galaxy cluster weak-lensing studies helped constrain cosmological parameters [@miscen]; and X-rays 
+even helped probe the irradiation of exoplanets [@xrayirrexo]. Indeed, X-ray telescopes have created many 
+entirely new fields of study; they provided the first evidence of X-ray sources outside the solar 
+system [@theOG]; discovered the first widely accepted black hole, and launched the study of supernova 
+remnants [@cygx1andfriends]; and found ionized, volume-filling, gas within the Coma galaxy cluster (the intra-cluster 
+medium) [@clusterdisco], with the implication that clusters were more than collections of galaxies. These 
+non-exhaustive lists make evident the importance of X-ray observations to the astronomy, astrophysics, and cosmology 
+communities.
 
-The current workhorse X-ray observatories (_XMM_-Newton [@xmm] and _Chandra_; other telescopes are 
-online but are more specialised) are ageing however, with _Chandra_ in particular experiencing a decline in 
+The current workhorse X-ray observatories (_XMM_[@xmm] and _Chandra_; other telescopes are 
+online but are more specialised) are ageing, with _Chandra_ in particular experiencing a decline in 
 low-energy sensitivity that might limit science cases; these missions cannot last forever. If we are to enter an 
 X-ray desert, where the astrophysics community has only limited access to new X-ray observations from specialised 
 missions like _Swift_ [@swift], _NuSTAR_ [@nustar], and _XRISM_ [@xrism], then archival data (and serendipitous studies) 
@@ -111,16 +112,10 @@ are uniquely well suited for the kind of archival study facilitated by [Daxa]{.s
 they generally record the time, position, and energy of each individual photon impacting the detector (true for all 
 missions currently implemented in [Daxa]{.smallcaps}); this means that we can create images, lightcurves, and spectra 
 for any object detected within the field-of-view, even if it was not the target. With this software, we
-enable the maximum exploitation of existing X-ray archives, to traverse the X-ray desert and ensure that we 
+enable the maximum use of existing X-ray archives, to traverse the X-ray desert and ensure that we 
 are fully prepared for future X-ray telescopes such as _Athena_ [@athena] and _Lynx_ [@lynx]. Having easy access to the 
-whole history of X-ray observations of an object can provide extra context as to its astrophysics, and comes at no 
-extra cost.
-
-Finally, [Daxa]{.smallcaps} can be used to further one of the tenets of open-source science, reproducibility. Its 
-management features both allow the user to keep track of their dataset, but also to version control it. If more data
-become available, or existing data need to be reprocessed, then the version of the dataset can be automatically 
-updated. Research publications can thus reference an exact version number of a dataset, which can be reproduced without
-offering the whole dataset for download.
+whole history of X-ray observations of an object can provide extra context as to its astrophysics, and comes at little 
+extra cost. 
 
 [^*]: turne540@msu.edu
 
@@ -143,8 +138,8 @@ Once a set of relevant observations have been identified, for either a single mi
 [Daxa]{.smallcaps} data archive can be declared. This will automatically download the selected data from
 the various telescope archives, and proceeds to ingest and organise the data so that it can be managed (and if 
 necessary, updated) through the [Daxa]{.smallcaps} interface. We have also implemented user-friendly, multi-threaded, 
-data preparation and cleaning routines for some telescopes (_XMM_ and _eROSITA_ in particular, though this will 
-expand); fine control of the parameters that control these processes is retained, but default 
+data preparation and cleaning routines for some telescopes (_XMM_ and _eROSITA_ in particular, though more will be 
+added); fine control of the parameters that control these processes is retained, but default 
 behaviours can be used if the user is unfamiliar with the minutiae of X-ray data preparation. Another key benefit of
 reducing data with [Daxa]{.smallcaps} is the easy access to data logs through our interface, in case of 
 suspected problems during the reduction processes. The module is also capable of safely handling processing 
@@ -154,12 +149,17 @@ All of this information is retained permanently, not just while the initial [Dax
 running. Any [Daxa]{.smallcaps} archive can be loaded back in after the initial processing, once again providing access 
 to the stored logs, and processing information. At this point the archives can also be updated, either by searching 
 for new data from the existing missions, adding data from a different mission, or re-processing specific observations 
-to achieve more scientifically useful data. Any such change will be recorded in the archive history, and processed 
-observations version controlled, so that the data archive can have a specific version that refers to its exact state 
-at any given time; this version can be referred to in published work using the data archive. Each data archive is also 
-capable of creating a file that other [Daxa]{.smallcaps} users can import, and which will recreate the data archive by 
-downloading the same data, and processing it in the same way; this renders making fully processed, and large, X-ray 
-data files available with a piece of research unnecessary.
+to achieve more scientifically useful data. Each data archive is also capable of creating a file that 
+other [Daxa]{.smallcaps} users can import, and which will recreate the data archive by downloading the same data, and 
+processing it in the same way; this renders making fully processed, and large, X-ray data files available with a piece 
+of research unnecessary. This feature in particular can be used to further one of the tenets of open-source 
+science, reproducibility. 
+
+[//]: # (Any such change will be recorded in the archive history, and processed )
+
+[//]: # (observations version controlled, so that the data archive can have a specific version that refers to its exact state )
+
+[//]: # (at any given time; this version can be referred to in published work using the data archive.)
 
 # Existing software packages
 
@@ -171,17 +171,17 @@ filtering methods of mission classes in [Daxa]{.smallcaps} (though we provide sl
 that regard), and they provide Python SQL examples to access the data, but none of the data management and cleaning 
 functionality that we include. 
 
-Also worthy of mention are the various telescope-specific software packages that underpin [Daxa]{.smallcaps}'s ability
-to perform data preparation and cleaning. Particularly important are the _XMM_ Science Analysis System (SAS; @sas) and 
-the complementary extended SAS (eSAS; @esascook) packages, which allow us to provide simple Python interfaces to the
-complex, multi-step, processes that are required to prepare raw _XMM_ data for scientific use. The analogous 
-_eROSITA_ Science Analysis Software System (eSASS; @erosita) must also be mentioned, as it provides the tools needed to
-reduce and prepare _eROSITA_ data. In this vein we must also acknowledge the HEASoft package, which is almost 
-ubiquitous in X-ray data analyses, and is used by both SAS and eSASS. 
+[Daxa]{.smallcaps} also builds on the various telescope-specific software packages to perform data preparation and 
+cleaning. Particularly important are the _XMM_ Science Analysis System (SAS; @sas) and the complementary extended 
+SAS (eSAS; @esascook) packages, which allow us to provide simple Python interfaces to the complex, multi-step, processes 
+that are required to prepare raw _XMM_ data for scientific use. The analogous_eROSITA_ Science Analysis Software 
+System (eSASS; @erosita) must also be mentioned, as it provides the tools needed to reduce and prepare _eROSITA_ 
+data. In this vein we must also acknowledge the HEASoft package, which is almost ubiquitous in X-ray data 
+analyses, and is used by both SAS and eSASS. 
 
 Another related software package is the other module in our open-source X-ray astronomy ecosystem, X-ray: Generate 
 and Analyse ([Xga]{.smallcaps}; @xga). It has none of the same features as [Daxa]{.smallcaps}, as it exists to 
-analyse large sets of X-ray data, we created [Daxa]{.smallcaps} to create and manage the kind of dataset required for
+analyse large sets of X-ray data, but we created [Daxa]{.smallcaps} to build and manage the kind of dataset required for
 [Xga]{.smallcaps} to attain maximum usefulness (though such datasets do not _have_ to be analysed with 
 [Xga]{.smallcaps}). 
 
@@ -199,7 +199,7 @@ identify the relevant observations, download, and process them, as well as to or
 and make it easier for the dataset to be served to the X-ray community. Construction and administration of such 
 large, complicated, multi-mission datasets is rendered quick and easy.
 
-The X-ray Cluster Science (XCS; formerly known as the _XMM_ Cluster Survey) collaboration now uses [Daxa]{.smallcaps} to
+The X-ray Cluster Survey (XCS; formerly known as the _XMM_ Cluster Survey) collaboration now uses [Daxa]{.smallcaps} to
 create and manage their processed X-ray archive; particularly useful is [Daxa]{.smallcaps}'s support for telescopes 
 other than _XMM_, which has allowed the serendipitous science undertaken by XCS to expand to the use of different 
 telescopes. These telescopes are complementary to _XMM_, and also increase the sky coverage, which in turn increases
