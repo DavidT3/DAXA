@@ -40,7 +40,7 @@ authors:
     orcid: 0000-0003-2102-8646
     affiliation: 1
 affiliations:
-  - name: Department of Physics and Astronomy, Michigan State University, East Lansing, Michigan, 48824, USA
+  - name: Department of Physics and Astronomy,  Michigan State University,  East Lansing, Michigan, USA
     index: 1
   - name: Department of Physics and Astronomy, University of Sussex, Brighton, UK
     index: 2
@@ -203,9 +203,9 @@ packages are utilised, and will result in a comprehensive catalogue that is inva
 
 Finally, [Daxa]{.smallcaps} has been used to identify _XMM_ and _Chandra_ (alongside other telescopes, though they 
 play only a supporting role) observations of a series of galaxy groups that appear in the foreground of UV bright
-quasars [@ovigroups]. Absorption features that indicate the presence of Oxygen VI were identified in the spectra of several of 
-the quasars, and the data that [Daxa]{.smallcaps} identified and retrieved allowed for an exploration of the hot-gas
-properties of these groups.
+quasars [@ovigroups]. Absorption features that indicate the presence of Oxygen VI were identified in the spectra of 
+several of the quasars, and the data that [Daxa]{.smallcaps} identified and retrieved allowed for an exploration of 
+the hot-gas properties of these groups.
 
 # Future Work
 The most significant new features implemented in [Daxa]{.smallcaps} will be new mission classes added when new X-ray 
