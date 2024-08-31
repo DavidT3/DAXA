@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 11:38. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 31/08/2024, 11:32. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2331,6 +2331,18 @@ class BaseMission(metaclass=ABCMeta):
         with open(miss_file_path, 'w') as stateo:
             json_str = json.dumps(mission_data, indent=4)
             stateo.write(json_str)
+
+    def update(self):
+        """
+        This method is meant to update the selected observations of a mission which has been loaded back in from the
+        save state. The filtering operations from the saved state will be re-applied in the same order (and with the
+        same configurations) as they were originally. This is designed to allow mission data selections to be easily
+        updated to reflect newly available observations; particularly useful for large samples of objects.
+        """
+        if len(self.filtering_operations) != 0:
+            print(self.filtering_operations)
+
+        pass
 
     def info(self):
         print("\n-----------------------------------------------------")
