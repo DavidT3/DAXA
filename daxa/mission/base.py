@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/09/2024, 21:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/09/2024, 22:03. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2344,17 +2344,24 @@ class BaseMission(metaclass=ABCMeta):
             #  updated) have been run, we just warn the user and do nothing else
             warn("No updatable filtering operations have been run for {pn}.".format(pn=self.pretty_name), stacklevel=2)
         else:
+            # In this case there ARE filtering operations that we want to re-apply to the updated observation
+            #  database
+
             # We need to reset the locked attribute, otherwise the mission isn't going to let us re-run
             #  anything. This must be done through altering the attribute, rather than the property setter, as the
             #  property setter only allows a change from False -> True, not the other way
             self._locked = False
-            # In this case there ARE filtering operations that we want to re-apply to the updated observation
-            #  database - now that changes can be made we have to reset the filter
+
+            # We need to make a copy of the filtering operations before the reset_filter method is called (as it wipes
+            #  the operation history)
+            filt_op_copy = deepcopy(self.filtering_operations)
+
+            #  Now that we've unlocked the mission instance, and copied the filtering operations, we can reset the
+            #  filter - this will allow us to again select from the entire stock of observations for the current
+            #  mission
             self.reset_filter()
-            print(self.filtering_operations)
             # Now we can work through the stored history of filtering operations - in the order they were used
-            for cur_filt in self.filtering_operations:
-                print("BASTARD")
+            for cur_filt in filt_op_copy:
                 cl_meth = getattr(self, cur_filt['name'])
                 print(cl_meth)
                 cl_meth(**cur_filt['arguments'])
