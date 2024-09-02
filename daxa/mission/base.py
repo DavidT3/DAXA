@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 13:20. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 13:53. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -271,6 +271,11 @@ class BaseMission(metaclass=ABCMeta):
         #  when the mission was saved - useful for the update() method, as we can see if anything has changed
         self._saved_science_usable = None
         self._saved_prop_usable = None
+
+        # This dictionary is for any meta data (i.e. what observations changed, has anything flipped from proprietary
+        #  to non-proprietary etc.) related to updating a mission (the update() method). This will be useful for
+        #  an archive instance containing this mission, as it will be used to update the archive version
+        self._update_meta_info = {}
 
     # Defining properties first
     @property
@@ -760,6 +765,18 @@ class BaseMission(metaclass=ABCMeta):
         :rtype: bool
         """
         return self._one_inst_per_obs
+
+    @property
+    def updated_meta_info(self) -> dict:
+        """
+        This property returns a dictionary containing information about what changed during the last update of this
+        mission, populated only after running the update() method. This is useful for Archives containing this mission
+        as they can use it to update their version.
+
+        :return: The dictionary containing information about the update to this mission.
+        :rtype: dict
+        """
+        return self._update_meta_info
 
     # Then define internal methods
     def _load_state(self, save_file_path: str):
@@ -2404,39 +2421,51 @@ class BaseMission(metaclass=ABCMeta):
             #  selected observations have become usable (most likely because they've come out of a proprietary period)
             # First, lets just see if the selected observations are different in any way from the saved selected obs
             if set(self.filtered_obs_ids) != set(og_sel_obs):
+                # This describes whether the selected observations have changed at all
                 obs_sel_change = True
 
+                # Now we want to know if there are any ObsIDs selected NOW that weren't there in the save state
                 cur_in_save_obs_arr = np.isin(self.filtered_obs_ids, og_sel_obs)
                 new_obs_ids = self.filtered_obs_ids[~cur_in_save_obs_arr]
+                # One bool summary of if there are new ObsIDs
                 obs_sel_add = True if not cur_in_save_obs_arr.all() else False
 
+                # We also want to know if there are any ObsIDs in the save state but AREN'T selected anymore - this
+                #  can happen as some of the missions are 'live' and are having their datasets constantly altered
                 save_in_cur_obs_arr = np.isin(og_sel_obs, self.filtered_obs_ids)
                 rem_obs_ids = og_sel_obs[~save_in_cur_obs_arr]
+                # One bool summary of if there are removed ObsIDs
                 obs_sel_rem = True if not save_in_cur_obs_arr.all() else False
-
+            # In this case the selected ObsIDs (current and in the save state) are identical
             else:
                 obs_sel_change = False
-                cur_in_save_obs_arr = np.full(len(self.filtered_obs_ids), True)
                 new_obs_ids = np.array([])
                 obs_sel_add = False
 
-                save_in_cur_obs_arr = np.full(len(og_sel_obs), True)
                 obs_sel_rem = False
                 rem_obs_ids = np.array([])
 
-            print(obs_sel_change, obs_sel_add, obs_sel_rem)
-
+            # This is a dictionary of ObsIDs and their science usable values, but only of the ObsIDs that are not
+            #  newly selected as we want to do a like for like comparison with the save state science usable dict
             oi_sc_dict = {row['ObsID']: row['science_usable']
                           for row_ind, row in self.filtered_obs_info.iterrows() if row['ObsID'] not in new_obs_ids}
-
+            # We do the comparison, making sure to get rid of any removed ObsIDs in the save state dict that are no
+            #  longer present in the filtered dataset (otherwise we would get an artificial mismatch between the
+            #  science usable dictionaries
             sc_us_ch = {oi: us for oi, us in self._saved_science_usable.items() if oi not in rem_obs_ids} == oi_sc_dict
 
+            # We repeat that same process (see above) with the proprietary usable column (much more likely to have
+            #  changed than the science usable column) - though we only do that check if there IS a proprietary usable
+            #  column. Remember that not every mission has a proprietary period
             if 'proprietary_usable' in self.filtered_obs_info.columns:
                 oi_pr_dict = {row['ObsID']: row['proprietary_usable']
                               for row_ind, row in self.filtered_obs_info.iterrows() if row['ObsID'] not in new_obs_ids}
                 pr_us_ch = {oi: us for oi, us in self._saved_prop_usable.items() if oi not in rem_obs_ids} == oi_pr_dict
+            else:
+                # If the mission does not have a proprietary period, then of course it will never have changed for any
+                #  of our ObsIDs
+                pr_us_ch = False
 
-            print(sc_us_ch, pr_us_ch)
 
             # This runs the download process for any newly selected observations, if the update method was
             #  called with the download_new argument set to True. We match the downloaded data to the type that was
