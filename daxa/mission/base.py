@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 31/08/2024, 11:32. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/09/2024, 20:38. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2339,10 +2339,20 @@ class BaseMission(metaclass=ABCMeta):
         same configurations) as they were originally. This is designed to allow mission data selections to be easily
         updated to reflect newly available observations; particularly useful for large samples of objects.
         """
-        if len(self.filtering_operations) != 0:
-            print(self.filtering_operations)
-
-        pass
+        if len(self.filtering_operations) == 0:
+            # If no filtering operations at all (or only filtering on ObsID, which isn't recorded because it can't be
+            #  updated) have been run, we just warn the user and do nothing else
+            warn("No updatable filtering operations have been run for {pn}.".format(pn=self.pretty_name), stacklevel=2)
+        else:
+            # In this case there ARE filtering operations that we want to re-apply to the updated observation
+            #  database - the first thing we have to do is to reset the filter
+            self.reset_filter()
+            # Now we can work through the stored history of filtering operations - in the order they were used
+            for cur_filt in self.filtered_obs_info:
+                cl_meth = getattr(self, cur_filt['name'])
+                print(cl_meth)
+                cl_meth(**cur_filt['arguments'])
+            pass
 
     def info(self):
         print("\n-----------------------------------------------------")
