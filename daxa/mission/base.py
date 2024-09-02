@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 11:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 11:37. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -840,8 +840,10 @@ class BaseMission(metaclass=ABCMeta):
 
             # These simply store the 'usable' states of the ObsIDs that were selected in the save state we're loading
             #  in - we primarily want these so that if the mission is updated, we know what changed.
-            self._saved_science_usable = save_dict['science_usable']
-            self._saved_prop_usable = save_dict['proprietary_usable']
+            self._saved_science_usable = {obs_id: save_dict['science_usable'][ind]
+                                          for ind, obs_id in enumerate(save_dict['selected_obs'])}
+            self._saved_prop_usable = {obs_id: save_dict['proprietary_usable'][ind]
+                                       for ind, obs_id in enumerate(save_dict['selected_obs'])}
 
     def _obs_info_checks(self, new_info: pd.DataFrame):
         """
@@ -2394,6 +2396,8 @@ class BaseMission(metaclass=ABCMeta):
             for cur_filt in filt_op_copy:
                 cl_meth = getattr(self, cur_filt['name'])
                 cl_meth(**cur_filt['arguments'])
+
+            # Now we want to determine if anything has changed
 
             # This runs the download process for any newly selected observations, if the update method was
             #  called with the download_new argument set to True. We match the downloaded data to the type that was
