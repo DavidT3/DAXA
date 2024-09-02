@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 19:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 19:06. Copyright (c) The Contributors
 
 import json
 import os
@@ -274,8 +274,17 @@ class Archive:
                 self._process_errors = info_dict['process_errors']
                 self._process_warnings = info_dict['process_warnings']
                 self._process_extra_info = info_dict['process_extra_info']
-                self._process_run_config = info_dict['process_run_config']
                 self._use_this_obs = info_dict['use_this_obs']
+                # This one needs a little extra processing, as there could be astropy quantities hiding in here that
+                #  we need to reconstitute
+                pr_confs = deepcopy(info_dict['process_run_config'])
+                for mn in pr_confs:
+                    for proc in pr_confs[mn]:
+                        for par in pr_confs[mn][proc]:
+                            if "Quantity " in pr_confs[mn][proc][par]:
+                                # This turns it back into a quantity yay
+                                pr_confs[mn][proc][par] = Quantity(pr_confs[mn][proc][par].replace('Quantity '))
+                self._process_run_config = pr_confs
 
                 # The raw logs and errors are different, as they are stored in human-readable formats in the
                 #  processing directories - just so people don't HAVE to use DAXA to interact with them. Thus we
