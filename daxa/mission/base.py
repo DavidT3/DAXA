@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 12:28. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 12:34. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2406,12 +2406,12 @@ class BaseMission(metaclass=ABCMeta):
             if set(self.filtered_obs_ids) != set(og_sel_obs):
                 obs_sel_change = True
 
-                if not np.isin(self.filtered_obs_ids, og_sel_obs):
+                if not np.isin(self.filtered_obs_ids, og_sel_obs).all():
                     obs_sel_add = True
                 else:
                     obs_sel_add = False
 
-                if not np.isin(og_sel_obs, self.filtered_obs_ids):
+                if not np.isin(og_sel_obs, self.filtered_obs_ids).all():
                     obs_sel_rem = True
                 else:
                     obs_sel_rem = False
