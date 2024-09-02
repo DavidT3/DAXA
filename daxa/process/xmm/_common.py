@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 17:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 17:21. Copyright (c) The Contributors
 
 import glob
 import os.path
@@ -225,10 +225,8 @@ def sas_call(sas_func):
         obs_archive: Archive  # Just for autocomplete purposes in my IDE
 
         func_sig = signature(sas_func)
-        func_arg_names = [k for k, v in func_sig.parameters.items() if v.default is not Parameter.empty]
-        print(func_arg_names)
-        print(locals())
-        run_args = {kn: kwargs[kn] for kn in func_arg_names}
+        run_args = {k: v for k, v in func_sig.parameters.items() if v.default is not Parameter.empty}
+        run_args = {k: kwargs[k] if k in kwargs else v for k, v in run_args.items()}
         print(run_args)
         stop
 
