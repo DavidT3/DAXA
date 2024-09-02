@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/09/2024, 21:47. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/09/2024, 21:49. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2344,13 +2344,13 @@ class BaseMission(metaclass=ABCMeta):
             #  updated) have been run, we just warn the user and do nothing else
             warn("No updatable filtering operations have been run for {pn}.".format(pn=self.pretty_name), stacklevel=2)
         else:
-            # In this case there ARE filtering operations that we want to re-apply to the updated observation
-            #  database - the first thing we have to do is to reset the filter
-            self.reset_filter()
-            # We also need to reset the locked attribute, otherwise the mission isn't going to let us re-run
+            # We need to reset the locked attribute, otherwise the mission isn't going to let us re-run
             #  anything. This must be done through altering the attribute, rather than the property setter, as the
             #  property setter only allows a change from False -> True, not the other way
             self._locked = False
+            # In this case there ARE filtering operations that we want to re-apply to the updated observation
+            #  database - now that changes can be made we have to reset the filter
+            self.reset_filter()
             # Now we can work through the stored history of filtering operations - in the order they were used
             for cur_filt in self.filtered_obs_info:
                 cl_meth = getattr(self, cur_filt['name'])
