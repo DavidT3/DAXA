@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 18:31. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 18:35. Copyright (c) The Contributors
 
 import json
 import os
@@ -731,7 +731,7 @@ class Archive:
             #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
             #  actual information in, if not then no warning (this can happen if a completed process is re-run,
             #  empty dictionaries will be passed).
-            if pr_name in self._process_extra_info[mn] and len(conf_info[mn]) != 0:
+            if pr_name in self._process_run_config[mn] and len(conf_info[mn]) != 0:
                 warn("The process_configurations property already has an entry for {prn} under {mn}, no change "
                      "will be made.".format(prn=pr_name, mn=mn), stacklevel=2)
             elif pr_name not in self._process_run_config[mn]:
