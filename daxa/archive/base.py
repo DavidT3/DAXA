@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 19:06. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 19:11. Copyright (c) The Contributors
 
 import json
 import os
@@ -283,7 +283,7 @@ class Archive:
                         for par in pr_confs[mn][proc]:
                             if "Quantity " in pr_confs[mn][proc][par]:
                                 # This turns it back into a quantity yay
-                                pr_confs[mn][proc][par] = Quantity(pr_confs[mn][proc][par].replace('Quantity '))
+                                pr_confs[mn][proc][par] = Quantity(pr_confs[mn][proc][par].replace('Quantity ', ''))
                 self._process_run_config = pr_confs
 
                 # The raw logs and errors are different, as they are stored in human-readable formats in the
@@ -1823,7 +1823,7 @@ class Archive:
                     if isinstance(pr_confs[mn][proc][par], Quantity):
                         # We add 'Quantity' to the front of the string to ensure that it is very easy to identify
                         #  these when we load back in, as we'll need to turn them back into quantities
-                        pr_confs[mn][proc][par] = "Quantity " + par.to_string()
+                        pr_confs[mn][proc][par] = "Quantity " + pr_confs[mn][proc][par].to_string()
         process_data['process_run_config'] = pr_confs
 
         with open(self._arch_meta_path + 'process_info.json', 'w') as processo:
