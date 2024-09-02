@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 10:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 11:29. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -266,6 +266,11 @@ class BaseMission(metaclass=ABCMeta):
         #  this for a couple of external processes). The default will be False, and it'll only be overridden in
         #  the missions that need to set it to True (e.g. Chandra)
         self._one_inst_per_obs = False
+
+        # These are used if the mission is reinstated from a save, and let us know what the usability states were
+        #  when the mission was saved - useful for the update() method, as we can see if anything has changed
+        self._saved_science_usable = None
+        self._saved_prop_usable = None
 
     # Defining properties first
     @property
@@ -832,6 +837,11 @@ class BaseMission(metaclass=ABCMeta):
 
             # Finally, we store the restored dictionary in the filtering operations attribute
             self._filtering_operations = reinstated_filt_ops
+
+            # These simply store the 'usable' states of the ObsIDs that were selected in the save state we're loading
+            #  in - we primarily want these so that if the mission is updated, we know what changed.
+            self._saved_science_usable = save_dict['science_usable']
+            self._saved_prop_usable = save_dict['proprietary_usable']
 
     def _obs_info_checks(self, new_info: pd.DataFrame):
         """
