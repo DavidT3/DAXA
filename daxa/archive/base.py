@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 15:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 17:30. Copyright (c) The Contributors
 
 import json
 import os
@@ -211,6 +211,10 @@ class Archive:
             # This attribute is used to store the 'extra info' that is sometimes passed out of processing functions (see
             # the DAXA cif_build, epchain, and emchain functions for examples).
             self._process_extra_info = {mn: {} for mn in self.mission_names}
+            # Here will be stored the configuration (i.e. the parameter values) used to run the processing steps
+            #  applied to missions of this archive - this will allow us to update an archive and have it automatically
+            #  re-run the same processing steps in the same way.
+            self._process_run_config = {mn: {} for mn in self.mission_names}
 
             # This attribute will contain information on mission's observations. That could include whether a particular
             #  instrument was active for a particular observation, what sub-exposures there were (assuming there were
@@ -686,6 +690,20 @@ class Archive:
                      "made.".format(prn=pr_name, mn=mn), stacklevel=2)
             elif pr_name not in self._process_extra_info[mn]:
                 self._process_extra_info[mn][pr_name] = einfo_info[mn]
+
+    @property
+    def process_configurations(self) -> dict:
+        """
+        This property contains the configurations used to run any processing steps applied to this archive - the
+        arguments passed to the processing method are stored, in order to be saved and allow for an archive to
+        be easily updated.
+
+        :return: A nested dictionary where top level keys are mission names, next level keys are processing
+            function names, and lowest level keys are names of configuration parameters passed to the processing
+            function - values are whatever values were passed to those configuration parameters.
+        :rtype: dict
+        """
+        return self._process_run_config
 
     @property
     def process_names(self) -> dict:
@@ -1764,11 +1782,14 @@ class Archive:
     def update(self):
         """
 
-
         """
 
         for miss in self.missions:
-            miss.update()
+            # TODO REMOVE THE FALSE, JUST TEMPORARY
+            miss.update(False)
+
+            print()
+
             # if miss.updated_meta_info['sel_obs_change']
             # miss.updated_meta_info['science_usable_change']
             # miss.updated_meta_info['proprietary_usable_change']
