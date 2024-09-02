@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/09/2024, 21:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/09/2024, 21:57. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2351,8 +2351,10 @@ class BaseMission(metaclass=ABCMeta):
             # In this case there ARE filtering operations that we want to re-apply to the updated observation
             #  database - now that changes can be made we have to reset the filter
             self.reset_filter()
+            print(self.filtering_operations)
             # Now we can work through the stored history of filtering operations - in the order they were used
             for cur_filt in self.filtering_operations:
+                print("BASTARD")
                 cl_meth = getattr(self, cur_filt['name'])
                 print(cl_meth)
                 cl_meth(**cur_filt['arguments'])
