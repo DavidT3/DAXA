@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 13:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 13:12. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2426,14 +2426,15 @@ class BaseMission(metaclass=ABCMeta):
 
             print(obs_sel_change, obs_sel_add, obs_sel_rem)
 
-            changed_science_usable = [self._saved_prop_usable[oi] == self.filtered_obs_info[self.filtered_obs_info['ObsID'] == oi].iloc[0]['science_usable'] for oi in self.filtered_obs_ids[cur_in_save_obs_arr]]
-            print(changed_science_usable)
+            oi_sc_dict = {row['ObsID']: row['science_usable']
+                          for row_ind, row in self.filtered_obs_info.iterrows() if row['ObsID'] not in new_obs_ids}
+
+            print(self._saved_prop_usable == oi_sc_dict)
 
             if 'proprietary_usable' in self.filtered_obs_info.columns:
-                changed_prop_usable = [self._saved_science_usable[oi] == self.filtered_obs_info[self.filtered_obs_info['ObsID'] == oi].iloc[0]['proprietary_usable'] for oi in self.filtered_obs_ids[cur_in_save_obs_arr]]
-            print(changed_prop_usable)
-
-            # [self._saved_science_usable[oi] for oi in self.filtered_obs_ids[cur_in_save_obs_arr]]
+                oi_pr_dict = {row['ObsID']: row['proprietary_usable']
+                              for row_ind, row in self.filtered_obs_info.iterrows() if row['ObsID'] not in new_obs_ids}
+                print(self._saved_prop_usable == oi_pr_dict)
 
 
             # This runs the download process for any newly selected observations, if the update method was
