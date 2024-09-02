@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 17:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 17:35. Copyright (c) The Contributors
 
 import json
 import os
@@ -704,6 +704,32 @@ class Archive:
         :rtype: dict
         """
         return self._process_run_config
+
+    @process_configurations.setter
+    def process_configurations(self, process_name_conf_dict: Tuple[str, dict]):
+        """
+        Property setter for a nested dictionary containing the configuration of a processing step applied to this
+        archive.  This shouldn't be used directly by a user, rather DAXA processing functions will use it
+        themselves. This setter does not overwrite the existing dictionary, but rather adds extra information.
+
+        :param Tuple[str, dict] process_name_conf_dict: A tuple with the first element being the name of the
+            process for which a configuration dictionary is being passed, and the second being the configuration
+            dictionary with top level keys being mission names, and bottom level keys being parameter names.
+        """
+        # This applies checks to the input to this setter
+        pr_name, conf_info = self._check_process_inputs(process_name_conf_dict)
+
+        # Iterate through the missions in the input dictionary
+        for mn in conf_info:
+            # If the particular process does not have an entry for the particular mission then we add it to the
+            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
+            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
+            #  empty dictionaries will be passed).
+            if pr_name in self._process_extra_info[mn] and len(conf_info[mn]) != 0:
+                warn("The process_configurations property already has an entry for {prn} under {mn}, no change "
+                     "will be made.".format(prn=pr_name, mn=mn), stacklevel=2)
+            elif pr_name not in self._process_run_config[mn]:
+                self._process_run_config[mn][pr_name] = conf_info[mn]
 
     @property
     def process_names(self) -> dict:
