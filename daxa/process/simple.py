@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 18:31. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 18:39. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
@@ -47,9 +47,6 @@ def full_process_xmm(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quanti
     # Prepares the summary files for the XMM observations - used by processes to determine what data there are
     #  for each observation
     odf_ingest(obs_archive, num_cores=num_cores, timeout=timeout)
-
-    print(obs_archive.process_configurations)
-    stop
 
     # It is very much not a given that there will be RGS data to process, so we first check to see if any of the
     #  XMM missions have actually had RGS data selected

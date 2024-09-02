@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 18:31. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 18:39. Copyright (c) The Contributors
 
 import glob
 import os.path
@@ -402,7 +402,6 @@ def sas_call(sas_func):
         obs_archive.raw_process_errors = (sas_func.__name__, process_raw_stderrs)
         obs_archive.process_logs = (sas_func.__name__, process_stdouts)
         obs_archive.process_extra_info = (sas_func.__name__, process_einfo)
-        print(process_cinfo)
         obs_archive.process_configurations = (sas_func.__name__, process_cinfo)
 
         # If the task we just ran is odf ingest, that means we've parsed the summary files to provide us with some
