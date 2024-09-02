@@ -1,9 +1,10 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 09:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 17:08. Copyright (c) The Contributors
 
 import glob
 import os.path
 from functools import wraps
+from inspect import signature, Parameter
 from multiprocessing.dummy import Pool
 from subprocess import Popen, PIPE, TimeoutExpired
 from typing import Tuple, List, Dict
@@ -16,7 +17,7 @@ from tqdm import tqdm
 
 from daxa.archive.base import Archive
 from daxa.config import SASERROR_LIST, SASWARNING_LIST
-from daxa.exceptions import NoXMMMissionsError
+from daxa.exceptions import NoXMMMissionsError, DAXADeveloperError
 from daxa.process._backend_check import find_sas
 from daxa.process.general import create_dirs
 
@@ -211,10 +212,23 @@ def sas_call(sas_func):
         # This is here to avoid a circular import issue
         from daxa.process.xmm.setup import parse_odf_sum
 
+        # This is in order to enforce a design of having only the archive as a positional argument, as anything
+        #  else might mess up the way we store the configuration of each executed processing step
+        if len(args) != 1:
+            raise DAXADeveloperError("Decorated processing function has multiple positional arguments, that is against"
+                                     " the standard DAXA design, and may interfere with the storage of "
+                                     "run-configurations for later archive updates.")
+
         # The first argument of all the SAS processing functions will be an archive instance, and pulling
         #  that out of the arguments will be useful later
         obs_archive = args[0]
         obs_archive: Archive  # Just for autocomplete purposes in my IDE
+
+        func_sig = signature(sas_func)
+        func_arg_names = [k for k, v in func_sig.parameters.items() if v.default is not Parameter.empty]
+        run_args = {kn: locals()[kn] for kn in func_arg_names}
+        print(run_args)
+        stop
 
         # This is the output from whatever function this is a decorator for
         miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout = sas_func(*args, **kwargs)
