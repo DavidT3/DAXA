@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/08/2024, 11:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 15:57. Copyright (c) The Contributors
 
 import json
 import os
@@ -1760,6 +1760,19 @@ class Archive:
             processo.write(pretty_string)
 
         # TODO store software versions
+
+    def update(self):
+        """
+
+
+        """
+
+        for miss in self.missions:
+            miss.update()
+            # if miss.updated_meta_info['sel_obs_change']
+            # miss.updated_meta_info['science_usable_change']
+            # miss.updated_meta_info['proprietary_usable_change']
+
 
     def info(self):
         """
