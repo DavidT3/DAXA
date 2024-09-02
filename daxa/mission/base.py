@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 14:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 14:17. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2476,7 +2476,7 @@ class BaseMission(metaclass=ABCMeta):
                 pr_us_ch = saved_pr_us != oi_pr_dict
 
                 if pr_us_ch:
-                    which_pr_us_ch = {oi: oi_pr_dict[oi] for oi, save_us in oi_pr_dict.items()
+                    which_pr_us_ch = {oi: oi_pr_dict[oi] for oi, save_us in saved_pr_us.items()
                                       if save_us != oi_pr_dict[oi]}
             else:
                 # If the mission does not have a proprietary period, then of course it will never have changed for any
