@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 15:08. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 15:58. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -126,7 +126,7 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
             ccd_str = ",".join([str(c_id) for c_id in sorted(ccd_ids)])
 
             # Set up a temporary directory to work in
-            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
             temp_dir = dest_dir + temp_name + "/"
             # This is where the processes will output the event list files
             og_out_path = os.path.join(dest_dir, prod_evt_list_name.format(o=obs_id, eid=exp_id))
@@ -290,7 +290,7 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
             # ccd_str = "'" + " ".join([str(c_id) for c_id in sorted(ccd_ids)]) + "'"
 
             # Set up a temporary directory to work in
-            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
             temp_dir = dest_dir + temp_name + "/"
 
             # This is where the final output event list file will be stored
@@ -420,7 +420,7 @@ def rgs_events(obs_archive: Archive, process_unscheduled: bool = True,  num_core
             odf_dir = miss.raw_data_path + obs_id + '/'
 
             # Set up a temporary directory to work in
-            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
             temp_dir = dest_dir + temp_name + "/"
 
             # This is where the final output event list file will be stored
@@ -898,7 +898,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
 
             # Set up a temporary directory to work in (probably not really necessary in this case, but will be
             #  in other processing functions).
-            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
             temp_dir = dest_dir + temp_name + "/"
 
             # Setting up the path to the event file
@@ -1089,7 +1089,7 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
 
                 # Set up a temporary directory to work in (probably not really necessary in this case, but will be
                 #  in other processing functions).
-                temp_name = "tempdir_{}".format(randint(0, 1e+8))
+                temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
                 temp_dir = dest_dir + temp_name + "/"
 
                 # As the merge command won't overwrite an existing file name, and we don't know how many times the loop
