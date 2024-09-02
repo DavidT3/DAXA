@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 17:08. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 17:11. Copyright (c) The Contributors
 
 import glob
 import os.path
@@ -226,6 +226,8 @@ def sas_call(sas_func):
 
         func_sig = signature(sas_func)
         func_arg_names = [k for k, v in func_sig.parameters.items() if v.default is not Parameter.empty]
+        print(func_arg_names)
+        print(locals)
         run_args = {kn: locals()[kn] for kn in func_arg_names}
         print(run_args)
         stop
