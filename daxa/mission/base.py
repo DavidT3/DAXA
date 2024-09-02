@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 12:45. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 12:46. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2400,7 +2400,7 @@ class BaseMission(metaclass=ABCMeta):
             # The ObsIDs that were selected in the save state that was loaded in, we need to compare to these
             og_sel_obs = np.array(list(self._saved_prop_usable.keys()))
 
-            lads = np.where(self.filter_array)[0]
+            lads = np.where(self.filter_array)[0][55]
             print(lads)
             self.filter_array[lads] = False
 
