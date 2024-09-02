@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 18:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 18:31. Copyright (c) The Contributors
 
 import json
 import os
@@ -721,6 +721,9 @@ class Archive:
         """
         # This applies checks to the input to this setter
         pr_name, conf_info = self._check_process_inputs(process_name_conf_dict)
+
+        print(pr_name)
+        print(conf_info)
 
         # Iterate through the missions in the input dictionary
         for mn in conf_info:

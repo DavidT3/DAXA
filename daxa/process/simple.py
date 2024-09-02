@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 18:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 18:31. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
@@ -48,6 +48,9 @@ def full_process_xmm(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quanti
     #  for each observation
     odf_ingest(obs_archive, num_cores=num_cores, timeout=timeout)
 
+    print(obs_archive.process_configurations)
+    stop
+
     # It is very much not a given that there will be RGS data to process, so we first check to see if any of the
     #  XMM missions have actually had RGS data selected
     with_rgs = any(['R1' in mission.chosen_instruments or 'R2' in mission.chosen_instruments for mission in obs_archive
@@ -78,9 +81,6 @@ def full_process_xmm(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quanti
         em_data = True
     except ValueError:
         em_data = False
-
-    print(obs_archive.process_configurations)
-    stop
 
     # The user can choose whether this state is run, if it isn't then cleaned_evt_lists should automatically
     #  turn off its filtering based on anomolous state codes. Also if there are actually MOS data to use
