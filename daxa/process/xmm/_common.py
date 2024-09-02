@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 17:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 17:57. Copyright (c) The Contributors
 
 import glob
 import os.path
@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 from daxa.archive.base import Archive
 from daxa.config import SASERROR_LIST, SASWARNING_LIST
-from daxa.exceptions import NoXMMMissionsError, DAXADeveloperError
+from daxa.exceptions import NoXMMMissionsError
 from daxa.process._backend_check import find_sas
 from daxa.process.general import create_dirs
 
@@ -212,13 +212,6 @@ def sas_call(sas_func):
         # This is here to avoid a circular import issue
         from daxa.process.xmm.setup import parse_odf_sum
 
-        # This is in order to enforce a design of having only the archive as a positional argument, as anything
-        #  else might mess up the way we store the configuration of each executed processing step
-        if len(args) != 1:
-            raise DAXADeveloperError("Decorated processing function has multiple positional arguments, that is against"
-                                     " the standard DAXA design, and may interfere with the storage of "
-                                     "run-configurations for later archive updates.")
-
         # The first argument of all the SAS processing functions will be an archive instance, and pulling
         #  that out of the arguments will be useful later
         obs_archive = args[0]
@@ -227,6 +220,12 @@ def sas_call(sas_func):
         func_sig = signature(sas_func)
         run_args = {k: v.default for k, v in func_sig.parameters.items() if v.default is not Parameter.empty}
         run_args = {k: kwargs[k] if k in kwargs else v for k, v in run_args.items()}
+        if len(args) != 1:
+            for ind in range(1, len(args)):
+                rel_key = list(run_args.keys())[ind]
+                run_args[rel_key] = args[ind]
+
+        print(run_args)
 
         # This is the output from whatever function this is a decorator for
         miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout = sas_func(*args, **kwargs)
