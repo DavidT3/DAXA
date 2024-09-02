@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 13:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 13:20. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2429,16 +2429,14 @@ class BaseMission(metaclass=ABCMeta):
             oi_sc_dict = {row['ObsID']: row['science_usable']
                           for row_ind, row in self.filtered_obs_info.iterrows() if row['ObsID'] not in new_obs_ids}
 
-            # print(oi_sc_dict)
-            # print()
-
-            print(self._saved_science_usable == oi_sc_dict)
+            sc_us_ch = {oi: us for oi, us in self._saved_science_usable.items() if oi not in rem_obs_ids} == oi_sc_dict
 
             if 'proprietary_usable' in self.filtered_obs_info.columns:
                 oi_pr_dict = {row['ObsID']: row['proprietary_usable']
                               for row_ind, row in self.filtered_obs_info.iterrows() if row['ObsID'] not in new_obs_ids}
-                print(self._saved_prop_usable == oi_pr_dict)
+                pr_us_ch = {oi: us for oi, us in self._saved_prop_usable.items() if oi not in rem_obs_ids} == oi_pr_dict
 
+            print(sc_us_ch, pr_us_ch)
 
             # This runs the download process for any newly selected observations, if the update method was
             #  called with the download_new argument set to True. We match the downloaded data to the type that was
