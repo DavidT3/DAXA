@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 18:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 18:40. Copyright (c) The Contributors
 
 import json
 import os
@@ -273,8 +273,7 @@ class Archive:
                 self._process_errors = info_dict['process_errors']
                 self._process_warnings = info_dict['process_warnings']
                 self._process_extra_info = info_dict['process_extra_info']
-                # TODO RESTORE THIS WHEN IT ACTUALLY WORKS
-                # self._process_run_config = info_dict['process_run_config']
+                self._process_run_config = info_dict['process_run_config']
                 self._process_run_config = {}
                 self._use_this_obs = info_dict['use_this_obs']
 
@@ -1800,7 +1799,8 @@ class Archive:
                         'obs_summaries': self.observation_summaries,
                         'final_process_success': self.final_process_success, 'process_errors': self.process_errors,
                         'process_warnings': self.process_warnings, 'process_extra_info': self.process_extra_info,
-                        'use_this_obs': self.process_observation}
+                        'use_this_obs': self.process_observation,
+                        'process_run_config': self.process_configurations}
 
         with open(self._arch_meta_path + 'process_info.json', 'w') as processo:
             pretty_string = json.dumps(process_data, indent=4)
