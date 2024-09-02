@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 19:11. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 19:27. Copyright (c) The Contributors
 
 import json
 import os
@@ -281,7 +281,7 @@ class Archive:
                 for mn in pr_confs:
                     for proc in pr_confs[mn]:
                         for par in pr_confs[mn][proc]:
-                            if "Quantity " in pr_confs[mn][proc][par]:
+                            if isinstance(pr_confs[mn][proc][par], str) and "Quantity " in pr_confs[mn][proc][par]:
                                 # This turns it back into a quantity yay
                                 pr_confs[mn][proc][par] = Quantity(pr_confs[mn][proc][par].replace('Quantity ', ''))
                 self._process_run_config = pr_confs
