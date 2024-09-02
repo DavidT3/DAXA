@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 14:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 14:13. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2308,7 +2308,6 @@ class BaseMission(metaclass=ABCMeta):
         #  such a concept, so they don't all have that column. In the case where that column doesn't exist we'll make
         #  it all True, otherwise we'll extract the values from the filtered obs info dataframe
         if 'proprietary_usable' in self.filtered_obs_info.columns:
-            print('wahoo')
             prop_usable = self.filtered_obs_info['proprietary_usable']
         else:
             prop_usable = np.full(len(sel_obs), True)
@@ -2453,7 +2452,7 @@ class BaseMission(metaclass=ABCMeta):
             #  longer present in the filtered dataset (otherwise we would get an artificial mismatch between the
             #  science usable dictionaries
             saved_sc_us = {oi: us for oi, us in self._saved_science_usable.items() if oi not in rem_obs_ids}
-            sc_us_ch = saved_sc_us == oi_sc_dict
+            sc_us_ch = saved_sc_us != oi_sc_dict
             if sc_us_ch:
                 # You could argue that we should have just done this from the start, but I think the dict
                 #  comparisons are a better way to identify whether anything has changed at first.
@@ -2474,7 +2473,7 @@ class BaseMission(metaclass=ABCMeta):
                 oi_pr_dict = {row['ObsID']: row['proprietary_usable']
                               for row_ind, row in self.filtered_obs_info.iterrows() if row['ObsID'] not in new_obs_ids}
                 saved_pr_us = {oi: us for oi, us in self._saved_prop_usable.items() if oi not in rem_obs_ids}
-                pr_us_ch = saved_pr_us == oi_pr_dict
+                pr_us_ch = saved_pr_us != oi_pr_dict
 
                 if pr_us_ch:
                     which_pr_us_ch = {oi: oi_pr_dict[oi] for oi, save_us in oi_pr_dict.items()
