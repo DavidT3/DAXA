@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/09/2024, 22:22. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 10:40. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2271,6 +2271,18 @@ class BaseMission(metaclass=ABCMeta):
         #  by re-running the stored filtering steps, rather than comparing a stored list of ObsIDs to a newly
         #  downloaded one
         sel_obs = self.filtered_obs_ids
+        # We also wish to save which ObsIDs were considered 'usable' - the first usable type is scientifically
+        #  usable, for which every mission has a column - some of them are all True, but some missions to define
+        #  criteria for things which aren't scientifically usable
+        science_usable = self.filtered_obs_info['science_usable']
+        # Now we also need to define whether the ObsID is currently in a proprietary period - not every mission has
+        #  such a concept, so they don't all have that column. In the case where that column doesn't exist we'll make
+        #  it all True, otherwise we'll extract the values from the filtered obs info dataframe
+        if 'proprietary_usable' in self.filtered_obs_info.columns:
+            print('wahoo')
+            prop_usable = self.filtered_obs_info['proprietary_usable']
+        else:
+            prop_usable = np.full(len(sel_obs), True)
 
         # It is possible, if someone isn't paying attention, that the save method could be triggered when there aren't
         #  actually any observations left - that doesn't really make sense to me, so we'll throw an error
@@ -2278,8 +2290,11 @@ class BaseMission(metaclass=ABCMeta):
             raise NoObsAfterFilterError("There are no observations associated with this {mn} mission after "
                                         "filtering, so the mission state cannot be saved.".format(mn=self.pretty_name))
 
-        # Make sure to add the sel_obs dictionary into the overall one we're hoping to store
+        # Make sure to add the sel_obs list into the overall one we're hoping to store (as well as the usable
+        #  flag lists)
         mission_data['selected_obs'] = list(sel_obs)
+        mission_data['science_usable'] = list(science_usable)
+        mission_data['proprietary_usable'] = list(prop_usable)
 
         # We can now store the filtering operations (and their configurations), as well as the order they were run in,
         #  which means a reinstated mission can re-run the same filtering on an updated data set. HOWEVER, there is
