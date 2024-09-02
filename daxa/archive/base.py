@@ -1,8 +1,9 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 18:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 19:02. Copyright (c) The Contributors
 
 import json
 import os
+from copy import deepcopy
 from shutil import rmtree
 from typing import List, Union, Tuple
 from warnings import warn
@@ -274,7 +275,6 @@ class Archive:
                 self._process_warnings = info_dict['process_warnings']
                 self._process_extra_info = info_dict['process_extra_info']
                 self._process_run_config = info_dict['process_run_config']
-                self._process_run_config = {}
                 self._use_this_obs = info_dict['use_this_obs']
 
                 # The raw logs and errors are different, as they are stored in human-readable formats in the
@@ -1799,8 +1799,23 @@ class Archive:
                         'obs_summaries': self.observation_summaries,
                         'final_process_success': self.final_process_success, 'process_errors': self.process_errors,
                         'process_warnings': self.process_warnings, 'process_extra_info': self.process_extra_info,
-                        'use_this_obs': self.process_observation,
-                        'process_run_config': self.process_configurations}
+                        'use_this_obs': self.process_observation}
+        
+        # We need to do a little pre-processing on the process configuration dictionary, because some of the parameters
+        #  passed to some of the processing functions will be astropy quantities, and you cannot just stick them
+        #  in a dictionary
+        pr_confs = deepcopy(self.process_configurations)
+        # Unfortunately ugly nested for loops, but life goes on - this will turn any non-json-storable data types
+        #  into something that we can put in a json file and then reconstitute as the intended data type when
+        #  we read back in
+        for mn in pr_confs:
+            for proc in pr_confs[mn]:
+                for par in pr_confs[mn][proc]:
+                    if isinstance(pr_confs[mn][proc][par], Quantity):
+                        # We add 'Quantity' to the front of the string to ensure that it is very easy to identify
+                        #  these when we load back in, as we'll need to turn them back into quantities
+                        pr_confs[mn][proc][par] = "Quantity " + par.to_string()
+        process_data['process_run_config'] = pr_confs
 
         with open(self._arch_meta_path + 'process_info.json', 'w') as processo:
             pretty_string = json.dumps(process_data, indent=4)
