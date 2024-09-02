@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 11:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 12:28. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2397,7 +2397,31 @@ class BaseMission(metaclass=ABCMeta):
                 cl_meth = getattr(self, cur_filt['name'])
                 cl_meth(**cur_filt['arguments'])
 
-            # Now we want to determine if anything has changed
+            # The ObsIDs that were selected in the save state that was loaded in, we need to compare to these
+            og_sel_obs = np.array(list(self._saved_prop_usable.keys()))
+
+            # Now we want to determine if the observation selection has changed AND/OR whether any of the previously
+            #  selected observations have become usable (most likely because they've come out of a proprietary period)
+            # First, lets just see if the selected observations are different in any way from the saved selected obs
+            if set(self.filtered_obs_ids) != set(og_sel_obs):
+                obs_sel_change = True
+
+                if not np.isin(self.filtered_obs_ids, og_sel_obs):
+                    obs_sel_add = True
+                else:
+                    obs_sel_add = False
+
+                if not np.isin(og_sel_obs, self.filtered_obs_ids):
+                    obs_sel_rem = True
+                else:
+                    obs_sel_rem = False
+
+            else:
+                obs_sel_change = False
+                obs_sel_add = False
+                obs_sel_rem = False
+
+            print(obs_sel_change, obs_sel_add, obs_sel_rem)
 
             # This runs the download process for any newly selected observations, if the update method was
             #  called with the download_new argument set to True. We match the downloaded data to the type that was
