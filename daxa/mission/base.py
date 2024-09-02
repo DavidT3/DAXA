@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 12:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 12:45. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2400,18 +2400,27 @@ class BaseMission(metaclass=ABCMeta):
             # The ObsIDs that were selected in the save state that was loaded in, we need to compare to these
             og_sel_obs = np.array(list(self._saved_prop_usable.keys()))
 
+            lads = np.where(self.filter_array)[0]
+            print(lads)
+            self.filter_array[lads] = False
+
             # Now we want to determine if the observation selection has changed AND/OR whether any of the previously
             #  selected observations have become usable (most likely because they've come out of a proprietary period)
             # First, lets just see if the selected observations are different in any way from the saved selected obs
             if set(self.filtered_obs_ids) != set(og_sel_obs):
                 obs_sel_change = True
 
-                if not np.isin(self.filtered_obs_ids, og_sel_obs).all():
+                new_obs_arr = np.isin(self.filtered_obs_ids, og_sel_obs)
+                new_obs_ids = self.filtered_obs_ids[new_obs_arr]
+                if not new_obs_arr.all():
                     obs_sel_add = True
                 else:
                     obs_sel_add = False
 
-                if not np.isin(og_sel_obs, self.filtered_obs_ids).all():
+                rem_obs_arr = np.isin(og_sel_obs, self.filtered_obs_ids)
+                rem_obs_ids = og_sel_obs[rem_obs_arr]
+
+                if not rem_obs_arr.all():
                     obs_sel_rem = True
                 else:
                     obs_sel_rem = False
@@ -2420,6 +2429,10 @@ class BaseMission(metaclass=ABCMeta):
                 obs_sel_change = False
                 obs_sel_add = False
                 obs_sel_rem = False
+
+            print(new_obs_ids)
+            print('')
+            print(rem_obs_ids)
 
             print(obs_sel_change, obs_sel_add, obs_sel_rem)
 
