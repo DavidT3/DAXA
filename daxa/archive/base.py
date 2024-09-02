@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 19:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 19:46. Copyright (c) The Contributors
 
 import json
 import os
@@ -214,8 +214,10 @@ class Archive:
             self._process_extra_info = {mn: {} for mn in self.mission_names}
             # Here will be stored the configuration (i.e. the parameter values) used to run the processing steps
             #  applied to missions of this archive - this will allow us to update an archive and have it automatically
-            #  re-run the same processing steps in the same way.
-            self._process_run_config = {mn: {} for mn in self.mission_names}
+            #  re-run the same processing steps in the same way. We are making the value here a list because the
+            #  order in which the processing steps were executed is important, so we'll be doing a list of
+            #  dictionaries where the dictionaries will be for separate processes
+            self._process_run_config = {mn: [] for mn in self.mission_names}
 
             # This attribute will contain information on mission's observations. That could include whether a particular
             #  instrument was active for a particular observation, what sub-exposures there were (assuming there were
@@ -280,10 +282,11 @@ class Archive:
                 pr_confs = deepcopy(info_dict['process_run_config'])
                 for mn in pr_confs:
                     for proc in pr_confs[mn]:
-                        for par in pr_confs[mn][proc]:
-                            if isinstance(pr_confs[mn][proc][par], str) and "Quantity " in pr_confs[mn][proc][par]:
+                        proc_name = list(proc.keys())[0]
+                        for par in proc[proc_name]:
+                            if isinstance(proc[proc_name][par], str) and "Quantity " in proc[proc_name][par]:
                                 # This turns it back into a quantity yay
-                                pr_confs[mn][proc][par] = Quantity(pr_confs[mn][proc][par].replace('Quantity ', ''))
+                                proc[proc_name][par] = Quantity(proc[proc_name][par].replace('Quantity ', ''))
                 self._process_run_config = pr_confs
 
                 # The raw logs and errors are different, as they are stored in human-readable formats in the
@@ -709,9 +712,10 @@ class Archive:
         arguments passed to the processing method are stored, in order to be saved and allow for an archive to
         be easily updated.
 
-        :return: A nested dictionary where top level keys are mission names, next level keys are processing
-            function names, and lowest level keys are names of configuration parameters passed to the processing
-            function - values are whatever values were passed to those configuration parameters.
+        :return: A nested dictionary where top level keys are mission names, values are lists with each entry being
+            a dictionary with a single top level key that is the name of a process and the value being a dictionary
+            with parameter names as keys and values being the processing configuration for that parameter of
+            the process.
         :rtype: dict
         """
         return self._process_run_config
@@ -736,11 +740,15 @@ class Archive:
             #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
             #  actual information in, if not then no warning (this can happen if a completed process is re-run,
             #  empty dictionaries will be passed).
-            if pr_name in self._process_run_config[mn] and len(conf_info[mn]) != 0:
+            if pr_name in [list(en.keys())[0] for en in self._process_run_config[mn]] and len(conf_info[mn]) != 0:
                 warn("The process_configurations property already has an entry for {prn} under {mn}, no change "
                      "will be made.".format(prn=pr_name, mn=mn), stacklevel=2)
             elif pr_name not in self._process_run_config[mn]:
-                self._process_run_config[mn][pr_name] = conf_info[mn]
+                # We're making this a dictionary with mission names as top level keys, then values being lists,
+                #  and then each entry in the list being a dictionary with the name of the process as a single
+                #  top-label key, and the value being a dictionary of parameter values - this is because the order
+                #  that they were executed in is important.
+                self._process_run_config[mn].append({pr_name: conf_info[mn]})
 
     @property
     def process_names(self) -> dict:
@@ -1819,11 +1827,12 @@ class Archive:
         #  we read back in
         for mn in pr_confs:
             for proc in pr_confs[mn]:
-                for par in pr_confs[mn][proc]:
-                    if isinstance(pr_confs[mn][proc][par], Quantity):
+                proc_name = list(proc.keys())[0]
+                for par in proc[proc_name]:
+                    if isinstance(proc[proc_name][par], Quantity):
                         # We add 'Quantity' to the front of the string to ensure that it is very easy to identify
                         #  these when we load back in, as we'll need to turn them back into quantities
-                        pr_confs[mn][proc][par] = "Quantity " + pr_confs[mn][proc][par].to_string()
+                        proc[proc_name][par] = "Quantity " + proc[proc_name][par].to_string()
         process_data['process_run_config'] = pr_confs
 
         with open(self._arch_meta_path + 'process_info.json', 'w') as processo:
