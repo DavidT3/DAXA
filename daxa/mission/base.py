@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 13:53. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 14:09. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2452,20 +2452,50 @@ class BaseMission(metaclass=ABCMeta):
             # We do the comparison, making sure to get rid of any removed ObsIDs in the save state dict that are no
             #  longer present in the filtered dataset (otherwise we would get an artificial mismatch between the
             #  science usable dictionaries
-            sc_us_ch = {oi: us for oi, us in self._saved_science_usable.items() if oi not in rem_obs_ids} == oi_sc_dict
+            saved_sc_us = {oi: us for oi, us in self._saved_science_usable.items() if oi not in rem_obs_ids}
+            sc_us_ch = saved_sc_us == oi_sc_dict
+            if sc_us_ch:
+                # You could argue that we should have just done this from the start, but I think the dict
+                #  comparisons are a better way to identify whether anything has changed at first.
+                # This dictionary contains the ObsIDs if those observations that have had their science-usable state
+                #  change, and what the usable value has been changed too as values
+                which_sc_us_ch = {oi: oi_sc_dict[oi] for oi, save_us in saved_sc_us.items()
+                                  if save_us != oi_sc_dict[oi]}
+            else:
+                which_sc_us_ch = {}
 
             # We repeat that same process (see above) with the proprietary usable column (much more likely to have
             #  changed than the science usable column) - though we only do that check if there IS a proprietary usable
-            #  column. Remember that not every mission has a proprietary period
+            #  column. Remember that not every mission has a proprietary period.
+            # We create this empty dictionary that will be overwritten if it needs to be - it's just neater here
+            which_pr_us_ch = {}
             if 'proprietary_usable' in self.filtered_obs_info.columns:
+                # This is all the exact same process as above - see those comments
                 oi_pr_dict = {row['ObsID']: row['proprietary_usable']
                               for row_ind, row in self.filtered_obs_info.iterrows() if row['ObsID'] not in new_obs_ids}
-                pr_us_ch = {oi: us for oi, us in self._saved_prop_usable.items() if oi not in rem_obs_ids} == oi_pr_dict
+                saved_pr_us = {oi: us for oi, us in self._saved_prop_usable.items() if oi not in rem_obs_ids}
+                pr_us_ch = saved_pr_us == oi_pr_dict
+
+                if pr_us_ch:
+                    which_pr_us_ch = {oi: oi_pr_dict[oi] for oi, save_us in oi_pr_dict.items()
+                                      if save_us != oi_pr_dict[oi]}
             else:
                 # If the mission does not have a proprietary period, then of course it will never have changed for any
                 #  of our ObsIDs
                 pr_us_ch = False
 
+            self._update_meta_info['sel_obs_change'] = obs_sel_change
+            # These contain degenerate info, but might as well provide the option of not using a len check on the
+            #  new/removed ObsID arrays
+            self._update_meta_info['any_obs_add'] = obs_sel_add
+            self._update_meta_info['new_obs_ids'] = new_obs_ids
+            self._update_meta_info['any_obs_removed'] = obs_sel_rem
+            self._update_meta_info['removed_obs_ids'] = rem_obs_ids
+            # Now we can store whether the usability state of anything has changed - again this is degenerate info
+            self._update_meta_info['science_usable_change'] = sc_us_ch
+            self._update_meta_info['which_changed_science_usable'] = which_sc_us_ch
+            self._update_meta_info['proprietary_usable_change'] = pr_us_ch
+            self._update_meta_info['which_changed_proprietary_usable'] = which_pr_us_ch
 
             # This runs the download process for any newly selected observations, if the update method was
             #  called with the download_new argument set to True. We match the downloaded data to the type that was
