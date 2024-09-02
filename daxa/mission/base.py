@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 14:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 14:19. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2381,6 +2381,8 @@ class BaseMission(metaclass=ABCMeta):
         save state. The filtering operations from the saved state will be re-applied in the same order (and with the
         same configurations) as they were originally. This is designed to allow mission data selections to be easily
         updated to reflect newly available observations; particularly useful for large samples of objects.
+
+        NOTE - THIS METHOD WILL NOT AUTOMATICALLY CALL THE save() METHOD.
 
         :param bool download_new: Controls whether any newly selected data from the update should be downloaded
             automatically by this method. Default is True, the download type (i.e. with products or without) will
