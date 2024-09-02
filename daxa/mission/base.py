@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/09/2024, 22:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/09/2024, 22:22. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2334,7 +2334,7 @@ class BaseMission(metaclass=ABCMeta):
 
     def update(self, download_new: bool = True):
         """
-        This method is meant to update the selected observations of a mission which has been loaded back in from the
+        This method is meant to update the selected observations of a mission which has been loaded in from the
         save state. The filtering operations from the saved state will be re-applied in the same order (and with the
         same configurations) as they were originally. This is designed to allow mission data selections to be easily
         updated to reflect newly available observations; particularly useful for large samples of objects.
