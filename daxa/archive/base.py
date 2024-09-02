@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 17:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 18:16. Copyright (c) The Contributors
 
 import json
 import os
@@ -273,6 +273,9 @@ class Archive:
                 self._process_errors = info_dict['process_errors']
                 self._process_warnings = info_dict['process_warnings']
                 self._process_extra_info = info_dict['process_extra_info']
+                # TODO RESTORE THIS WHEN IT ACTUALLY WORKS
+                # self._process_run_config = info_dict['process_run_config']
+                self._process_run_config = {}
                 self._use_this_obs = info_dict['use_this_obs']
 
                 # The raw logs and errors are different, as they are stored in human-readable formats in the
