@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/09/2024, 22:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 01/09/2024, 22:11. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2332,7 +2332,7 @@ class BaseMission(metaclass=ABCMeta):
             json_str = json.dumps(mission_data, indent=4)
             stateo.write(json_str)
 
-    def update(self):
+    def update(self, download_new: bool = True):
         """
         This method is meant to update the selected observations of a mission which has been loaded back in from the
         save state. The filtering operations from the saved state will be re-applied in the same order (and with the
@@ -2363,8 +2363,14 @@ class BaseMission(metaclass=ABCMeta):
             # Now we can work through the stored history of filtering operations - in the order they were used
             for cur_filt in filt_op_copy:
                 cl_meth = getattr(self, cur_filt['name'])
-                print(cl_meth)
                 cl_meth(**cur_filt['arguments'])
+
+            # This runs the download process for any newly selected observations, if the update method was
+            #  called with the download_new argument set to True. We match the downloaded data to the type that was
+            #  originally downloaded
+            if self.download_completed and download_new:
+                self._download_done = False
+                self.download(download_products='preprocessed' in self.downloaded_type)
 
     def info(self):
         print("\n-----------------------------------------------------")
