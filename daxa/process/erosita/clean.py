@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 14:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 15:00. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -310,8 +310,8 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
                     os.makedirs(temp_dir)
 
                 cmd = flaregti_cmd.format(d=temp_dir, lef="temp_{oi}_evt_pth".format(oi=obs_id), ef=evt_list_file,
-                                          pimi=pimin, pima=pimax, mpimi=mask_pimin, mpima=mask_pimax, xmi=xmin, xma=xmax,
-                                          ymi=ymin, yma=ymax, gs=gridsize, bs=binsize, dl=detml, tb=timebin,
+                                          pimi=pimin, pima=pimax, mpimi=mask_pimin, mpima=mask_pimax, xmi=xmin,
+                                          xma=xmax, ymi=ymin, yma=ymax, gs=gridsize, bs=binsize, dl=detml, tb=timebin,
                                           ss=source_size, sl=source_like, fr=fov_radius, t=threshold, mt=max_threshold,
                                           wm=write_mask, m=og_maskimg_name, mit=mask_iter, wl=write_lightcurve,
                                           lcf=og_lc_name, wti=write_thresholdimg, tif=og_thresholdimg_name,
