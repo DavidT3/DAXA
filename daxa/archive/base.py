@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 19:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 20:34. Copyright (c) The Contributors
 
 import json
 import os
@@ -1843,18 +1843,27 @@ class Archive:
 
     def update(self):
         """
-
+        This method is used to update the data selected for this archive - in short, it will re-run the filtering
+        operations applied to every member mission instance, then re-execute the processing functions already applied
+        to this archive, in the correct order, with the same configuration as was originally used.
         """
 
+        # First of all, we run through the missions and re-run the filtering operations in order to find any new
+        #  relevant data - this first step will also populate the 'updated_meta_info' property of each mission, which
+        #  will inform us if anything has actually changed.
         for miss in self.missions:
-            # TODO REMOVE THE FALSE, JUST TEMPORARY
-            miss.update(False)
+            miss.update()
 
-            print()
+        # We run the update method on all of the missions first, then we start iterating through the missions again
+        #  to check if any processing needs to be run again
+        for miss in self.missions:
+            if (miss.updated_meta_info['sel_obs_change'] or miss.updated_meta_info['science_usable_change'] or
+                    miss.updated_meta_info['proprietary_usable_change']):
 
-            # if miss.updated_meta_info['sel_obs_change']
-            # miss.updated_meta_info['science_usable_change']
-            # miss.updated_meta_info['proprietary_usable_change']
+                for en in self.process_configurations[miss.name]:
+                    proc_name = list(en.keys())[0]
+
+
 
 
     def info(self):
