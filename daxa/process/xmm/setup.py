@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 15:58. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 12:23. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -105,8 +105,7 @@ def cif_build(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress
             final_path = dest_dir + "ccf.cif"
 
             # If it doesn't already exist then we will create commands to generate it
-            # TODO Decide whether this is the route I really want to follow for this (see issue #28)
-            if not os.path.exists(final_path):
+            if obs_id not in obs_archive.process_success[miss.name]['cif_build']:
                 # Make the temporary directory (it shouldn't already exist but doing this to be safe)
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
@@ -201,9 +200,8 @@ def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
                                                not obs_archive.process_success[miss.name]['odf_ingest'][obs_id]):
                 os.remove(final_path)
 
-            # Yes it is slightly clunky, but now if the ODF summary file doesn't exist then we make sure to run
-            #  the commands
-            if not os.path.exists(final_path):
+            # If it doesn't already exist then we will create commands to generate it
+            if obs_id not in obs_archive.process_success[miss.name]['odf_ingest']:
                 # The path to the ODF (raw data) for this ObsID
                 odf_path = miss.raw_data_path + obs_id + '/'
 
