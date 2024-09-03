@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 22:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 11:19. Copyright (c) The Contributors
 
 import glob
 import os.path
@@ -243,6 +243,21 @@ def sas_call(sas_func):
             if sas_func.__name__ not in PROC_LOOKUP[mn]:
                 raise DAXADeveloperError("The {p} process does not have an entry in process.PROC_FILTER for "
                                          "{mn}.".format(p=sas_func.__name__, mn=mn))
+
+        # This step makes sure that any processes that have already been run for every piece of relevant data in an
+        #  archive will not be run again - will also strip out any previously run processes, leaving only the ones
+        #  that have not been processed yet (for instance if an archive has been updated).
+        to_rem = {}
+        for mn in miss_cmds:
+            to_rem[mn] = []
+            for rel_id, cmd in miss_cmds[mn].items():
+                if rel_id in obs_archive.process_success[mn][sas_func.__name__]:
+                    to_rem[mn].append(rel_id)
+
+        print(to_rem['xmm_pointed'])
+        print(len(to_rem['xmm_pointed']))
+        print(len(miss_cmds['xmm_pointed']))
+        stop
 
         # This just sets up a dictionary of how many tasks there are for each mission
         num_to_run = {mn: len(miss_cmds[mn]) for mn in miss_cmds}
