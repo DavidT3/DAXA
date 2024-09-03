@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 20:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 20:47. Copyright (c) The Contributors
 
 import json
 import os
@@ -13,12 +13,11 @@ from astropy import wcs
 from astropy.units import Quantity
 from regions import Region, PixelRegion, Regions
 
-from daxa import BaseMission, OUTPUT
+from daxa import BaseMission, OUTPUT, NUM_CORES
 from daxa.exceptions import DuplicateMissionError, NoProcessingError, NoDependencyProcessError, \
     ObsNotAssociatedError, MissionNotAssociatedError, PreProcessedNotAvailableError
 from daxa.misc import dict_search
 from daxa.mission import MISS_INDEX
-from daxa.process import PROC_LOOKUP
 
 
 class Archive:
@@ -1848,6 +1847,7 @@ class Archive:
         operations applied to every member mission instance, then re-execute the processing functions already applied
         to this archive, in the correct order, with the same configuration as was originally used.
         """
+        from daxa.process import PROC_LOOKUP
 
         # First of all, we run through the missions and re-run the filtering operations in order to find any new
         #  relevant data - this first step will also populate the 'updated_meta_info' property of each mission, which
@@ -1865,6 +1865,11 @@ class Archive:
                     proc_name = list(en.keys())[0]
 
                     cur_func = PROC_LOOKUP[miss.name][proc_name]
+                    func_args = en[proc_name]
+                    if 'num_cores' in func_args:
+                        func_args['num_cores'] = NUM_CORES
+
+                    cur_func(self, **func_args)
 
 
 
