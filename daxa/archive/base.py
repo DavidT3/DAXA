@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 14:07. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 14:19. Copyright (c) The Contributors
 
 import json
 import os
@@ -1888,6 +1888,7 @@ class Archive:
                     cur_func(self, **func_args)
 
                     if proc_name == 'odf_ingest':
+                        # TODO OBVIOUSLY REMOVE THIS
                         print(self.process_success['xmm_pointed'])
                         print('\n\n')
                         print(self.process_logs['xmm_pointed'])
