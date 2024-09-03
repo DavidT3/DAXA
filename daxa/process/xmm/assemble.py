@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 15:11. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 15:27. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -1083,10 +1083,12 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             final_oot_path = os.path.join(dest_dir, 'events', final_oot_evt_name)
 
             # We check if we've already run this for the current ObsID + instrument combo, as we don't need to do
-            #  it again in that case
+            #  it again in that case - this has inverted logic compared to most of these, as we are checking if
+            #  we want to break off this loop rather than actually execute the rest of it
             print(obs_id+inst)
-            if ('merge_subexposures' not in obs_archive.process_success[miss.name] or
-                    (obs_id + inst) not in obs_archive.process_success[miss.name]['merge_subexposures']):
+            if ('merge_subexposures' in obs_archive.process_success[miss.name] and
+                    (obs_id + inst) in obs_archive.process_success[miss.name]['merge_subexposures']):
+                print('BAD')
                 continue
 
             # If there is only one event list for a particular ObsID-instrument combination, then obviously merging
