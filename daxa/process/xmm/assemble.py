@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 15:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 15:11. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -1082,6 +1082,13 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                                   "fits").format(o=obs_id, i=inst, en_id=to_combine[oi][0][0])
             final_oot_path = os.path.join(dest_dir, 'events', final_oot_evt_name)
 
+            # We check if we've already run this for the current ObsID + instrument combo, as we don't need to do
+            #  it again in that case
+            print(obs_id+inst)
+            if ('merge_subexposures' not in obs_archive.process_success[miss.name] or
+                    (obs_id + inst) not in obs_archive.process_success[miss.name]['merge_subexposures']):
+                continue
+
             # If there is only one event list for a particular ObsID-instrument combination, then obviously merging
             #  is impossible/unnecessary, so in that case we just rename the file (which will have sub-exposure ID
             #  info in the name) to the same style of the merged files
@@ -1092,9 +1099,6 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                                                        ootcne=to_combine[oi][0][2], ootnne=final_oot_path)
             elif len(to_combine[oi]) == 1:
                 cmd = inst_cmds['mos']['rename'].format(cne=to_combine[oi][0][1], nne=final_path)
-            elif ('merge_subexposures' not in obs_archive.process_success[miss.name] or
-                  (obs_id + inst) not in obs_archive.process_success[miss.name]['merge_subexposures']):
-                continue
             else:
 
                 # Set up a temporary directory to work in (probably not really necessary in this case, but will be
