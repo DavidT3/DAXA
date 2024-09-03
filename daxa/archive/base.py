@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 21:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 13:30. Copyright (c) The Contributors
 
 import json
 import os
@@ -464,14 +464,16 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in success_flags:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
-            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
-            #  empty dictionaries will be passed).
-            if pr_name in self._process_success_flags[mn] and len(success_flags[mn]) != 0:
-                warn("The process_success property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            elif pr_name not in self._process_success_flags[mn]:
-                self._process_success_flags[mn][pr_name] = success_flags[mn]
+            #  dictionary
+            self._process_success_flags[mn].setdefault(pr_name, {})
+            # If information for data is being passed that already has an entry then we warn the user, otherwise
+            #  we add it into our storage dictionary
+            for rel_id in process_name_success_dict:
+                if rel_id in self._process_success_flags[mn][pr_name]:
+                    warn("The process_success property already has an entry for {rid} under {mn}-{prn}, no change "
+                         "will be made.".format(prn=pr_name, mn=mn, rid=rel_id), stacklevel=2)
+                else:
+                    self._process_success_flags[mn][pr_name][rel_id] = success_flags[mn][rel_id]
 
     @property
     def process_errors(self) -> dict:
