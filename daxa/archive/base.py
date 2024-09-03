@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 14:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 15:41. Copyright (c) The Contributors
 
 import json
 import os
@@ -884,8 +884,9 @@ class Archive:
                 # If the particular observation does not have an entry for the particular mission then we add it to the
                 #  dictionary, but if it does then we warn the user and do nothing
                 if o_id in self._final_obs_id_success[mn]:
-                    warn("The final_process_success property already has an entry for {o_id} under {mn}, no change "
-                         "will be made.".format(o_id=o_id, mn=mn), stacklevel=2)
+                    pass
+                    # warn("The final_process_success property already has an entry for {o_id} under {mn}, no change "
+                    #      "will be made.".format(o_id=o_id, mn=mn), stacklevel=2)
                 else:
                     # Adding in the success flags
                     self._final_obs_id_success[mn][o_id] = new_val[mn][o_id]
