@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 20:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 21:04. Copyright (c) The Contributors
 
 import glob
 import os.path
@@ -18,7 +18,6 @@ from tqdm import tqdm
 from daxa.archive.base import Archive
 from daxa.config import SASERROR_LIST, SASWARNING_LIST
 from daxa.exceptions import NoXMMMissionsError, DAXADeveloperError
-from daxa.process import PROC_LOOKUP
 from daxa.process._backend_check import find_sas
 from daxa.process.general import create_dirs
 
@@ -238,6 +237,7 @@ def sas_call(sas_func):
 
         # This just acts as a check for any newly implemented functions as a reminder that they need to be in that
         #  dictionary, otherwise loading an archive, updating it, and processing the new data will not work
+        from daxa.process import PROC_LOOKUP
         for mn in miss_cmds:
             if sas_func.__name__ not in PROC_LOOKUP[mn]:
                 raise DAXADeveloperError("The {p} process does not have an entry in process.PROC_FILTER for "
