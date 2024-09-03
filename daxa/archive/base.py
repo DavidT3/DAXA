@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 14:31. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 14:39. Copyright (c) The Contributors
 
 import json
 import os
@@ -265,6 +265,10 @@ class Archive:
                 for miss_name in rel_mission_names:
                     # Setting up the mission instance with the saved state
                     cur_miss = MISS_INDEX[miss_name](save_file_path=self._arch_meta_path + miss_name + '_state.json')
+                    # We don't necessarily expect the mission to need data downloaded (because of course it should
+                    #  already have been) but this will reinstate any extra filtering based on proprietary usable
+                    #  that may have been added
+                    cur_miss.download()
                     cur_miss.locked = True
                     # And storing it in the missions attribute
                     self._missions[miss_name] = cur_miss
