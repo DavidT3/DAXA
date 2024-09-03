@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 12:19. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 12:54. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
@@ -333,7 +333,8 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
             final_paths = [evt_path, gti_path, hist_path]
 
             # If it doesn't already exist then we will create commands to generate it
-            if val_id not in obs_archive.process_success[miss.name]['espfilt']:
+            if ('espfilt' not in obs_archive.process_success[miss.name] or
+                    val_id not in obs_archive.process_success[miss.name]['espfilt']):
                 # Make the temporary directory (it shouldn't already exist but doing this to be safe)
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
