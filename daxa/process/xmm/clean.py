@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 15:58. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 21:37. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
@@ -154,7 +154,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
         raise TypeError("The allowed_sigma argument must be either an integer or a float.")
 
     # This should be a tuple with two int/float entries, these checks make sure of that
-    if not isinstance(gauss_fit_lims, tuple):
+    if not isinstance(gauss_fit_lims, (list, tuple)):
         raise TypeError("The gauss_fit_lims argument must be a tuple.")
     elif len(gauss_fit_lims) != 2:
         raise ValueError("The gauss_fit_lims tuple must have two elements; the first the lower limit, and the second "
