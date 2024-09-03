@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 12:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 12:46. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -15,6 +15,7 @@ from astropy.units import Quantity
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
+from daxa.exceptions import NoProcessingError
 from daxa.process.xmm._common import _sas_process_setup, ALLOWED_XMM_MISSIONS, sas_call
 
 
@@ -104,8 +105,13 @@ def cif_build(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress
             # This is where the final output calibration file will be stored
             final_path = dest_dir + "ccf.cif"
 
+            try:
+                check_dict = obs_archive.process_success[miss.name]['cif_build']
+            except (NoProcessingError, KeyError):
+                check_dict = {}
+
             # If it doesn't already exist then we will create commands to generate it
-            if obs_id not in obs_archive.process_success[miss.name]['cif_build']:
+            if obs_id not in check_dict:
                 # Make the temporary directory (it shouldn't already exist but doing this to be safe)
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
