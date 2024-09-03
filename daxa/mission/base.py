@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 14:19. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 14:25. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2499,13 +2499,15 @@ class BaseMission(metaclass=ABCMeta):
             self._update_meta_info['which_changed_proprietary_usable'] = which_pr_us_ch
 
             # This runs the download process for any newly selected observations, if the update method was
-            #  called with the download_new argument set to True. We match the downloaded data to the type that was
-            #  originally downloaded
-            print(self.download_completed, download_new)
-            stop
-            if self.download_completed and download_new:
+            #  called with the download_new argument set to True. We try to match the downloaded data to the type
+            #  that was originally downloaded
+            print(self.download_completed, download_new, self.downloaded_type)
+            if download_new:
                 self._download_done = False
-                self.download(download_products='preprocessed' in self.downloaded_type)
+                try:
+                    self.download(download_products='preprocessed' in self.downloaded_type)
+                except DAXANotDownloadedError:
+                    self.download()
 
     def info(self):
         print("\n-----------------------------------------------------")
