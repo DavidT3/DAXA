@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 11:19. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 11:32. Copyright (c) The Contributors
 
 import glob
 import os.path
@@ -251,10 +251,12 @@ def sas_call(sas_func):
         for mn in miss_cmds:
             to_rem[mn] = []
             for rel_id, cmd in miss_cmds[mn].items():
+                print(rel_id)
                 if rel_id in obs_archive.process_success[mn][sas_func.__name__]:
                     to_rem[mn].append(rel_id)
 
         print(to_rem['xmm_pointed'])
+        print(miss_cmds['xmm_pointed'])
         print(len(to_rem['xmm_pointed']))
         print(len(miss_cmds['xmm_pointed']))
         stop
