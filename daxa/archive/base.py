@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 14:19. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 14:31. Copyright (c) The Contributors
 
 import json
 import os
@@ -1860,7 +1860,12 @@ class Archive:
         #  relevant data - this first step will also populate the 'updated_meta_info' property of each mission, which
         #  will inform us if anything has actually changed.
         for miss in self.missions:
+            print(miss.filtered_obs_info)
+
             miss.update()
+            print('')
+            print(miss.filtered_obs_info)
+            stop
 
         # We run the update method on all of the missions first, then we start iterating through the missions again
         #  to check if any processing needs to be run again
@@ -1886,13 +1891,6 @@ class Archive:
 
                     # And this should run the actual function, with the arguments unpacked
                     cur_func(self, **func_args)
-
-                    if proc_name == 'odf_ingest':
-                        # TODO OBVIOUSLY REMOVE THIS
-                        print(self.process_success['xmm_pointed'])
-                        print('\n\n')
-                        print(self.process_logs['xmm_pointed'])
-                        stop
 
                     # Certain processing steps support multiple missions at once (like XMM Pointed and Slew) and as
                     #  such if they are both in the archive we're gonna be running the processing steps for both when
