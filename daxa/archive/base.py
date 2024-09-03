@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 15:41. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 15:43. Copyright (c) The Contributors
 
 import json
 import os
@@ -1896,6 +1896,9 @@ class Archive:
                     #  such if they are both in the archive we're gonna be running the processing steps for both when
                     #  XMMPointed is the current mission in this loop, and when Slew is - rather than try to reconcile
                     #  we decide that this shouldn't matter.
+
+        # And we make sure to save!
+        self.save()
 
     def info(self):
         """
