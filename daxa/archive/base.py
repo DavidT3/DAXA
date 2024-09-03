@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 13:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 14:07. Copyright (c) The Contributors
 
 import json
 import os
@@ -1883,8 +1883,15 @@ class Archive:
                     # We replace num cores because it is possible the NUM_CORES setting has changed.
                     if 'num_cores' in func_args:
                         func_args['num_cores'] = NUM_CORES
+
                     # And this should run the actual function, with the arguments unpacked
                     cur_func(self, **func_args)
+
+                    if proc_name == 'odf_ingest':
+                        print(self.process_success['xmm_pointed'])
+                        print('\n\n')
+                        print(self.process_logs['xmm_pointed'])
+                        stop
 
                     # Certain processing steps support multiple missions at once (like XMM Pointed and Slew) and as
                     #  such if they are both in the archive we're gonna be running the processing steps for both when
