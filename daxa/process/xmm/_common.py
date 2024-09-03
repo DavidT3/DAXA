@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 21:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 22:05. Copyright (c) The Contributors
 
 import glob
 import os.path
@@ -223,6 +223,7 @@ def sas_call(sas_func):
         if len(args) != 1:
             for ind in range(1, len(args)):
                 rel_key = list(run_args.keys())[ind]
+                print(rel_key, args[ind])
                 run_args[rel_key] = args[ind]
 
         # This is the output from whatever function this is a decorator for
