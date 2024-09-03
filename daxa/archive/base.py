@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 13:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 13:43. Copyright (c) The Contributors
 
 import json
 import os
@@ -515,7 +515,7 @@ class Archive:
                 if rel_id in self._process_errors[mn][pr_name]:
                     warn("The process_errors property already has an entry for {rid} under {mn}-{prn}, no change "
                          "will be made.".format(prn=pr_name, mn=mn, rid=rel_id), stacklevel=2)
-                elif pr_name not in self._process_errors[mn]:
+                else:
                     self._process_errors[mn][pr_name][rel_id] = error_info[mn][rel_id]
 
     @property
@@ -558,8 +558,8 @@ class Archive:
                 if rel_id in self._process_warnings[mn][pr_name]:
                     warn("The process_warnings property already has an entry for {rid} under {mn}-{prn}, no change "
                          "will be made.".format(prn=pr_name, mn=mn, rid=rel_id), stacklevel=2)
-                elif pr_name not in self._process_warnings[mn]:
-                    self._process_warnings[mn][pr_name] = warn_info[mn]
+                else:
+                    self._process_warnings[mn][pr_name][rel_id] = warn_info[mn][rel_id]
 
     @property
     def raw_process_errors(self) -> dict:
@@ -594,25 +594,28 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in error_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
+            #  dictionary
+            self._process_raw_errors[mn].setdefault(pr_name, {})
+            # If the particular process does not have an entry for the particular mission then we add it to the
             #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
             #  actual information in, if not then no warning (this can happen if a completed process is re-run,
             #  empty dictionaries will be passed).
-            if pr_name in self._process_raw_errors[mn] and len(error_info[mn]) != 0:
-                warn("The raw_process_errors property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            elif pr_name not in self._process_raw_errors[mn]:
-                self._process_raw_errors[mn][pr_name] = error_info[mn]
-                # I'm checking to make sure that there is actually a non-null entry, as hopefully for most of them
-                #  there will be no stderr! And why make empty files when we don't need too
-                for en in error_info[mn]:
-                    if len(error_info[mn][en]) != 0:
+            for rel_id in error_info[mn]:
+                if rel_id in self._process_raw_errors[mn][pr_name]:
+                    warn("The raw_process_errors property already has an entry for {rid} under {mn}-{prn}, no change "
+                         "will be made.".format(prn=pr_name, mn=mn, rid=rel_id), stacklevel=2)
+                else:
+                    self._process_raw_errors[mn][pr_name][rel_id] = error_info[mn][rel_id]
+                    # I'm checking to make sure that there is actually a non-null entry, as hopefully for most of them
+                    #  there will be no stderr! And why make empty files when we don't need too
+                    if len(error_info[mn][rel_id]) != 0:
                         # Calling this method of the mission ensures that the identifier (for instance
                         #  0201903501PNS003) is just reduced to the ObsID
-                        oi = self[mn].ident_to_obsid(en)
+                        oi = self[mn].ident_to_obsid(rel_id)
                         log_pth = self.construct_processed_data_path(mn, oi) + 'logs/'
-                        log_pth += "{pn}_{ui}_stderr.log".format(ui=en, pn=pr_name)
+                        log_pth += "{pn}_{ui}_stderr.log".format(ui=rel_id, pn=pr_name)
                         with open(log_pth, 'w') as loggo:
-                            loggo.write(error_info[mn][en])
+                            loggo.write(error_info[mn][rel_id])
 
     @property
     def process_logs(self) -> dict:
