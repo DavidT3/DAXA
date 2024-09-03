@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 14:25. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 14:28. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2501,7 +2501,6 @@ class BaseMission(metaclass=ABCMeta):
             # This runs the download process for any newly selected observations, if the update method was
             #  called with the download_new argument set to True. We try to match the downloaded data to the type
             #  that was originally downloaded
-            print(self.download_completed, download_new, self.downloaded_type)
             if download_new:
                 self._download_done = False
                 try:
