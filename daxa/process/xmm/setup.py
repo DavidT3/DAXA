@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 12:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 12:48. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -207,7 +207,8 @@ def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
                 os.remove(final_path)
 
             # If it doesn't already exist then we will create commands to generate it
-            if obs_id not in obs_archive.process_success[miss.name]['odf_ingest']:
+            if ('odf_ingest' not in obs_archive.process_success[miss.name] or
+                    obs_id not in obs_archive.process_success[miss.name]['odf_ingest']):
                 # The path to the ODF (raw data) for this ObsID
                 odf_path = miss.raw_data_path + obs_id + '/'
 
