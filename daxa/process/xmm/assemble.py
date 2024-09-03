@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 12:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 12:31. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -919,7 +919,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
 
             # We check to see if the process has been run (whether it was a success or failure) for the current
             #  data for the archive
-            if val_id not in obs_archive.process_success[miss.name]['cleaned_event_lists']:
+            if val_id not in obs_archive.process_success[miss.name]['cleaned_evt_lists']:
                 # As OOT events are only relevant to PN, we only add the variable to the paths-to-check if we're
                 #  processing some PN data right now. The OOT events path also gets added to the extra information
                 if inst == 'PN':
