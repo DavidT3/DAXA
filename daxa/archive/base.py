@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 20:47. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 21:14. Copyright (c) The Contributors
 
 import json
 import os
@@ -1861,17 +1861,28 @@ class Archive:
             if (miss.updated_meta_info['sel_obs_change'] or miss.updated_meta_info['science_usable_change'] or
                     miss.updated_meta_info['proprietary_usable_change']):
 
+                # So we stored the process configurations as lists for each mission name, where the elements of the
+                #  lists are dictionaries with the processing step name as the top level key, and the value being
+                #  another dictionary with parameters as keys and par values as values (oddly enough).
+                # We iterate through the process configs because the order is important
                 for en in self.process_configurations[miss.name]:
+                    # This extracts the process name
                     proc_name = list(en.keys())[0]
-
+                    # We now use a lookup dictionary to match the process name with the correct function
                     cur_func = PROC_LOOKUP[miss.name][proc_name]
+                    # The function arguments (which we will pass to the processing step) are read out into their
+                    #  proper form
                     func_args = en[proc_name]
+                    # We replace num cores because it is possible the NUM_CORES setting has changed.
                     if 'num_cores' in func_args:
                         func_args['num_cores'] = NUM_CORES
-
+                    # And this should run the actual function, with the arguments unpacked
                     cur_func(self, **func_args)
 
-
+                    # Certain processing steps support multiple missions at once (like XMM Pointed and Slew) and as
+                    #  such if they are both in the archive we're gonna be running the processing steps for both when
+                    #  XMMPointed is the current mission in this loop, and when Slew is - rather than try to reconcile
+                    #  we decide that this shouldn't matter.
 
     def info(self):
         """
