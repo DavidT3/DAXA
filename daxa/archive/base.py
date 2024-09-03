@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 13:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 13:36. Copyright (c) The Contributors
 
 import json
 import os
@@ -468,7 +468,7 @@ class Archive:
             self._process_success_flags[mn].setdefault(pr_name, {})
             # If information for data is being passed that already has an entry then we warn the user, otherwise
             #  we add it into our storage dictionary
-            for rel_id in process_name_success_dict:
+            for rel_id in success_flags[mn]:
                 if rel_id in self._process_success_flags[mn][pr_name]:
                     warn("The process_success property already has an entry for {rid} under {mn}-{prn}, no change "
                          "will be made.".format(prn=pr_name, mn=mn, rid=rel_id), stacklevel=2)
@@ -507,14 +507,16 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in error_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
-            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
-            #  empty dictionaries will be passed).
-            if pr_name in self._process_errors[mn] and len(error_info[mn]) != 0:
-                warn("The process_errors property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            elif pr_name not in self._process_errors[mn]:
-                self._process_errors[mn][pr_name] = error_info[mn]
+            #  dictionary
+            self._process_errors[mn].setdefault(pr_name, {})
+            # If information for data is being passed that already has an entry then we warn the user, otherwise
+            #  we add it into our storage dictionary
+            for rel_id in error_info[mn]:
+                if rel_id in self._process_errors[mn][pr_name]:
+                    warn("The process_errors property already has an entry for {rid} under {mn}-{prn}, no change "
+                         "will be made.".format(prn=pr_name, mn=mn, rid=rel_id), stacklevel=2)
+                elif pr_name not in self._process_errors[mn]:
+                    self._process_errors[mn][pr_name][rel_id] = error_info[mn][rel_id]
 
     @property
     def process_warnings(self) -> dict:
@@ -548,14 +550,16 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in warn_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
-            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
-            #  empty dictionaries will be passed).
-            if pr_name in self._process_warnings[mn] and len(warn_info[mn]) != 0:
-                warn("The process_warnings property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            elif pr_name not in self._process_warnings[mn]:
-                self._process_warnings[mn][pr_name] = warn_info[mn]
+            #  dictionary
+            self._process_warnings[mn].setdefault(pr_name, {})
+            # If information for data is being passed that already has an entry then we warn the user, otherwise
+            #  we add it into our storage dictionary
+            for rel_id in warn_info[mn]:
+                if rel_id in self._process_warnings[mn][pr_name]:
+                    warn("The process_warnings property already has an entry for {rid} under {mn}-{prn}, no change "
+                         "will be made.".format(prn=pr_name, mn=mn, rid=rel_id), stacklevel=2)
+                elif pr_name not in self._process_warnings[mn]:
+                    self._process_warnings[mn][pr_name] = warn_info[mn]
 
     @property
     def raw_process_errors(self) -> dict:
