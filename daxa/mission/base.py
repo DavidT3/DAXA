@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 11:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 11:57. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2371,6 +2371,14 @@ class BaseMission(metaclass=ABCMeta):
         mission_data['filtering_operations'] = filt_ops
 
         print(mission_data)
+        print('')
+        for en in mission_data:
+            print(en)
+            with open(en + '.json', 'w') as stateo:
+                json_str = json.dumps({en: mission_data[en]}, indent=4)
+                stateo.write(json_str)
+
+        print('\n\n\n')
 
         # Now we write the required information to the state file path
         with open(miss_file_path, 'w') as stateo:
