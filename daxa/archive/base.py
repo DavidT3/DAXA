@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 14:55. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 16:53. Copyright (c) The Contributors
 
 import json
 import os
@@ -15,9 +15,10 @@ from regions import Region, PixelRegion, Regions
 
 from daxa import BaseMission, OUTPUT, NUM_CORES
 from daxa.exceptions import DuplicateMissionError, NoProcessingError, NoDependencyProcessError, \
-    ObsNotAssociatedError, MissionNotAssociatedError, PreProcessedNotAvailableError
+    ObsNotAssociatedError, MissionNotAssociatedError, PreProcessedNotAvailableError, eSASSNotFoundError
 from daxa.misc import dict_search
 from daxa.mission import MISS_INDEX
+from daxa.process._backend_check import find_esass
 
 
 class Archive:
@@ -421,8 +422,22 @@ class Archive:
         :return: A list of the mission instances in this archive which have pre-processed data downloaded.
         :rtype: List[BaseMission]
         """
-        preproc = [miss for miss in self.missions if miss.downloaded_type == 'raw+preprocessed' or
-                   miss.downloaded_type == 'preprocessed']
+        preproc = []
+        for miss in self.missions:
+            if miss.downloaded_type == 'raw+preprocessed' or miss.downloaded_type == 'preprocessed':
+                # Here we have more specific checks for backend software - if people have the right software
+                #  installed for a particular mission then they can reprocess it
+                include_preproc = True
+                # Check for specific-mission backend software
+                if miss.name == 'erosita_all_sky_de_dr1' or miss.name == 'erosita_calpv':
+                    try:
+                        find_esass()
+                        include_preproc = False
+                    except eSASSNotFoundError:
+                        pass
+                if include_preproc:
+                    preproc.append(miss)
+
         # Check if there actually are any preprocessed missions - we'll error if not
         if len(preproc) == 0:
             raise PreProcessedNotAvailableError("This archive ({a}) does not contain any pre-processed "
