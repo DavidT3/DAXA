@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 11:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 11:50. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2324,9 +2324,6 @@ class BaseMission(metaclass=ABCMeta):
         mission_data['science_usable'] = list(science_usable.astype(bool))
         mission_data['proprietary_usable'] = list(prop_usable.astype(bool))
 
-        print(mission_data['science_usable'])
-        print(mission_data['proprietary_usable'])
-
         # We can now store the filtering operations (and their configurations), as well as the order they were run in,
         #  which means a reinstated mission can re-run the same filtering on an updated data set. HOWEVER, there is
         #  an irritating snag, where some types of objects that can be passed to filtering method cannot be
@@ -2372,6 +2369,8 @@ class BaseMission(metaclass=ABCMeta):
                     filt_op['arguments'][arg_name] = {'skycoord': {'ra': ra, 'dec': dec, 'frame': frame}}
 
         mission_data['filtering_operations'] = filt_ops
+
+        print(mission_data)
 
         # Now we write the required information to the state file path
         with open(miss_file_path, 'w') as stateo:
