@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 12:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 12:09. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2321,8 +2321,8 @@ class BaseMission(metaclass=ABCMeta):
         # Make sure to add the sel_obs list into the overall one we're hoping to store (as well as the usable
         #  flag lists)
         mission_data['selected_obs'] = list(sel_obs)
-        mission_data['science_usable'] = list(science_usable.astype(bool))
-        mission_data['proprietary_usable'] = list(prop_usable.astype(bool))
+        mission_data['science_usable'] = science_usable.tolist()
+        mission_data['proprietary_usable'] = prop_usable.tolist()
 
         # We can now store the filtering operations (and their configurations), as well as the order they were run in,
         #  which means a reinstated mission can re-run the same filtering on an updated data set. HOWEVER, there is
@@ -2369,15 +2369,6 @@ class BaseMission(metaclass=ABCMeta):
                     filt_op['arguments'][arg_name] = {'skycoord': {'ra': ra, 'dec': dec, 'frame': frame}}
 
         mission_data['filtering_operations'] = filt_ops
-
-        print(mission_data)
-        print(mission_data['proprietary_usable'], type(mission_data['proprietary_usable'][0]))
-        with open('prop_usable.json', 'w') as stateo:
-            json_str = json.dumps({'proprietary_usable': mission_data['proprietary_usable']}, indent=4)
-            stateo.write(json_str)
-
-        print('\n\n\n')
-
         # Now we write the required information to the state file path
         with open(miss_file_path, 'w') as stateo:
             json_str = json.dumps(mission_data, indent=4)
