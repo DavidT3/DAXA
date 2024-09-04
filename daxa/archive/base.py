@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 15:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 14:55. Copyright (c) The Contributors
 
 import json
 import os
@@ -1872,7 +1872,6 @@ class Archive:
         for miss in self.missions:
             if (miss.updated_meta_info['sel_obs_change'] or miss.updated_meta_info['science_usable_change'] or
                     miss.updated_meta_info['proprietary_usable_change']):
-
                 # So we stored the process configurations as lists for each mission name, where the elements of the
                 #  lists are dictionaries with the processing step name as the top level key, and the value being
                 #  another dictionary with parameters as keys and par values as values (oddly enough).

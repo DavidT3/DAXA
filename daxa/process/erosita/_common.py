@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 10:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 14:55. Copyright (c) The Contributors
 
 import glob
 import os.path
@@ -257,14 +257,13 @@ def esass_call(esass_func):
         for miss in erosita_miss:
             # Getting the process_logs for each mission
             process_logs = obs_archive._process_logs[miss.name]
-            if len(process_logs) == 0:
-                # If no processing has been done yet, we need to run the _prepare_erositacalpv_info function.
-                #   This will fill out the mission observation summaries, which are needed for later 
-                #   processing functions. It will also populate the _process_extra_info dictionary for the archive
-                #   with top level keys of the erositacalpv mission and lower level keys of obs_ids with
-                #   lower level keys
-                #   of 'path', which will store the raw data path for that obs id.
-                _prepare_erosita_info(obs_archive, miss)
+
+            # We need to run the _prepare_erositacalpv_info function.
+            #   This will fill out the mission observation summaries, which are needed for later
+            #   processing functions. It will also populate the _process_extra_info dictionary for the archive
+            #   with top level keys of the erositacalpv mission and lower level keys of obs_ids with
+            #   lower level keys of 'path', which will store the raw data path for that obs id.
+            _prepare_erosita_info(obs_archive, miss)
 
         # This is the output from whatever function this is a decorator for
         (miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout,

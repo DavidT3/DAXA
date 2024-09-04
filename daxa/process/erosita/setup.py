@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/04/2024, 21:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 14:55. Copyright (c) The Contributors
 
 import re
 from typing import Union
@@ -93,7 +93,7 @@ def _prepare_erosita_info(archive: Archive, mission: BaseMission):
     # Firstly this function will populate the process_extra_info dictionary 
     #   with the necessary info needed for erositacalpv missions
     # Defining this extra_info dictionary
-    extra_info = archive._process_extra_info[mission.name]
+    extra_info = archive.process_extra_info[mission.name]
 
     # Next this function will fill in the observation_summaries for the archive
     # Defining the dictionary that will be assigned to the observation summary
@@ -102,13 +102,14 @@ def _prepare_erosita_info(archive: Archive, mission: BaseMission):
     
     # Populating both dictionaries with the necessary info
     for obs in mission.filtered_obs_ids:
-        # getting the raw data path to each observation
-        path_to_obs = get_obs_path(mission, obs)
-        # Adding in the obs_id keys into the extra_info dictionary
-        extra_info[obs] = {}
-        # Adding in the path key and value into the obs layer of extra_info
-        extra_info[obs]['path'] = path_to_obs
-        # Then adding to the parsed_obs_info dictionary
-        parsed_obs_info[mission.name][obs] = parse_erositacalpv_sum(path_to_obs)
-     
+        if obs not in archive.observation_summaries[mission.name]:
+            # getting the raw data path to each observation
+            path_to_obs = get_obs_path(mission, obs)
+            # Adding in the obs_id keys into the extra_info dictionary
+            extra_info[obs] = {}
+            # Adding in the path key and value into the obs layer of extra_info
+            extra_info[obs]['path'] = path_to_obs
+            # Then adding to the parsed_obs_info dictionary
+            parsed_obs_info[mission.name][obs] = parse_erositacalpv_sum(path_to_obs)
+
     archive.observation_summaries = parsed_obs_info
