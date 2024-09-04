@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 16:53. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 16:58. Copyright (c) The Contributors
 
 import json
 import os
@@ -18,7 +18,6 @@ from daxa.exceptions import DuplicateMissionError, NoProcessingError, NoDependen
     ObsNotAssociatedError, MissionNotAssociatedError, PreProcessedNotAvailableError, eSASSNotFoundError
 from daxa.misc import dict_search
 from daxa.mission import MISS_INDEX
-from daxa.process._backend_check import find_esass
 
 
 class Archive:
@@ -431,6 +430,7 @@ class Archive:
                 # Check for specific-mission backend software
                 if miss.name == 'erosita_all_sky_de_dr1' or miss.name == 'erosita_calpv':
                     try:
+                        from daxa.process._backend_check import find_esass
                         find_esass()
                         include_preproc = False
                     except eSASSNotFoundError:
