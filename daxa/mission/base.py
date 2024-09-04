@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 14:28. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 11:46. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -2321,8 +2321,11 @@ class BaseMission(metaclass=ABCMeta):
         # Make sure to add the sel_obs list into the overall one we're hoping to store (as well as the usable
         #  flag lists)
         mission_data['selected_obs'] = list(sel_obs)
-        mission_data['science_usable'] = list(science_usable)
-        mission_data['proprietary_usable'] = list(prop_usable)
+        mission_data['science_usable'] = list(science_usable.astype(bool))
+        mission_data['proprietary_usable'] = list(prop_usable.astype(bool))
+
+        print(mission_data['science_usable'])
+        print(mission_data['proprietary_usable'])
 
         # We can now store the filtering operations (and their configurations), as well as the order they were run in,
         #  which means a reinstated mission can re-run the same filtering on an updated data set. HOWEVER, there is
