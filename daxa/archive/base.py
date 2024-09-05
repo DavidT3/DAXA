@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/09/2024, 13:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/09/2024, 13:44. Copyright (c) The Contributors
 
 import json
 import os
@@ -1964,9 +1964,12 @@ class Archive:
             for miss in self.missions:
                 file_name = miss.name + '_state.json'
                 cur_miss_path = os.path.join(self._arch_meta_path, file_name)
-                new_miss_path = os.path.join(prev_ver_path, file_name.replace('.json', '_{}.json'.format(str(self._last_version))))
-                shutil.move()
+                new_miss_path = os.path.join(prev_ver_path,
+                                             file_name.replace('.json', '_{}.json'.format(str(self._last_version))))
+                shutil.move(cur_miss_path, new_miss_path)
 
+                # Then we save the new version of the state file!
+                miss.save(self._arch_meta_path)
 
         # And we make sure to save!
         self.save()
