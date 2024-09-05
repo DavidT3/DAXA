@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 16:58. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/09/2024, 13:03. Copyright (c) The Contributors
 
 import json
 import os
@@ -11,6 +11,7 @@ from warnings import warn
 import numpy as np
 from astropy import wcs
 from astropy.units import Quantity
+from packaging.version import Version
 from regions import Region, PixelRegion, Regions
 
 from daxa import BaseMission, OUTPUT, NUM_CORES
@@ -249,6 +250,13 @@ class Archive:
                 to_preproc = [mn for mn in use_preprocessed if use_preprocessed[mn]]
                 preprocessed_in_archive(self, to_preproc)
 
+            # This attribute stores the current version of the archive - as we are setting up a new one here it
+            #  will start at zero.
+            self._version = Version("0.0.0")
+            # This attribute stores the version before the last update action - it is used to compare the current
+            #  version too to know if new save files need to be written out
+            self._last_version = Version("0.0.0")
+
         # HOWEVER, in this case the archive is being loaded back in from disk, and all those attributes (particularly
         #  all the dictionaries) will be loaded back in from the save file
         else:
@@ -358,6 +366,13 @@ class Archive:
                             # This reads in the region file, and the 'regions' property here is used to turn
                             #  it into a list of Region objects rather than a Regions object
                             self._source_regions[miss_name][oi] = Regions.read(cur_reg_path, format='ds9').regions
+
+                # This attribute stores the current version of the archive - we will read it in from the archive
+                #  save file in this case. It may be altered during the course of this archive being in memory
+                self._version = Version(info_dict['version'])
+                # This attribute stores the version before the last update action - it is used to compare the current
+                #  version too to know if new save files need to be written out
+                self._last_version = Version(info_dict['version'])
 
         # We save at the end of this if it is a new archive, just to set the ball rolling and get the file created.
         if self._new_arch:
@@ -1839,8 +1854,8 @@ class Archive:
         """
         # These are the big storage dictionaries mostly concerned with what data we are working with, and what we've
         #  done to it so far, and how successful those things have been
-        process_data = {'mission_names': self.mission_names, 'process_success': self._process_success_flags,
-                        'obs_summaries': self.observation_summaries,
+        process_data = {'version': str(self._version), 'mission_names': self.mission_names,
+                        'process_success': self._process_success_flags, 'obs_summaries': self.observation_summaries,
                         'final_process_success': self.final_process_success, 'process_errors': self.process_errors,
                         'process_warnings': self.process_warnings, 'process_extra_info': self.process_extra_info,
                         'use_this_obs': self.process_observation}
