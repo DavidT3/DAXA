@@ -1,8 +1,9 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/09/2024, 13:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/09/2024, 13:43. Copyright (c) The Contributors
 
 import json
 import os
+import shutil
 from copy import deepcopy
 from shutil import rmtree
 from typing import List, Union, Tuple
@@ -252,10 +253,10 @@ class Archive:
 
             # This attribute stores the current version of the archive - as we are setting up a new one here it
             #  will start at zero.
-            self._version = Version("0.0.0")
+            self._version = Version("v0.0.0")
             # This attribute stores the version before the last update action - it is used to compare the current
             #  version too to know if new save files need to be written out
-            self._last_version = Version("0.0.0")
+            self._last_version = Version("v0.0.0")
 
         # HOWEVER, in this case the archive is being loaded back in from disk, and all those attributes (particularly
         #  all the dictionaries) will be loaded back in from the save file
@@ -1909,9 +1910,11 @@ class Archive:
 
         # We run the update method on all of the missions first, then we start iterating through the missions again
         #  to check if any processing needs to be run again
+        any_change = False
         for miss in self.missions:
             if (miss.updated_meta_info['sel_obs_change'] or miss.updated_meta_info['science_usable_change'] or
                     miss.updated_meta_info['proprietary_usable_change']):
+                any_change = True
                 # So we stored the process configurations as lists for each mission name, where the elements of the
                 #  lists are dictionaries with the processing step name as the top level key, and the value being
                 #  another dictionary with parameters as keys and par values as values (oddly enough).
@@ -1935,6 +1938,35 @@ class Archive:
                     #  such if they are both in the archive we're gonna be running the processing steps for both when
                     #  XMMPointed is the current mission in this loop, and when Slew is - rather than try to reconcile
                     #  we decide that this shouldn't matter.
+
+        if any_change:
+            # First off, we're going to alter the version number to reflect the updated dataset - honestly this is
+            #  pretty basic right now, but we're just going to increment the minor version number each time an update
+            #  happens. This may change in the future.
+            # Read out a copy of the old version, we're going to alter it
+            old_vers = deepcopy(self._version)
+            # Split up the version string, we know the format so it'll always be safe
+            split_old_vers = str(old_vers).split('.')
+            # Increment the minor version by one
+            split_old_vers[1] = str(int(split_old_vers[1])+1)
+            # Create the new version and assign it
+            new_vers = Version(".".join(split_old_vers))
+            self._version = new_vers
+            # Then store the old version in the last version attribute
+            self._last_version = old_vers
+
+            # Now we make sure to save the new mission states, but first we'll move the old mission state save files
+            #  into the previous version's subdirectory
+            prev_ver_path = os.path.join(self._arch_meta_path, 'previous_versions')
+            if not os.path.exists(prev_ver_path):
+                os.makedirs(prev_ver_path)
+
+            for miss in self.missions:
+                file_name = miss.name + '_state.json'
+                cur_miss_path = os.path.join(self._arch_meta_path, file_name)
+                new_miss_path = os.path.join(prev_ver_path, file_name.replace('.json', '_{}.json'.format(str(self._last_version))))
+                shutil.move()
+
 
         # And we make sure to save!
         self.save()
