@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 13:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 12:54. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, Tuple
@@ -154,7 +154,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
         raise TypeError("The allowed_sigma argument must be either an integer or a float.")
 
     # This should be a tuple with two int/float entries, these checks make sure of that
-    if not isinstance(gauss_fit_lims, tuple):
+    if not isinstance(gauss_fit_lims, (list, tuple)):
         raise TypeError("The gauss_fit_lims argument must be a tuple.")
     elif len(gauss_fit_lims) != 2:
         raise ValueError("The gauss_fit_lims tuple must have two elements; the first the lower limit, and the second "
@@ -306,7 +306,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
 
             # Set up a temporary directory to work in (probably not really necessary in this case, but will be
             #  in other processing functions).
-            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
             temp_dir = dest_dir + temp_name + "/"
 
             # Setting up the paths to the event file, GTI file, and diagnostic histogram - these will be checked
@@ -333,30 +333,31 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
             final_paths = [evt_path, gti_path, hist_path]
 
             # If it doesn't already exist then we will create commands to generate it
-            # TODO Need to decide which file to check for here to see whether the command has already been run
-            # Make the temporary directory (it shouldn't already exist but doing this to be safe)
-            if not os.path.exists(temp_dir):
-                os.makedirs(temp_dir)
+            if ('espfilt' not in obs_archive.process_success[miss.name] or
+                    val_id not in obs_archive.process_success[miss.name]['espfilt']):
+                # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
 
-            # Format the blank command string defined near the top of this function - in this case the
-            #  configuration needs to change depending on the instrument and user configuration
-            if inst == 'PN':
-                with_oot = 'yes'
-                rs = range_scale['pn']
-            else:
-                with_oot = 'no'
-                rs = range_scale['mos']
+                # Format the blank command string defined near the top of this function - in this case the
+                #  configuration needs to change depending on the instrument and user configuration
+                if inst == 'PN':
+                    with_oot = 'yes'
+                    rs = range_scale['pn']
+                else:
+                    with_oot = 'no'
+                    rs = range_scale['mos']
 
-            cmd = ef_cmd.format(d=temp_dir, ccf=ccf_path, ef=evt_list_file, woot=with_oot, oot=oot_evt_list_file,
-                                me=method, ws=with_smoothing, s=smooth_factor, wb=with_binning, bs=bin_size,
-                                r=ratio, el=filter_lo_en, eh=filter_hi_en, rs=rs, asi=allowed_sigma, gls=gauss_fit_lims,
-                                gti=gti_path, hist=hist_path, allev=evt_path, ogti=og_gti_name, ohist=og_hist_name,
-                                oallev=og_evt_name)
+                cmd = ef_cmd.format(d=temp_dir, ccf=ccf_path, ef=evt_list_file, woot=with_oot, oot=oot_evt_list_file,
+                                    me=method, ws=with_smoothing, s=smooth_factor, wb=with_binning, bs=bin_size,
+                                    r=ratio, el=filter_lo_en, eh=filter_hi_en, rs=rs, asi=allowed_sigma,
+                                    gls=gauss_fit_lims, gti=gti_path, hist=hist_path, allev=evt_path, ogti=og_gti_name,
+                                    ohist=og_hist_name, oallev=og_evt_name)
 
-            # Now store the bash command, the path, and extra info in the dictionaries
-            miss_cmds[miss.name][val_id] = cmd
-            miss_final_paths[miss.name][val_id] = final_paths
-            miss_extras[miss.name][val_id] = {'gti_path': gti_path, 'hist_path': hist_path}
+                # Now store the bash command, the path, and extra info in the dictionaries
+                miss_cmds[miss.name][val_id] = cmd
+                miss_final_paths[miss.name][val_id] = final_paths
+                miss_extras[miss.name][val_id] = {'gti_path': gti_path, 'hist_path': hist_path}
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Finding PN/MOS soft-proton flares'

@@ -1,10 +1,11 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 09:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 14:55. Copyright (c) The Contributors
 
 import glob
 import os.path
 from enum import Flag
 from functools import wraps
+from inspect import signature, Parameter
 from multiprocessing.dummy import Pool
 from subprocess import Popen, PIPE, TimeoutExpired
 from typing import Tuple, List
@@ -15,7 +16,7 @@ from exceptiongroup import ExceptionGroup
 from tqdm import tqdm
 
 from daxa.archive.base import Archive
-from daxa.exceptions import NoEROSITAMissionsError
+from daxa.exceptions import NoEROSITAMissionsError, DAXADeveloperError
 from daxa.process._backend_check import find_esass
 from daxa.process.general import create_dirs
 
@@ -56,27 +57,27 @@ class _eSASS_Flag(Flag):
     
     """
     # Values copied and pasted from eSASS docs
-    MPE_OWNER               = 0x1
-    IKI_OWNER               = 0x2
-    TRAILING_EVENT          = 0x10
-    NEXT_TO_BORDER          = 0x20
-    NEXT_TO_ONBOARD_BADPIX  = 0x100
-    NEXT_TO_BRIGHT_PIX      = 0x200
-    NEXT_TO_DEAD_PIX        = 0x400
-    NEXT_TO_FLICKERING      = 0x800
-    ON_FLICKERING           = 0x1000
-    ON_BADPIX               = 0x2000
-    ON_DEADPIX              = 0x4000
-    OUT_OF_FOV              = 0x8000
-    OUTSIDE_QUALGTI         = 0x10000
-    OUTSIDE_GTI             = 0x20000
-    PRECEDING_MIP           = 0x40000
-    MIP_ASSOCIATED          = 0x80000
-    PHA_QUALITY_1           = 0x1000000
-    PHA_QUALITY_2           = 0x2000000
-    PHA_QUALITY_3           = 0x4000000
-    CORRUPT_EVENT           = 0x40000000
-    CORRUPT_FRAME           = 0x80000000
+    MPE_OWNER = 0x1
+    IKI_OWNER = 0x2
+    TRAILING_EVENT = 0x10
+    NEXT_TO_BORDER = 0x20
+    NEXT_TO_ONBOARD_BADPIX = 0x100
+    NEXT_TO_BRIGHT_PIX = 0x200
+    NEXT_TO_DEAD_PIX = 0x400
+    NEXT_TO_FLICKERING = 0x800
+    ON_FLICKERING = 0x1000
+    ON_BADPIX = 0x2000
+    ON_DEADPIX = 0x4000
+    OUT_OF_FOV = 0x8000
+    OUTSIDE_QUALGTI = 0x10000
+    OUTSIDE_GTI = 0x20000
+    PRECEDING_MIP = 0x40000
+    MIP_ASSOCIATED = 0x80000
+    PHA_QUALITY_1 = 0x1000000
+    PHA_QUALITY_2 = 0x2000000
+    PHA_QUALITY_3 = 0x4000000
+    CORRUPT_EVENT = 0x40000000
+    CORRUPT_FRAME = 0x80000000
 
     # DEFAULT_FLAG is equivalent to 0xc0000000
     DEFAULT_FLAG = CORRUPT_EVENT | CORRUPT_FRAME
@@ -103,6 +104,7 @@ def _is_valid_flag(flag):
         # If the flag is invalid then a ValueError is thrown
         return False
 
+
 def _make_flagsel_keword(flag, invert=True):
     """
     This function is to be called within the cleaned_evt_lists function to generate the correct
@@ -122,7 +124,6 @@ def _make_flagsel_keword(flag, invert=True):
         value = ~_eSASS_Flag(flag).value
 
     return value
-
 
 
 def _esass_process_setup(obs_archive: Archive) -> bool:
@@ -242,19 +243,27 @@ def esass_call(esass_func):
         obs_archive = args[0]
         obs_archive: Archive  # Just for autocomplete purposes in my IDE
 
+        func_sig = signature(esass_func)
+        all_arg_names = [key for key in func_sig.parameters.keys()]
+        run_args = {k: v.default for k, v in func_sig.parameters.items() if v.default is not Parameter.empty}
+        run_args = {k: kwargs[k] if k in kwargs else v for k, v in run_args.items()}
+        if len(args) != 1:
+            for ind in range(1, len(args)):
+                rel_key = all_arg_names[ind]
+                run_args[rel_key] = args[ind]
+
         # Seeing if any of the erosita missions in the archive have had any processing done yet
         erosita_miss = [mission for mission in obs_archive if mission.name in ALLOWED_EROSITA_MISSIONS]
         for miss in erosita_miss:
             # Getting the process_logs for each mission
             process_logs = obs_archive._process_logs[miss.name]
-            if len(process_logs) == 0:
-                # If no processing has been done yet, we need to run the _prepare_erositacalpv_info function.
-                #   This will fill out the mission observation summaries, which are needed for later 
-                #   processing functions. It will also populate the _process_extra_info dictionary for the archive
-                #   with top level keys of the erositacalpv mission and lower level keys of obs_ids with
-                #   lower level keys
-                #   of 'path', which will store the raw data path for that obs id.
-                _prepare_erosita_info(obs_archive, miss)
+
+            # We need to run the _prepare_erositacalpv_info function.
+            #   This will fill out the mission observation summaries, which are needed for later
+            #   processing functions. It will also populate the _process_extra_info dictionary for the archive
+            #   with top level keys of the erositacalpv mission and lower level keys of obs_ids with
+            #   lower level keys of 'path', which will store the raw data path for that obs id.
+            _prepare_erosita_info(obs_archive, miss)
 
         # This is the output from whatever function this is a decorator for
         (miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout,
@@ -266,6 +275,14 @@ def esass_call(esass_func):
             raise UnitConversionError("The value of timeout must be convertible to seconds.")
         elif timeout is not None:
             timeout = timeout.to('s').value
+
+        # This just acts as a check for any newly implemented functions as a reminder that they need to be in that
+        #  dictionary, otherwise loading an archive, updating it, and processing the new data will not work
+        from daxa.process import PROC_LOOKUP
+        for mn in miss_cmds:
+            if esass_func.__name__ not in PROC_LOOKUP[mn]:
+                raise DAXADeveloperError("The {p} process does not have an entry in process.PROC_FILTER for "
+                                         "{mn}.".format(p=esass_func.__name__, mn=mn))
 
         # This just sets up a dictionary of how many tasks there are for each mission
         num_to_run = {mn: len(miss_cmds[mn]) for mn in miss_cmds}
@@ -280,6 +297,9 @@ def esass_call(esass_func):
         process_stdouts = {}
         # This is for the extra information which can be passed from processing functions
         process_einfo = {}
+        # Here we setup another dictionary to store the processing configuration in - all this will be though
+        #  is one layer deeper than the existing run_args dictionary, with mission names as keys on the top level
+        process_cinfo = {}
 
         # Observation information, parsed from the header and event lists from the raw data file, will be stored in
         #  this dictionary and eventually passed into the archive. As such this dictionary will only be used
@@ -298,6 +318,7 @@ def esass_call(esass_func):
             process_raw_stderrs[miss_name] = {}
             process_stdouts[miss_name] = {}
             process_einfo[miss_name] = {}
+            process_cinfo[miss_name] = {}
             parsed_obs_info[miss_name] = {}
 
             # There's no point setting up a Pool etc. if there are no tasks to run for the current mission, so
@@ -393,6 +414,7 @@ def esass_call(esass_func):
         obs_archive.raw_process_errors = (esass_func.__name__, process_raw_stderrs)
         obs_archive.process_logs = (esass_func.__name__, process_stdouts)
         obs_archive.process_extra_info = (esass_func.__name__, process_einfo)
+        obs_archive.process_configurations = (esass_func.__name__, process_cinfo)
 
         # We automatically save after every process run
         obs_archive.save()

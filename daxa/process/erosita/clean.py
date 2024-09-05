@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 17:33. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 15:00. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -281,7 +281,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
             # Set up a temporary directory to work in (probably not really necessary in this case, but will be
             #  in other processing functions).
-            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
             temp_dir = dest_dir + temp_name + "/"
 
             # Setting up the paths to the lightcurve file, threshold image file, and mask image file
@@ -303,26 +303,26 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
 
             final_paths = [lc_path, threshold_path, maskimg_path]
 
-            # If it doesn't already exist then we will create commands to generate it
-            # TODO Need to decide which file to check for here to see whether the command has already been run
-            # Make the temporary directory (it shouldn't already exist but doing this to be safe)
-            if not os.path.exists(temp_dir):
-                os.makedirs(temp_dir)
+            if ('flaregti' not in obs_archive.process_success[miss.name] or
+                    obs_id not in obs_archive.process_success[miss.name]['flaregti']):
+                # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
 
-            cmd = flaregti_cmd.format(d=temp_dir, lef="temp_{oi}_evt_pth".format(oi=obs_id), ef=evt_list_file,
-                                      pimi=pimin, pima=pimax, mpimi=mask_pimin, mpima=mask_pimax, xmi=xmin, xma=xmax,
-                                      ymi=ymin, yma=ymax, gs=gridsize, bs=binsize, dl=detml, tb=timebin,
-                                      ss=source_size, sl=source_like, fr=fov_radius, t=threshold, mt=max_threshold,
-                                      wm=write_mask, m=og_maskimg_name, mit=mask_iter, wl=write_lightcurve,
-                                      lcf=og_lc_name, wti=write_thresholdimg, tif=og_thresholdimg_name,
-                                      olc=og_lc_name, lc=lc_path, oti=og_thresholdimg_name, ti=threshold_path,
-                                      omi=og_maskimg_name, mi=maskimg_path)
+                cmd = flaregti_cmd.format(d=temp_dir, lef="temp_{oi}_evt_pth".format(oi=obs_id), ef=evt_list_file,
+                                          pimi=pimin, pima=pimax, mpimi=mask_pimin, mpima=mask_pimax, xmi=xmin,
+                                          xma=xmax, ymi=ymin, yma=ymax, gs=gridsize, bs=binsize, dl=detml, tb=timebin,
+                                          ss=source_size, sl=source_like, fr=fov_radius, t=threshold, mt=max_threshold,
+                                          wm=write_mask, m=og_maskimg_name, mit=mask_iter, wl=write_lightcurve,
+                                          lcf=og_lc_name, wti=write_thresholdimg, tif=og_thresholdimg_name,
+                                          olc=og_lc_name, lc=lc_path, oti=og_thresholdimg_name, ti=threshold_path,
+                                          omi=og_maskimg_name, mi=maskimg_path)
 
-            # Now store the bash command, the path, and extra info in the dictionaries
-            miss_cmds[miss.name][obs_id] = cmd
-            miss_final_paths[miss.name][obs_id] = final_paths
-            miss_extras[miss.name][obs_id] = {'lc_path': lc_path, 'threshold_path': threshold_path,
-                                              'maskimg_path': maskimg_path}
+                # Now store the bash command, the path, and extra info in the dictionaries
+                miss_cmds[miss.name][obs_id] = cmd
+                miss_final_paths[miss.name][obs_id] = final_paths
+                miss_extras[miss.name][obs_id] = {'lc_path': lc_path, 'threshold_path': threshold_path,
+                                                  'maskimg_path': maskimg_path}
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Finding flares in observations'

@@ -1,9 +1,10 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 09:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 12:15. Copyright (c) The Contributors
 
 import glob
 import os.path
 from functools import wraps
+from inspect import signature, Parameter
 from multiprocessing.dummy import Pool
 from subprocess import Popen, PIPE, TimeoutExpired
 from typing import Tuple, List, Dict
@@ -16,7 +17,7 @@ from tqdm import tqdm
 
 from daxa.archive.base import Archive
 from daxa.config import SASERROR_LIST, SASWARNING_LIST
-from daxa.exceptions import NoXMMMissionsError
+from daxa.exceptions import NoXMMMissionsError, DAXADeveloperError
 from daxa.process._backend_check import find_sas
 from daxa.process.general import create_dirs
 
@@ -216,6 +217,15 @@ def sas_call(sas_func):
         obs_archive = args[0]
         obs_archive: Archive  # Just for autocomplete purposes in my IDE
 
+        func_sig = signature(sas_func)
+        all_arg_names = [key for key in func_sig.parameters.keys()]
+        run_args = {k: v.default for k, v in func_sig.parameters.items() if v.default is not Parameter.empty}
+        run_args = {k: kwargs[k] if k in kwargs else v for k, v in run_args.items()}
+        if len(args) != 1:
+            for ind in range(1, len(args)):
+                rel_key = all_arg_names[ind]
+                run_args[rel_key] = args[ind]
+
         # This is the output from whatever function this is a decorator for
         miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout = sas_func(*args, **kwargs)
 
@@ -225,6 +235,14 @@ def sas_call(sas_func):
             raise UnitConversionError("The value of timeout must be convertible to seconds.")
         elif timeout is not None:
             timeout = timeout.to('s').value
+
+        # This just acts as a check for any newly implemented functions as a reminder that they need to be in that
+        #  dictionary, otherwise loading an archive, updating it, and processing the new data will not work
+        from daxa.process import PROC_LOOKUP
+        for mn in miss_cmds:
+            if sas_func.__name__ not in PROC_LOOKUP[mn]:
+                raise DAXADeveloperError("The {p} process does not have an entry in process.PROC_FILTER for "
+                                         "{mn}.".format(p=sas_func.__name__, mn=mn))
 
         # This just sets up a dictionary of how many tasks there are for each mission
         num_to_run = {mn: len(miss_cmds[mn]) for mn in miss_cmds}
@@ -241,6 +259,9 @@ def sas_call(sas_func):
         process_stdouts = {}
         # This is for the extra information which can be passed from processing functions
         process_einfo = {}
+        # Here we setup another dictionary to store the processing configuration in - all this will be though
+        #  is one layer deeper than the existing run_args dictionary, with mission names as keys on the top level
+        process_cinfo = {}
 
         # Observation information, parsed from the output summary file created by ODF ingest, will be stored in
         #  this dictionary and eventually passed into the archive. As such this dictionary will only be used
@@ -267,6 +288,7 @@ def sas_call(sas_func):
             process_parsed_stderr_warns[miss_name] = {}
             process_stdouts[miss_name] = {}
             process_einfo[miss_name] = {}
+            process_cinfo[miss_name] = {}
             parsed_obs_info[miss_name] = {}
 
             # There's no point setting up a Pool etc. if there are no tasks to run for the current mission, so
@@ -380,12 +402,16 @@ def sas_call(sas_func):
             if len(python_errors) != 0:
                 raise ExceptionGroup("Python errors raised during SAS commands", python_errors)
 
+            # Adding an entry of the run arguments for this processing step under the current mission name
+            process_cinfo[miss_name] = run_args
+
         obs_archive.process_success = (sas_func.__name__, success_flags)
         obs_archive.process_errors = (sas_func.__name__, process_parsed_stderrs)
         obs_archive.process_warnings = (sas_func.__name__, process_parsed_stderr_warns)
         obs_archive.raw_process_errors = (sas_func.__name__, process_raw_stderrs)
         obs_archive.process_logs = (sas_func.__name__, process_stdouts)
         obs_archive.process_extra_info = (sas_func.__name__, process_einfo)
+        obs_archive.process_configurations = (sas_func.__name__, process_cinfo)
 
         # If the task we just ran is odf ingest, that means we've parsed the summary files to provide us with some
         #  information on the data we have - that information is in the parsed_obs_info dictionary and needs to be

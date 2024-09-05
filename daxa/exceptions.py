@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/04/2024, 19:47. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 16:59. Copyright (c) The Contributors
 
 
 class DAXAConfigError(Exception):
@@ -467,3 +467,22 @@ class PreProcessedNotAvailableError(Exception):
         else:
             return 'PreProcessedNotAvailableError has been raised'
 
+
+class DAXADeveloperError(Exception):
+    def __init__(self, *args):
+        """
+        Raised when an error has occurred that needs the attention of developers.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'DAXADeveloperError has been raised'

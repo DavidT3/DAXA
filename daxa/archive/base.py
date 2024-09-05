@@ -1,8 +1,10 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 29/08/2024, 11:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/09/2024, 13:44. Copyright (c) The Contributors
 
 import json
 import os
+import shutil
+from copy import deepcopy
 from shutil import rmtree
 from typing import List, Union, Tuple
 from warnings import warn
@@ -10,11 +12,12 @@ from warnings import warn
 import numpy as np
 from astropy import wcs
 from astropy.units import Quantity
+from packaging.version import Version
 from regions import Region, PixelRegion, Regions
 
-from daxa import BaseMission, OUTPUT
+from daxa import BaseMission, OUTPUT, NUM_CORES
 from daxa.exceptions import DuplicateMissionError, NoProcessingError, NoDependencyProcessError, \
-    ObsNotAssociatedError, MissionNotAssociatedError, PreProcessedNotAvailableError
+    ObsNotAssociatedError, MissionNotAssociatedError, PreProcessedNotAvailableError, eSASSNotFoundError
 from daxa.misc import dict_search
 from daxa.mission import MISS_INDEX
 
@@ -211,6 +214,12 @@ class Archive:
             # This attribute is used to store the 'extra info' that is sometimes passed out of processing functions (see
             # the DAXA cif_build, epchain, and emchain functions for examples).
             self._process_extra_info = {mn: {} for mn in self.mission_names}
+            # Here will be stored the configuration (i.e. the parameter values) used to run the processing steps
+            #  applied to missions of this archive - this will allow us to update an archive and have it automatically
+            #  re-run the same processing steps in the same way. We are making the value here a list because the
+            #  order in which the processing steps were executed is important, so we'll be doing a list of
+            #  dictionaries where the dictionaries will be for separate processes
+            self._process_run_config = {mn: [] for mn in self.mission_names}
 
             # This attribute will contain information on mission's observations. That could include whether a particular
             #  instrument was active for a particular observation, what sub-exposures there were (assuming there were
@@ -242,6 +251,13 @@ class Archive:
                 to_preproc = [mn for mn in use_preprocessed if use_preprocessed[mn]]
                 preprocessed_in_archive(self, to_preproc)
 
+            # This attribute stores the current version of the archive - as we are setting up a new one here it
+            #  will start at zero.
+            self._version = Version("v0.0.0")
+            # This attribute stores the version before the last update action - it is used to compare the current
+            #  version too to know if new save files need to be written out
+            self._last_version = Version("v0.0.0")
+
         # HOWEVER, in this case the archive is being loaded back in from disk, and all those attributes (particularly
         #  all the dictionaries) will be loaded back in from the save file
         else:
@@ -258,6 +274,10 @@ class Archive:
                 for miss_name in rel_mission_names:
                     # Setting up the mission instance with the saved state
                     cur_miss = MISS_INDEX[miss_name](save_file_path=self._arch_meta_path + miss_name + '_state.json')
+                    # We don't necessarily expect the mission to need data downloaded (because of course it should
+                    #  already have been) but this will reinstate any extra filtering based on proprietary usable
+                    #  that may have been added
+                    cur_miss.download()
                     cur_miss.locked = True
                     # And storing it in the missions attribute
                     self._missions[miss_name] = cur_miss
@@ -270,6 +290,17 @@ class Archive:
                 self._process_warnings = info_dict['process_warnings']
                 self._process_extra_info = info_dict['process_extra_info']
                 self._use_this_obs = info_dict['use_this_obs']
+                # This one needs a little extra processing, as there could be astropy quantities hiding in here that
+                #  we need to reconstitute
+                pr_confs = deepcopy(info_dict['process_run_config'])
+                for mn in pr_confs:
+                    for proc in pr_confs[mn]:
+                        proc_name = list(proc.keys())[0]
+                        for par in proc[proc_name]:
+                            if isinstance(proc[proc_name][par], str) and "Quantity " in proc[proc_name][par]:
+                                # This turns it back into a quantity yay
+                                proc[proc_name][par] = Quantity(proc[proc_name][par].replace('Quantity ', ''))
+                self._process_run_config = pr_confs
 
                 # The raw logs and errors are different, as they are stored in human-readable formats in the
                 #  processing directories - just so people don't HAVE to use DAXA to interact with them. Thus we
@@ -337,6 +368,13 @@ class Archive:
                             #  it into a list of Region objects rather than a Regions object
                             self._source_regions[miss_name][oi] = Regions.read(cur_reg_path, format='ds9').regions
 
+                # This attribute stores the current version of the archive - we will read it in from the archive
+                #  save file in this case. It may be altered during the course of this archive being in memory
+                self._version = Version(info_dict['version'])
+                # This attribute stores the version before the last update action - it is used to compare the current
+                #  version too to know if new save files need to be written out
+                self._last_version = Version(info_dict['version'])
+
         # We save at the end of this if it is a new archive, just to set the ball rolling and get the file created.
         if self._new_arch:
             self.save()
@@ -399,8 +437,23 @@ class Archive:
         :return: A list of the mission instances in this archive which have pre-processed data downloaded.
         :rtype: List[BaseMission]
         """
-        preproc = [miss for miss in self.missions if miss.downloaded_type == 'raw+preprocessed' or
-                   miss.downloaded_type == 'preprocessed']
+        preproc = []
+        for miss in self.missions:
+            if miss.downloaded_type == 'raw+preprocessed' or miss.downloaded_type == 'preprocessed':
+                # Here we have more specific checks for backend software - if people have the right software
+                #  installed for a particular mission then they can reprocess it
+                include_preproc = True
+                # Check for specific-mission backend software
+                if miss.name == 'erosita_all_sky_de_dr1' or miss.name == 'erosita_calpv':
+                    try:
+                        from daxa.process._backend_check import find_esass
+                        find_esass()
+                        include_preproc = False
+                    except eSASSNotFoundError:
+                        pass
+                if include_preproc:
+                    preproc.append(miss)
+
         # Check if there actually are any preprocessed missions - we'll error if not
         if len(preproc) == 0:
             raise PreProcessedNotAvailableError("This archive ({a}) does not contain any pre-processed "
@@ -446,14 +499,16 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in success_flags:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
-            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
-            #  empty dictionaries will be passed).
-            if pr_name in self._process_success_flags[mn] and len(success_flags[mn]) != 0:
-                warn("The process_success property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            elif pr_name not in self._process_success_flags[mn]:
-                self._process_success_flags[mn][pr_name] = success_flags[mn]
+            #  dictionary
+            self._process_success_flags[mn].setdefault(pr_name, {})
+            # If information for data is being passed that already has an entry then we warn the user, otherwise
+            #  we add it into our storage dictionary
+            for rel_id in success_flags[mn]:
+                if rel_id in self._process_success_flags[mn][pr_name]:
+                    warn("The process_success property already has an entry for {rid} under {mn}-{prn}, no change "
+                         "will be made.".format(prn=pr_name, mn=mn, rid=rel_id), stacklevel=2)
+                else:
+                    self._process_success_flags[mn][pr_name][rel_id] = success_flags[mn][rel_id]
 
     @property
     def process_errors(self) -> dict:
@@ -487,14 +542,16 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in error_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
-            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
-            #  empty dictionaries will be passed).
-            if pr_name in self._process_errors[mn] and len(error_info[mn]) != 0:
-                warn("The process_errors property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            elif pr_name not in self._process_errors[mn]:
-                self._process_errors[mn][pr_name] = error_info[mn]
+            #  dictionary
+            self._process_errors[mn].setdefault(pr_name, {})
+            # If information for data is being passed that already has an entry then we warn the user, otherwise
+            #  we add it into our storage dictionary
+            for rel_id in error_info[mn]:
+                if rel_id in self._process_errors[mn][pr_name]:
+                    warn("The process_errors property already has an entry for {rid} under {mn}-{prn}, no change "
+                         "will be made.".format(prn=pr_name, mn=mn, rid=rel_id), stacklevel=2)
+                else:
+                    self._process_errors[mn][pr_name][rel_id] = error_info[mn][rel_id]
 
     @property
     def process_warnings(self) -> dict:
@@ -528,14 +585,16 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in warn_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
-            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
-            #  empty dictionaries will be passed).
-            if pr_name in self._process_warnings[mn] and len(warn_info[mn]) != 0:
-                warn("The process_warnings property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            elif pr_name not in self._process_warnings[mn]:
-                self._process_warnings[mn][pr_name] = warn_info[mn]
+            #  dictionary
+            self._process_warnings[mn].setdefault(pr_name, {})
+            # If information for data is being passed that already has an entry then we warn the user, otherwise
+            #  we add it into our storage dictionary
+            for rel_id in warn_info[mn]:
+                if rel_id in self._process_warnings[mn][pr_name]:
+                    warn("The process_warnings property already has an entry for {rid} under {mn}-{prn}, no change "
+                         "will be made.".format(prn=pr_name, mn=mn, rid=rel_id), stacklevel=2)
+                else:
+                    self._process_warnings[mn][pr_name][rel_id] = warn_info[mn][rel_id]
 
     @property
     def raw_process_errors(self) -> dict:
@@ -570,25 +629,24 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in error_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
-            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
-            #  empty dictionaries will be passed).
-            if pr_name in self._process_raw_errors[mn] and len(error_info[mn]) != 0:
-                warn("The raw_process_errors property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            elif pr_name not in self._process_raw_errors[mn]:
-                self._process_raw_errors[mn][pr_name] = error_info[mn]
-                # I'm checking to make sure that there is actually a non-null entry, as hopefully for most of them
-                #  there will be no stderr! And why make empty files when we don't need too
-                for en in error_info[mn]:
-                    if len(error_info[mn][en]) != 0:
+            #  dictionary
+            self._process_raw_errors[mn].setdefault(pr_name, {})
+            for rel_id in error_info[mn]:
+                if rel_id in self._process_raw_errors[mn][pr_name]:
+                    warn("The raw_process_errors property already has an entry for {rid} under {mn}-{prn}, no change "
+                         "will be made.".format(prn=pr_name, mn=mn, rid=rel_id), stacklevel=2)
+                else:
+                    self._process_raw_errors[mn][pr_name][rel_id] = error_info[mn][rel_id]
+                    # I'm checking to make sure that there is actually a non-null entry, as hopefully for most of them
+                    #  there will be no stderr! And why make empty files when we don't need too
+                    if len(error_info[mn][rel_id]) != 0:
                         # Calling this method of the mission ensures that the identifier (for instance
                         #  0201903501PNS003) is just reduced to the ObsID
-                        oi = self[mn].ident_to_obsid(en)
+                        oi = self[mn].ident_to_obsid(rel_id)
                         log_pth = self.construct_processed_data_path(mn, oi) + 'logs/'
-                        log_pth += "{pn}_{ui}_stderr.log".format(ui=en, pn=pr_name)
+                        log_pth += "{pn}_{ui}_stderr.log".format(ui=rel_id, pn=pr_name)
                         with open(log_pth, 'w') as loggo:
-                            loggo.write(error_info[mn][en])
+                            loggo.write(error_info[mn][rel_id])
 
     @property
     def process_logs(self) -> dict:
@@ -625,25 +683,24 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in log_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
-            #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
-            #  actual information in, if not then no warning (this can happen if a completed process is re-run,
-            #   empty dictionaries will be passed).
-            if pr_name in self._process_logs[mn] and len(log_info[mn]) != 0:
-                warn("The process_logs property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            elif pr_name not in self._process_logs[mn]:
-                self._process_logs[mn][pr_name] = log_info[mn]
-                # You'll note that we're only storing these log files if there isn't already an entry - I'm trying
-                #  to be R/W conscious, but this may also get more sophisticated in the future, when version control
-                #  comes more into play and archives are updatable
-                for en in log_info[mn]:
+            #  dictionary
+            self._process_logs[mn].setdefault(pr_name, {})
+            for rel_id in log_info[mn]:
+                if rel_id in self._process_logs[mn][pr_name]:
+                    warn("The process_logs property already has an entry for {rid} under {mn}-{prn}, no change "
+                         "will be made.".format(prn=pr_name, mn=mn, rid=rel_id), stacklevel=2)
+                else:
+                    self._process_logs[mn][pr_name][rel_id] = log_info[mn][rel_id]
+                    # You'll note that we're only storing these log files if there isn't already an entry - I'm trying
+                    #  to be R/W conscious, but this may also get more sophisticated in the future, when version control
+                    #  comes more into play and archives are updatable
                     # Calling this method of the mission ensures that the identifier (for instance
                     #  0201903501PNS003) is just reduced to the ObsID
-                    oi = self[mn].ident_to_obsid(en)
+                    oi = self[mn].ident_to_obsid(rel_id)
                     log_pth = self.construct_processed_data_path(mn, oi) + 'logs/'
-                    log_pth += "{pn}_{ui}_stdout.log".format(ui=en, pn=pr_name)
+                    log_pth += "{pn}_{ui}_stdout.log".format(ui=rel_id, pn=pr_name)
                     with open(log_pth, 'w') as loggo:
-                        loggo.write(log_info[mn][en])
+                        loggo.write(log_info[mn][rel_id])
 
     @property
     def process_extra_info(self) -> dict:
@@ -678,14 +735,62 @@ class Archive:
         # Iterate through the missions in the input dictionary
         for mn in einfo_info:
             # If the particular process does not have an entry for the particular mission then we add it to the
+            #  dictionary
+            self._process_extra_info[mn].setdefault(pr_name, {})
+            # If information for data is being passed that already has an entry then we warn the user, otherwise
+            #  we add it into our storage dictionary
+            for rel_id in einfo_info[mn]:
+                if rel_id in self._process_extra_info[mn][pr_name]:
+                    warn("The process_extra_info property already has an entry for {rid} under {mn}-{prn}, no change "
+                         "will be made.".format(prn=pr_name, mn=mn, rid=rel_id), stacklevel=2)
+                else:
+                    self._process_extra_info[mn][pr_name][rel_id] = einfo_info[mn][rel_id]
+
+    @property
+    def process_configurations(self) -> dict:
+        """
+        This property contains the configurations used to run any processing steps applied to this archive - the
+        arguments passed to the processing method are stored, in order to be saved and allow for an archive to
+        be easily updated.
+
+        :return: A nested dictionary where top level keys are mission names, values are lists with each entry being
+            a dictionary with a single top level key that is the name of a process and the value being a dictionary
+            with parameter names as keys and values being the processing configuration for that parameter of
+            the process.
+        :rtype: dict
+        """
+        return self._process_run_config
+
+    @process_configurations.setter
+    def process_configurations(self, process_name_conf_dict: Tuple[str, dict]):
+        """
+        Property setter for a nested dictionary containing the configuration of a processing step applied to this
+        archive.  This shouldn't be used directly by a user, rather DAXA processing functions will use it
+        themselves. This setter does not overwrite the existing dictionary, but rather adds extra information.
+
+        :param Tuple[str, dict] process_name_conf_dict: A tuple with the first element being the name of the
+            process for which a configuration dictionary is being passed, and the second being the configuration
+            dictionary with top level keys being mission names, and bottom level keys being parameter names.
+        """
+        # This applies checks to the input to this setter
+        pr_name, conf_info = self._check_process_inputs(process_name_conf_dict)
+
+        # Iterate through the missions in the input dictionary
+        for mn in conf_info:
+            # If the particular process does not have an entry for the particular mission then we add it to the
             #  dictionary, but if it does then we warn the user and do nothing - IF the passed dictionary has
             #  actual information in, if not then no warning (this can happen if a completed process is re-run,
             #  empty dictionaries will be passed).
-            if pr_name in self._process_extra_info[mn] and len(einfo_info[mn]) != 0:
-                warn("The process_extra_info property already has an entry for {prn} under {mn}, no change will be "
-                     "made.".format(prn=pr_name, mn=mn), stacklevel=2)
-            elif pr_name not in self._process_extra_info[mn]:
-                self._process_extra_info[mn][pr_name] = einfo_info[mn]
+            if pr_name in [list(en.keys())[0] for en in self._process_run_config[mn]]:
+                pass
+                # warn("The process_configurations property already has an entry for {prn} under {mn}, no change "
+                #      "will be made.".format(prn=pr_name, mn=mn), stacklevel=2)
+            else:
+                # We're making this a dictionary with mission names as top level keys, then values being lists,
+                #  and then each entry in the list being a dictionary with the name of the process as a single
+                #  top-label key, and the value being a dictionary of parameter values - this is because the order
+                #  that they were executed in is important.
+                self._process_run_config[mn].append({pr_name: conf_info[mn]})
 
     @property
     def process_names(self) -> dict:
@@ -810,8 +915,9 @@ class Archive:
                 # If the particular observation does not have an entry for the particular mission then we add it to the
                 #  dictionary, but if it does then we warn the user and do nothing
                 if o_id in self._final_obs_id_success[mn]:
-                    warn("The final_process_success property already has an entry for {o_id} under {mn}, no change "
-                         "will be made.".format(o_id=o_id, mn=mn), stacklevel=2)
+                    pass
+                    # warn("The final_process_success property already has an entry for {o_id} under {mn}, no change "
+                    #      "will be made.".format(o_id=o_id, mn=mn), stacklevel=2)
                 else:
                     # Adding in the success flags
                     self._final_obs_id_success[mn][o_id] = new_val[mn][o_id]
@@ -993,6 +1099,16 @@ class Archive:
                 # This will overwrite an existing file so no need to delete one that might already be there if the
                 #  ObsID has already had regions added to it
                 Regions(fin_reg).write(stor_dir + 'source_regions_radec.reg', format='ds9')
+
+    @property
+    def version(self) -> Version:
+        """
+        Returns the current version of the archive.
+
+        :return: Current archive version.
+        :rtype: Version
+        """
+        return self._version
 
     # Then define internal methods
     def _check_process_inputs(self, process_vals: Tuple[str, dict]) -> Tuple[str, dict]:
@@ -1749,11 +1865,28 @@ class Archive:
         """
         # These are the big storage dictionaries mostly concerned with what data we are working with, and what we've
         #  done to it so far, and how successful those things have been
-        process_data = {'mission_names': self.mission_names, 'process_success': self._process_success_flags,
-                        'obs_summaries': self.observation_summaries,
+        process_data = {'version': str(self._version), 'mission_names': self.mission_names,
+                        'process_success': self._process_success_flags, 'obs_summaries': self.observation_summaries,
                         'final_process_success': self.final_process_success, 'process_errors': self.process_errors,
                         'process_warnings': self.process_warnings, 'process_extra_info': self.process_extra_info,
                         'use_this_obs': self.process_observation}
+        
+        # We need to do a little pre-processing on the process configuration dictionary, because some of the parameters
+        #  passed to some of the processing functions will be astropy quantities, and you cannot just stick them
+        #  in a dictionary
+        pr_confs = deepcopy(self.process_configurations)
+        # Unfortunately ugly nested for loops, but life goes on - this will turn any non-json-storable data types
+        #  into something that we can put in a json file and then reconstitute as the intended data type when
+        #  we read back in
+        for mn in pr_confs:
+            for proc in pr_confs[mn]:
+                proc_name = list(proc.keys())[0]
+                for par in proc[proc_name]:
+                    if isinstance(proc[proc_name][par], Quantity):
+                        # We add 'Quantity' to the front of the string to ensure that it is very easy to identify
+                        #  these when we load back in, as we'll need to turn them back into quantities
+                        proc[proc_name][par] = "Quantity " + proc[proc_name][par].to_string()
+        process_data['process_run_config'] = pr_confs
 
         with open(self._arch_meta_path + 'process_info.json', 'w') as processo:
             pretty_string = json.dumps(process_data, indent=4)
@@ -1761,11 +1894,92 @@ class Archive:
 
         # TODO store software versions
 
+    def update(self):
+        """
+        This method is used to update the data selected for this archive - in short, it will re-run the filtering
+        operations applied to every member mission instance, then re-execute the processing functions already applied
+        to this archive, in the correct order, with the same configuration as was originally used.
+        """
+        from daxa.process import PROC_LOOKUP
+
+        # First of all, we run through the missions and re-run the filtering operations in order to find any new
+        #  relevant data - this first step will also populate the 'updated_meta_info' property of each mission, which
+        #  will inform us if anything has actually changed.
+        for miss in self.missions:
+            miss.update()
+
+        # We run the update method on all of the missions first, then we start iterating through the missions again
+        #  to check if any processing needs to be run again
+        any_change = False
+        for miss in self.missions:
+            if (miss.updated_meta_info['sel_obs_change'] or miss.updated_meta_info['science_usable_change'] or
+                    miss.updated_meta_info['proprietary_usable_change']):
+                any_change = True
+                # So we stored the process configurations as lists for each mission name, where the elements of the
+                #  lists are dictionaries with the processing step name as the top level key, and the value being
+                #  another dictionary with parameters as keys and par values as values (oddly enough).
+                # We iterate through the process configs because the order is important
+                for en in self.process_configurations[miss.name]:
+                    # This extracts the process name
+                    proc_name = list(en.keys())[0]
+                    # We now use a lookup dictionary to match the process name with the correct function
+                    cur_func = PROC_LOOKUP[miss.name][proc_name]
+                    # The function arguments (which we will pass to the processing step) are read out into their
+                    #  proper form
+                    func_args = en[proc_name]
+                    # We replace num cores because it is possible the NUM_CORES setting has changed.
+                    if 'num_cores' in func_args:
+                        func_args['num_cores'] = NUM_CORES
+
+                    # And this should run the actual function, with the arguments unpacked
+                    cur_func(self, **func_args)
+
+                    # Certain processing steps support multiple missions at once (like XMM Pointed and Slew) and as
+                    #  such if they are both in the archive we're gonna be running the processing steps for both when
+                    #  XMMPointed is the current mission in this loop, and when Slew is - rather than try to reconcile
+                    #  we decide that this shouldn't matter.
+
+        if any_change:
+            # First off, we're going to alter the version number to reflect the updated dataset - honestly this is
+            #  pretty basic right now, but we're just going to increment the minor version number each time an update
+            #  happens. This may change in the future.
+            # Read out a copy of the old version, we're going to alter it
+            old_vers = deepcopy(self._version)
+            # Split up the version string, we know the format so it'll always be safe
+            split_old_vers = str(old_vers).split('.')
+            # Increment the minor version by one
+            split_old_vers[1] = str(int(split_old_vers[1])+1)
+            # Create the new version and assign it
+            new_vers = Version(".".join(split_old_vers))
+            self._version = new_vers
+            # Then store the old version in the last version attribute
+            self._last_version = old_vers
+
+            # Now we make sure to save the new mission states, but first we'll move the old mission state save files
+            #  into the previous version's subdirectory
+            prev_ver_path = os.path.join(self._arch_meta_path, 'previous_versions')
+            if not os.path.exists(prev_ver_path):
+                os.makedirs(prev_ver_path)
+
+            for miss in self.missions:
+                file_name = miss.name + '_state.json'
+                cur_miss_path = os.path.join(self._arch_meta_path, file_name)
+                new_miss_path = os.path.join(prev_ver_path,
+                                             file_name.replace('.json', '_{}.json'.format(str(self._last_version))))
+                shutil.move(cur_miss_path, new_miss_path)
+
+                # Then we save the new version of the state file!
+                miss.save(self._arch_meta_path)
+
+        # And we make sure to save!
+        self.save()
+
     def info(self):
         """
         A simple method to present summary information about this archive.
         """
         print("\n-----------------------------------------------------")
+        print("Version - {}".format(str(self._version)))
         print("Number of missions - {}".format(len(self)))
         print("Total number of observations - {}".format(sum([len(m) for m in self._missions.values()])))
         print("Beginning of earliest observation - {}".format(min([m.filtered_obs_info['start'].min()

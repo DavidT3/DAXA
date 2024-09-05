@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 15:08. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 15:41. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -126,7 +126,7 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
             ccd_str = ",".join([str(c_id) for c_id in sorted(ccd_ids)])
 
             # Set up a temporary directory to work in
-            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
             temp_dir = dest_dir + temp_name + "/"
             # This is where the processes will output the event list files
             og_out_path = os.path.join(dest_dir, prod_evt_list_name.format(o=obs_id, eid=exp_id))
@@ -139,9 +139,10 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
             # If it doesn't already exist then we will create commands to generate it - there are no options for
             #  epchain that could be changed between runs (other than processing unscheduled, but we're looping
             #  through those commands separately), so it's safe to take what has already been generated.
-            # Though actually the raw data could have changed, I shall have to reconsider this in the context of
-            #  updating an existing archive
-            if not os.path.exists(final_path):
+            # We check to see if the process has been run (whether it was a success or failure) for the current
+            #  data for the archive
+            if ('epchain' not in obs_archive.process_success[miss.name] or
+                    (obs_id + inst + exp_id) not in obs_archive.process_success[miss.name]['epchain']):
                 # Make the temporary directory (it shouldn't already exist but doing this to be safe)
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
@@ -290,7 +291,7 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
             # ccd_str = "'" + " ".join([str(c_id) for c_id in sorted(ccd_ids)]) + "'"
 
             # Set up a temporary directory to work in
-            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
             temp_dir = dest_dir + temp_name + "/"
 
             # This is where the final output event list file will be stored
@@ -301,9 +302,8 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
             # If it doesn't already exist then we will create commands to generate it - there are no options for
             #  emchain that could be changed between runs (other than processing unscheduled, but we're looping
             #  through those commands separately), so it's safe to take what has already been generated.
-            # Though actually the raw data could have changed, I shall have to reconsider this in the context of
-            #  updating an existing archive
-            if not os.path.exists(final_path):
+            if ('emchain' not in obs_archive.process_success[miss.name] or
+                    (obs_id + inst + exp_id) not in obs_archive.process_success[miss.name]['emchain']):
                 # Make the temporary directory (it shouldn't already exist but doing this to be safe)
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
@@ -420,7 +420,7 @@ def rgs_events(obs_archive: Archive, process_unscheduled: bool = True,  num_core
             odf_dir = miss.raw_data_path + obs_id + '/'
 
             # Set up a temporary directory to work in
-            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
             temp_dir = dest_dir + temp_name + "/"
 
             # This is where the final output event list file will be stored
@@ -432,9 +432,10 @@ def rgs_events(obs_archive: Archive, process_unscheduled: bool = True,  num_core
             # If it doesn't already exist then we will create commands to generate it - there are no options for
             #  rgsproc that could be changed between runs (other than processing unscheduled, but we're looping
             #  through those commands separately), so it's safe to take what has already been generated.
-            # Though actually the raw data could have changed, I shall have to reconsider this in the context of
-            #  updating an existing archive
-            if not os.path.exists(final_path):
+            # We check to see if the process has been run (whether it was a success or failure) for the current
+            #  data for the archive
+            if ('rgs_events' not in obs_archive.process_success[miss.name] or
+                    (obs_id + inst + exp_id) not in obs_archive.process_success[miss.name]['rgs_events']):
                 # Make the temporary directory (it shouldn't already exist but doing this to be safe)
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
@@ -535,18 +536,22 @@ def rgs_angles(obs_archive: Archive,  num_cores: int = NUM_CORES, disable_progre
             # Grab the path to the ODF directory, we shall need it
             odf_dir = miss.raw_data_path + obs_id + '/'
 
-            # We don't need to set-up a temporary directory, as we use the one from the last step
-            temp_dir = obs_archive.process_extra_info[miss.name]['rgs_events'][obs_id + inst + exp_id]['temp_dir']
+            # We check to see if the process has been run (whether it was a success or failure) for the current
+            #  data for the archive
+            if ('rgs_angles' not in obs_archive.process_success[miss.name] or
+                    (obs_id + inst + exp_id) not in obs_archive.process_success[miss.name]['rgs_angles']):
+                # We don't need to set-up a temporary directory, as we use the one from the last step
+                temp_dir = obs_archive.process_extra_info[miss.name]['rgs_events'][obs_id + inst + exp_id]['temp_dir']
 
-            # Format the blank command string defined near the top of this function with information
-            #  particular to the current mission and ObsID
-            cmd = rgp_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=inst + exp_id)
+                # Format the blank command string defined near the top of this function with information
+                #  particular to the current mission and ObsID
+                cmd = rgp_cmd.format(d=temp_dir, odf=odf_dir, ccf=ccf_path, i=inst, ei=inst + exp_id)
 
-            # Now store the bash command, the path, and extra info in the dictionaries
-            miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
-            # There are no file outputs from this stage, it just modifies the existing event list
-            miss_final_paths[miss.name][obs_id + inst + exp_id] = []
-            miss_extras[miss.name][obs_id + inst + exp_id] = {}
+                # Now store the bash command, the path, and extra info in the dictionaries
+                miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
+                # There are no file outputs from this stage, it just modifies the existing event list
+                miss_final_paths[miss.name][obs_id + inst + exp_id] = []
+                miss_extras[miss.name][obs_id + inst + exp_id] = {}
 
         # This is just used for populating a progress bar during generation
     process_message = 'Correcting RGS for aspect drift'
@@ -658,9 +663,10 @@ def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, d
             # If it doesn't already exist then we will create commands to generate it - there are no options for
             #  rgsproc that could be changed between runs (other than processing unscheduled, but we're looping
             #  through those commands separately), so it's safe to take what has already been generated.
-            # Though actually the raw data could have changed, I shall have to reconsider this in the context of
-            #  updating an existing archive
-            if not os.path.exists(final_path):
+            # We check to see if the process has been run (whether it was a success or failure) for the current
+            #  data for the archive
+            if ('cleaned_rgs_event_lists' not in obs_archive.process_success[miss.name] or
+                    (obs_id + inst + exp_id) not in obs_archive.process_success[miss.name]['cleaned_rgs_event_lists']):
                 # Make the temporary directory (it shouldn't already exist but doing this to be safe)
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
@@ -898,7 +904,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
 
             # Set up a temporary directory to work in (probably not really necessary in this case, but will be
             #  in other processing functions).
-            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
             temp_dir = dest_dir + temp_name + "/"
 
             # Setting up the path to the event file
@@ -916,26 +922,29 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             # The default extra information to store after the command has been construct
             to_store = {'evt_clean_path': filt_evt_path, 'en_key': en_ident}
 
-            # As OOT events are only relevant to PN, we only add the variable to the paths-to-check if we're
-            #  processing some PN data right now. The OOT events path also gets added to the extra information
-            if inst == 'PN':
-                final_paths.append(filt_oot_evt_path)
-                to_store['oot_evt_clean_path'] = filt_oot_evt_path
+            # We check to see if the process has been run (whether it was a success or failure) for the current
+            #  data for the archive
+            if ('cleaned_evt_lists' not in obs_archive.process_success[miss.name] or
+                    val_id not in obs_archive.process_success[miss.name]['cleaned_evt_lists']):
+                # As OOT events are only relevant to PN, we only add the variable to the paths-to-check if we're
+                #  processing some PN data right now. The OOT events path also gets added to the extra information
+                if inst == 'PN':
+                    final_paths.append(filt_oot_evt_path)
+                    to_store['oot_evt_clean_path'] = filt_oot_evt_path
 
-            # If it doesn't already exist then we will create commands to generate it
-            # TODO Need to decide which file to check for here to see whether the command has already been run
-            # Make the temporary directory (it shouldn't already exist but doing this to be safe)
-            if not os.path.exists(temp_dir):
-                os.makedirs(temp_dir)
+                # If it doesn't already exist then we will create commands to generate it
+                # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
 
-            final_expression = "'" + " && ".join(cur_sel_expr) + "'"
-            cmd = ev_cmd.format(d=temp_dir, ccf=ccf_path, ae=evt_list_file, fe=filt_evt_path, expr=final_expression,
-                                ootae=oot_evt_list_file, ootfe=filt_oot_evt_path)
+                final_expression = "'" + " && ".join(cur_sel_expr) + "'"
+                cmd = ev_cmd.format(d=temp_dir, ccf=ccf_path, ae=evt_list_file, fe=filt_evt_path, expr=final_expression,
+                                    ootae=oot_evt_list_file, ootfe=filt_oot_evt_path)
 
-            # Now store the bash command, the path, and extra info in the dictionaries
-            miss_cmds[miss.name][val_id] = cmd
-            miss_final_paths[miss.name][val_id] = final_paths
-            miss_extras[miss.name][val_id] = to_store
+                # Now store the bash command, the path, and extra info in the dictionaries
+                miss_cmds[miss.name][val_id] = cmd
+                miss_final_paths[miss.name][val_id] = final_paths
+                miss_extras[miss.name][val_id] = to_store
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Generating cleaned PN/MOS event lists'
@@ -1073,6 +1082,13 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                                   "fits").format(o=obs_id, i=inst, en_id=to_combine[oi][0][0])
             final_oot_path = os.path.join(dest_dir, 'events', final_oot_evt_name)
 
+            # We check if we've already run this for the current ObsID + instrument combo, as we don't need to do
+            #  it again in that case - this has inverted logic compared to most of these, as we are checking if
+            #  we want to break off this loop rather than actually execute the rest of it
+            if ('merge_subexposures' in obs_archive.process_success[miss.name] and
+                    (obs_id + inst) in obs_archive.process_success[miss.name]['merge_subexposures']):
+                continue
+
             # If there is only one event list for a particular ObsID-instrument combination, then obviously merging
             #  is impossible/unnecessary, so in that case we just rename the file (which will have sub-exposure ID
             #  info in the name) to the same style of the merged files
@@ -1083,13 +1099,11 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                                                        ootcne=to_combine[oi][0][2], ootnne=final_oot_path)
             elif len(to_combine[oi]) == 1:
                 cmd = inst_cmds['mos']['rename'].format(cne=to_combine[oi][0][1], nne=final_path)
-            elif os.path.exists(final_path):
-                continue
             else:
 
                 # Set up a temporary directory to work in (probably not really necessary in this case, but will be
                 #  in other processing functions).
-                temp_name = "tempdir_{}".format(randint(0, 1e+8))
+                temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
                 temp_dir = dest_dir + temp_name + "/"
 
                 # As the merge command won't overwrite an existing file name, and we don't know how many times the loop
@@ -1098,8 +1112,6 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                 # We also make one for OOT events, though it will only be used when merging PN events
                 temp_oot_evt_name = "{i}{en_id}_oot_clean_temp{ind}.fits"
 
-                # If it doesn't already exist then we will create commands to generate it
-                # TODO Need to decide which file to check for here to see whether the command has already been run
                 # Make the temporary directory (it shouldn't already exist but doing this to be safe)
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
