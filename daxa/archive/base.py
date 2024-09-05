@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/09/2024, 13:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 05/09/2024, 13:14. Copyright (c) The Contributors
 
 import json
 import os
@@ -1944,6 +1944,7 @@ class Archive:
         A simple method to present summary information about this archive.
         """
         print("\n-----------------------------------------------------")
+        print("Version - {}".format(str(self._version)))
         print("Number of missions - {}".format(len(self)))
         print("Total number of observations - {}".format(sum([len(m) for m in self._missions.values()])))
         print("Beginning of earliest observation - {}".format(min([m.filtered_obs_info['start'].min()
