@@ -58,9 +58,9 @@ preserving low-level control of processing for X-ray experts. It is useful for i
 observations of a single object of interest, but it excels at creating and managing multi-mission datasets for 
 serendipitous or targeted studies of large samples of X-ray emitting objects. Once relevant observations are 
 identified, the raw data can be downloaded (and optionally processed) through [Daxa]{.smallcaps}, or pre-processed 
-event lists, images, and exposure maps can be downloaded if they are available. With at least a decade-long `X-ray 
-desert' on the horizon, archival data will take on even greater importance, and enhanced access to those archives 
-will be vital to the continuation of X-ray astronomy.
+event lists, images, and exposure maps can be downloaded if they are available. With a decade-long `X-ray 
+desert' potentially on the horizon, archival data will take on even greater importance, and enhanced access to 
+those archives will be vital to the continuation of X-ray astronomy.
 
 # Statement of need
 X-ray observations provide a powerful view of some of the most extreme processes in the Universe, and have had a 
