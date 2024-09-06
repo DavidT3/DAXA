@@ -117,7 +117,8 @@ the whole X-ray observation history of an object can provide valuable astrophysi
 
 # Features
 
-[Daxa]{.smallcaps} contains two types of Python class: mission classes and the archive class. Mission classes directly 
+[Daxa]{.smallcaps} contains two types of Python class: mission classes and the archive 
+class (see \autoref{fig:flowchart} for a schematic of the structure of the module). Mission classes directly 
 represent a telescope or survey (for instance there are separate classes for pointed and survey observations taken by 
 _ROSAT_ [@rosat], as the characteristics of the data are quite different), and exist to provide a Python interface 
 with the current telescope observation database. Such mission classes allow the user to easily identify data relevant 
