@@ -81,9 +81,9 @@ medium) [@clusterdisco], with the implication that clusters were more than colle
 non-exhaustive lists make evident the importance of X-ray observations to the astronomy, astrophysics, and cosmology 
 communities.
 
-The current workhorse X-ray observatories (_XMM_[@xmm] and _Chandra_; other telescopes are 
-online but are more specialised) are ageing, with _Chandra_ in particular experiencing a decline in 
-low-energy sensitivity that might limit science cases; these missions cannot last forever. If we are to enter an 
+The current workhorse X-ray observatories, _XMM_ [@xmm] and _Chandra_ are ageing, with _Chandra_ in particular 
+experiencing a decline in low-energy sensitivity that might limit science cases (other telescopes are 
+online but are more specialised); these missions cannot last forever. If we are to enter an 
 X-ray desert, where the astrophysics community has only limited access to new X-ray observations from specialised 
 missions like _Swift_ [@swift], _NuSTAR_ [@nustar], and _XRISM_ [@xrism], then archival data (and serendipitous studies) 
 take on an even greater value than they already hold. [Daxa]{.smallcaps} is part of an ecosystem of open-source software 
@@ -104,7 +104,7 @@ As such, X-ray data should be made as accessible as possible, both for X-ray exp
 face barriers to entry; X-ray data can be particularly intimidating to those astronomers who have not used it 
 before, though their research may benefit from a high-energy view. Difficulty of use undermines the open-source nature 
 of X-ray astronomy data, which organisations such as the European Space Agency (ESA) and the High Energy Astrophysics 
-Science Archive Research Center (HEASARC) have gone to great lengths to achieve. This may limit the reach and scientific 
+Science Archive Research Center (HEASARC) have gone to great lengths to build. This may limit the reach and scientific 
 impact of X-ray telescopes; we should seek to maximise the user of X-ray data, both to support X-ray astronomy 
 through the `X-ray desert', and to persuade funding bodies of the great need for further X-ray telescopes. 
 
@@ -179,7 +179,7 @@ Another related software package is the other module in our open-source X-ray as
 and Analyse ([Xga]{.smallcaps}; @xga) - it exists to analyse large samples of sources using large sets of X-ray 
 data. [Daxa]{.smallcaps} is designed to go hand-in-hand with [Xga]{.smallcaps}, as it will build and manage the kind of 
 dataset required for [Xga]{.smallcaps} to attain maximum usefulness. We emphasise that such datasets do not _have_ to 
-be analysed with [Xga]{.smallcaps}) however. 
+be analysed with [Xga]{.smallcaps} however. 
 
 We have created a one-stop-shop for downloading and processing archival X-ray data, making it more accessible and 
 user-friendly, particularly for non-specialists. [Daxa]{.smallcaps} is greater than the sum of its parts, but is only 
