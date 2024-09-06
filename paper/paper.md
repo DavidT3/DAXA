@@ -104,7 +104,7 @@ As such, X-ray data should be made as accessible as possible, both for X-ray exp
 face barriers to entry; X-ray data can be particularly intimidating to those astronomers who have not used it 
 before, though their research may benefit from a high-energy view. Difficulty of use undermines the open-source nature 
 of X-ray astronomy data, which organisations such as the European Space Agency (ESA) and the High Energy Astrophysics 
-Science Archive Research Center (HEASARC) have gone to great lengths to build. This may limit the reach and scientific 
+Science Archive Research Center (HEASARC) have gone to great lengths to achieve. This may limit the reach and scientific 
 impact of X-ray telescopes; we should seek to maximise the user of X-ray data, both to support X-ray astronomy 
 through the `X-ray desert', and to persuade funding bodies of the great need for further X-ray telescopes. 
 
