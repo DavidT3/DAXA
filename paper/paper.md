@@ -170,14 +170,15 @@ data. In this vein we must also acknowledge the HEASoft package, which is almost
 analyses, and is used by both SAS and eSASS. 
 
 Another related software package is the other module in our open-source X-ray astronomy ecosystem, X-ray: Generate 
-and Analyse ([Xga]{.smallcaps}; @xga). It has none of the same features as [Daxa]{.smallcaps}, as it exists to 
-analyse large sets of X-ray data, but we created [Daxa]{.smallcaps} to build and manage the kind of dataset required for
-[Xga]{.smallcaps} to attain maximum usefulness (though such datasets do not _have_ to be analysed with 
-[Xga]{.smallcaps}). 
+and Analyse ([Xga]{.smallcaps}; @xga) - it exists to analyse large samples of sources using large sets of X-ray 
+data. [Daxa]{.smallcaps} is designed to go hand-in-hand with [Xga]{.smallcaps}, as it will build and manage the kind of 
+dataset required for [Xga]{.smallcaps} to attain maximum usefulness. We emphasise that such datasets do not _have_ to 
+be analysed with [Xga]{.smallcaps}) however. 
 
-[Daxa]{.smallcaps} is greater than the sum of its parts, but is only possible because of the existing software packages
-it builds upon; we hope that it only enhances the value that astrophysicists derive from the other software we have 
-mentioned.
+We have created a one-stop-shop for downloading and processing archival X-ray data, making it more accessible and 
+user-friendly, particularly for non-specialists. [Daxa]{.smallcaps} is greater than the sum of its parts, but is only 
+possible because of the existing software packages it builds upon; we hope that it only enhances the value that 
+astrophysicists derive from the other software we have mentioned.
 
 # Research projects using DAXA
 
@@ -221,5 +222,7 @@ Program (NASA80NSSC22K0476).
 
 KR and PG acknowledge support from the UK Science and Technology Facilities Council via grants ST/T000473/1 and ST/X001040/1.
 JP acknowledges support from the UK Science and Technology Facilities Council via grants ST/X508822/1.
+
+DT is grateful to Amanda Witwer for comments on the structure and content of this paper. 
 
 # References
