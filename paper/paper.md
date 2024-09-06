@@ -161,7 +161,7 @@ science - reproducibility.
 # Existing software packages
 There are no direct analogues to our module, though we must acknowledge the many pieces of software (and data
 archives), that greatly facilitated the development of [Daxa]{.smallcaps}. Data access is made 
-possible primarily by the HEASARC data archive, though the Astroquery [@astroquery] package is also used. 
+possible primarily by the HEASARC data archive, though the Astroquery [@astroquery] module is also used. 
 HEASARC provides an online interface to query their data archive, which has similar functionality to some of the 
 filtering methods of mission classes in [Daxa]{.smallcaps} (though we provide slightly more functionality in 
 that regard), and they provide Python SQL examples to access the data, but none of the data management and cleaning 
