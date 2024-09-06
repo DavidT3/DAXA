@@ -64,23 +64,7 @@ will be vital to the continuation of X-ray astronomy.
 
 # Statement of need
 X-ray observations provide a powerful view of some of the most extreme processes in the Universe, and have had a 
-profound impact on our understanding of many types of astrophysical objects. As such, access to X-ray data should be 
-made as simple as possible, both for X-ray experts and non-specialists whose research benefits from a high-energy 
-view; organisations such as the European Space Agency (ESA) and the High Energy Astrophysics Science Archive Research 
-Center (HEASARC) have gone to great lengths to enable this access, and our software builds on their success. 
-Through [Daxa]{.smallcaps}, most X-ray observatory archives are accessible through a single unified interface 
-available in a programming language that is ubiquitous in astronomy (Python); locally searching for data relevant 
-to a particular sample gives us the opportunity to better record and share the exact search parameters, through a 
-Jupyter notebook for instance. X-ray data can also be particularly intimidating to those astronomers who have not 
-used it before, which acts as a barrier to entry, undermining the open-source nature of X-ray astronomy data, and 
-limiting the reach and scientific impact of X-ray telescopes; it is in our interest to maximise the use of these 
-data, both to support X-ray astronomy through the `X-ray desert', and to persuade funding bodies of the great need for 
-further X-ray telescopes. Our solution is to provide a normalised interface to different backend software 
-packages (some of which can be difficult for new users), allowing for the easy processing of X-ray data to a 
-scientifically useful state; this is in addition to the ability to download pre-processed data from many of the 
-data archives.
-
-![A flowchart giving a brief overview of the [Daxa]{.smallcaps} workflow. We indicate the different ways that [Daxa]{.smallcaps} can be used to access, process, and use archival X-ray data. \label{fig:flowchart}](figures/daxa_paper_flowchart.pdf)
+profound impact on our understanding of many types of astrophysical objects. 
 
 Every sub-field of astronomy, astrophysics, and cosmology has benefited significantly from X-ray coverage over 
 the last three decades; the observation of X-ray cavities in galaxy clusters caused by central AGN helped to shed light 
@@ -112,6 +96,25 @@ for any object detected within the field-of-view, even if it was not the target.
 enable the maximum use of existing X-ray archives, to traverse the X-ray desert and ensure that we 
 are fully prepared for future X-ray telescopes such as _Athena_ [@athena] and _Lynx_ [@lynx]. Having easy access to 
 the whole X-ray observation history of an object can provide valuable astrophysical context at little extra cost.
+
+
+![A flowchart giving a brief overview of the [Daxa]{.smallcaps} workflow. We indicate the different ways that [Daxa]{.smallcaps} can be used to access, process, and use archival X-ray data. \label{fig:flowchart}](figures/daxa_paper_flowchart.pdf)
+
+As such, X-ray data should be made as accessible as possible, both for X-ray experts and non-specialists who may 
+face barriers to entry; X-ray data can be particularly intimidating to those astronomers who have not used it 
+before, though their research may benefit from a high-energy view. Difficulty of use undermines the open-source nature 
+of X-ray astronomy data, which organisations such as the European Space Agency (ESA) and the High Energy Astrophysics 
+Science Archive Research Center (HEASARC) have gone to great lengths to build. This may limit the reach and scientific 
+impact of X-ray telescopes; we should seek to maximise the user of X-ray data, both to support X-ray astronomy 
+through the `X-ray desert', and to persuade funding bodies of the great need for further X-ray telescopes. 
+
+We build on ESA and HEASARC's success and make the data more accessible by providing a normalised interface to 
+different backend software packages and datasets, allowing for the easy processing of X-ray data to a scientifically 
+useful state; this is in addition to the ability to download pre-processed data from many of the data archives. 
+Through [Daxa]{.smallcaps}, most X-ray observatory archives are accessible through a single unified interface 
+available in a programming language that is ubiquitous in astronomy (Python); locally searching for data relevant 
+to a particular sample gives us the opportunity to better record and share the exact search parameters, through a 
+Jupyter notebook for instance. 
 
 [^*]: turne540@msu.edu
 
