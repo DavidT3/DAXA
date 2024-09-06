@@ -131,9 +131,9 @@ user can also select a subset of instruments, if the telescope has more than one
 contribute to their analysis. 
 
 Once a set of relevant observations have been identified, for either a single mission or a set of missions, a 
-[Daxa]{.smallcaps} data archive can be declared. This will automatically download the selected data from
-the various telescope archives, and proceeds to ingest and organise the data so that it can be managed (and if 
-necessary, updated) through the [Daxa]{.smallcaps} interface. We have also implemented user-friendly, multi-threaded, 
+[Daxa]{.smallcaps} data archive can be declared. When a user declares a [Daxa]{.smallcaps} archive, the selected data 
+are automatically downloaded from the various telescope datasets, and then ingested and organised so that they can 
+be managed through the [Daxa]{.smallcaps} interface. We have also implemented user-friendly, multi-threaded, 
 data preparation and cleaning routines for some telescopes (_XMM_ and _eROSITA_ in particular, though more will be 
 added); fine control of the parameters that configure these processes is retained, but default 
 behaviours can be used if the user is unfamiliar with the minutiae of X-ray data preparation. Another key benefit of
@@ -145,7 +145,9 @@ All of this information is retained permanently, not just while the initial [Dax
 running. Any [Daxa]{.smallcaps} archive can be loaded back in after the initial processing, once again providing access 
 to the stored logs, and processing information. At this point the archives can also be updated, either by searching 
 for new data from the existing missions, adding data from a different mission, or re-processing specific observations 
-to achieve more scientifically useful data. Each data archive is also capable of creating a file that 
+to achieve more scientifically useful data. Any such change will be recorded in the archive history, so that the data 
+archive can have a specific version that refers to its exact state at any given time; this version can be referred 
+to in published work using the data archive. Each data archive is also capable of creating a file that 
 other [Daxa]{.smallcaps} users can import, and which will recreate the data archive by downloading the same data, and 
 processing it in the same way; this renders making fully processed, and large, X-ray data files available with a piece 
 of research unnecessary. This feature in particular can be used to further one of the tenets of open-source 
