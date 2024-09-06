@@ -110,15 +110,14 @@ they generally record the time, position, and energy of each individual photon i
 missions currently implemented in [Daxa]{.smallcaps}); this means that we can create images, lightcurves, and spectra 
 for any object detected within the field-of-view, even if it was not the target. With this software, we
 enable the maximum use of existing X-ray archives, to traverse the X-ray desert and ensure that we 
-are fully prepared for future X-ray telescopes such as _Athena_ [@athena] and _Lynx_ [@lynx]. Having easy access to the 
-whole history of X-ray observations of an object can provide extra context as to its astrophysics, and comes at little 
-extra cost. 
+are fully prepared for future X-ray telescopes such as _Athena_ [@athena] and _Lynx_ [@lynx]. Having easy access to 
+the whole X-ray observation history of an object can provide valuable astrophysical context at little extra cost.
 
 [^*]: turne540@msu.edu
 
 # Features
 
-[Daxa]{.smallcaps} contains two types of Python class, mission classes and the archive class. Mission classes directly 
+[Daxa]{.smallcaps} contains two types of Python class: mission classes and the archive class. Mission classes directly 
 represent a telescope or survey (for instance there are separate classes for pointed and survey observations taken by 
 _ROSAT_ [@rosat], as the characteristics of the data are quite different), and exist to provide a Python interface 
 with the current telescope observation database. Such mission classes allow the user to easily identify data relevant 
@@ -128,7 +127,7 @@ field-of-view), filtering on the time of the observation (also filtering on whet
 at a specific time, for whole samples with different coordinates and times of interest), and filtering on specific 
 observation identifiers (ObsIDs) if they are already known. Each mission class has some knowledge of the 
 characteristics of the telescope it represents (such as the field-of-view) to make observation filtering easier. The 
-user can also select only a subset of instruments, if the telescope has more than one, to exclude any that may not 
+user can also select a subset of instruments, if the telescope has more than one, to exclude any that may not 
 contribute to their analysis. 
 
 Once a set of relevant observations have been identified, for either a single mission or a set of missions, a 
@@ -136,9 +135,9 @@ Once a set of relevant observations have been identified, for either a single mi
 the various telescope archives, and proceeds to ingest and organise the data so that it can be managed (and if 
 necessary, updated) through the [Daxa]{.smallcaps} interface. We have also implemented user-friendly, multi-threaded, 
 data preparation and cleaning routines for some telescopes (_XMM_ and _eROSITA_ in particular, though more will be 
-added); fine control of the parameters that control these processes is retained, but default 
+added); fine control of the parameters that configure these processes is retained, but default 
 behaviours can be used if the user is unfamiliar with the minutiae of X-ray data preparation. Another key benefit of
-reducing data with [Daxa]{.smallcaps} is the easy access to data logs through our interface, in case of 
+reducing data with [Daxa]{.smallcaps} is the easy access to data logs through its interface, in case of 
 suspected problems during the reduction processes. The module is also capable of safely handling processing 
 failures, recording at which processing step the failure occurred for a particular ObsID. 
 
@@ -150,12 +149,12 @@ to achieve more scientifically useful data. Each data archive is also capable of
 other [Daxa]{.smallcaps} users can import, and which will recreate the data archive by downloading the same data, and 
 processing it in the same way; this renders making fully processed, and large, X-ray data files available with a piece 
 of research unnecessary. This feature in particular can be used to further one of the tenets of open-source 
-science, reproducibility. 
+science - reproducibility. 
 
 
 # Existing software packages
 There are no direct analogues to our module, though we must acknowledge the many pieces of software (and data
-archives), that greatly helped the development of [Daxa]{.smallcaps}. Data access is made 
+archives), that greatly facilitated the development of [Daxa]{.smallcaps}. Data access is made 
 possible primarily by the HEASARC data archive, though the Astroquery [@astroquery] package is also used. 
 HEASARC provides an online interface to query their data archive, which has similar functionality to some of the 
 filtering methods of mission classes in [Daxa]{.smallcaps} (though we provide slightly more functionality in 
@@ -165,7 +164,7 @@ functionality that we include.
 [Daxa]{.smallcaps} also builds on the various telescope-specific software packages to perform data preparation and 
 cleaning. Particularly important are the _XMM_ Science Analysis System (SAS; @sas) and the complementary extended 
 SAS (eSAS; @esascook) packages, which allow us to provide simple Python interfaces to the complex, multi-step, processes 
-that are required to prepare raw _XMM_ data for scientific use. The analogous_eROSITA_ Science Analysis Software 
+that are required to prepare raw _XMM_ data for scientific use. The analogous _eROSITA_ Science Analysis Software 
 System (eSASS; @erosita) must also be mentioned, as it provides the tools needed to reduce and prepare _eROSITA_ 
 data. In this vein we must also acknowledge the HEASoft package, which is almost ubiquitous in X-ray data 
 analyses, and is used by both SAS and eSASS. 
