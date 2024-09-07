@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 10:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/09/2024, 13:48. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -188,7 +188,7 @@ class Swift(BaseMission):
         #  here (https://swift.gsfc.nasa.gov/about_swift/bat_desc.html).
         # BAT is somewhat complicated, because the half-coded region (which can do imaging) has a 100x60deg FoV, so I
         #  have gone with half the long side
-        self._approx_fov = {'XRT': Quantity(11.8, 'arcmin'), 'BAT': Quantity(50, 'arcmin'),
+        self._approx_fov = {'XRT': Quantity(11.8, 'arcmin'), 'BAT': Quantity(50, 'deg'),
                             'UVOT': Quantity(8.5, 'arcmin')}
         return self._approx_fov
 
