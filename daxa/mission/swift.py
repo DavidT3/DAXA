@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/09/2024, 13:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/09/2024, 17:00. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -246,7 +246,8 @@ class Swift(BaseMission):
 
         # Could poll the individual instrument observing times for different modes to determine the mode of the
         #  instrument - but that would be a LOT of columns
-        which_cols = ['RA', 'DEC', 'ObsID', 'Start_Time', 'Stop_Time', 'XRT_Exposure', 'UVOT_Exposure', 'BAT_Exposure']
+        which_cols = ['RA', 'DEC', 'Roll_Angle', 'ObsID', 'Start_Time', 'Stop_Time', 'XRT_Exposure', 'UVOT_Exposure',
+                      'BAT_Exposure']
         # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
         #  but I curated it to only those I think might be useful for DAXA
         fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
@@ -318,7 +319,7 @@ class Swift(BaseMission):
 
         # Re-ordering the table, and not including certain columns which have served their purpose
         rel_swift = rel_swift[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration',  'target_category',
-                               'xrt_exposure', 'bat_exposure', 'uvot_exposure']]
+                               'xrt_exposure', 'bat_exposure', 'uvot_exposure', 'roll_angle']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
         #  the user would expect from  a fresh dataframe
