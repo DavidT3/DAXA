@@ -98,7 +98,7 @@ are fully prepared for future X-ray telescopes such as _Athena_ [@athena] and _L
 the whole X-ray observation history of an object can provide valuable astrophysical context at little extra cost.
 
 
-![A flowchart giving a brief overview of the [Daxa]{.smallcaps} workflow. We indicate the different ways that [Daxa]{.smallcaps} can be used to access, process, and use archival X-ray data. \label{fig:flowchart}](figures/daxa_paper_flowchart.pdf)
+![A flowchart showing a brief overview of the [Daxa]{.smallcaps} workflow. We indicate the different ways that [Daxa]{.smallcaps} can be used to access, process, and use archival X-ray data. \label{fig:flowchart}](figures/daxa_paper_flowchart.pdf)
 
 As such, X-ray data should be made as accessible as possible, both for X-ray experts and non-specialists who may 
 face barriers to entry; X-ray data can be particularly intimidating to those astronomers who have not used it 
