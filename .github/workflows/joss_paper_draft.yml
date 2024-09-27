@@ -50,11 +50,9 @@ jobs:
       - name: Build TeX and PDF
         uses: openjournals/openjournals-draft-action@v.1.0
         with:
+          journal: joss
           args: '-k paper/paper.md'
         # Sets the specific journal to be built for, and where the Markdown file lives
-        env:
-          GIT_SHA: $GITHUB_SHA
-          JOURNAL: joss
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
