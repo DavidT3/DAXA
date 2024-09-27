@@ -64,9 +64,10 @@ those archives will be vital to the continuation of X-ray astronomy.
 
 # Statement of need
 X-ray observations provide a powerful view of some of the most extreme processes in the Universe, and have had a 
-profound impact on our understanding of many types of astrophysical objects. Every sub-field of astronomy, astrophysics, and cosmology has benefited significantly from X-ray coverage over 
-the last three decades; the observation of X-ray cavities in galaxy clusters caused by central AGN helped to shed light 
-on the cooling-flow problem [@cavities]; further X-ray observations allowed for the measurement of spatially-resolved 
+profound impact on our understanding of many types of astrophysical objects. Every sub-field of astronomy, 
+astrophysics, and cosmology has benefited significantly from X-ray coverage over the last three decades; the 
+observation of X-ray cavities in galaxy clusters caused by central AGN helped to shed light on the cooling-flow 
+problem [@cavities]; further X-ray observations allowed for the measurement of spatially-resolved 
 entropy in hundreds of clusters, dramatically increasing understanding of cooling and heating processes in their 
 cores; quasi-periodic eruptions (QPE) from active galactic nuclei (AGN) were discovered [@qpedisco]; the high-energy 
 view of young stars gave insights into their magnetic fields and stellar winds [@coup; @xest]; calibrating 
