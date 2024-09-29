@@ -17,7 +17,6 @@ on:
 #  slightly more pretty
 jobs:
   paper:
-    # Sets up the run on the latest version of Ubuntu they have in stock
     runs-on: ubuntu-latest
     name: Paper Draft
     steps:
