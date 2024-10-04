@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 12:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/10/2024, 22:23. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -1987,7 +1987,8 @@ class BaseMission(metaclass=ABCMeta):
         #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
         #  need to check which is applicable to this mission and treat it accordingly
         if isinstance(self._template_evt_name, str):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id, i=file_inst))
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id.lower(),
+                                                                                              i=file_inst))
         # In some cases the instrument name will have to be supplied, otherwise we will not be able to
         #  create a path
         elif isinstance(self._template_evt_name, dict) and inst is None:
@@ -1999,7 +2000,7 @@ class BaseMission(metaclass=ABCMeta):
                                                 "event lists for the {i} instrument, so a path cannot be "
                                                 "provided.".format(m=self.pretty_name, i=inst))
         elif isinstance(self._template_evt_name, dict):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name[inst].format(oi=obs_id,
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name[inst].format(oi=obs_id.lower(),
                                                                                                     i=file_inst))
 
         # This performs certain checks to make sure the file exists, and fill in any wildcards
@@ -2049,7 +2050,8 @@ class BaseMission(metaclass=ABCMeta):
         #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
         #  need to check which is applicable to this mission and treat it accordingly
         if isinstance(self._template_img_name, str):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name.format(oi=obs_id, i=file_inst,
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name.format(oi=obs_id.lower(),
+                                                                                              i=file_inst,
                                                                                               eb=bnd_ident))
         # In some cases the instrument name will have to be supplied, otherwise we will not be able to
         #  create a path
@@ -2062,7 +2064,7 @@ class BaseMission(metaclass=ABCMeta):
                                                 "images for the {i} instrument, so a path cannot be "
                                                 "provided.".format(m=self.pretty_name, i=inst))
         elif isinstance(self._template_img_name, dict):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name[inst].format(oi=obs_id,
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name[inst].format(oi=obs_id.lower(),
                                                                                                     i=file_inst,
                                                                                                     eb=bnd_ident))
 
@@ -2114,7 +2116,8 @@ class BaseMission(metaclass=ABCMeta):
         #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
         #  need to check which is applicable to this mission and treat it accordingly
         if isinstance(self._template_exp_name, str):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_exp_name.format(oi=obs_id, i=file_inst,
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_exp_name.format(oi=obs_id.lower(),
+                                                                                              i=file_inst,
                                                                                               eb=bnd_ident))
         # In some cases the instrument name will have to be supplied, otherwise we will not be able to
         #  create a path
@@ -2129,7 +2132,7 @@ class BaseMission(metaclass=ABCMeta):
                                                 "provided.".format(m=self.pretty_name, i=inst))
         elif isinstance(self._template_exp_name, dict):
             rel_pth = os.path.join(self.raw_data_path, obs_id,
-                                   self._template_exp_name[inst].format(oi=obs_id, i=file_inst,
+                                   self._template_exp_name[inst].format(oi=obs_id.lower(), i=file_inst,
                                                                         eb=bnd_ident))
 
         # This performs certain checks to make sure the file exists, and fill in any wildcards
@@ -2180,7 +2183,8 @@ class BaseMission(metaclass=ABCMeta):
         #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
         #  need to check which is applicable to this mission and treat it accordingly
         if isinstance(self._template_bck_name, str):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_bck_name.format(oi=obs_id, i=file_inst,
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_bck_name.format(oi=obs_id.lower(),
+                                                                                              i=file_inst,
                                                                                               eb=bnd_ident))
         # In some cases the instrument name will have to be supplied, otherwise we will not be able to
         #  create a path
@@ -2194,7 +2198,7 @@ class BaseMission(metaclass=ABCMeta):
                                                 "provided.".format(m=self.pretty_name, i=inst))
         elif isinstance(self._template_bck_name, dict):
             rel_pth = os.path.join(self.raw_data_path, obs_id,
-                                   self._template_bck_name[inst].format(oi=obs_id, i=file_inst,
+                                   self._template_bck_name[inst].format(oi=obs_id.lower(), i=file_inst,
                                                                         eb=bnd_ident))
 
         # This performs certain checks to make sure the file exists, and fill in any wildcards
