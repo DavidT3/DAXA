@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 13:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/10/2024, 23:00. Copyright (c) The Contributors
 
 from shutil import copyfile
 from typing import List
@@ -91,6 +91,8 @@ def preprocessed_in_archive(arch: Archive, missions: List[str] = None):
                             cur_evt_success[obs_id+inst] = True
                         except FileNotFoundError:
                             cur_evt_success[obs_id+inst] = False
+                        except PreProcessedNotSupportedError:
+                            pass
 
                 else:
                     # All missions with one instrument per ObsID will have an instrument column in their obs info
