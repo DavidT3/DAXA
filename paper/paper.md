@@ -19,26 +19,26 @@ tags:
 authors:
   - name: David J. Turner
     orcid: 0000-0001-9658-1396
-    affiliation: '1,2'
+    affiliation: "1,2"
   - name: Jessica E. Pilling
     orcid: 0000-0002-3211-928X
-    affiliation: '2'
+    affiliation: "2"
   - name: Megan Donahue
     orcid: 0000-0002-2808-0853
-    affiliation: '1'
+    affiliation: "1"
   - name: Paul A. Giles
     orcid: 0000-0003-4937-8453
-    affiliation: '2'
+    affiliation: "2"
   - name: Kathy Romer
     orcid: 0000-0002-9328-879X
-    affiliation: '2'
+    affiliation: "2"
   - name: Agrim Gupta
-    affiliation: '1'
+    affiliation: "1"
   - name: Toby Wallage
-    affiliation: '2'
+    affiliation: "2"
   - name: Ray Wang
     orcid: 0000-0003-2102-8646
-    affiliation: '1'
+    affiliation: "1"
 affiliations:
   - name: Department of Physics and Astronomy,  Michigan State University, Lansing, Michigan, USA
     index: 1
