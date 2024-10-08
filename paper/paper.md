@@ -19,7 +19,7 @@ tags:
 authors:
   - name: David J. Turner
     orcid: 0000-0001-9658-1396
-    affiliation: ['1','2']
+    affiliation: '1,2'
   - name: Jessica E. Pilling
     orcid: 0000-0002-3211-928X
     affiliation: '2'
