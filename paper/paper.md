@@ -17,7 +17,7 @@ tags:
   - ASCA
   - Suzaku
 authors:
-  - name: David J. Turner[^*]
+  - name: David J. Turner
     orcid: 0000-0001-9658-1396
     affiliation: 1,2
   - name: Jessica E. Pilling
@@ -44,7 +44,7 @@ affiliations:
     index: 1
   - name: Department of Physics and Astronomy, University of Sussex, Brighton, UK
     index: 2
-date: 30 September 2024
+date: 08 October 2024
 bibliography: paper.bib
 ---
 
@@ -114,8 +114,6 @@ Through [Daxa]{.smallcaps}, most X-ray observatory archives are accessible throu
 available in a programming language that is ubiquitous in astronomy (Python); locally searching for data relevant 
 to a particular sample gives us the opportunity to better record and share the exact search parameters, through a 
 Jupyter notebook for instance. 
-
-[^*]: turne540@msu.edu
 
 # Features
 
