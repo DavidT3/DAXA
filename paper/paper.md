@@ -183,33 +183,6 @@ user-friendly, particularly for non-specialists. [Daxa]{.smallcaps} is greater t
 possible because of the existing software packages it builds upon; we hope that it only enhances the value that 
 astrophysicists derive from the other software we have mentioned.
 
-# Research projects using DAXA
-
-[Daxa]{.smallcaps} has been useful for several research projects by different collaborations, and we anticipate that 
-the number of research projects benefiting from its features will increase significantly. The primary use to which 
-[Daxa]{.smallcaps} has been put is to assemble the multi-mission X-ray dataset (_XMM_, _Chandra_, _eROSITA_, _Swift_, 
-and _ROSAT_) for the X-ray follow-up component of the Local Volume Complete Cluster Survey (LoVoCCS; @lovoccsI, 
-@xlovoccs). It was used to identify the relevant observations, download, and process them, as well as to organise the 
-significant number of files and make it easier for the dataset to be served to the X-ray community. Construction and 
-administration of such large, complicated, multi-mission datasets is rendered quick and easy.
-
-The X-ray Cluster Survey (XCS; formerly known as the _XMM_ Cluster Survey) collaboration now uses [Daxa]{.smallcaps} to
-create and manage their processed X-ray archive; particularly useful is [Daxa]{.smallcaps}'s support for telescopes 
-other than _XMM_, which has allowed the serendipitous science undertaken by XCS to expand to the use of different 
-telescopes. These telescopes are complementary to _XMM_, and also increase the sky coverage, which in turn increases
-the likelihood that an object of interest has an accessible X-ray observation.
-
-As [Daxa]{.smallcaps} now supports XCS, it has contributed to a research project that has measured X-ray properties
-(spectral, time-series, and photometric) for every LOFAR source that falls on an _XMM_ observation (a [Daxa]{.smallcaps} 
-generated dataset was used for an [Xga]{.smallcaps} analysis). This kind of bulk analysis is trivial when our software
-packages are utilised, and will result in a comprehensive catalogue that is invaluable to the radio astronomy community.
-
-Finally, [Daxa]{.smallcaps} has been used to identify _XMM_ and _Chandra_ (alongside other telescopes, though they 
-play only a supporting role) observations of a series of galaxy groups that appear in the foreground of UV bright
-quasars [@ovigroups]. Absorption features that indicate the presence of Oxygen VI were identified in the spectra of 
-several of the quasars, and the data that [Daxa]{.smallcaps} identified and retrieved allowed for an exploration of 
-the hot-gas properties of these groups.
-
 # Future Work
 The most significant new features implemented in [Daxa]{.smallcaps} will be new mission classes added when new X-ray 
 telescope archives become available, or one of the existing missions that we have not yet implemented is added (for 
