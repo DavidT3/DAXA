@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 15:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/10/2024, 17:07. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -8,6 +8,7 @@ from astropy.units import Quantity, UnitConversionError, add_enabled_units
 
 from daxa import NUM_CORES, sb_rate
 from daxa.archive.base import Archive
+from daxa.exceptions import NoProcessingError
 from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call
 
 # Adding this to the enabled astropy units so that it can be used in flaregti to define thresholds
@@ -303,8 +304,15 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
 
             final_paths = [lc_path, threshold_path, maskimg_path]
 
-            if ('flaregti' not in obs_archive.process_success[miss.name] or
-                    obs_id not in obs_archive.process_success[miss.name]['flaregti']):
+            # As this is the first process in the chain, we need to account for the fact that nothing has been run
+            #  before, and using the process_success property might raise an exception
+            try:
+                check_dict = obs_archive.process_success[miss.name]['flaregti']
+            except (NoProcessingError, KeyError):
+                check_dict = {}
+
+            # If it doesn't already exist then we will create commands to generate it
+            if obs_id not in check_dict:
                 # Make the temporary directory (it shouldn't already exist but doing this to be safe)
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)

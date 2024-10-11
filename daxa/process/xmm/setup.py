@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 14:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/10/2024, 17:07. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -105,6 +105,8 @@ def cif_build(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress
             # This is where the final output calibration file will be stored
             final_path = dest_dir + "ccf.cif"
 
+            # As this is the first process in the chain, we need to account for the fact that nothing has been run
+            #  before, and using the process_success property might raise an exception
             try:
                 check_dict = obs_archive.process_success[miss.name]['cif_build']
             except (NoProcessingError, KeyError):
