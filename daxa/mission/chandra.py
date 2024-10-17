@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/08/2024, 11:11. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:40. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -18,15 +18,17 @@ from astropy.table import Table
 from astropy.time import Time
 from astropy.units import Quantity
 from bs4 import BeautifulSoup
+from tqdm import tqdm
+
 from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError, NoObsAfterFilterError
 from daxa.mission.base import BaseMission, _lock_check
-from tqdm import tqdm
 
 # Unlike NuSTAR, we should only need one directory to be present to download the unprocessed Chandra observations, but
 #  if we're downloading 'standard' data distributions we shall check that primary AND secondary are present
-REQUIRED_DIRS = {'raw': ['secondary/'], 'standard': ['primary/', 'secondary/']}
-GOOD_FILE_PATTERNS = {'primary/': ['.fits.gz'],
+REQUIRED_DIRS = {'raw': ['.', 'secondary/'], 'standard': ['.', 'primary/', 'secondary/']}
+GOOD_FILE_PATTERNS = {'.': ['oif.fits'],
+                      'primary/': ['.fits.gz'],
                       'secondary/': ['evt1.fits', 'mtl1.fits', 'bias0.fits', 'pbk0.fits', 'flt1.fits', 'bpix1.fits',
                                      'msk1.fits', 'stat1.fits']}
 
