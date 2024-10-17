@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 13:19. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 13:29. Copyright (c) The Contributors
 
 import glob
 import os.path
@@ -42,7 +42,7 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_in
     # CURRENTLY we do not support it and actually an exception will be raised in the backend check, but we might
     #  support it in the future, in which case we may well need to do something differently here, and might need
     #  reminding of that by a handy not implemented error
-    if 'esass_in_doc' in extra_info and extra_info['esass_in_docker']:
+    if 'esass_in_docker' in extra_info and extra_info['esass_in_docker']:
         raise NotImplementedError("The use of eSASS through Docker has not been implemented.")
 
     # ---------------------------------------------------------------------------------------------
