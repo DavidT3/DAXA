@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 15:41. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:16. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -158,7 +158,8 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
                 # The SAS wrapping functionality can check that multiple final files exist
                 miss_final_paths[miss.name][obs_id + inst + exp_id] = [final_path, oot_final_path]
                 miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_list': final_path,
-                                                                  'oot_evt_list': oot_final_path}
+                                                                  'oot_evt_list': oot_final_path,
+                                                                  'working_dir': temp_dir}
 
     # This is just used for populating a progress bar during generation
     process_message = 'Assembling PN and PN-OOT event lists'
@@ -316,7 +317,7 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
                 miss_final_paths[miss.name][obs_id + inst + exp_id] = final_path
-                miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_list': final_path}
+                miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_list': final_path, 'working_dir': temp_dir}
 
     # This is just used for populating a progress bar during generation
     process_message = 'Assembling MOS event lists'
@@ -447,9 +448,9 @@ def rgs_events(obs_archive: Archive, process_unscheduled: bool = True,  num_core
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
                 # We set the temporary final path here as that is what the checking stage looks at to verify stage
-                #  success
+                #  success - also store it in the extra_info
                 miss_final_paths[miss.name][obs_id + inst + exp_id] = temp_final_path
-                miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_list': final_path, 'temp_dir': temp_dir}
+                miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_list': final_path, 'working_dir': temp_dir}
 
         # This is just used for populating a progress bar during generation
     process_message = 'Assembling RGS event lists'
@@ -488,8 +489,6 @@ def rgs_angles(obs_archive: Archive,  num_cores: int = NUM_CORES, disable_progre
     #  files) in place until later in the chain
     rgp_cmd = "cd {d}; export SAS_CCF={ccf}; export SAS_ODF={odf}; rgsproc entrystage=2:angles finalstage=2:angles " \
               "withinstexpids=true instexpids={ei}; "
-
-    # mv *.FIT ../; cd ..; rm -r {d}
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -541,7 +540,8 @@ def rgs_angles(obs_archive: Archive,  num_cores: int = NUM_CORES, disable_progre
             if ('rgs_angles' not in obs_archive.process_success[miss.name] or
                     (obs_id + inst + exp_id) not in obs_archive.process_success[miss.name]['rgs_angles']):
                 # We don't need to set-up a temporary directory, as we use the one from the last step
-                temp_dir = obs_archive.process_extra_info[miss.name]['rgs_events'][obs_id + inst + exp_id]['temp_dir']
+                temp_dir = obs_archive.process_extra_info[miss.name]['rgs_events'][obs_id + inst +
+                                                                                   exp_id]['working_dir']
 
                 # Format the blank command string defined near the top of this function with information
                 #  particular to the current mission and ObsID
@@ -551,7 +551,7 @@ def rgs_angles(obs_archive: Archive,  num_cores: int = NUM_CORES, disable_progre
                 miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
                 # There are no file outputs from this stage, it just modifies the existing event list
                 miss_final_paths[miss.name][obs_id + inst + exp_id] = []
-                miss_extras[miss.name][obs_id + inst + exp_id] = {}
+                miss_extras[miss.name][obs_id + inst + exp_id] = {'working_dir': temp_dir}
 
         # This is just used for populating a progress bar during generation
     process_message = 'Correcting RGS for aspect drift'
@@ -653,7 +653,7 @@ def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, d
             odf_dir = miss.raw_data_path + obs_id + '/'
 
             # We don't need to set-up a temporary directory, as we use the one from the first step of RGS processing
-            temp_dir = obs_archive.process_extra_info[miss.name]['rgs_events'][obs_id + inst + exp_id]['temp_dir']
+            temp_dir = obs_archive.process_extra_info[miss.name]['rgs_events'][obs_id + inst + exp_id]['working_dir']
 
             # This is where the final output event list file will be stored
             og_out_path = dest_dir + prod_evt_list_name.format(o=obs_id, i=inst, ei=exp_id)
@@ -680,7 +680,8 @@ def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, d
                 miss_cmds[miss.name][obs_id + inst + exp_id] = cmd
                 # There are no file outputs from this stage, it just modifies the existing event list
                 miss_final_paths[miss.name][obs_id + inst + exp_id] = final_path
-                miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_clean_path': final_path}
+                miss_extras[miss.name][obs_id + inst + exp_id] = {'evt_clean_path': final_path,
+                                                                  'working_dir': temp_dir}
 
         # This is just used for populating a progress bar during generation
     process_message = 'Cleaning RGS event lists'
@@ -945,6 +946,8 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
                 miss_cmds[miss.name][val_id] = cmd
                 miss_final_paths[miss.name][val_id] = final_paths
                 miss_extras[miss.name][val_id] = to_store
+                # Also add in the working directory to the extra_info
+                miss_extras[miss.name][val_id]['working_dir'] = temp_dir
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Generating cleaned PN/MOS event lists'
@@ -1191,9 +1194,10 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             miss_final_paths[miss.name][obs_id+inst] = final_path
             # Again accounting for whether a OOT merged event list has been produced here or not
             if inst == 'PN':
-                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path, 'final_oot_evt': final_oot_path}
+                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path, 'final_oot_evt': final_oot_path,
+                                                       'working_dir': temp_dir}
             else:
-                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path}
+                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path, 'working_dir': temp_dir}
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Generating final PN/MOS event lists'
