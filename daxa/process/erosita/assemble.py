@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 17:33. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 21:56. Copyright (c) The Contributors
 
 import os.path
 from random import randint
@@ -10,7 +10,8 @@ from daxa import NUM_CORES
 from daxa.archive.base import Archive
 from daxa.exceptions import NoDependencyProcessError
 from daxa.process._cleanup import _last_process
-from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call, _is_valid_flag
+from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call
+
 
 @_last_process(ALLOWED_EROSITA_MISSIONS, 1)
 @esass_call
@@ -84,7 +85,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
        (hi_en < Quantity(200, 'eV') or hi_en > Quantity(10000, 'eV')):
         raise ValueError("The lo_en and hi_en value must be between 0.2 keV and 10 keV.")
 
-    # The eSASS software has a bug when the user specifies the flag inversion parameter
+    # The eSASS software has a bug when the user specifies the flag inversion parameter
     # so for the moment we wont let the user chose the flag
     if flag != 0xc0000000:
         raise NotImplementedError("DAXA currently doesn't support flag selection due to a bug "

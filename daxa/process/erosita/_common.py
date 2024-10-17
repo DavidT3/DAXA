@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 09:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 21:56. Copyright (c) The Contributors
 
 import glob
 import os.path
@@ -118,7 +118,7 @@ def _make_flagsel_keword(flag, invert=True):
         value = _eSASS_Flag(flag).value
     
     else:
-        # This returns a flag containing all the bits apart from those specified by the user
+        # This returns a flag containing all the bits apart from those specified by the user
         value = ~_eSASS_Flag(flag).value
 
     return value
