@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 05/09/2024, 13:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:32. Copyright (c) The Contributors
 
 import json
 import os
@@ -744,7 +744,14 @@ class Archive:
                     warn("The process_extra_info property already has an entry for {rid} under {mn}-{prn}, no change "
                          "will be made.".format(prn=pr_name, mn=mn, rid=rel_id), stacklevel=2)
                 else:
-                    self._process_extra_info[mn][pr_name][rel_id] = einfo_info[mn][rel_id]
+                    rel_einfo = deepcopy(einfo_info[mn][rel_id])
+                    for kw in ['esass_in_docker', 'working_dir']:
+                        # This does return the popped value, but we don't care about it - the second argument tells
+                        #  it to return None if the kw doesn't exist, but as long as it doesn't error we don't care
+                        #  about that either
+                        rel_einfo.pop(kw, None)
+
+                    self._process_extra_info[mn][pr_name][rel_id] = rel_einfo
 
     @property
     def process_configurations(self) -> dict:
