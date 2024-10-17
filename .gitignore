@@ -7,3 +7,4 @@ daxa_output
 *noupload*
 .DS_Store
 /tests/.coverage
+*__pycache__*

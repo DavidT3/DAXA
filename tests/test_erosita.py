@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/08/2024, 11:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 21:56. Copyright (c) The Contributors
 
 import os
 import shutil
@@ -15,11 +15,12 @@ from astropy.coordinates import SkyCoord, FK5, Galactic
 from astropy.coordinates.name_resolve import NameResolveError
 from astropy.io import fits
 from astropy.units import Quantity
+from numpy.testing import assert_array_equal
+
 from daxa import OUTPUT
 from daxa.config import EROSITA_CALPV_INFO
 from daxa.exceptions import NoObsAfterFilterError, IllegalSourceType, NoTargetSourceTypeInfo
 from daxa.mission import eRASS1DE, eROSITACalPV
-from numpy.testing import assert_array_equal
 
 
 # This class is used to mock a request response, it is used in the unittests of eRASS1DE._download_call()
@@ -581,7 +582,7 @@ class TestERASS1DE(unittest.TestCase):
     def test_inst_filtering_already_filtered(self, mock_exists, mock_fits):
         insts = ['TM1', 'TM2']
         # Test fits file of structure: col1 [1, 2, 3, 4, 5] = evts
-        # col2 [1, 2, 5, 1, 7] = TM_NR
+        # col2 [1, 2, 5, 1, 7] = TM_NR
         evlist_path = 'test_data/inst_filt.fits'
         mock_exists.return_value = True  # this mimics that instrument filtering has already happened
 

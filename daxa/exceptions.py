@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/09/2024, 16:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 22:02. Copyright (c) The Contributors
 
 
 class DAXAConfigError(Exception):
@@ -205,10 +205,11 @@ class BackendSoftwareError(Exception):
             return 'BackendSoftwareError has been raised'
 
 
-class NoXMMMissionsError(Exception):
+class NoValidMissionsError(Exception):
     def __init__(self, *args):
         """
-        Exception raised if an archive containing no XMM missions is passed to an XMM specific processing function.
+        Exception raised if an archive containing no compatible missions is passed to a mission-specific
+        processing function.
 
         :param expression:
         :param message:
@@ -222,26 +223,7 @@ class NoXMMMissionsError(Exception):
         if self.message:
             return '{0} '.format(self.message)
         else:
-            return 'NoXMMMissionsError has been raised'
-
-class NoEROSITAMissionsError(Exception):
-    def __init__(self, *args):
-        """
-        Exception raised if an archive containing no eROSITA missions is passed to an eROSITA specific processing function.
-
-        :param expression:
-        :param message:
-        """
-        if args:
-            self.message = args[0]
-        else:
-            self.message = None
-
-    def __str__(self):
-        if self.message:
-            return '{0} '.format(self.message)
-        else:
-            return 'NoEROSITAMissionsError has been raised'
+            return 'NoValidMissionsError has been raised'
 
 
 class NoProcessingError(Exception):
@@ -467,7 +449,27 @@ class PreProcessedNotAvailableError(Exception):
         else:
             return 'PreProcessedNotAvailableError has been raised'
 
+          
+class CIAONotFoundError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if the CIAO software for Chandra cannot be found on the system.
 
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'CIAONotFoundError has been raised'
+
+          
 class DAXADeveloperError(Exception):
     def __init__(self, *args):
         """

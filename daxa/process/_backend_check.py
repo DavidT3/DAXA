@@ -1,14 +1,15 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/04/2023, 15:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 21:53. Copyright (c) The Contributors
 
 import os
 from shutil import which
 from subprocess import Popen, PIPE
+from typing import Tuple
 
 from packaging.version import Version
-from shutil import which 
 
-from ..exceptions import SASNotFoundError, SASVersionError, eSASSNotFoundError, BackendSoftwareError
+from ..exceptions import SASNotFoundError, SASVersionError, eSASSNotFoundError, BackendSoftwareError, CIAONotFoundError
+
 
 def find_sas() -> Version:
     """
@@ -42,18 +43,20 @@ def find_sas() -> Version:
                                "exist".format(p=os.environ['SAS_CCFPATH']))
 
     if sas_version < Version('14.0.0'):
-        raise SASVersionError("The detected SAS installation is of too low a version ({v}), please use version 14 or "
+        raise SASVersionError("The detected SAS installation is too low of a version ({v}), please use version 14 or "
                               "later.".format(v=sas_version))
 
     return sas_version
 
+
 def find_esass() -> bool:
     """
-     This function checks to ensure the presence of either eSASS on the host system, or for an installation of Docker with a running Docker daemon. 
-     It will be called before performing any data processing/reduction of eROSITA data. 
+     This function checks to ensure the presence of either eSASS on the host system, or for an installation of Docker
+     with a running Docker daemon. It will be called before performing any data processing/reduction of eROSITA data.
      An error will be thrown if eSASS (or Docker with a running Docker daemon) cannot be identified on the system.
 
-    :return: A bool indicating whether or not eSASS is being used via Docker or not, set to True if Docker is being used. 
+    :return: A bool indicating whether or not eSASS is being used via Docker or not, set to True if Docker
+        is being used.
     :rtype: Bool
     """
     # Defining the Booleans to check whether eSASS can be used
@@ -62,7 +65,7 @@ def find_esass() -> bool:
     esass_outside_docker = False
 
     # Performing the Docker checks
-    # Firstly checking whether it is installed by seeing if 'docker' is on PATH and is marked as executable
+    # Firstly checking whether it is installed by seeing if 'docker' is on PATH and is marked as executable
     if which('docker') is not None:
         docker_installed = True
 
@@ -73,12 +76,12 @@ def find_esass() -> bool:
         # Decodes the stdout and stderr from the binary encoding it currently exists in. The errors='ignore' flag
         #  means that it doesn't throw errors if there is a character it doesn't recognize
         err = err.decode("UTF-8", errors='ignore')
-        # If this doesnt raise an error, then the eSASS env. is enabled and working
+        # If this doesn't raise an error, then the eSASS env. is enabled and working
         if len(err) == 0:
             docker_daemon_running = True
     
     # Performing eSASS installation checks for eSASS outside of Docker
-    # Checking whether it is installed by seeing if 'evtool' is on PATH and is marked as executable
+    # Checking whether it is installed by seeing if 'evtool' is on PATH and is marked as executable
     if which('evtool') is not None:
         esass_outside_docker = True
         
@@ -88,8 +91,8 @@ def find_esass() -> bool:
 
     if docker_installed and not docker_daemon_running and not esass_outside_docker:
         raise eSASSNotFoundError("Please start the Docker daemon so that the eSASS container may be run."
-                                " If you are using the desktop application of Docker, this error may arise"
-                                " if the application is installed, but not open.") 
+                                 " If you are using the desktop application of Docker, this error may arise"
+                                 " if the application is installed, but not open.")
         
     if docker_daemon_running and not esass_outside_docker:
         raise NotImplementedError("DAXA currently only supports eSASS via direct installation, and not via Docker.")
@@ -100,8 +103,9 @@ def find_esass() -> bool:
     if not docker_daemon_running and esass_outside_docker:
         return False
     if docker_daemon_running and esass_outside_docker:
-        # If docker and esass are both present, use esass outside of docker 
+        # If docker and esass are both present, use esass outside of docker
         return False
+
 
 def find_lcurve() -> Version:
     """
@@ -124,3 +128,45 @@ def find_lcurve() -> Version:
                                    "found, you may not have installed HEASoft with the right software selections.")
         
     return lc_version
+
+
+def find_ciao() -> Tuple[Version, Version]:
+    """
+    This function checks to ensure the presence of CIAO on the host system, and it will be called before performing
+    any data processing/reduction of Chandra data. An error will be thrown if CIAO (or CalDB Chandra calibration
+    files) cannot be identified on the system.
+
+    :return: The CIAO version that has been successfully identified, as an instance of the 'packaging'
+        module's Version class, and the CALDB version as another instance of the Version class.
+    :rtype: Tuple[Version, Version]
+    """
+    # Here we check to see whether CIAO is installed at all, and get outputs from the terminal which tell us about
+    #  the versions - CIAO does have a handy Python implementation, but I think we'll avoid using it for now just
+    #  in case there is a CIAO implementation on the system that isn't installed to the environment
+    ciao_out, ciao_err = Popen("ciaover -v", stdout=PIPE, stderr=PIPE, shell=True).communicate()
+    # Just turn those pesky byte outputs into strings
+    ciao_out = ciao_out.decode("UTF-8")
+    ciao_err = ciao_err.decode("UTF-8")
+
+    # We initially check to see if our ciaover command ran at all, if it did then there is clearly a CIAO
+    #  installation, if not then we throw an exception, as it will be fatal to any hope of processing Chandra data
+    if "ciaover: command not found" in ciao_err:
+        raise CIAONotFoundError("CIAO cannot be identified on your system, and Chandra data cannot be processed.")
+    else:
+        # The ciaover output is over a series of lines, with different info on each - this is a little bit of a hard
+        #  code cheesy method to do this, but we'll split them on lines and selected the 2nd line to get
+        #  the ciao version
+        split_out = [en.strip(' ') for en in ciao_out.split('\n')]
+        # Strip the CIAO version out of the ciaover output
+        ciao_version = Version(split_out[1].split(':')[-1].split('CIAO')[-1].strip(' ').split(' ')[0])
+
+    # If we've got to this point, then we know CIAO is installed - now we must make sure CALDB is present (and
+    #  determine the version) - we'll use the split_out variable again seeing as we already split the information lines
+    if 'not installed' in split_out[5].lower():
+        raise CIAONotFoundError("A Chandra CALDB installation cannot be identified on your system, and as such "
+                                "Chandra data cannot be processed.")
+    else:
+        # Strip out the CALDB version
+        caldb_version = Version(split_out[5].split(':')[-1].strip())
+
+    return ciao_version, caldb_version
