@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:51. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -485,7 +485,7 @@ class Chandra(BaseMission):
             os.makedirs(raw_dir)
         # Now download the file
         with session.get(down_url, stream=True) as acquiro:
-            with open(raw_dir + 'oif.fits', 'wb') as writo:
+            with open(raw_dir + '/oif.fits', 'wb') as writo:
                 copyfileobj(acquiro.raw, writo)
 
         for rd in req_dir:
