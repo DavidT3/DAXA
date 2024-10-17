@@ -1,12 +1,9 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 22:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 13:46. Copyright (c) The Contributors
 
-import glob
-import os.path
 from functools import wraps
 from inspect import signature, Parameter
 from multiprocessing.dummy import Pool
-from subprocess import Popen, PIPE, TimeoutExpired
 from typing import Tuple, List, Dict
 from warnings import warn
 
@@ -19,6 +16,7 @@ from daxa.archive.base import Archive
 from daxa.config import SASERROR_LIST, SASWARNING_LIST
 from daxa.exceptions import NoValidMissionsError, DAXADeveloperError
 from daxa.process._backend_check import find_sas
+from daxa.process._common import execute_cmd
 from daxa.process.general import create_dirs
 
 ALLOWED_XMM_MISSIONS = ['xmm_pointed', 'xmm_slew']
@@ -141,65 +139,6 @@ def parse_stderr(unprocessed_stderr: str) -> Tuple[List[str], List[Dict], List]:
                                           'and have a look at where your coordinate lies.'
 
     return sas_errs_msgs, parsed_sas_warns, other_err_lines
-
-
-def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_info: dict,
-                timeout: float = None) -> Tuple[str, str, List[bool], str, str, dict]:
-    """
-    This is a simple function designed to execute cmd line SAS commands for the processing and reduction of
-    XMM mission data. It will collect the stdout and stderr values for each command and return them too for the
-    process of logging. Finally, it checks that a specified 'final file' (or a set of 'final files') actually
-    exists at the expected path, as a final check of the success of whatever process has been run.
-
-    :param str cmd: The command that should be executed in a bash shell.
-    :param str rel_id: Whatever ID has been attached to the particular command (it could be an ObsID, or an ObsID
-        + instrument combination depending on the task).
-    :param str miss_name: The specific XMM mission name that this task belongs to.
-    :param str/list check_path: The path (or a list of paths) where a 'final file' (or final files) should exist, used
-        for the purposes of checking that it (they) exists.
-    :param dict extra_info: A dictionary which can contain extra information about the process or output that will
-        eventually be stored in the Archive.
-    :param float timeout: The length of time (in seconds) which the process is allowed to run for before being
-        killed. Default is None, which is supported as an input by communicate().
-    :return: The rel_id, a list of boolean flags indicating whether the final files exist, the std_out, and the
-        std_err. The final dictionary can contain extra information recorded by the processing function.
-    :rtype: Tuple[str, str, List[bool], str, str, dict]
-    """
-    # Either a single path or a list of paths can be passed to check - I make sure that the checking process only
-    #  ever has to deal with a list
-    if isinstance(check_path, str):
-        check_path = [check_path]
-
-    # Starts the process running on a shell
-    cmd_proc = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
-
-    # This makes sure the process is killed if it does timeout
-    try:
-        out, err = cmd_proc.communicate(timeout=timeout)
-    except TimeoutExpired:
-        cmd_proc.kill()
-        out, err = cmd_proc.communicate()
-        warn("An XMM process for {} has timed out".format(rel_id), stacklevel=2)
-
-    # Decodes the stdout and stderr from the binary encoding it currently exists in. The errors='ignore' flag
-    #  means that it doesn't throw errors if there is a character it doesn't recognize
-    out = out.decode("UTF-8", errors='ignore')
-    err = err.decode("UTF-8", errors='ignore')
-
-    # Simple check on whether the 'final file' passed into this function actually exists or not - even if there is only
-    #  one path to check we made sure that its in a list so the check can be done easily for multiple paths
-    files_exist = []
-    for path in check_path:
-        if '*' not in path and os.path.exists(path):
-            files_exist.append(True)
-        # In the case where a wildcard is in the final file path (I will try to make sure that this is avoided, but it
-        #  is necessary right now) we use glob to find a match list and check to make sure there is at least one entry
-        elif '*' in path and len(glob.glob(path)) > 0:
-            files_exist.append(True)
-        else:
-            files_exist.append(False)
-
-    return rel_id, miss_name, files_exist, out, err, extra_info
 
 
 def sas_call(sas_func):
