@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/10/2024, 17:07. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:18. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -125,7 +125,8 @@ def cif_build(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][obs_id] = cmd
                 miss_final_paths[miss.name][obs_id] = final_path
-                miss_extras[miss.name][obs_id] = {'obs_date': obs_date, 'analysis_date': analysis_date}
+                miss_extras[miss.name][obs_id] = {'obs_date': obs_date, 'analysis_date': analysis_date,
+                                                  'working_dir': temp_dir}
 
     # This is just used for populating a progress bar during generation
     process_message = 'Generating calibration files'
