@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 21:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 21:45. Copyright (c) The Contributors
 
 import os
 from shutil import which
@@ -142,7 +142,7 @@ def find_ciao() -> Version:
     # Here we check to see whether CIAO is installed at all, and get outputs from the terminal which tell us about
     #  the versions - CIAO does have a handy Python implementation, but I think we'll avoid using it for now just
     #  in case there is a CIAO implementation on the system that isn't installed to the environment
-    ciao_out, ciao_err = Popen("ciaover", stdout=PIPE, stderr=PIPE, shell=True).communicate()
+    ciao_out, ciao_err = Popen("ciaover -v", stdout=PIPE, stderr=PIPE, shell=True).communicate()
     # Just turn those pesky byte outputs into strings
     ciao_out = ciao_out.decode("UTF-8")
     ciao_err = ciao_err.decode("UTF-8")
@@ -152,10 +152,9 @@ def find_ciao() -> Version:
     if "ciaover: command not found" in ciao_err:
         raise CIAONotFoundError("CIAO cannot be identified on your system, and Chandra data cannot be processed.")
     else:
+        split_out = [en.strip(' ') for en in ciao_out.split('\n')]
         # Strip the CIAO version out of the ciaover output
-        ciao_version = Version(ciao_out.strip("]\n").split('-')[-1])
-
-    print(ciao_version)
+        ciao_version = Version(split_out[1].split(':')[-1].split('CIAO')[-1].strip(' ').split(' ')[0])
 
     return ciao_version
 
