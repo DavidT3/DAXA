@@ -1,10 +1,12 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 10:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 16:47. Copyright (c) The Contributors
+
 from daxa.process.erosita import flaregti
 from daxa.process.erosita.assemble import cleaned_evt_lists as ecleaned_evt_lists
 from daxa.process.xmm import epchain, emchain, rgs_events, rgs_angles, cleaned_rgs_event_lists, cleaned_evt_lists, \
     merge_subexposures, emanom, espfilt, cif_build, odf_ingest
 
+# TODO NEED TO ADD TO THE CHANDRA ENTRY AS I GO ALONG WITH THIS
 PROC_LOOKUP = {'xmm_pointed': {'epchain': epchain,
                                'emchain': emchain,
                                'rgs_events': rgs_events,
