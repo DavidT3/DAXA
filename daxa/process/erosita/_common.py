@@ -1,13 +1,10 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 22:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 13:44. Copyright (c) The Contributors
 
-import glob
-import os.path
 from enum import Flag
 from functools import wraps
 from inspect import signature, Parameter
 from multiprocessing.dummy import Pool
-from subprocess import Popen, PIPE, TimeoutExpired
 from typing import Tuple, List
 from warnings import warn
 
@@ -18,112 +15,10 @@ from tqdm import tqdm
 from daxa.archive.base import Archive
 from daxa.exceptions import NoValidMissionsError, DAXADeveloperError
 from daxa.process._backend_check import find_esass
+from daxa.process._common import execute_cmd
 from daxa.process.general import create_dirs
 
 ALLOWED_EROSITA_MISSIONS = ['erosita_calpv', 'erosita_all_sky_de_dr1']
-
-
-# TODO Make this compliant with how I normally do docstrings
-class _eSASS_Flag(Flag):
-    """
-    This class was written by Toby Wallage found on Github @TobyWallage.
-    It throws a ValueError when an invalid eSASS Flag is declared with this class.
-    For use in the cleaned_evt_lists function to check the user input.
-
-    Class derived from Enum/Flag containing possible flags that can be used in
-    evtool.
-    
-    Descriptions found here:
-    https://erosita.mpe.mpg.de/edr/DataAnalysis/prod_descript/EventFiles_edr.html
-
-    Args
-        :param int value: An integer repesenting a valid flag value. The flag
-        value will determine which type of events will be discarded by the
-        cleaned_evt_lists function.
-    
-    Raises
-        :raises ValueError: If value is NOT a valid flag.
-        :raises TypeError: If value is not an integer or integer-like.
-
-    Examples
-
-        A flag may be constructed with a valid integer hexadecimal value
-        >>> some_flag = _eSASS_Flag(0xc0008000)
-
-        A flag may also be constructed from individual events
-        >>> some_new_flag = _eSASS_Flag.DEFAULT_FLAG | _eSASS_Flag.OUT_OF_FOV
-
-        These flags are identical
-    
-    """
-    # Values copied and pasted from eSASS docs
-    MPE_OWNER = 0x1
-    IKI_OWNER = 0x2
-    TRAILING_EVENT = 0x10
-    NEXT_TO_BORDER = 0x20
-    NEXT_TO_ONBOARD_BADPIX = 0x100
-    NEXT_TO_BRIGHT_PIX = 0x200
-    NEXT_TO_DEAD_PIX = 0x400
-    NEXT_TO_FLICKERING = 0x800
-    ON_FLICKERING = 0x1000
-    ON_BADPIX = 0x2000
-    ON_DEADPIX = 0x4000
-    OUT_OF_FOV = 0x8000
-    OUTSIDE_QUALGTI = 0x10000
-    OUTSIDE_GTI = 0x20000
-    PRECEDING_MIP = 0x40000
-    MIP_ASSOCIATED = 0x80000
-    PHA_QUALITY_1 = 0x1000000
-    PHA_QUALITY_2 = 0x2000000
-    PHA_QUALITY_3 = 0x4000000
-    CORRUPT_EVENT = 0x40000000
-    CORRUPT_FRAME = 0x80000000
-
-    # DEFAULT_FLAG is equivalent to 0xc0000000
-    DEFAULT_FLAG = CORRUPT_EVENT | CORRUPT_FRAME
-
-    def get_hex(self):
-        return hex(self.value)
-
-
-def _is_valid_flag(flag):
-    """
-    This function is to be called within the cleaned_evt_lists function to check that the user has
-    input a valid eSASS flag to filter event with. 
-
-    :param flag Flag: The user input of the flag parameter in the cleaned_evt_list function.
-        This may be in hexidecimal or its equivalent decimal format, both are accepted by evtool. 
-    :return: True for valid eSASS flags, and False for invalid. 
-    """
-    try:
-        # If the flag is valid then it will declare the class without an error
-        _eSASS_Flag(flag)
-        return True
-
-    except ValueError:
-        # If the flag is invalid then a ValueError is thrown
-        return False
-
-
-def _make_flagsel_keword(flag, invert=True):
-    """
-    This function is to be called within the cleaned_evt_lists function to generate the correct
-    header keyword based on the user's input eSASS flag. This is a workaround a bug within eSASS.
-
-    :param flag Flag: The user input of the flag parameter in the cleaned_evt_list function.
-        This may be in hexidecimal or its equivalent decimal format, both are accepted by evtool.
-    """
-
-    #TODO I think that the pattern selection might effect the FLAGSEL keyword - need to check
-
-    if invert:
-        value = _eSASS_Flag(flag).value
-    
-    else:
-        # This returns a flag containing all the bits apart from those specified by the user
-        value = ~_eSASS_Flag(flag).value
-
-    return value
 
 
 def _esass_process_setup(obs_archive: Archive) -> bool:
@@ -159,73 +54,6 @@ def _esass_process_setup(obs_archive: Archive) -> bool:
         create_dirs(obs_archive, miss.name)
 
     return esass_in_docker
-
-
-def execute_cmd(cmd: str, esass_in_docker: bool, rel_id: str, miss_name: str, check_path: str,
-                extra_info: dict, timeout: float = None) -> Tuple[str, str, List[bool], str, str, dict]:
-    """
-    This is a simple function designed to execute eSASS commands either through Docker or the command line
-    for the processing and reduction of eROSITA mission data. It will collect the stdout and stderr values 
-    for each command and return them too for the process of logging. Finally, it checks that a specified 'final file' 
-    (or a set of 'final files') actually exists at the expected path, as a final check of the success of whatever 
-    process has been run.
-
-    :param str cmd: The command that should be executed in a bash shell.
-    :param Bool esass_in_docker: Set to True if eSASS is being used via Docker.
-    :param str rel_id: Whatever ID has been attached to the particular command (it could be an ObsID, or an ObsID
-        + instrument combination depending on the task).
-    :param str miss_name: The specific eROSITA mission name that this task belongs to.
-    :param str/list check_path: The path (or a list of paths) where a 'final file' (or final files) should exist, used
-        for the purposes of checking that it (they) exists.
-    :param dict extra_info: A dictionary which can contain extra information about the process or output that will
-        eventually be stored in the Archive.
-    :param float timeout: The length of time (in seconds) which the process is allowed to run for before being
-        killed. Default is None, which is supported as an input by communicate().
-    :return: The rel_id, a list of boolean flags indicating whether the final files exist, the std_out, and the
-        std_err. The final dictionary can contain extra information recorded by the processing function.
-    :rtype: Tuple[str, str, List[bool], str, str, dict]
-    """
-    # Either a single path or a list of paths can be passed to check - I make sure that the checking process only
-    #  ever has to deal with a list
-    if isinstance(check_path, str):
-        check_path = [check_path]
-
-    # eSASS is also released in a Docker container for Mac OS and Windows users, which is not yet supported in DAXA.
-    if esass_in_docker:
-        raise NotImplementedError("The use of eSASS through Docker has not been implemented.")
-
-    # Starts the process running on a shell
-    cmd_proc = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
-
-    # This makes sure the process is killed if it does timeout
-    try:
-        out, err = cmd_proc.communicate(timeout=timeout)
-    except TimeoutExpired:
-        cmd_proc.kill()
-        out, err = cmd_proc.communicate()
-        warn("An eROSITA process for {} has timed out".format(rel_id), stacklevel=2)
-    
-    # Decodes the stdout and stderr from the binary encoding it currently exists in. The errors='ignore' flag
-    #  means that it doesn't throw errors if there is a character it doesn't recognize
-    out = out.decode("UTF-8", errors='ignore')
-    err = err.decode("UTF-8", errors='ignore')
-
-    # We also add the command string to the beginning of the stdout - this is for logging purposes
-    out = cmd + '\n\n' + out
-
-    # Simple check on whether the 'final file' passed into this function actually exists or not - even if there is only
-    #  one path to check we made sure that its in a list so the check can be done easily for multiple paths
-    files_exist = []
-    for path in check_path:
-        if '*' not in path and os.path.exists(path):
-            files_exist.append(True)
-        # In the case where a wildcard is in the final file path (I will try to make sure that this is avoided, but it
-        #  is necessary right now) we use glob to find a match list and check to make sure there is at least one entry
-        elif '*' in path and len(glob.glob(path)) > 0:
-            files_exist.append(True)
-        else:
-            files_exist.append(False)
-    return rel_id, miss_name, files_exist, out, err, extra_info
 
 
 def esass_call(esass_func):
@@ -266,8 +94,8 @@ def esass_call(esass_func):
             _prepare_erosita_info(obs_archive, miss)
 
         # This is the output from whatever function this is a decorator for
-        (miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout,
-         esass_in_docker) = esass_func(*args, **kwargs)
+        (miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable,
+            timeout) = esass_func(*args, **kwargs)
 
         # Converting the timeout from whatever time units it is in, to seconds - but first checking that the user
         #  hasn't been daft and passed a non-time quantity
@@ -399,8 +227,7 @@ def esass_call(esass_func):
                         rel_fin_path = miss_final_paths[miss_name][rel_id]
                         rel_einfo = miss_extras[miss_name][rel_id]
 
-                        pool.apply_async(execute_cmd, args=(cmd, esass_in_docker, rel_id, miss_name, rel_fin_path,
-                                                            rel_einfo, timeout),
+                        pool.apply_async(execute_cmd, args=(cmd, rel_id, miss_name, rel_fin_path, rel_einfo, timeout),
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
@@ -420,3 +247,103 @@ def esass_call(esass_func):
         obs_archive.save()
 
     return wrapper
+
+
+# TODO Make this compliant with how I normally do docstrings
+class eSASSFlag(Flag):
+    """
+    This class was written by Toby Wallage found on Github @TobyWallage.
+    It throws a ValueError when an invalid eSASS Flag is declared with this class.
+    For use in the cleaned_evt_lists function to check the user input.
+
+    Class derived from Enum/Flag containing possible flags that can be used in
+    evtool.
+
+    Descriptions found here:
+    https://erosita.mpe.mpg.de/edr/DataAnalysis/prod_descript/EventFiles_edr.html
+
+    Args
+        :param int value: An integer repesenting a valid flag value. The flag
+        value will determine which type of events will be discarded by the
+        cleaned_evt_lists function.
+
+    Raises
+        :raises ValueError: If value is NOT a valid flag.
+        :raises TypeError: If value is not an integer or integer-like.
+
+    Examples
+
+        A flag may be constructed with a valid integer hexadecimal value
+        >>> some_flag = eSASSFlag(0xc0008000)
+
+        A flag may also be constructed from individual events
+        >>> some_new_flag = eSASSFlag.DEFAULT_FLAG | eSASSFlag.OUT_OF_FOV
+
+        These flags are identical
+
+    """
+    # Values copied and pasted from eSASS docs
+    MPE_OWNER = 0x1
+    IKI_OWNER = 0x2
+    TRAILING_EVENT = 0x10
+    NEXT_TO_BORDER = 0x20
+    NEXT_TO_ONBOARD_BADPIX = 0x100
+    NEXT_TO_BRIGHT_PIX = 0x200
+    NEXT_TO_DEAD_PIX = 0x400
+    NEXT_TO_FLICKERING = 0x800
+    ON_FLICKERING = 0x1000
+    ON_BADPIX = 0x2000
+    ON_DEADPIX = 0x4000
+    OUT_OF_FOV = 0x8000
+    OUTSIDE_QUALGTI = 0x10000
+    OUTSIDE_GTI = 0x20000
+    PRECEDING_MIP = 0x40000
+    MIP_ASSOCIATED = 0x80000
+    PHA_QUALITY_1 = 0x1000000
+    PHA_QUALITY_2 = 0x2000000
+    PHA_QUALITY_3 = 0x4000000
+    CORRUPT_EVENT = 0x40000000
+    CORRUPT_FRAME = 0x80000000
+
+    # DEFAULT_FLAG is equivalent to 0xc0000000
+    DEFAULT_FLAG = CORRUPT_EVENT | CORRUPT_FRAME
+
+    def get_hex(self):
+        return hex(self.value)
+
+
+def _is_valid_flag(flag):
+    """
+    This function is to be called within the cleaned_evt_lists function to check that the user has
+    input a valid eSASS flag to filter event with.
+
+    :param flag Flag: The user input of the flag parameter in the cleaned_evt_list function.
+        This may be in hexidecimal or its equivalent decimal format, both are accepted by evtool.
+    :return: True for valid eSASS flags, and False for invalid.
+    """
+    try:
+        # If the flag is valid then it will declare the class without an error
+        eSASSFlag(flag)
+        return True
+
+    except ValueError:
+        # If the flag is invalid then a ValueError is thrown
+        return False
+
+
+def _make_flagsel_keyword(flag, invert=True):
+    """
+    This function is to be called within the cleaned_evt_lists function to generate the correct
+    header keyword based on the user's input eSASS flag. This is a workaround a bug within eSASS.
+
+    :param flag Flag: The user input of the flag parameter in the cleaned_evt_list function.
+        This may be in hexidecimal or its equivalent decimal format, both are accepted by evtool.
+    """
+    # TODO I think that the pattern selection might effect the FLAGSEL keyword - need to check
+    if invert:
+        value = eSASSFlag(flag).value
+    else:
+        # This returns a flag containing all the bits apart from those specified by the user
+        value = ~eSASSFlag(flag).value
+
+    return value

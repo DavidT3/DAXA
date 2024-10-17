@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/10/2024, 17:07. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 13:44. Copyright (c) The Contributors
+
 import os
 from random import randint
 from typing import Union
@@ -330,10 +331,9 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
                 miss_cmds[miss.name][obs_id] = cmd
                 miss_final_paths[miss.name][obs_id] = final_paths
                 miss_extras[miss.name][obs_id] = {'lc_path': lc_path, 'threshold_path': threshold_path,
-                                                  'maskimg_path': maskimg_path}
+                                                  'maskimg_path': maskimg_path, 'esass_in_docker': esass_in_docker}
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Finding flares in observations'
 
-    return (miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress,
-            timeout, esass_in_docker)
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout

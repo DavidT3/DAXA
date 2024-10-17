@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 13:44. Copyright (c) The Contributors
 
 
 import os.path
@@ -213,7 +213,8 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
                     miss_cmds[miss.name][obs_id] = cmd
                     miss_final_paths[miss.name][obs_id] = final_paths
                     miss_extras[miss.name][obs_id] = {'final_evt': filt_evt_path, 'flag': flag,
-                                                      'flag_invert': flag_invert, 'pattern': pattern}
+                                                      'flag_invert': flag_invert, 'pattern': pattern,
+                                                      'esass_in_docker': esass_in_docker}
                 
             except NoDependencyProcessError:
                 # If archive.check_dependence_success raises this error, it means flaregti was not run
@@ -230,5 +231,4 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
     # This is just used for populating a progress bar during the process run
     process_message = 'Generating final event lists'
 
-    return (miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout,
-            esass_in_docker)
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
