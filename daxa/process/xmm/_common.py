@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 13:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 14:22. Copyright (c) The Contributors
 
 from functools import wraps
 from inspect import signature, Parameter
@@ -16,8 +16,7 @@ from daxa.archive.base import Archive
 from daxa.config import SASERROR_LIST, SASWARNING_LIST
 from daxa.exceptions import NoValidMissionsError, DAXADeveloperError
 from daxa.process._backend_check import find_sas
-from daxa.process._common import execute_cmd
-from daxa.process.general import create_dirs
+from daxa.process._common import execute_cmd, create_dirs
 
 ALLOWED_XMM_MISSIONS = ['xmm_pointed', 'xmm_slew']
 

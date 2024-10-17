@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 13:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 14:22. Copyright (c) The Contributors
 
 from enum import Flag
 from functools import wraps
@@ -15,8 +15,7 @@ from tqdm import tqdm
 from daxa.archive.base import Archive
 from daxa.exceptions import NoValidMissionsError, DAXADeveloperError
 from daxa.process._backend_check import find_esass
-from daxa.process._common import execute_cmd
-from daxa.process.general import create_dirs
+from daxa.process._common import execute_cmd, create_dirs
 
 ALLOWED_EROSITA_MISSIONS = ['erosita_calpv', 'erosita_all_sky_de_dr1']
 

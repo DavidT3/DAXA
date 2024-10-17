@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 22:06. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 14:22. Copyright (c) The Contributors
 
 from typing import Tuple
 from warnings import warn
@@ -9,7 +9,7 @@ from packaging.version import Version
 from daxa.archive.base import Archive
 from daxa.exceptions import NoValidMissionsError
 from daxa.process._backend_check import find_ciao
-from daxa.process.general import create_dirs
+from daxa.process._common import create_dirs
 
 ALLOWED_CHANDRA_MISSIONS = ['chandra']
 
