@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 22:03. Copyright (c) The Contributors
 
 import glob
 import os.path
@@ -15,7 +15,7 @@ from exceptiongroup import ExceptionGroup
 from tqdm import tqdm
 
 from daxa.archive.base import Archive
-from daxa.exceptions import NoEROSITAMissionsError
+from daxa.exceptions import NoValidMissionsError
 from daxa.process._backend_check import find_esass
 from daxa.process.general import create_dirs
 
@@ -103,6 +103,7 @@ def _is_valid_flag(flag):
         # If the flag is invalid then a ValueError is thrown
         return False
 
+
 def _make_flagsel_keword(flag, invert=True):
     """
     This function is to be called within the cleaned_evt_lists function to generate the correct
@@ -122,7 +123,6 @@ def _make_flagsel_keword(flag, invert=True):
         value = ~_eSASS_Flag(flag).value
 
     return value
-
 
 
 def _esass_process_setup(obs_archive: Archive) -> bool:
@@ -146,8 +146,8 @@ def _esass_process_setup(obs_archive: Archive) -> bool:
     # Now we ensure that the passed observation archive actually contains eROSITA mission(s)
     erosita_miss = [mission for mission in obs_archive if mission.name in ALLOWED_EROSITA_MISSIONS]
     if len(erosita_miss) == 0:
-        raise NoEROSITAMissionsError("None of the missions that make up the passed observation archive are "
-                                     "eROSITA missions, and thus this eROSITA-specific function cannot continue.")
+        raise NoValidMissionsError("None of the missions that make up the passed observation archive are "
+                                   "eROSITA missions, and thus this eROSITA-specific function cannot continue.")
     else:
         processed = [em.processed for em in erosita_miss]
         if any(processed):
