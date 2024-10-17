@@ -1,9 +1,10 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 21:45. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 21:53. Copyright (c) The Contributors
 
 import os
 from shutil import which
 from subprocess import Popen, PIPE
+from typing import Tuple
 
 from packaging.version import Version
 
@@ -129,15 +130,15 @@ def find_lcurve() -> Version:
     return lc_version
 
 
-def find_ciao() -> Version:
+def find_ciao() -> Tuple[Version, Version]:
     """
     This function checks to ensure the presence of CIAO on the host system, and it will be called before performing
     any data processing/reduction of Chandra data. An error will be thrown if CIAO (or CalDB Chandra calibration
     files) cannot be identified on the system.
 
     :return: The CIAO version that has been successfully identified, as an instance of the 'packaging'
-        module's Version class.
-    :rtype: Version
+        module's Version class, and the CALDB version as another instance of the Version class.
+    :rtype: Tuple[Version, Version]
     """
     # Here we check to see whether CIAO is installed at all, and get outputs from the terminal which tell us about
     #  the versions - CIAO does have a handy Python implementation, but I think we'll avoid using it for now just
@@ -152,32 +153,20 @@ def find_ciao() -> Version:
     if "ciaover: command not found" in ciao_err:
         raise CIAONotFoundError("CIAO cannot be identified on your system, and Chandra data cannot be processed.")
     else:
+        # The ciaover output is over a series of lines, with different info on each - this is a little bit of a hard
+        #  code cheesy method to do this, but we'll split them on lines and selected the 2nd line to get
+        #  the ciao version
         split_out = [en.strip(' ') for en in ciao_out.split('\n')]
         # Strip the CIAO version out of the ciaover output
         ciao_version = Version(split_out[1].split(':')[-1].split('CIAO')[-1].strip(' ').split(' ')[0])
 
-    return ciao_version
+    # If we've got to this point, then we know CIAO is installed - now we must make sure CALDB is present (and
+    #  determine the version) - we'll use the split_out variable again seeing as we already split the information lines
+    if 'not installed' in split_out[5].lower():
+        raise CIAONotFoundError("A Chandra CALDB installation cannot be identified on your system, and as such "
+                                "Chandra data cannot be processed.")
+    else:
+        # Strip out the CALDB version
+        caldb_version = Version(split_out[5].split(':')[-1].strip())
 
-    # sas_version = None
-    # if "SAS_DIR" not in os.environ:
-    #     raise SASNotFoundError("SAS_DIR environment variable is not set, unable to verify SAS is present on "
-    #                            "system, as such XMM raw data (ODFs) cannot be processed.")
-    #     sas_version = None
-    #     sas_avail = False
-    # else:
-    #     sas_out, sas_err = Popen("sas --version", stdout=PIPE, stderr=PIPE, shell=True).communicate()
-    #     sas_version = Version(sas_out.decode("UTF-8").strip("]\n").split('-')[-1])
-    #     sas_avail = True
-
-    # # This checks for the CCF path, which is required to use cifbuild, which is required to do basically
-    # #  anything with SAS (including processing ODFs)
-    # if sas_avail and "SAS_CCFPATH" not in os.environ:
-    #     raise SASNotFoundError("SAS_CCFPATH environment variable is not set, this is required to generate "
-    #                            "calibration files. As such XMM raw data (ODFs) cannot be processed.")
-    # elif sas_avail and not os.path.exists(os.environ['SAS_CCFPATH']):
-    #     raise SASNotFoundError("Though the SAS_CCFPATH environment variable is set, the path ({p}) does not "
-    #                            "exist".format(p=os.environ['SAS_CCFPATH']))
-
-    # if sas_version < Version('14.0.0'):
-    #     raise SASVersionError("The detected SAS installation is of too low a version ({v}), please use version 14 or "
-    #                           "later.".format(v=sas_version))
+    return ciao_version, caldb_version
