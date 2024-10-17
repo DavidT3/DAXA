@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/04/2024, 09:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 22:04. Copyright (c) The Contributors
 
 import glob
 import os.path
@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 from daxa.archive.base import Archive
 from daxa.config import SASERROR_LIST, SASWARNING_LIST
-from daxa.exceptions import NoXMMMissionsError
+from daxa.exceptions import NoValidMissionsError
 from daxa.process._backend_check import find_sas
 from daxa.process.general import create_dirs
 
@@ -42,8 +42,8 @@ def _sas_process_setup(obs_archive: Archive) -> Version:
     # Now we ensure that the passed observation archive actually contains XMM mission(s)
     xmm_miss = [mission for mission in obs_archive if mission.name in ALLOWED_XMM_MISSIONS]
     if len(xmm_miss) == 0:
-        raise NoXMMMissionsError("None of the missions that make up the passed observation archive are "
-                                 "XMM missions, and thus this XMM-specific function cannot continue.")
+        raise NoValidMissionsError("None of the missions that make up the passed observation archive are "
+                                   "XMM missions, and thus this XMM-specific function cannot continue.")
     else:
         processed = [xm.processed for xm in xmm_miss]
         if any(processed):
