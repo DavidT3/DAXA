@@ -1,6 +1,7 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
 #  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 21:56. Copyright (c) The Contributors
 
+
 import os.path
 from random import randint
 
@@ -188,7 +189,7 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
                 dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
                 # Set up a temporary directory to work in (probably not really necessary in this case, but will be
                 #  in other processing functions).
-                temp_name = "tempdir_{}".format(randint(0, 1e+8))
+                temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
                 temp_dir = dest_dir + temp_name + "/"
 
                 # Setting the paths to the output cleaned event list file
@@ -199,20 +200,20 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = Quantity(0.2, 'keV
                 # The path that needs to exist is the filtered event list 
                 final_paths = [filt_evt_path]
 
-                # If it doesn't already exist then we will create commands to generate it
-                # TODO Need to decide which file to check for here to see whether the command has already been run
-                # Make the temporary directory (it shouldn't already exist but doing this to be safe)
-                if not os.path.exists(temp_dir):
-                    os.makedirs(temp_dir)
-                
-                cmd = evtool_cmd.format(d=temp_dir, ef=evt_list_file, of=filt_evt_name, f=flag, fi=flag_invert,
-                                        p=pattern, emin=lo_en, emax=hi_en, fep=filt_evt_path)
+                if ('cleaned_evt_lists' not in obs_archive.process_success[miss.name] or
+                        obs_id not in obs_archive.process_success[miss.name]['cleaned_evt_lists']):
+                    # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+                    if not os.path.exists(temp_dir):
+                        os.makedirs(temp_dir)
 
-                # Now store the bash command, the path, and extra info in the dictionaries
-                miss_cmds[miss.name][obs_id] = cmd
-                miss_final_paths[miss.name][obs_id] = final_paths
-                miss_extras[miss.name][obs_id] = {'final_evt': filt_evt_path, 'flag': flag, 'flag_invert': flag_invert, 
-                                                  'pattern': pattern}
+                    cmd = evtool_cmd.format(d=temp_dir, ef=evt_list_file, of=filt_evt_name, f=flag, fi=flag_invert,
+                                            p=pattern, emin=lo_en, emax=hi_en, fep=filt_evt_path)
+
+                    # Now store the bash command, the path, and extra info in the dictionaries
+                    miss_cmds[miss.name][obs_id] = cmd
+                    miss_final_paths[miss.name][obs_id] = final_paths
+                    miss_extras[miss.name][obs_id] = {'final_evt': filt_evt_path, 'flag': flag,
+                                                      'flag_invert': flag_invert, 'pattern': pattern}
                 
             except NoDependencyProcessError:
                 # If archive.check_dependence_success raises this error, it means flaregti was not run

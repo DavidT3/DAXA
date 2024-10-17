@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 13:10. Copyright (c) The Contributors
+import os
 import shutil
 from functools import wraps
 from typing import Union, List
@@ -89,8 +90,12 @@ def _last_process(mission_names: Union[str, List[str]], obs_ident_num_comp: int)
                         cur_path = arch.construct_processed_data_path(mn, obs_id)
                         new_path = arch.construct_failed_data_path(mn, obs_id)
 
-                        # Then can use shutil to move the failed ObsID and whatever might be in the directory
-                        shutil.move(cur_path, new_path)
+                        # We check if it exists because this run through could be from an archive that has been updated
+                        #  and we won't be able to move any previously-run but failed ObsID dirs because they will
+                        #  already have been moved
+                        if not os.path.exists(new_path):
+                            # Then can use shutil to move the failed ObsID and whatever might be in the directory
+                            shutil.move(cur_path, new_path)
 
             # We automatically save after these checks - though there will have been a save at the end of the run of
             #  whatever process triggered this final check

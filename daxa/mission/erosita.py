@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/08/2024, 11:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 04/09/2024, 12:38. Copyright (c) The Contributors
 
 import gzip
 import os
@@ -919,10 +919,13 @@ class eRASS1DE(BaseMission):
 
         # We set up the eROSITA file name templates, so that the user (or other parts of DAXA) can retrieve paths
         #  to the event lists, images, exposure maps, and background maps that can be downloaded
-        self._template_evt_name = "EXP_010/em01_{oi}_020_EventList_c010.fits"
-        self._template_img_name = "EXP_010/em01_{oi}_02{eb}_Image_c010.fits"
-        self._template_exp_name = "DET_010/em01_{oi}_02{eb}_ExposureMap_c010.fits"
-        self._template_bck_name = "DET_010/em01_{oi}_02{eb}_BackgrImage_c010.fits"
+        # The wildcards are needed because that second character describes the 'owner' of the tile - m=MPE,
+        #  c=calibration, b=MPE+IKE - guess we could have populated that from the observation info table but ah well
+        #  if it works...
+        self._template_evt_name = "EXP_010/e*01_{oi}_020_EventList_c010.fits"
+        self._template_img_name = "EXP_010/e*01_{oi}_02{eb}_Image_c010.fits"
+        self._template_exp_name = "DET_010/e*01_{oi}_02{eb}_ExposureMap_c010.fits"
+        self._template_bck_name = "DET_010/e*01_{oi}_02{eb}_BackgrImage_c010.fits"
 
         # Call the name property to set up the name and pretty name attributes
         self.name

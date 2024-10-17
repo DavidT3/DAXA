@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/04/2024, 23:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/10/2024, 17:07. Copyright (c) The Contributors
 
 # This part of DAXA is for wrapping SAS functions that are relevant to the processing of XMM data, but don't directly
 #  assemble/clean event lists etc.
@@ -15,6 +15,7 @@ from astropy.units import Quantity
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
+from daxa.exceptions import NoProcessingError
 from daxa.process.xmm._common import _sas_process_setup, ALLOWED_XMM_MISSIONS, sas_call
 
 
@@ -94,7 +95,7 @@ def cif_build(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress
 
             # Set up a temporary directory to work in (probably not really necessary in this case, but will be
             #  in other processing functions).
-            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
             temp_dir = dest_dir + temp_name + "/"
 
             # Grab the start date of the observation from the observation info dataframe - it is a Pandas datetime
@@ -104,9 +105,15 @@ def cif_build(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress
             # This is where the final output calibration file will be stored
             final_path = dest_dir + "ccf.cif"
 
+            # As this is the first process in the chain, we need to account for the fact that nothing has been run
+            #  before, and using the process_success property might raise an exception
+            try:
+                check_dict = obs_archive.process_success[miss.name]['cif_build']
+            except (NoProcessingError, KeyError):
+                check_dict = {}
+
             # If it doesn't already exist then we will create commands to generate it
-            # TODO Decide whether this is the route I really want to follow for this (see issue #28)
-            if not os.path.exists(final_path):
+            if obs_id not in check_dict:
                 # Make the temporary directory (it shouldn't already exist but doing this to be safe)
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
@@ -198,12 +205,13 @@ def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
             #  why I've included the clunky extra logic. If a previous run of odf_ingest was successful then we don't
             #  need to redo anything
             if os.path.exists(final_path) and ('odf_ingest' not in obs_archive.process_success[miss.name] or
+                                               obs_id not in obs_archive.process_success[miss.name]['odf_ingest'] or
                                                not obs_archive.process_success[miss.name]['odf_ingest'][obs_id]):
                 os.remove(final_path)
 
-            # Yes it is slightly clunky, but now if the ODF summary file doesn't exist then we make sure to run
-            #  the commands
-            if not os.path.exists(final_path):
+            # If it doesn't already exist then we will create commands to generate it
+            if ('odf_ingest' not in obs_archive.process_success[miss.name] or
+                    obs_id not in obs_archive.process_success[miss.name]['odf_ingest']):
                 # The path to the ODF (raw data) for this ObsID
                 odf_path = miss.raw_data_path + obs_id + '/'
 

@@ -449,7 +449,7 @@ class PreProcessedNotAvailableError(Exception):
         else:
             return 'PreProcessedNotAvailableError has been raised'
 
-
+          
 class CIAONotFoundError(Exception):
     def __init__(self, *args):
         """
@@ -469,3 +469,22 @@ class CIAONotFoundError(Exception):
         else:
             return 'CIAONotFoundError has been raised'
 
+          
+class DAXADeveloperError(Exception):
+    def __init__(self, *args):
+        """
+        Raised when an error has occurred that needs the attention of developers.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'DAXADeveloperError has been raised'

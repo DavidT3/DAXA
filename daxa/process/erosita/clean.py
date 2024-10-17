@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 17:33. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 11/10/2024, 17:07. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -8,6 +8,7 @@ from astropy.units import Quantity, UnitConversionError, add_enabled_units
 
 from daxa import NUM_CORES, sb_rate
 from daxa.archive.base import Archive
+from daxa.exceptions import NoProcessingError
 from daxa.process.erosita._common import _esass_process_setup, ALLOWED_EROSITA_MISSIONS, esass_call
 
 # Adding this to the enabled astropy units so that it can be used in flaregti to define thresholds
@@ -281,7 +282,7 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
             dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
             # Set up a temporary directory to work in (probably not really necessary in this case, but will be
             #  in other processing functions).
-            temp_name = "tempdir_{}".format(randint(0, 1e+8))
+            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
             temp_dir = dest_dir + temp_name + "/"
 
             # Setting up the paths to the lightcurve file, threshold image file, and mask image file
@@ -303,26 +304,33 @@ def flaregti(obs_archive: Archive, pimin: Quantity = Quantity(200, 'eV'), pimax:
 
             final_paths = [lc_path, threshold_path, maskimg_path]
 
+            # As this is the first process in the chain, we need to account for the fact that nothing has been run
+            #  before, and using the process_success property might raise an exception
+            try:
+                check_dict = obs_archive.process_success[miss.name]['flaregti']
+            except (NoProcessingError, KeyError):
+                check_dict = {}
+
             # If it doesn't already exist then we will create commands to generate it
-            # TODO Need to decide which file to check for here to see whether the command has already been run
-            # Make the temporary directory (it shouldn't already exist but doing this to be safe)
-            if not os.path.exists(temp_dir):
-                os.makedirs(temp_dir)
+            if obs_id not in check_dict:
+                # Make the temporary directory (it shouldn't already exist but doing this to be safe)
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
 
-            cmd = flaregti_cmd.format(d=temp_dir, lef="temp_{oi}_evt_pth".format(oi=obs_id), ef=evt_list_file,
-                                      pimi=pimin, pima=pimax, mpimi=mask_pimin, mpima=mask_pimax, xmi=xmin, xma=xmax,
-                                      ymi=ymin, yma=ymax, gs=gridsize, bs=binsize, dl=detml, tb=timebin,
-                                      ss=source_size, sl=source_like, fr=fov_radius, t=threshold, mt=max_threshold,
-                                      wm=write_mask, m=og_maskimg_name, mit=mask_iter, wl=write_lightcurve,
-                                      lcf=og_lc_name, wti=write_thresholdimg, tif=og_thresholdimg_name,
-                                      olc=og_lc_name, lc=lc_path, oti=og_thresholdimg_name, ti=threshold_path,
-                                      omi=og_maskimg_name, mi=maskimg_path)
+                cmd = flaregti_cmd.format(d=temp_dir, lef="temp_{oi}_evt_pth".format(oi=obs_id), ef=evt_list_file,
+                                          pimi=pimin, pima=pimax, mpimi=mask_pimin, mpima=mask_pimax, xmi=xmin,
+                                          xma=xmax, ymi=ymin, yma=ymax, gs=gridsize, bs=binsize, dl=detml, tb=timebin,
+                                          ss=source_size, sl=source_like, fr=fov_radius, t=threshold, mt=max_threshold,
+                                          wm=write_mask, m=og_maskimg_name, mit=mask_iter, wl=write_lightcurve,
+                                          lcf=og_lc_name, wti=write_thresholdimg, tif=og_thresholdimg_name,
+                                          olc=og_lc_name, lc=lc_path, oti=og_thresholdimg_name, ti=threshold_path,
+                                          omi=og_maskimg_name, mi=maskimg_path)
 
-            # Now store the bash command, the path, and extra info in the dictionaries
-            miss_cmds[miss.name][obs_id] = cmd
-            miss_final_paths[miss.name][obs_id] = final_paths
-            miss_extras[miss.name][obs_id] = {'lc_path': lc_path, 'threshold_path': threshold_path,
-                                              'maskimg_path': maskimg_path}
+                # Now store the bash command, the path, and extra info in the dictionaries
+                miss_cmds[miss.name][obs_id] = cmd
+                miss_final_paths[miss.name][obs_id] = final_paths
+                miss_extras[miss.name][obs_id] = {'lc_path': lc_path, 'threshold_path': threshold_path,
+                                                  'maskimg_path': maskimg_path}
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Finding flares in observations'

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/04/2024, 11:38. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/10/2024, 22:23. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -266,6 +266,16 @@ class BaseMission(metaclass=ABCMeta):
         #  this for a couple of external processes). The default will be False, and it'll only be overridden in
         #  the missions that need to set it to True (e.g. Chandra)
         self._one_inst_per_obs = False
+
+        # These are used if the mission is reinstated from a save, and let us know what the usability states were
+        #  when the mission was saved - useful for the update() method, as we can see if anything has changed
+        self._saved_science_usable = None
+        self._saved_prop_usable = None
+
+        # This dictionary is for any meta data (i.e. what observations changed, has anything flipped from proprietary
+        #  to non-proprietary etc.) related to updating a mission (the update() method). This will be useful for
+        #  an archive instance containing this mission, as it will be used to update the archive version
+        self._update_meta_info = {}
 
     # Defining properties first
     @property
@@ -756,6 +766,18 @@ class BaseMission(metaclass=ABCMeta):
         """
         return self._one_inst_per_obs
 
+    @property
+    def updated_meta_info(self) -> dict:
+        """
+        This property returns a dictionary containing information about what changed during the last update of this
+        mission, populated only after running the update() method. This is useful for Archives containing this mission
+        as they can use it to update their version.
+
+        :return: The dictionary containing information about the update to this mission.
+        :rtype: dict
+        """
+        return self._update_meta_info
+
     # Then define internal methods
     def _load_state(self, save_file_path: str):
         """
@@ -832,6 +854,13 @@ class BaseMission(metaclass=ABCMeta):
 
             # Finally, we store the restored dictionary in the filtering operations attribute
             self._filtering_operations = reinstated_filt_ops
+
+            # These simply store the 'usable' states of the ObsIDs that were selected in the save state we're loading
+            #  in - we primarily want these so that if the mission is updated, we know what changed.
+            self._saved_science_usable = {obs_id: save_dict['science_usable'][ind]
+                                          for ind, obs_id in enumerate(save_dict['selected_obs'])}
+            self._saved_prop_usable = {obs_id: save_dict['proprietary_usable'][ind]
+                                       for ind, obs_id in enumerate(save_dict['selected_obs'])}
 
     def _obs_info_checks(self, new_info: pd.DataFrame):
         """
@@ -1958,7 +1987,8 @@ class BaseMission(metaclass=ABCMeta):
         #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
         #  need to check which is applicable to this mission and treat it accordingly
         if isinstance(self._template_evt_name, str):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id, i=file_inst))
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name.format(oi=obs_id.lower(),
+                                                                                              i=file_inst))
         # In some cases the instrument name will have to be supplied, otherwise we will not be able to
         #  create a path
         elif isinstance(self._template_evt_name, dict) and inst is None:
@@ -1970,7 +2000,7 @@ class BaseMission(metaclass=ABCMeta):
                                                 "event lists for the {i} instrument, so a path cannot be "
                                                 "provided.".format(m=self.pretty_name, i=inst))
         elif isinstance(self._template_evt_name, dict):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name[inst].format(oi=obs_id,
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_evt_name[inst].format(oi=obs_id.lower(),
                                                                                                     i=file_inst))
 
         # This performs certain checks to make sure the file exists, and fill in any wildcards
@@ -2020,7 +2050,8 @@ class BaseMission(metaclass=ABCMeta):
         #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
         #  need to check which is applicable to this mission and treat it accordingly
         if isinstance(self._template_img_name, str):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name.format(oi=obs_id, i=file_inst,
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name.format(oi=obs_id.lower(),
+                                                                                              i=file_inst,
                                                                                               eb=bnd_ident))
         # In some cases the instrument name will have to be supplied, otherwise we will not be able to
         #  create a path
@@ -2033,7 +2064,7 @@ class BaseMission(metaclass=ABCMeta):
                                                 "images for the {i} instrument, so a path cannot be "
                                                 "provided.".format(m=self.pretty_name, i=inst))
         elif isinstance(self._template_img_name, dict):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name[inst].format(oi=obs_id,
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_img_name[inst].format(oi=obs_id.lower(),
                                                                                                     i=file_inst,
                                                                                                     eb=bnd_ident))
 
@@ -2085,7 +2116,8 @@ class BaseMission(metaclass=ABCMeta):
         #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
         #  need to check which is applicable to this mission and treat it accordingly
         if isinstance(self._template_exp_name, str):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_exp_name.format(oi=obs_id, i=file_inst,
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_exp_name.format(oi=obs_id.lower(),
+                                                                                              i=file_inst,
                                                                                               eb=bnd_ident))
         # In some cases the instrument name will have to be supplied, otherwise we will not be able to
         #  create a path
@@ -2100,7 +2132,7 @@ class BaseMission(metaclass=ABCMeta):
                                                 "provided.".format(m=self.pretty_name, i=inst))
         elif isinstance(self._template_exp_name, dict):
             rel_pth = os.path.join(self.raw_data_path, obs_id,
-                                   self._template_exp_name[inst].format(oi=obs_id, i=file_inst,
+                                   self._template_exp_name[inst].format(oi=obs_id.lower(), i=file_inst,
                                                                         eb=bnd_ident))
 
         # This performs certain checks to make sure the file exists, and fill in any wildcards
@@ -2151,7 +2183,8 @@ class BaseMission(metaclass=ABCMeta):
         #  other is a dictionary where the keys are instrument names and the values are the string file templates. We
         #  need to check which is applicable to this mission and treat it accordingly
         if isinstance(self._template_bck_name, str):
-            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_bck_name.format(oi=obs_id, i=file_inst,
+            rel_pth = os.path.join(self.raw_data_path, obs_id, self._template_bck_name.format(oi=obs_id.lower(),
+                                                                                              i=file_inst,
                                                                                               eb=bnd_ident))
         # In some cases the instrument name will have to be supplied, otherwise we will not be able to
         #  create a path
@@ -2165,7 +2198,7 @@ class BaseMission(metaclass=ABCMeta):
                                                 "provided.".format(m=self.pretty_name, i=inst))
         elif isinstance(self._template_bck_name, dict):
             rel_pth = os.path.join(self.raw_data_path, obs_id,
-                                   self._template_bck_name[inst].format(oi=obs_id, i=file_inst,
+                                   self._template_bck_name[inst].format(oi=obs_id.lower(), i=file_inst,
                                                                         eb=bnd_ident))
 
         # This performs certain checks to make sure the file exists, and fill in any wildcards
@@ -2271,6 +2304,17 @@ class BaseMission(metaclass=ABCMeta):
         #  by re-running the stored filtering steps, rather than comparing a stored list of ObsIDs to a newly
         #  downloaded one
         sel_obs = self.filtered_obs_ids
+        # We also wish to save which ObsIDs were considered 'usable' - the first usable type is scientifically
+        #  usable, for which every mission has a column - some of them are all True, but some missions to define
+        #  criteria for things which aren't scientifically usable
+        science_usable = self.filtered_obs_info['science_usable']
+        # Now we also need to define whether the ObsID is currently in a proprietary period - not every mission has
+        #  such a concept, so they don't all have that column. In the case where that column doesn't exist we'll make
+        #  it all True, otherwise we'll extract the values from the filtered obs info dataframe
+        if 'proprietary_usable' in self.filtered_obs_info.columns:
+            prop_usable = self.filtered_obs_info['proprietary_usable']
+        else:
+            prop_usable = np.full(len(sel_obs), True)
 
         # It is possible, if someone isn't paying attention, that the save method could be triggered when there aren't
         #  actually any observations left - that doesn't really make sense to me, so we'll throw an error
@@ -2278,8 +2322,11 @@ class BaseMission(metaclass=ABCMeta):
             raise NoObsAfterFilterError("There are no observations associated with this {mn} mission after "
                                         "filtering, so the mission state cannot be saved.".format(mn=self.pretty_name))
 
-        # Make sure to add the sel_obs dictionary into the overall one we're hoping to store
+        # Make sure to add the sel_obs list into the overall one we're hoping to store (as well as the usable
+        #  flag lists)
         mission_data['selected_obs'] = list(sel_obs)
+        mission_data['science_usable'] = science_usable.tolist()
+        mission_data['proprietary_usable'] = prop_usable.tolist()
 
         # We can now store the filtering operations (and their configurations), as well as the order they were run in,
         #  which means a reinstated mission can re-run the same filtering on an updated data set. HOWEVER, there is
@@ -2326,11 +2373,143 @@ class BaseMission(metaclass=ABCMeta):
                     filt_op['arguments'][arg_name] = {'skycoord': {'ra': ra, 'dec': dec, 'frame': frame}}
 
         mission_data['filtering_operations'] = filt_ops
-
         # Now we write the required information to the state file path
         with open(miss_file_path, 'w') as stateo:
             json_str = json.dumps(mission_data, indent=4)
             stateo.write(json_str)
+
+    def update(self, download_new: bool = True):
+        """
+        This method is meant to update the selected observations of a mission which has been loaded in from the
+        save state. The filtering operations from the saved state will be re-applied in the same order (and with the
+        same configurations) as they were originally. This is designed to allow mission data selections to be easily
+        updated to reflect newly available observations; particularly useful for large samples of objects.
+
+        NOTE - THIS METHOD WILL NOT AUTOMATICALLY CALL THE save() METHOD.
+
+        :param bool download_new: Controls whether any newly selected data from the update should be downloaded
+            automatically by this method. Default is True, the download type (i.e. with products or without) will
+            be defined by what was originally downloaded by this mission. If no data was downloaded in the original
+            form of this mission then the download() method will have to be run after this method.
+        """
+        if len(self.filtering_operations) == 0:
+            # If no filtering operations at all (or only filtering on ObsID, which isn't recorded because it can't be
+            #  updated) have been run, we just warn the user and do nothing else
+            warn("No updatable filtering operations have been run for {pn}.".format(pn=self.pretty_name), stacklevel=2)
+        else:
+            # In this case there ARE filtering operations that we want to re-apply to the updated observation
+            #  database
+
+            # We need to reset the locked attribute, otherwise the mission isn't going to let us re-run
+            #  anything. This must be done through altering the attribute, rather than the property setter, as the
+            #  property setter only allows a change from False -> True, not the other way
+            self._locked = False
+
+            # We need to make a copy of the filtering operations before the reset_filter method is called (as it wipes
+            #  the operation history)
+            filt_op_copy = deepcopy(self.filtering_operations)
+
+            #  Now that we've unlocked the mission instance, and copied the filtering operations, we can reset the
+            #  filter - this will allow us to again select from the entire stock of observations for the current
+            #  mission
+            self.reset_filter()
+            # Now we can work through the stored history of filtering operations - in the order they were used
+            for cur_filt in filt_op_copy:
+                cl_meth = getattr(self, cur_filt['name'])
+                cl_meth(**cur_filt['arguments'])
+
+            # The ObsIDs that were selected in the save state that was loaded in, we need to compare to these
+            og_sel_obs = np.array(list(self._saved_prop_usable.keys()))
+
+            # Now we want to determine if the observation selection has changed AND/OR whether any of the previously
+            #  selected observations have become usable (most likely because they've come out of a proprietary period)
+            # First, lets just see if the selected observations are different in any way from the saved selected obs
+            if set(self.filtered_obs_ids) != set(og_sel_obs):
+                # This describes whether the selected observations have changed at all
+                obs_sel_change = True
+
+                # Now we want to know if there are any ObsIDs selected NOW that weren't there in the save state
+                cur_in_save_obs_arr = np.isin(self.filtered_obs_ids, og_sel_obs)
+                new_obs_ids = self.filtered_obs_ids[~cur_in_save_obs_arr]
+                # One bool summary of if there are new ObsIDs
+                obs_sel_add = True if not cur_in_save_obs_arr.all() else False
+
+                # We also want to know if there are any ObsIDs in the save state but AREN'T selected anymore - this
+                #  can happen as some of the missions are 'live' and are having their datasets constantly altered
+                save_in_cur_obs_arr = np.isin(og_sel_obs, self.filtered_obs_ids)
+                rem_obs_ids = og_sel_obs[~save_in_cur_obs_arr]
+                # One bool summary of if there are removed ObsIDs
+                obs_sel_rem = True if not save_in_cur_obs_arr.all() else False
+            # In this case the selected ObsIDs (current and in the save state) are identical
+            else:
+                obs_sel_change = False
+                new_obs_ids = np.array([])
+                obs_sel_add = False
+
+                obs_sel_rem = False
+                rem_obs_ids = np.array([])
+
+            # This is a dictionary of ObsIDs and their science usable values, but only of the ObsIDs that are not
+            #  newly selected as we want to do a like for like comparison with the save state science usable dict
+            oi_sc_dict = {row['ObsID']: row['science_usable']
+                          for row_ind, row in self.filtered_obs_info.iterrows() if row['ObsID'] not in new_obs_ids}
+            # We do the comparison, making sure to get rid of any removed ObsIDs in the save state dict that are no
+            #  longer present in the filtered dataset (otherwise we would get an artificial mismatch between the
+            #  science usable dictionaries
+            saved_sc_us = {oi: us for oi, us in self._saved_science_usable.items() if oi not in rem_obs_ids}
+            sc_us_ch = saved_sc_us != oi_sc_dict
+            if sc_us_ch:
+                # You could argue that we should have just done this from the start, but I think the dict
+                #  comparisons are a better way to identify whether anything has changed at first.
+                # This dictionary contains the ObsIDs if those observations that have had their science-usable state
+                #  change, and what the usable value has been changed too as values
+                which_sc_us_ch = {oi: oi_sc_dict[oi] for oi, save_us in saved_sc_us.items()
+                                  if save_us != oi_sc_dict[oi]}
+            else:
+                which_sc_us_ch = {}
+
+            # We repeat that same process (see above) with the proprietary usable column (much more likely to have
+            #  changed than the science usable column) - though we only do that check if there IS a proprietary usable
+            #  column. Remember that not every mission has a proprietary period.
+            # We create this empty dictionary that will be overwritten if it needs to be - it's just neater here
+            which_pr_us_ch = {}
+            if 'proprietary_usable' in self.filtered_obs_info.columns:
+                # This is all the exact same process as above - see those comments
+                oi_pr_dict = {row['ObsID']: row['proprietary_usable']
+                              for row_ind, row in self.filtered_obs_info.iterrows() if row['ObsID'] not in new_obs_ids}
+                saved_pr_us = {oi: us for oi, us in self._saved_prop_usable.items() if oi not in rem_obs_ids}
+                pr_us_ch = saved_pr_us != oi_pr_dict
+
+                if pr_us_ch:
+                    which_pr_us_ch = {oi: oi_pr_dict[oi] for oi, save_us in saved_pr_us.items()
+                                      if save_us != oi_pr_dict[oi]}
+            else:
+                # If the mission does not have a proprietary period, then of course it will never have changed for any
+                #  of our ObsIDs
+                pr_us_ch = False
+
+            self._update_meta_info['sel_obs_change'] = obs_sel_change
+            # These contain degenerate info, but might as well provide the option of not using a len check on the
+            #  new/removed ObsID arrays
+            self._update_meta_info['any_obs_add'] = obs_sel_add
+            self._update_meta_info['new_obs_ids'] = new_obs_ids
+            self._update_meta_info['any_obs_removed'] = obs_sel_rem
+            self._update_meta_info['removed_obs_ids'] = rem_obs_ids
+            # Now we can store whether the usability state of anything has changed - again this is degenerate info
+            self._update_meta_info['science_usable_change'] = sc_us_ch
+            self._update_meta_info['which_changed_science_usable'] = which_sc_us_ch
+            self._update_meta_info['proprietary_usable_change'] = pr_us_ch
+            self._update_meta_info['which_changed_proprietary_usable'] = which_pr_us_ch
+
+            # This runs the download process for any newly selected observations, if the update method was
+            #  called with the download_new argument set to True. We try to match the downloaded data to the type
+            #  that was originally downloaded
+            if download_new:
+                self._download_done = False
+                try:
+                    self.download(download_products='preprocessed' in self.downloaded_type)
+                except DAXANotDownloadedError:
+                    self.download()
 
     def info(self):
         print("\n-----------------------------------------------------")

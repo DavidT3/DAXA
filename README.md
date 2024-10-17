@@ -4,6 +4,7 @@
 
 [![Documentation Status](https://readthedocs.org/projects/daxa/badge/?version=latest)](https://daxa.readthedocs.io/en/latest/?badge=latest)
 [![Coverage Percentage](https://raw.githubusercontent.com/DavidT3/DAXA/master/tests/coverage-badge.svg)](https://raw.githubusercontent.com/DavidT3/DAXA/master/tests/coverage-badge.svg)
+[![status](https://joss.theoj.org/papers/60dff3eed70ed7f6bbca0171191d4a3c/status.svg)](https://joss.theoj.org/papers/60dff3eed70ed7f6bbca0171191d4a3c)
 
 # What is Democratising Archival X-ray Astronomy (DAXA)?
 
