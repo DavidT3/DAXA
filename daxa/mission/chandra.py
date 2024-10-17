@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 16:17. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -647,7 +647,7 @@ class Chandra(BaseMission):
         else:
             warn("The raw data for this mission have already been downloaded.", stacklevel=2)
 
-    def assess_process_obs(self, obs_info: dict):
+    def assess_process_obs(self, obs_info: dict) -> dict:
         """
         A slightly unusual method which will allow the Chandra mission to assess the information on a particular
         observation that has been put together by an Archive (the archive assembles it because sometimes this
@@ -659,10 +659,15 @@ class Chandra(BaseMission):
 
         :param dict obs_info: The multi-level dictionary containing available observation information for an
             observation.
+        :return: Dictionary with instrument name as key, and True/False as the value
+        :rtype: dict
         """
-        raise NotImplementedError("The check_process_obs method has not yet been implemented for Chandra, as we need "
-                                  "to see what detailed information are available once processing downloaded data has"
-                                  "begun.")
+        # TODO Will need to revisit this as I come to understand the Chandra archive/observing modes better
+
+        # This currently reads the INSTRUME entry (which was taken from the oif.fits header) and automatically
+        #  assumes that it can be used for further analysis - this is because I don't yet understand what will
+        #  draw the line between usable and not.
+        return {obs_info['INSTRUME']: True}
 
     def ident_to_obsid(self, ident: str):
         """
@@ -679,10 +684,7 @@ class Chandra(BaseMission):
 
         :param str ident: The unique identifier used in a particular processing step.
         """
-        # raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
-        #                           "clear to me what form the unique identifiers will take once we start processing"
-        #                           "{n} data ourselves.".format(n=self.pretty_name))
-        # Replaces any instance of any of the instrument names with nothing
+        # Replaces any instrument names with nothing
         for i in self._miss_poss_insts:
             ident = ident.replace(i, '')
         return ident
