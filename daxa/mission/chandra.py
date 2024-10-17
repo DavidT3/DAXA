@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:49. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -25,10 +25,9 @@ from daxa.exceptions import DAXADownloadError, NoObsAfterFilterError
 from daxa.mission.base import BaseMission, _lock_check
 
 # Unlike NuSTAR, we should only need one directory to be present to download the unprocessed Chandra observations, but
-#  if we're downloading 'standard' data distributions we shall check that primary AND secondary are present
-REQUIRED_DIRS = {'raw': ['.', 'secondary/'], 'standard': ['.', 'primary/', 'secondary/']}
-GOOD_FILE_PATTERNS = {'.': ['oif.fits'],
-                      'primary/': ['.fits.gz'],
+#  if we're downloading 'standard' data distributions we shall check that primary AND secondary are present.
+REQUIRED_DIRS = {'raw': ['secondary/'], 'standard': ['primary/', 'secondary/']}
+GOOD_FILE_PATTERNS = {'primary/': ['.fits.gz'],
                       'secondary/': ['evt1.fits', 'mtl1.fits', 'bias0.fits', 'pbk0.fits', 'flt1.fits', 'bpix1.fits',
                                      'msk1.fits', 'stat1.fits']}
 
@@ -479,6 +478,16 @@ class Chandra(BaseMission):
             raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
                                     "directories; {rq}".format(o=observation_id, rq=", ".join(missing)))
 
+        # Before we get to cycling through the directories, we need to download the top-level oif.fits file, which
+        #  should act as an inventory of all the other files for the ObsID
+        down_url = top_url + 'oif.fits'
+        if not os.path.exists(raw_dir):
+            os.makedirs(raw_dir)
+        # Now download the file
+        with session.get(down_url, stream=True) as acquiro:
+            with open(raw_dir + 'oif.fits', 'wb') as writo:
+                copyfileobj(acquiro.raw, writo)
+
         for rd in req_dir:
 
             # This is the directory to which we will be saving this archive directories files
@@ -502,7 +511,6 @@ class Chandra(BaseMission):
 
             # Every file will need to be unzipped, as they all appear to be gunzipped when I've looked in
             #  the HEASARC directories
-
             for down_file in to_down:
                 down_url = rel_url + down_file
                 with session.get(down_url, stream=True) as acquiro:
