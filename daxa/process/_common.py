@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:07. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:21. Copyright (c) The Contributors
 
 import glob
 import os
@@ -51,19 +51,20 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_in
 
     # ---------------------------------------------------------------------------------------------
 
+    # Keep an original copy of this variable for later
+    og_cmd = cmd
     # We're going to make a temporary pfiles directory which is a) local to the DAXA processing directory, and thus
     #  sure to be on the same filesystem (can be a performance issue for HPCs I think), and b) is unique to a
     #  particular process, so there shouldn't be any clashes. The temporary file name is randomly generated
-    tmp_ident = str(randint(0, int(1e+8)))
-    tmp_pfile_dir = os.path.join(os.path.dirname(extra_info['working_dir']), tmp_ident, 'pfiles/')
-    os.makedirs(tmp_pfile_dir)
+    # Some processes may not need this however, in which case the working directory will be None
+    if extra_info['working_dir'] is not None:
+        tmp_ident = str(randint(0, int(1e+8)))
+        tmp_pfile_dir = os.path.join(os.path.dirname(extra_info['working_dir']), tmp_ident, 'pfiles/')
+        os.makedirs(tmp_pfile_dir)
 
-    # Keep an original copy of this variable for later
-    og_cmd = cmd
-
-    # Now add the altered PFILES env variable to the beginning of the cmd - doesn't matter that I won't change it back
-    #  as this spawns a new shell which then disappears at the end
-    cmd = 'export PFILES="{};$HEADAS/syspfiles";'.format(tmp_pfile_dir) + cmd
+        # Now add the altered PFILES env variable to the beginning of the cmd - doesn't matter that
+        #  I won't change it back as this spawns a new shell which then disappears at the end
+        cmd = 'export PFILES="{};$HEADAS/syspfiles";'.format(tmp_pfile_dir) + cmd
 
     # Starts the process running on a shell
     cmd_proc = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
