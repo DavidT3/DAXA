@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 15:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 15:39. Copyright (c) The Contributors
 
 import os
 
@@ -61,7 +61,7 @@ def parse_oif(oif_path: str):
     #  event list exists
     rel_tbl_info['active'] = 'EVT2' in oif_tbl['MEMBER_CONTENT'].values
     # We're also going to store the counts of how many of each type of file are present - it might be useful later
-    rel_tbl_info['file_content_counts'] = rel_tbl_info['MEMBER_CONTENT'].value_counts().to_dict()
+    rel_tbl_info['file_content_counts'] = oif_tbl['MEMBER_CONTENT'].value_counts().to_dict()
 
     # ------------------- HERE WE CONSTRUCT THE RETURN DICTIONARY -------------------
     # The observation_summaries property of Archive expects the level below ObsID to be instrument names, or
