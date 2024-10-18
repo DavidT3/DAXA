@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 22:52. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 08:17. Copyright (c) The Contributors
 
 import os
 
@@ -47,7 +47,7 @@ def parse_oif(oif_path: str):
     # -----------------------------------------------------------------------------------
 
     # Now we move to examining the data file table
-    obs_info['EVT2_EXISTS'] = True if 'evt2' in oif_tbl['MEMBER_CONTENT'] else False
+    obs_info['EVT2_EXISTS'] = True if 'evt2' in oif_tbl['MEMBER_CONTENT'].values else False
 
     return obs_info
 
