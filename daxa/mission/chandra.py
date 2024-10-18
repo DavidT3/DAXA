@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 16:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 22:37. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -121,11 +121,12 @@ class Chandra(BaseMission):
                                    'HRC-S': {Quantity(0.06, 'keV'): {Quantity(10.0, 'keV'): ""}}}
         self._template_inst_trans = {'ACIS-I': 'acis', 'ACIS-S': 'acis', 'HRC-I': 'hrc', 'HRC-S': 'hrc'}
 
-        # We set up the ROSAT file name templates, so that the user (or other parts of DAXA) can retrieve paths
+        # We set up the Chandra file name templates, so that the user (or other parts of DAXA) can retrieve paths
         #  to the event lists, images, exposure maps, and background maps that can be downloaded
         # I added wildcards before the ObsID (and I hope this isn't going to break things) because irritatingly they
-        #  fill in zeroes before shorted ObsIDs I think - could add that functionality to the general get methods #
+        #  fill in zeroes before shorter ObsIDs I think - could add that functionality to the general get methods #
         #  but this could be easier
+        # The N* part accounts for the revision of the particular file
         self._template_evt_name = "primary/{i}f*{oi}N*_evt2.fits"
         self._template_img_name = "primary/{i}f*{oi}N*_full_img2.fits"
         self._template_exp_name = None
