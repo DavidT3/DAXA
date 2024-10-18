@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 11:47. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 11:58. Copyright (c) The Contributors
 
 import os
 
@@ -38,7 +38,9 @@ def parse_oif(oif_path: str):
     #  do a huge load of individual commands though, we'll set up a one-liner. We'll also set it up so the original
     #  header names can be converted to another name if we want to (None means the original name will be kept).
     hdr_to_store = {'SEQ_NUM': 'SEQUENCE', 'INSTRUME': None, 'DETNAM': 'DETECTOR', 'GRATING': None,
-                    'OBS_MODE': None, 'DATAMODE': 'MODE', 'RA_NOM': None, 'DEC_NOM': None, 'ROLL_NOM': None}
+                    'OBS_MODE': None, 'DATAMODE': 'MODE', 'RA_NOM': None, 'DEC_NOM': None, 'ROLL_NOM': None,
+                    'SIM_X': 'SCIENCE_INST_MODULE_X', 'SIM_Y': 'SCIENCE_INST_MODULE_Y',
+                    'SIM_Z': 'SCIENCE_INST_MODULE_Z'}
     rel_hdr_info = {hdr_key if new_key is None else new_key: oif_hdr[hdr_key]
                     for hdr_key, new_key in hdr_to_store.items()}
 
@@ -53,7 +55,7 @@ def parse_oif(oif_path: str):
     # This temporarily stores relevant quantities we derive from the file table
     rel_tbl_info = {}
     # Now we move to examining the data file table
-    rel_tbl_info['EVT2_EXISTS'] = True if 'EVT2' in oif_tbl['MEMBER_CONTENT'].str.strip().values else False
+    rel_tbl_info['EVT2_EXISTS'] = 'EVT2' in oif_tbl['MEMBER_CONTENT'].str.strip().values
 
     # ------------------- HERE WE CONSTRUCT THE RETURN DICTIONARY -------------------
     # The observation_summaries property of Archive expects the level below ObsID to be instrument names, or
