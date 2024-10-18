@@ -1,6 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 08:57. Copyright (c) The Contributors
-
+#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 14:13. Copyright (c) The Contributors
+import gzip
 import io
 import os
 from datetime import datetime
@@ -46,7 +46,8 @@ class Chandra(BaseMission):
     Functionally, this class is very similar to NuSTARPointed.
 
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
-            pass either a single string value or a list of strings. They may include ACIS-I, ACIS-S, HRC-I, and HRC-S.
+            pass either a single string value or a list of strings. Allowed instrument names are 'ACIS' and 'HRC' -
+            grating names can also be passed as instrument names here ('HETG' and 'LETG').
     :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
         state of a previously defined mission (the same filters having been applied etc.)
     """
@@ -66,7 +67,8 @@ class Chandra(BaseMission):
         Functionally, this class is very similar to NuSTARPointed.
 
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
-            pass either a single string value or a list of strings. They may include ACIS-I, ACIS-S, HRC-I, and HRC-S.
+            pass either a single string value or a list of strings. Allowed instrument names are 'ACIS' and 'HRC' -
+            grating names can also be passed as instrument names here ('HETG' and 'LETG').
         :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
             state of a previously defined mission (the same filters having been applied etc.)
         """
@@ -76,7 +78,7 @@ class Chandra(BaseMission):
         #  are configurable too but don't count as an instrument in the CHANMASTER table. They are in a separate
         #  grating column
         if insts is None:
-            insts = ['ACIS-I', 'ACIS-S', 'HRC-I', 'HRC-S']
+            insts = ['ACIS', 'HRC']
         elif isinstance(insts, str):
             # Makes sure that, if a single instrument is passed as a string, the insts variable is a list for the
             #  rest of the work done using it
@@ -87,8 +89,8 @@ class Chandra(BaseMission):
         # These are the allowed instruments for this mission - Chandra has two sets of instruments (HRC and
         #  ACIS), each with two sets of detectors (one for imaging one for grating spectroscopy). It also has
         #  two choices of grating spectroscopy (HETG and LETG).
-        self._miss_poss_insts = ['ACIS-I', 'ACIS-S', 'HRC-I', 'HRC-S', 'HETG', 'LETG']
-        self._alt_miss_inst_names = {}
+        self._miss_poss_insts = ['ACIS', 'HRC', 'HETG', 'LETG']
+        self._alt_miss_inst_names = {'ACIS-I': 'ACIS', 'ACIS-S': 'ACIS', 'HRC-I': 'HRC', 'HRC-S': 'HRC'}
 
         # Call the name property to set up the name and pretty name attributes
         self.name
@@ -114,11 +116,9 @@ class Chandra(BaseMission):
         # These are the 'translations' required between energy band and filename identifier for ROSAT images/expmaps -
         #  it is organised so that top level keys are instruments, middle keys are lower energy bounds, and the lower
         #  level keys are upper energy bounds, then the value is the filename identifier
-        self._template_en_trans = {'ACIS-I': {Quantity(0.5, 'keV'): {Quantity(7.0, 'keV'): ""}},
-                                   'ACIS-S': {Quantity(0.5, 'keV'): {Quantity(7.0, 'keV'): ""}},
-                                   'HRC-I': {Quantity(0.06, 'keV'): {Quantity(10.0, 'keV'): ""}},
-                                   'HRC-S': {Quantity(0.06, 'keV'): {Quantity(10.0, 'keV'): ""}}}
-        self._template_inst_trans = {'ACIS-I': 'acis', 'ACIS-S': 'acis', 'HRC-I': 'hrc', 'HRC-S': 'hrc'}
+        self._template_en_trans = {'ACIS': {Quantity(0.5, 'keV'): {Quantity(7.0, 'keV'): ""}},
+                                   'HRC': {Quantity(0.06, 'keV'): {Quantity(10.0, 'keV'): ""}}}
+        self._template_inst_trans = {'ACIS': 'acis', 'HRC': 'hrc'}
 
         # We set up the Chandra file name templates, so that the user (or other parts of DAXA) can retrieve paths
         #  to the event lists, images, exposure maps, and background maps that can be downloaded
@@ -247,8 +247,7 @@ class Chandra(BaseMission):
         # HRC I just took the length of HRC-S (99 arcmin) and divided it by two, it's such a big number (relatively
         #  speaking) that it should work okay as a catch-all.
         # This isn't an ideal solution though
-        self._approx_fov = {'ACIS-I': Quantity(27.8, 'arcmin'), 'ACIS-S': Quantity(27.8, 'arcmin'),
-                            'HRC-I': Quantity(49.5, 'arcmin'), 'HRC-S': Quantity(49.5, 'arcmin')}
+        self._approx_fov = {'ACIS': Quantity(27.8, 'arcmin'), 'HRC': Quantity(49.5, 'arcmin')}
         return self._approx_fov
 
     @property
@@ -423,6 +422,11 @@ class Chandra(BaseMission):
         #  Cool Target (meaning a science target that allows the observatory to cool off)
         rel_chandra.loc[misc_mask, 'target_category'] = rel_chandra[misc_mask].apply(
             lambda x: x.target_category if x.type in ['GO', 'GTO', 'CCT'] else conv_dict[x.type], axis=1)
+
+        # Convert the instrument column from specifying the array (i.e. ACIS-I vs ACIS-S) to just the instrument
+        #  name - this is because drawing an actual distinction between them when it comes to processing is difficult
+        #  to the point of futility
+        rel_chandra['instrument'] = rel_chandra['instrument'].apply(lambda x: x.split('-')[0])
 
         # Re-ordering the table, and not including certain columns which have served their purpose
         rel_chandra = rel_chandra[['ra', 'dec', 'ObsID', 'science_usable', 'proprietary_usable', 'start', 'end',
@@ -667,6 +671,10 @@ class Chandra(BaseMission):
         # This currently reads the INSTRUMENT entry (which was taken from the oif.fits header) and bases the 'usable'
         #  decision on whether HEASARC previously successfully created an evt2 file - a bit self fulfilling I admit
         #  but until I know any better it will do
+
+        print('')
+        print(obs_info)
+
         return {obs_info['INSTRUMENT']: obs_info['EVT2_EXISTS']}
 
     def ident_to_obsid(self, ident: str):
