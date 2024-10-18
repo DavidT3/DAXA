@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 08:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 11:47. Copyright (c) The Contributors
 
 import os
 
@@ -44,12 +44,16 @@ def parse_oif(oif_path: str):
 
     # ------------------- ANY MODIFICATION OF HEADER DATA HAPPENS HERE ------------------
     rel_hdr_info['DETECTOR'] = rel_hdr_info['DETECTOR'].split('-')[-1]
+    # Separate the GRATING info into a simple boolean look-up as to whether it has one deployed or not, and another
+    #  header containing the name
+    rel_hdr_info['GRATING_NAME'] = '' if rel_hdr_info['GRATING'] == 'NONE' else rel_hdr_info['GRATING']
+    rel_hdr_info['GRATING'] = False if rel_hdr_info['GRATING'] == 'NONE' else True
     # -----------------------------------------------------------------------------------
 
     # This temporarily stores relevant quantities we derive from the file table
     rel_tbl_info = {}
     # Now we move to examining the data file table
-    rel_tbl_info['EVT2_EXISTS'] = True if 'EVT2' in oif_tbl['MEMBER_CONTENT'].values else False
+    rel_tbl_info['EVT2_EXISTS'] = True if 'EVT2' in oif_tbl['MEMBER_CONTENT'].str.strip().values else False
 
     # ------------------- HERE WE CONSTRUCT THE RETURN DICTIONARY -------------------
     # The observation_summaries property of Archive expects the level below ObsID to be instrument names, or
@@ -92,3 +96,23 @@ def prepare_chandra_info(archive: Archive):
     # Finally the fully populated dictionary is added to the archive - this will be what informs DAXA about
     #  which Chandra observations it can actually process into something useable
     archive.observation_summaries = obs_sums
+
+
+def det_name_to_chip_ids():
+    pass
+    """
+    0  I0, ACIS-I0	FI	w203c4r
+    1  I1, ACIS-I1	FI	w193c2 
+    2  I2, ACIS-I2	FI	w158c4r
+    3  I3, ACIS-I3	FI	w215c2r
+    4  S0, ACIS-S0	FI	w168c4r
+    5  S1, ACIS-S1	BI	w140c4r
+    6  S2, ACIS-S2	FI	w182c4r
+    7  S3, ACIS-S3	BI	w134c4r
+    8  S4, ACIS-S4	FI	w457c4 
+    9  S5, ACIS-S5	FI	w201c3r
+    
+    CCD-ID-3 (I3) contains the ACIS-I aimpoint
+    CCD-ID 7 (S3) contains the ACIS-S aimpoint
+    """
+    pass
