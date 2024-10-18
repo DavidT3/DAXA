@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 08:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 08:57. Copyright (c) The Contributors
 
 import os
 
@@ -17,8 +17,11 @@ def parse_oif(oif_path: str):
     observations can be extracted. This includes things like which mode the detector was in, whether a grating
     was deployed, etc.
 
+    The information will be simpler than what we tend to retrieve for XMM observations, as only one instrument is
+    deployed in a particular observation.
+
     :param str oif_path: The path to the Chandra 'oif.fits' file that is to be parsed into a dictionary
-        of relevant information.
+        of relevant information and returned.
     :return: Multi-level dictionary of information.
     :rtype: dict
     """
