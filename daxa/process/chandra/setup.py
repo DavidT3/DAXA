@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 22:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 22:46. Copyright (c) The Contributors
 
 import os
 
@@ -73,7 +73,7 @@ def prepare_chandra_info(archive: Archive):
             # This sets up the absolute path to the 'oif.fits' file for the current Chandra mission and ObsID
             cur_path = os.path.join(archive.top_level_path, oi, 'oif.fits')
             # The parsing function reads through that file and spits out the important information
-            parsed_info = parse_oif(cur_path, oi)
+            parsed_info = parse_oif(cur_path)
             # Then we add it to the dictionary
             obs_sums[miss.name][oi] = parsed_info
 
