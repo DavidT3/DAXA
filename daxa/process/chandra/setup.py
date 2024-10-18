@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 15:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 15:34. Copyright (c) The Contributors
 
 import os
 
@@ -33,6 +33,9 @@ def parse_oif(oif_path: str):
     oif_hdr = oif_file[1].header
     # Convert to pandas because I prefer working with dataframes
     oif_tbl = Table(oif_file[1].data).to_pandas()
+    # We're gonna make good use of the MEMBER_CONTENT column, but we wish to strip out the whitespace that can
+    #  be present there
+    oif_tbl['MEMBER_CONTENT'] = oif_tbl['MEMBER_CONTENT'].str.strip()
 
     # This feels somehow wrong, but we're just going to pull out the header keywords that I know are relevant D: Won't
     #  do a huge load of individual commands though, we'll set up a one-liner. We'll also set it up so the original
@@ -56,7 +59,9 @@ def parse_oif(oif_path: str):
     rel_tbl_info = {}
     # Now we move to examining the data file table - first off we set an active value by checking if a processed
     #  event list exists
-    rel_tbl_info['active'] = 'EVT2' in oif_tbl['MEMBER_CONTENT'].str.strip().values
+    rel_tbl_info['active'] = 'EVT2' in oif_tbl['MEMBER_CONTENT'].values
+    # We're also going to store the counts of how many of each type of file are present - it might be useful later
+    rel_tbl_info['file_content_counts'] = rel_tbl_info['MEMBER_CONTENT'].value_counts().to_dict()
 
     # ------------------- HERE WE CONSTRUCT THE RETURN DICTIONARY -------------------
     # The observation_summaries property of Archive expects the level below ObsID to be instrument names, or
