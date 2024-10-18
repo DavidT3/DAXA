@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 22:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 22:52. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -665,10 +665,10 @@ class Chandra(BaseMission):
         """
         # TODO Will need to revisit this as I come to understand the Chandra archive/observing modes better
 
-        # This currently reads the INSTRUME entry (which was taken from the oif.fits header) and automatically
-        #  assumes that it can be used for further analysis - this is because I don't yet understand what will
-        #  draw the line between usable and not.
-        return {obs_info['INSTRUME']: True}
+        # This currently reads the INSTRUMENT entry (which was taken from the oif.fits header) and bases the 'usable'
+        #  decision on whether HEASARC previously successfully created an evt2 file - a bit self fulfilling I admit
+        #  but until I know any better it will do
+        return {obs_info['INSTRUMENT']: obs_info['EVT2_EXISTS']}
 
     def ident_to_obsid(self, ident: str):
         """
