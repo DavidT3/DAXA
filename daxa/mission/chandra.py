@@ -1,7 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 22:52. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 08:56. Copyright (c) The Contributors
 
-import gzip
 import io
 import os
 from datetime import datetime
@@ -489,44 +488,44 @@ class Chandra(BaseMission):
             with open(raw_dir + '/oif.fits', 'wb') as writo:
                 copyfileobj(acquiro.raw, writo)
 
-        for rd in req_dir:
-
-            # This is the directory to which we will be saving this archive directories files
-            local_dir = raw_dir + '/' + rd
-            # Make sure that the local directory is created
-            if not os.path.exists(local_dir):
-                os.makedirs(local_dir)
-
-            # The lower level URL of the directory we're going to look at if we're just downloading the raw data
-            rel_url = top_url + rd
-
-            # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
-            #  are the files we shall be downloading
-            to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
-                       if '?' not in en['href'] and obs_dir not in en['href']]
-
-            # This cleans the list of files further, down to only files matching the patterns defined in the constant
-            #  Those patterns are designed to grab the files that this page
-            #  (https://cxc.cfa.harvard.edu/ciao/data_products_guide/) claims we need for re-processing
-            to_down = [f for f in to_down for fp in GOOD_FILE_PATTERNS[rd] if fp in f]
-
-            # Every file will need to be unzipped, as they all appear to be gunzipped when I've looked in
-            #  the HEASARC directories
-            for down_file in to_down:
-                down_url = rel_url + down_file
-                with session.get(down_url, stream=True) as acquiro:
-                    with open(local_dir + down_file, 'wb') as writo:
-                        copyfileobj(acquiro.raw, writo)
-
-                # There are a few compressed fits files in each archive
-                if '.gz' in down_file:
-                    # Open and decompress the events file
-                    with gzip.open(local_dir + down_file, 'rb') as compresso:
-                        # Open a new file handler for the decompressed data, then funnel the decompressed events there
-                        with open(local_dir + down_file.split('.gz')[0], 'wb') as writo:
-                            copyfileobj(compresso, writo)
-                    # Then remove the tarred file to minimise storage usage
-                    os.remove(local_dir + down_file)
+        # for rd in req_dir:
+        #
+        #     # This is the directory to which we will be saving this archive directories files
+        #     local_dir = raw_dir + '/' + rd
+        #     # Make sure that the local directory is created
+        #     if not os.path.exists(local_dir):
+        #         os.makedirs(local_dir)
+        #
+        #     # The lower level URL of the directory we're going to look at if we're just downloading the raw data
+        #     rel_url = top_url + rd
+        #
+        #     # We explore the contents of said directory, making sure to clean any useless HTML guff left over - these
+        #     #  are the files we shall be downloading
+        #     to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
+        #                if '?' not in en['href'] and obs_dir not in en['href']]
+        #
+        #     # This cleans the list of files further, down to only files matching the patterns defined in the constant
+        #     #  Those patterns are designed to grab the files that this page
+        #     #  (https://cxc.cfa.harvard.edu/ciao/data_products_guide/) claims we need for re-processing
+        #     to_down = [f for f in to_down for fp in GOOD_FILE_PATTERNS[rd] if fp in f]
+        #
+        #     # Every file will need to be unzipped, as they all appear to be gunzipped when I've looked in
+        #     #  the HEASARC directories
+        #     for down_file in to_down:
+        #         down_url = rel_url + down_file
+        #         with session.get(down_url, stream=True) as acquiro:
+        #             with open(local_dir + down_file, 'wb') as writo:
+        #                 copyfileobj(acquiro.raw, writo)
+        #
+        #         # There are a few compressed fits files in each archive
+        #         if '.gz' in down_file:
+        #             # Open and decompress the events file
+        #             with gzip.open(local_dir + down_file, 'rb') as compresso:
+        #                 # Open a new file handler for the decompressed data, then funnel the decompressed events there
+        #                 with open(local_dir + down_file.split('.gz')[0], 'wb') as writo:
+        #                     copyfileobj(compresso, writo)
+        #             # Then remove the tarred file to minimise storage usage
+        #             os.remove(local_dir + down_file)
 
         return None
 

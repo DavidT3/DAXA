@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 08:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 08:56. Copyright (c) The Contributors
 
 import os
 
@@ -31,23 +31,32 @@ def parse_oif(oif_path: str):
     # Convert to pandas because I prefer working with dataframes
     oif_tbl = Table(oif_file[1].data).to_pandas()
 
-    # Now we can pull out the useful information and start populating out observation info dictionary to return - set
-    #  it up empty at first
-    obs_info = {}
     # This feels somehow wrong, but we're just going to pull out the header keywords that I know are relevant D: Won't
     #  do a huge load of individual commands though, we'll set up a one-liner. We'll also set it up so the original
     #  header names can be converted to another name if we want to (None means the original name will be kept).
-    hdr_to_store = {'SEQ_NUM': 'SEQUENCE', 'INSTRUME': 'INSTRUMENT', 'DETNAM': 'DETECTOR', 'GRATING': None,
+    hdr_to_store = {'SEQ_NUM': 'SEQUENCE', 'INSTRUME': None, 'DETNAM': 'DETECTOR', 'GRATING': None,
                     'OBS_MODE': None, 'DATAMODE': 'MODE', 'RA_NOM': None, 'DEC_NOM': None, 'ROLL_NOM': None}
-    obs_info.update({hdr_key if new_key is None else new_key: oif_hdr[hdr_key]
-                     for hdr_key, new_key in hdr_to_store.items()})
+    rel_hdr_info = {hdr_key if new_key is None else new_key: oif_hdr[hdr_key]
+                    for hdr_key, new_key in hdr_to_store.items()}
 
     # ------------------- ANY MODIFICATION OF HEADER DATA HAPPENS HERE ------------------
-    obs_info['DETECTOR'] = obs_info['DETECTOR'].split('-')[-1]
+    rel_hdr_info['DETECTOR'] = rel_hdr_info['DETECTOR'].split('-')[-1]
     # -----------------------------------------------------------------------------------
 
+    # This temporarily stores relevant quantities we derive from the file table
+    rel_tbl_info = {}
     # Now we move to examining the data file table
-    obs_info['EVT2_EXISTS'] = True if 'EVT2' in oif_tbl['MEMBER_CONTENT'].values else False
+    rel_tbl_info['EVT2_EXISTS'] = True if 'EVT2' in oif_tbl['MEMBER_CONTENT'].values else False
+
+    # ------------------- HERE WE CONSTRUCT THE RETURN DICTIONARY -------------------
+    # The observation_summaries property of Archive expects the level below ObsID to be instrument names, or
+    #  in this case just the one instrument name
+    obs_info = {rel_hdr_info['INSTRUME']: None}
+    # Drop the INSTRUME entry from rel_hdr_info now, we don't need it there any longer
+    inst = rel_hdr_info.pop('INSTRUME')
+    obs_info[inst] = rel_hdr_info
+    obs_info[inst].update(rel_tbl_info)
+    # -------------------------------------------------------------------------------
 
     return obs_info
 
