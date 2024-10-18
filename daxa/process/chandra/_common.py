@@ -1,11 +1,12 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 16:47. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 19:12. Copyright (c) The Contributors
 
-from typing import Tuple
+from typing import Tuple, List
 from warnings import warn
 
 from packaging.version import Version
 
+from daxa import BaseMission
 from daxa.archive.base import Archive
 from daxa.exceptions import NoValidMissionsError
 from daxa.process._backend_check import find_ciao
@@ -14,7 +15,7 @@ from daxa.process._common import create_dirs
 ALLOWED_CHANDRA_MISSIONS = ['chandra']
 
 
-def _ciao_process_setup(obs_archive: Archive, make_dirs: bool = True) -> Tuple[Version, Version]:
+def _ciao_process_setup(obs_archive: Archive, make_dirs: bool = True) -> Tuple[Version, Version, List[BaseMission]]:
     """
     This function is to be called at the beginning of CIAO specific processing functions, and contains several
     checks to ensure that passed data common to multiple process function calls is suitable.
@@ -23,7 +24,7 @@ def _ciao_process_setup(obs_archive: Archive, make_dirs: bool = True) -> Tuple[V
     :param bool make_dirs: A boolean variable that controls whether the setup process should ensure that the
         storage directories for the future processed Chandra data are made or not. Default is True.
     :return: The version numbers of the CIAO and CALDB installs located on the system.
-    :rtype: Tuple[Version, Version]
+    :rtype: Tuple[Version, Version, List[BaseMission]]
     """
     # This makes sure that CIAO is installed on the host system, and also identifies the version
     ciao_vers, caldb_vers = find_ciao()
@@ -50,7 +51,7 @@ def _ciao_process_setup(obs_archive: Archive, make_dirs: bool = True) -> Tuple[V
         for miss in chandra_miss:
             create_dirs(obs_archive, miss.name)
 
-    return ciao_vers, caldb_vers
+    return ciao_vers, caldb_vers, chandra_miss
 
 
 # def ciao_call(ciao_func):
