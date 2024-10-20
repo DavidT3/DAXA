@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 16:10. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 16:44. Copyright (c) The Contributors
 
 from functools import wraps
 from inspect import signature, Parameter
@@ -31,7 +31,7 @@ def _ciao_process_setup(obs_archive: Archive, make_dirs: bool = True) -> Tuple[V
     :param Archive obs_archive: The observation archive passed to the processing function that called this function.
     :param bool make_dirs: A boolean variable that controls whether the setup process should ensure that the
         storage directories for the future processed Chandra data are made or not. Default is True.
-    :return: The version numbers of the CIAO and CALDB installs located on the system.
+    :return: The version numbers of the CIAO and CALDB installs located on the system, as well as the relevant missions.
     :rtype: Tuple[Version, Version, List[BaseMission]]
     """
     # This makes sure that CIAO is installed on the host system, and also identifies the version
