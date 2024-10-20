@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 15:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 18:48. Copyright (c) The Contributors
 
 import os
 
@@ -60,8 +60,34 @@ def parse_oif(oif_path: str):
     # Now we move to examining the data file table - first off we set an active value by checking if a processed
     #  event list exists
     rel_tbl_info['active'] = 'EVT2' in oif_tbl['MEMBER_CONTENT'].values
+    # Quickly count the number of times each type of file is present, and convert to a dictionary
+    mem_type_cnts = oif_tbl['MEMBER_CONTENT'].value_counts().to_dict()
+
+    alt_exp_mode = False
+    sub_exp = False
+    # Then we use them to try and determine if the data were taken in some unusual observing modes - we use the
+    #  EVT1 count as a trigger because multi-OBI observations can combine their multiple exposures into a single
+    #  EVT2 event list
+    if mem_type_cnts['EVT1'] > 1:
+        # First we look for 'alternating exposure mode', which would result in multiple event lists, one with e1 in
+        #  the name and another with e2 in the name
+        if (oif_tbl['MEMBER_LOCATION'].str.contains('_e2_').any() and
+                oif_tbl['MEMBER_LOCATION'].str.contains('_e1_').any()):
+            alt_exp_mode = True
+
+        # Now we arrive at 'multiple observation intervals', which seem equivalent to sub-exposures in the
+        #  XMM world (you can tell what X-ray telescope I 'grew up with' academically speaking). In the Chandra
+        #  archive they seem incredibly rare, at the time of writing the docs page
+        #  (https://cxc.harvard.edu/ciao/why/multiobi.html) only mentioned twenty ObsIDs
+        else:
+            sub_exp = True
+
+    # Add them into the information dictionary
+    rel_tbl_info['alt_exp_mode'] = alt_exp_mode
+    rel_tbl_info['sub_exp'] = sub_exp
+
     # We're also going to store the counts of how many of each type of file are present - it might be useful later
-    rel_tbl_info['file_content_counts'] = oif_tbl['MEMBER_CONTENT'].value_counts().to_dict()
+    rel_tbl_info['file_content_counts'] = mem_type_cnts
 
     # ------------------- HERE WE CONSTRUCT THE RETURN DICTIONARY -------------------
     # The observation_summaries property of Archive expects the level below ObsID to be instrument names, or
