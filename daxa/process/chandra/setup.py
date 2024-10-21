@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:36. Copyright (c) The Contributors
 
 import os
 from warnings import warn
@@ -146,7 +146,7 @@ def prepare_chandra_info(archive: Archive):
     # Finally the fully populated dictionary is added to the archive - this will be what informs DAXA about
     #  which Chandra observations it can actually process into something useable
     archive.observation_summaries = obs_sums
-    archive.process_success = proc_succ
+    archive.process_success = ('prepare_chandra_info', proc_succ)
 
 
 def det_name_to_chip_ids():
