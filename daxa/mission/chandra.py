@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 17:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 15:53. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -663,14 +663,47 @@ class Chandra(BaseMission):
 
         :param dict obs_info: The multi-level dictionary containing available observation information for an
             observation.
-        :return: Dictionary with instrument name as key, and True/False as the value
+        :return: Dictionary with instrument name as top level key, sub-exposure identifier as lower level key, and
+            True/False as the value.
         :rtype: dict
         """
         # TODO Will need to revisit this as I come to understand the Chandra archive/observing modes
         #  better - would be nice to cut out some stuff that definitely won't be generally useful, like where
         #  the ObsIDs 1304, 1306, and 1309 all have a really not-nominal value for the science instrument module
         #  z position, and the chips are just right at the edge of the telescope FoV
-        to_return = {inst: info['active'] for inst, info in obs_info.items()}
+
+        # TODO ALSO HERE I'M CHECKING FOR ALTERNATING EXPOSURE MODE AND MULTI-OBI MODE OBSERVATIONS - I DON'T FULLY
+        #  UNDERSTAND HOW THEY WORK YET SO I'M NOT SETTING UP CHANDRA_REPRO TO SUPPORT THEM. OBVIOUSLY AT SOME
+        #  POINT I WANT TO, SO THIS WILL BE REMOVED THEN. ALSO I KNOW THAT PUTTING THE WARNING HERE WILL MEAN IT
+        #  COULD BE SHOWN MULTIPLE TIMES, BUT RIGHT NOW I DON'T CARE, EXCLUDING 'CLASSES' OF OBSERVATIONS FROM
+        #  PROCESSING IS WHAT THIS METHOD IS FOR
+        to_return = {}
+        for inst, info in obs_info.items():
+            # Just a quick of making sure that the warning below isn't shown for each sub-exposure - that would make
+            #  the problem of it being shown for every ObsID even more annoying
+            warn_shown = False
+            to_return.setdefault(inst, {})
+            for exp_id in info['sub_exp_ids']:
+                # From the start we assume we are going to be able to use this particular observation
+                to_use = True
+
+                # If the observation is marked as in-active, then we know we can't use it
+                if not info['active']:
+                    to_use = False
+
+                # If the observation is in alternating exposure mode, or multi OBI mode, then FOR NOW we're marking
+                #  it as not to use, and giving a warning
+                if info['alt_exp_mode'] or info['sub_exp']:
+                    if not warn_shown:
+                        warn_shown = True
+                        warn("An observation is in either alternating exposure mode or multi-OBI mode, which are "
+                             "not fully supported by DAXA yet - contact the developers if you require this "
+                             "feature.", stacklevel=2)
+                    # Have to set it False for now
+                    to_use = False
+
+                # Adding our entry into to_return
+                to_return[inst][exp_id] = to_use
 
         return to_return
 
