@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 10:11. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 10:12. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -9,7 +9,7 @@ from astropy.units import Quantity
 from daxa import NUM_CORES
 from daxa.archive import Archive
 from daxa.exceptions import NoDependencyProcessError
-from daxa.process.chandra._common import _ciao_process_setup
+from daxa.process.chandra._common import _ciao_process_setup, ciao_call
 
 
 @ciao_call
