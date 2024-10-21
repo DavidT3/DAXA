@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 16:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 16:39. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -190,10 +190,10 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
 
             # ------------------------------ Creating final names for output files ------------------------------
             # First where do we expect them to be before we move and rename them
-            evt_out_path = os.path.join(dest_dir, prod_evt_list_name.format(rn=root_prefix))
-            gti_out_path = os.path.join(dest_dir, prod_gti_name.format(rn=root_prefix))
-            badpix_out_path = os.path.join(dest_dir, prod_bad_pix_name.format(rn=root_prefix))
-            fov_out_path = os.path.join(dest_dir, prod_fov_name.format(rn=root_prefix))
+            evt_out_path = os.path.join(temp_dir, prod_evt_list_name.format(rn=root_prefix))
+            gti_out_path = os.path.join(temp_dir, prod_gti_name.format(rn=root_prefix))
+            badpix_out_path = os.path.join(temp_dir, prod_bad_pix_name.format(rn=root_prefix))
+            fov_out_path = os.path.join(temp_dir, prod_fov_name.format(rn=root_prefix))
 
             # This is where the final output event list file will be stored - after moving and renaming
             evt_final_path = os.path.join(dest_dir, 'events', evt_list_name.format(o=obs_id, se=exp_id, i=inst))
