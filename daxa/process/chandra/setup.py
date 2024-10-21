@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 18:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 19:37. Copyright (c) The Contributors
 
 import os
 
@@ -61,14 +61,14 @@ def parse_oif(oif_path: str):
     #  event list exists
     rel_tbl_info['active'] = 'EVT2' in oif_tbl['MEMBER_CONTENT'].values
     # Quickly count the number of times each type of file is present, and convert to a dictionary
-    mem_type_cnts = oif_tbl['MEMBER_CONTENT'].value_counts().to_dict()
+    mem_type_cnts = oif_tbl['MEMBER_CONTENT'].str.strip().value_counts().to_dict()
 
     alt_exp_mode = False
     sub_exp = False
     # Then we use them to try and determine if the data were taken in some unusual observing modes - we use the
     #  EVT1 count as a trigger because multi-OBI observations can combine their multiple exposures into a single
     #  EVT2 event list
-    if mem_type_cnts['EVT1'] > 1:
+    if 'EVT1' in mem_type_cnts and mem_type_cnts['EVT1'] > 1:
         # First we look for 'alternating exposure mode', which would result in multiple event lists, one with e1 in
         #  the name and another with e2 in the name
         if (oif_tbl['MEMBER_LOCATION'].str.contains('_e2_').any() and
@@ -81,6 +81,10 @@ def parse_oif(oif_path: str):
         #  (https://cxc.harvard.edu/ciao/why/multiobi.html) only mentioned twenty ObsIDs
         else:
             sub_exp = True
+    elif 'EVT1' not in mem_type_cnts:
+        # This happens for ObsID 94 and ObsID 107 - there are no EVT1 files listed in their OIF, and so I think
+        #  we just have to set them to inactive
+        rel_tbl_info['active'] = False
 
     # Add them into the information dictionary
     rel_tbl_info['alt_exp_mode'] = alt_exp_mode
