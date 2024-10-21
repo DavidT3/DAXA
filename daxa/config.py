@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 15/04/2024, 14:49. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 11:15. Copyright (c) The Contributors
 
 import os
 from configparser import ConfigParser
@@ -18,7 +18,8 @@ CONFIG_PATH = os.environ.get('XDG_CONFIG_HOME', os.path.join(os.path.expanduser(
 CONFIG_FILE = os.path.join(CONFIG_PATH, 'daxa.cfg')
 # Section of the config file for setting up the DAXA module
 DAXA_CONFIG = {"daxa_save_path": "daxa_output/",
-               "num_cores": -1}
+               "num_cores": -1,
+               "pfiles_path": ''}
 
 if not os.path.exists(CONFIG_PATH):
     os.makedirs(CONFIG_PATH)
@@ -60,6 +61,25 @@ else:
     # this can be over-ridden in individual SAS calls.
     NUM_CORES = max(int(floor(os.cpu_count() * 0.9)), 1)  # Makes sure that at least one core is used
 
+# Here we check if the PFILES path has been set in the configuration file - if yes we shall use it (assuming we
+#  can actually confirm it exists
+if 'pfiles_path' in daxa_conf['DAXA_SETUP'] and daxa_conf['DAXA_SETUP']['pfiles_path'] != '':
+    PFILES_PATH = os.path.abspath(daxa_conf['DAXA_SETUP']['pfiles_path'])
+    pfiles_user = True
+# If the user doesn't specify a PFILES_PATH then we're going to assume it lives in their ~/pfiles directory
+else:
+    PFILES_PATH = os.path.expanduser('~/pfiles')
+    pfiles_user = False
+
+# Check it exists and raise an error with slightly different messages depending on if the user or DAXA figured out
+#  the pfile path - we want to be as informative as possible and we know that the automatic pfiles specification we're
+#  using is not foolproof
+if not os.path.exists(PFILES_PATH) and pfiles_user:
+    raise FileNotFoundError("Path to PFILES specified in the DAXA configuration file ({}) does not "
+                            "exist.".format(PFILES_PATH))
+elif not os.path.exists(PFILES_PATH) and pfiles_user:
+    raise FileNotFoundError("Automatic DAXA PFILES path ({pf}) does not exist - consider setting the path in the "
+                            "DAXA configuration file ({dc}).".format(pf=PFILES_PATH, dc=CONFIG_FILE))
 
 # This is the default output directory for archives setup by DAXA, though it can be overridden on
 #  a mission level
