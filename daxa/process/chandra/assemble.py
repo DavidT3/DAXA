@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 10:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 16:24. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -66,11 +66,34 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     #  is run
     crp_cmd = ("cd {d}; chandra_repro indir={in_f} outdir={out_f} root={rn} badpixel='yes' process_events='yes' "
                "destreak={ds} set_ardlib='no' check_vf_pha={cvf} pix_adj={pa} tg_zo_position='evt2' "
-               "asol_update={as_up} pi_filter={pf} cleanup='no' verbose=5;")
-    # "mv *MIEVLI*.FIT ../; mv *ATTTSR*.FIT ../; cd ..; rm -r {d}; mv {oge} {fe}"
+               "asol_update={as_up} pi_filter={pf} cleanup='no' verbose=5; mv {oge} {fe}; mv {oggti} {fgti}; "
+               "mv {ogbp} {fbp}; mv {ogfov} {ffov}")
+    # cd ..; rm -r {d};
+
+
+    # The file patterns that should exist after the chandra_repro command has finished running - not just the event
+    #  list but some other files as well
+    prod_evt_list_name = "{rn}_repro_evt2.fits"
+    # The GTI table - there also seems to sometimes be a file with 'flt2' in the name, but nowhere mentions it and
+    #  thus I will go with the 'flt1' file
+    prod_gti_name = "{rn}_repro_flt1.fits"
+    # Newly made bad-pixel file (remember we have chandr_repro configured so that we will ALWAYS make this
+    prod_bad_pix_name = "{rn}_repro_bpix1.fits"
+    # And finally the 'FOV' file, which provides regions that describe the CCDs I think? - don't actually know if
+    #  this will be of any use to us, but we'll keep it for now
+    prod_fov_name = "{rn}_repro_fov1.fits"
+
+    # These represent the final names and resting places of the event lists
+    evt_list_name = "obsid{o}-inst{i}-subexp{se}-events.fits"
+    # Now we do the same for the other file types we're pulling out of this command
+    gti_name = "obsid{o}-inst{i}-subexp{se}-defaultGTI.fits"
+    bad_pix_name = "obsid{o}-inst{i}-subexp{se}-badpix.fits"
+    fov_name = "obsid{o}-inst{i}-subexp{se}-FOVreg.fits"
+
+    # TODO THINK THE asol1 AND eph1 AND dtf1 (FOR HRC) FILES MIGHT NEED TO BE LIFTED OUT AS WELL - IN FACT WE MIGHT
+    #  NEED TO SOME SUBTLY DIFFERENT BEHAVIOURS HERE FOR HRC AND ACIS
 
     # ---------------------------------- Checking and converting user inputs ----------------------------------
-
     # Make sure that destreak is the right type of object - then we convert to the string 'yes' or 'no' that
     #  the command line chandra_repro expects
     if not isinstance(destreak, bool):
@@ -139,11 +162,14 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
             raise NoDependencyProcessError("No observations have had successful 'prepare_chandra_info' runs, so "
                                            "chandra_repro cannot be run.")
 
+        # TODO DEPENDING HOW THEY ACTUALLY DEAL WITH MULTI-OBI OBSERVATIONS, THIS SETUP MAY NOT WORK FOR THEM AS
+        #  IS, BUT WE'LL DEAL WITH THAT LATER
         for obs_info in good_obs:
-            # This is the valid id that allows us to retrieve the specific product for this ObsID-Inst combo
+            # This is the valid id that allows us to retrieve the specific product for this ObsID-Inst-sub-exposure
+            #  (though for Chandra the sub-exposure ID matters very VERY rarely) combo
             val_id = ''.join(obs_info)
             # Split out the information in obs_info
-            obs_id, inst = obs_info  # May also be an exp_id here
+            obs_id, inst, exp_id = obs_info
 
             # Create the variable that points to the 'raw' data for this ObsID of this Chandra mission
             obs_data_path = miss.raw_data_path + obs_id + '/'
@@ -162,6 +188,21 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
             #  the ObsID + instrument identifier
             root_prefix = val_id + "_" + str(r_id)
 
+            # ------------------------------ Creating final names for output files ------------------------------
+            # First where do we expect them to be before we move and rename them
+            evt_out_path = os.path.join(dest_dir, prod_evt_list_name.format(rn=root_prefix))
+            gti_out_path = os.path.join(dest_dir, prod_gti_name.format(rn=root_prefix))
+            badpix_out_path = os.path.join(dest_dir, prod_bad_pix_name.format(rn=root_prefix))
+            fov_out_path = os.path.join(dest_dir, prod_fov_name.format(rn=root_prefix))
+
+            # This is where the final output event list file will be stored - after moving and renaming
+            evt_final_path = os.path.join(dest_dir, 'events', evt_list_name.format(o=obs_id, se=exp_id, i=inst))
+            # And then all the others
+            gti_final_path = os.path.join(dest_dir, 'misc', gti_name.format(o=obs_id, se=exp_id, i=inst))
+            badpix_final_path = os.path.join(dest_dir, 'misc', bad_pix_name.format(o=obs_id, se=exp_id, i=inst))
+            fov_final_path = os.path.join(dest_dir, 'misc', fov_name.format(o=obs_id, se=exp_id, i=inst))
+            # ---------------------------------------------------------------------------------------------------
+
             # If it doesn't already exist then we will create commands to generate it
             if ('chandra_repro' not in obs_archive.process_success[miss.name] or
                     val_id not in obs_archive.process_success[miss.name]['chandra_repro']):
@@ -170,16 +211,17 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
 
-                # "cd {d}; chandra_repro indir={in_f} outdir={out_f} root={rn} badpixel='yes' process_events='yes' "
-                # "destreak={ds} set_ardlib='no' check_vf_pha={cvf} pix_adj={pa} tg_zo_position='evt2' "
-                # "asol_update={as_up} pi_filter={pf} cleanup='no' verbose=5;"
-
+                # Fill out the template, and generate the command that we will run through subprocess
                 cmd = crp_cmd.format(d=temp_dir, in_f=obs_data_path, out_f=temp_dir, rn=root_prefix, ds=destreak,
-                                     cvf=check_very_faint, pa=pix_adj, as_up=asol_update, pf=grating_pi_filter)
+                                     cvf=check_very_faint, pa=pix_adj, as_up=asol_update, pf=grating_pi_filter,
+                                     oge=evt_out_path, fe=evt_final_path, oggti=gti_out_path, fgti=gti_final_path,
+                                     ogbp=badpix_out_path, fbp=badpix_final_path, ogfov=fov_out_path,
+                                     ffov=fov_final_path)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
-                miss_final_paths[miss.name][val_id] = 'yay_victory_file.fits'
+                # TODO CONSIDER WHAT FILES TO CHECK FOR ALTERNATING EXPOSURE AND MULTI-OBI MODES
+                miss_final_paths[miss.name][val_id] = evt_final_path
                 miss_extras[miss.name][val_id] = {'working_dir': temp_dir}
 
             # This is just used for populating a progress bar during the process run
