@@ -1,8 +1,7 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:45. Copyright (c) The Contributors
 
 import os
-from warnings import warn
 
 from astropy.io import fits
 from astropy.table import Table
@@ -122,10 +121,21 @@ def prepare_chandra_info(archive: Archive):
     #  observation index files (assuming that is what 'oif' stands for?)
     obs_sums = {}
     proc_succ = {}
+    proc_errs = {}
+    # Beyond this point these dictionaries will be blank (at the time of designing at least), but are necessary
+    #  for the observation archive to feel good about itself
+    proc_logs = {}
+    proc_einfo = {}
+    proc_conf = {}
     for miss in chandra_miss:
         # Add an entry for the current mission
         obs_sums.setdefault(miss.name, {})
         proc_succ.setdefault(miss.name, {})
+        proc_errs.setdefault(miss.name, {})
+        proc_logs.setdefault(miss.name, {})
+        proc_einfo.setdefault(miss.name, {})
+        proc_conf.setdefault(miss.name, {})
+
         for oi in miss.filtered_obs_ids:
             try:
                 # This sets up the absolute path to the 'oif.fits' file for the current Chandra mission and ObsID
@@ -136,17 +146,31 @@ def prepare_chandra_info(archive: Archive):
                 obs_sums[miss.name][oi] = parsed_info
                 # We can then say that this process for this ObsID was a success
                 proc_succ[miss.name][oi] = True
+                # Maybe this will add something one day, but doesn't right now
+                proc_errs[miss.name][oi] = ''
+                proc_logs[miss.name][oi] = ''
+                proc_einfo[miss.name][oi] = ''
+                proc_conf[miss.name][oi] = ''
+
             except FileNotFoundError:
                 # Here though, something unfortunate has gone wrong - we'll warn them that the file can't be
                 #  found and store that this process failed
                 proc_succ[miss.name][oi] = False
                 obs_sums[miss.name][oi] = {}
-                warn('The OIF for Chandra observation {oi} cannot be found.'.format(oi=oi), stacklevel=2)
+                # We do store an error as well, just so they know
+                proc_errs[miss.name][oi] = 'The OIF for Chandra observation {oi} cannot be found.'.format(oi=oi)
+                proc_logs[miss.name][oi] = ''
+                proc_einfo[miss.name][oi] = ''
+                proc_conf[miss.name][oi] = ''
 
     # Finally the fully populated dictionary is added to the archive - this will be what informs DAXA about
     #  which Chandra observations it can actually process into something useable
     archive.observation_summaries = obs_sums
     archive.process_success = ('prepare_chandra_info', proc_succ)
+    archive.raw_process_errors = ('prepare_chandra_info', proc_errs)
+    archive.process_logs = ('prepare_chandra_info', proc_logs)
+    archive.process_extra_info = ('prepare_chandra_info', proc_einfo)
+    archive.process_configurations = ('prepare_chandra_info', proc_conf)
 
 
 def det_name_to_chip_ids():
