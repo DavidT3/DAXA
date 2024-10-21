@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:52. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 15:46. Copyright (c) The Contributors
 
 import os
 
@@ -89,6 +89,18 @@ def parse_oif(oif_path: str):
     # Add them into the information dictionary
     rel_tbl_info['alt_exp_mode'] = alt_exp_mode
     rel_tbl_info['sub_exp'] = sub_exp
+
+    # We're also going to extract the sub-exposure IDs (multi-OBI mode is very rarely used it seems, but if I
+    #  want to support those observations, which I do, then we need to read them out). We also need to set
+    #  a sub-exposure ID in the case where it Chandra isn't in multi-OBI mode, as the infrastructure demands
+    # that if one ObsID has sub-exposures then they all do
+    if sub_exp:
+        evt1_files = oif_tbl[oif_tbl['MEMBER_CONTENT'] == 'EVT1']['MEMBER_LOCATION'].values
+        sub_exp_ids = [ev1_f.split('_')[-1].split('N')[0] for ev1_f in evt1_files]
+    else:
+        sub_exp_ids = ['001']
+    # Then that list of sub-exposure IDs (or single ID in most cases) is stored in the output dictionary
+    rel_tbl_info['sub_exp_ids'] = sub_exp_ids
 
     # We're also going to store the counts of how many of each type of file are present - it might be useful later
     rel_tbl_info['file_content_counts'] = mem_type_cnts
