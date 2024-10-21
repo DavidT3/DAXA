@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:16. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
@@ -58,13 +58,13 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     #  is run
     crp_cmd = ("cd {d}; chandra_repro indir={in_f} outdir={out_f} badpixel='yes' process_events='yes' destreak={ds} "
                "set_ardlib='no' check_vf_pha={cvf} pix_adj={pa} tf_zo_position='evt2' asol_update={as_up} "
-               "pi_filter={pf} cleanup='no';")
+               "pi_filter={pf} cleanup='no' verbose=5;")
     # "mv *MIEVLI*.FIT ../; mv *ATTTSR*.FIT ../; cd ..; rm -r {d}; mv {oge} {fe}"
 
     # The 'pix_adj' argument is not boolean, it has several allowed string values, so we check that the user has
     #  not passed something daft before we blindly pass it on the tool command
     if pix_adj not in ['default', 'edser', 'none', 'randomize']:
-        raise ValueError("'pix_adj' must be either; 'default', 'edser', 'none', or 'randomize!")
+        raise ValueError("'pix_adj' must be either; 'default', 'edser', 'none', or 'randomize'.")
 
 
 
