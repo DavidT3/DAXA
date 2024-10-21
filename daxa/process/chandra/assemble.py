@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 10:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 10:30. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -69,12 +69,11 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                "asol_update={as_up} pi_filter={pf} cleanup='no' verbose=5;")
     # "mv *MIEVLI*.FIT ../; mv *ATTTSR*.FIT ../; cd ..; rm -r {d}; mv {oge} {fe}"
 
-
     # ---------------------------------- Checking and converting user inputs ----------------------------------
 
     # Make sure that destreak is the right type of object - then we convert to the string 'yes' or 'no' that
     #  the command line chandra_repro expects
-    if destreak is not bool:
+    if not isinstance(destreak, bool):
         raise TypeError("The 'destreak' argument must be a boolean value; you passed {bv}".format(bv=str(destreak)))
     elif destreak:
         destreak = 'yes'
@@ -83,7 +82,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
 
     # Now we do the same thing for the 'check_very_faint' argument, which maps to the 'check_vf_pha' chandra_repro
     #  parameter - again it is a boolean choice
-    if check_very_faint is not bool:
+    if not isinstance(check_very_faint, bool):
         raise TypeError("The 'check_very_faint' argument must be a boolean value; you passed "
                         "{bv}".format(bv=str(check_very_faint)))
     elif check_very_faint:
@@ -97,7 +96,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
         raise ValueError("'pix_adj' must be either; 'default', 'edser', 'none', or 'randomize'.")
 
     # Rinse and repeat for another boolean variable - 'asol_update'
-    if asol_update is not bool:
+    if not isinstance(asol_update, bool):
         raise TypeError("The 'asol_update' argument must be a boolean value; you passed "
                         "{bv}".format(bv=str(asol_update)))
     elif asol_update:
@@ -106,7 +105,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
         asol_update = 'no'
 
     # Rinse and repeat for another boolean variable - 'grating_pi_filter'
-    if grating_pi_filter is not bool:
+    if not isinstance(grating_pi_filter, bool):
         raise TypeError("The 'grating_pi_filter' argument must be a boolean value; you passed "
                         "{bv}".format(bv=str(grating_pi_filter)))
     elif grating_pi_filter:
