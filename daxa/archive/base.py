@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:32. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 21:15. Copyright (c) The Contributors
 
 import json
 import os
@@ -1628,7 +1628,10 @@ class Archive:
         # I also want to normalise the obs_ident input as either a single set of identifying information, or
         #  multiple sets, can be passed to this method. Thus everything must become a list of lists
         if isinstance(obs_ident, list) and len(obs_ident) != 0 and isinstance(obs_ident[0], str):
-            obs_ident = [obs_ident]
+            # This would convert a list of ObsIDs (for instance) into a list of lists of ObsIDs (with each internal
+            #  list holding one ObsID) - this would make the structure the same as if someone had passed a list
+            #  of [[ObsID, inst], [ObsID, inst], [ObsID, inst], ...] making writing the rest of the function easier
+            obs_ident = [[oi] for oi in obs_ident]
         # If just a string is passed I will assume it is the overall ObsID and double wrap it in a list, one because
         #  identifiers are expected to be in lists of [ObsID, Inst, SubExp (depending on mission)], and the second
         #  to make it overall a list of lists
