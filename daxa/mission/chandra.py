@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 15:53. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 16:31. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -722,7 +722,9 @@ class Chandra(BaseMission):
 
         :param str ident: The unique identifier used in a particular processing step.
         """
-        # Replaces any instrument names with nothing
+        # Replaces any instrument names with nothing, and splits on the 'E' identifier I add to sub-exposure IDs in
+        #  the parse_oif function (sub-exposures are incredibly uncommon, as I'm using that terminology to refer to
+        #  the multi-OBI mode which seems to hardly ever be used).
         for i in self._miss_poss_insts:
-            ident = ident.replace(i, '')
+            ident = ident.replace(i, '').split('E')[0]
         return ident
