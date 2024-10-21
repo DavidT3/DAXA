@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 13:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 15:04. Copyright (c) The Contributors
 
 import glob
 import os
@@ -66,7 +66,7 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_in
         #  I won't change it back as this spawns a new shell which then disappears at the end. Including the
         #  existing PFILES path entry is apparently very important - this path needs to contain the directory
         #  where all the blank template par files live, or it can't make a new one in the temporary directory
-        cmd = 'export PFILES="{};$PFILES"; '.format(new_pfiles) + cmd
+        cmd = 'export PFILES="{}:$PFILES"; '.format(new_pfiles) + cmd
 
     # Starts the process running on a shell
     cmd_proc = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
