@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:04. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
@@ -34,7 +34,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     - 'asol_update' - again don't know why you wouldn't want to do this, but we'll leave the choice in
     - 'pi_filter' - for the grating spectra, a low-cost way of lowering the background it seems? I'll leave the
       choice and it'll be on by default
-    - I will initially set verbose to 5, to store the maximum amount of data
+    - I will initially set verbose to 5, to store the maximum amount of data for debugging
 
     :param Archive obs_archive:
     :param bool destreak:
