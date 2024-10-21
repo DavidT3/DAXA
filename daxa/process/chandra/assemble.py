@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:49. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
@@ -66,8 +66,25 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     if pix_adj not in ['default', 'edser', 'none', 'randomize']:
         raise ValueError("'pix_adj' must be either; 'default', 'edser', 'none', or 'randomize'.")
 
+    # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
+    #  extra information
+    miss_cmds = {}
+    miss_final_paths = {}
+    miss_extras = {}
 
+    # We are iterating through Chandra missions, though only one type exists in DAXA and I don't see that changing
+    for miss in chan_miss:
+        # Sets up the top level keys (mission name) in our storage dictionaries
+        miss_cmds[miss.name] = {}
+        miss_final_paths[miss.name] = {}
+        miss_extras[miss.name] = {}
 
+        rel_obs = obs_archive.get_obs_to_process(miss.name)
+        print(rel_obs)
+
+        good_obs = obs_archive.check_dependence_success(miss.name, rel_obs, 'prepare_chandra_info',
+                                                        no_success_error=False)
+        print(good_obs)
 
 
 
