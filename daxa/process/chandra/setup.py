@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:50. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:52. Copyright (c) The Contributors
 
 import os
 
@@ -149,7 +149,7 @@ def prepare_chandra_info(archive: Archive):
                 # Maybe this will add something one day, but doesn't right now
                 proc_errs[miss.name][oi] = ''
                 proc_logs[miss.name][oi] = ''
-                proc_einfo[miss.name][oi] = ''
+                proc_einfo[miss.name][oi] = {}
                 proc_conf[miss.name][oi] = ''
 
             except FileNotFoundError:
@@ -160,7 +160,7 @@ def prepare_chandra_info(archive: Archive):
                 # We do store an error as well, just so they know
                 proc_errs[miss.name][oi] = 'The OIF for Chandra observation {oi} cannot be found.'.format(oi=oi)
                 proc_logs[miss.name][oi] = ''
-                proc_einfo[miss.name][oi] = ''
+                proc_einfo[miss.name][oi] = {}
                 proc_conf[miss.name][oi] = ''
 
     # Finally the fully populated dictionary is added to the archive - this will be what informs DAXA about
