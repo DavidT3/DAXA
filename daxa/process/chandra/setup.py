@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:45. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:50. Copyright (c) The Contributors
 
 import os
 
@@ -115,7 +115,7 @@ def prepare_chandra_info(archive: Archive):
     """
 
     # Check that the archive in question has got Chandra data etc.
-    ciao_vers, caldb_vers, chandra_miss = _ciao_process_setup(archive, make_dirs=False)
+    ciao_vers, caldb_vers, chandra_miss = _ciao_process_setup(archive, make_dirs=True)
 
     # This very simply iterates through the Chandra missions, and through all their ObsIDs, and parses the
     #  observation index files (assuming that is what 'oif' stands for?)
