@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 10:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 10:57. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -65,7 +65,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     # Note that we don't need to make a local copy of PFILES here, because that will be added in when the command
     #  is run
     crp_cmd = ("cd {d}; chandra_repro indir={in_f} outdir={out_f} root={rn} badpixel='yes' process_events='yes' "
-               "destreak={ds} set_ardlib='no' check_vf_pha={cvf} pix_adj={pa} tf_zo_position='evt2' "
+               "destreak={ds} set_ardlib='no' check_vf_pha={cvf} pix_adj={pa} tg_zo_position='evt2' "
                "asol_update={as_up} pi_filter={pf} cleanup='no' verbose=5;")
     # "mv *MIEVLI*.FIT ../; mv *ATTTSR*.FIT ../; cd ..; rm -r {d}; mv {oge} {fe}"
 
@@ -170,20 +170,20 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
 
-                "cd {d}; chandra_repro indir={in_f} outdir={out_f} root={rn} badpixel='yes' process_events='yes' "
-                "destreak={ds} set_ardlib='no' check_vf_pha={cvf} pix_adj={pa} tf_zo_position='evt2' "
-                "asol_update={as_up} pi_filter={pf} cleanup='no' verbose=5;"
+                # "cd {d}; chandra_repro indir={in_f} outdir={out_f} root={rn} badpixel='yes' process_events='yes' "
+                # "destreak={ds} set_ardlib='no' check_vf_pha={cvf} pix_adj={pa} tg_zo_position='evt2' "
+                # "asol_update={as_up} pi_filter={pf} cleanup='no' verbose=5;"
 
                 cmd = crp_cmd.format(d=temp_dir, in_f=obs_data_path, out_f=temp_dir, rn=root_prefix, ds=destreak,
                                      cvf=check_very_faint, pa=pix_adj, as_up=asol_update, pf=grating_pi_filter)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
-                miss_final_paths[miss.name][val_id] = None
+                miss_final_paths[miss.name][val_id] = 'yay_victory_file.fits'
                 miss_extras[miss.name][val_id] = {'working_dir': temp_dir}
 
             # This is just used for populating a progress bar during the process run
-        process_message = 'Finding PN/MOS soft-proton flares'
+        process_message = 'Reprocessing Chandra data'
 
         return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
