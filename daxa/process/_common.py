@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 15:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 15:06. Copyright (c) The Contributors
 
 import glob
 import os
@@ -137,6 +137,10 @@ def create_dirs(obs_archive: Archive, miss_name: str):
             os.makedirs(stor_dir + 'events')
         if not os.path.exists(stor_dir + 'cleaning'):
             os.makedirs(stor_dir + 'cleaning')
+        # As there can be a lot of variation between files generated for different telescopes, and what we want
+        #  to keep may also differ between them, we also create a catch-all 'misc' directory
+        if not os.path.exists(stor_dir + 'misc'):
+            os.makedirs(stor_dir + 'misc')
 
     # We also ensure that an overall directory for failed processing observations exists - this will give
     #  observation directories which have no useful data in (i.e. they do not have a successful final
