@@ -1,7 +1,8 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 19:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 20:34. Copyright (c) The Contributors
 
 import os
+from warnings import warn
 
 from astropy.io import fits
 from astropy.table import Table
@@ -120,20 +121,32 @@ def prepare_chandra_info(archive: Archive):
     # This very simply iterates through the Chandra missions, and through all their ObsIDs, and parses the
     #  observation index files (assuming that is what 'oif' stands for?)
     obs_sums = {}
+    proc_succ = {}
     for miss in chandra_miss:
         # Add an entry for the current mission
         obs_sums.setdefault(miss.name, {})
+        proc_succ.setdefault(miss.name, {})
         for oi in miss.filtered_obs_ids:
-            # This sets up the absolute path to the 'oif.fits' file for the current Chandra mission and ObsID
-            cur_path = os.path.join(miss.raw_data_path, oi, 'oif.fits')
-            # The parsing function reads through that file and spits out the important information
-            parsed_info = parse_oif(cur_path)
-            # Then we add it to the dictionary
-            obs_sums[miss.name][oi] = parsed_info
+            try:
+                # This sets up the absolute path to the 'oif.fits' file for the current Chandra mission and ObsID
+                cur_path = os.path.join(miss.raw_data_path, oi, 'oif.fits')
+                # The parsing function reads through that file and spits out the important information
+                parsed_info = parse_oif(cur_path)
+                # Then we add it to the dictionary
+                obs_sums[miss.name][oi] = parsed_info
+                # We can then say that this process for this ObsID was a success
+                proc_succ[miss.name][oi] = True
+            except FileNotFoundError:
+                # Here though, something unfortunate has gone wrong - we'll warn them that the file can't be
+                #  found and store that this process failed
+                proc_succ[miss.name][oi] = False
+                obs_sums[miss.name][oi] = {}
+                warn('The OIF for Chandra observation {oi} cannot be found.'.format(oi=oi), stacklevel=2)
 
     # Finally the fully populated dictionary is added to the archive - this will be what informs DAXA about
     #  which Chandra observations it can actually process into something useable
     archive.observation_summaries = obs_sums
+    archive.process_success = proc_succ
 
 
 def det_name_to_chip_ids():
@@ -153,4 +166,4 @@ def det_name_to_chip_ids():
     CCD-ID-3 (I3) contains the ACIS-I aimpoint
     CCD-ID 7 (S3) contains the ACIS-S aimpoint
     """
-    pass
+    raise NotImplementedError("The conversion of detector name to a list of CCD IDs has not yet been implemented.")
