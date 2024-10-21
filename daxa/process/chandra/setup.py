@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 16:07. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 16:29. Copyright (c) The Contributors
 
 import os
 
@@ -96,10 +96,10 @@ def parse_oif(oif_path: str):
     # that if one ObsID has sub-exposures then they all do
     if sub_exp:
         evt1_files = oif_tbl[oif_tbl['MEMBER_CONTENT'] == 'EVT1']['MEMBER_LOCATION'].values
-        sub_exp_ids = [ev1_f.split('_')[-2].split('N')[0] for ev1_f in evt1_files]
+        sub_exp_ids = ['E' + ev1_f.split('_')[-2].split('N')[0] for ev1_f in evt1_files]
         sub_exp_ids.sort()
     else:
-        sub_exp_ids = ['001']
+        sub_exp_ids = ['E001']
     # Then that list of sub-exposure IDs (or single ID in most cases) is stored in the output dictionary
     rel_tbl_info['sub_exp_ids'] = sub_exp_ids
 
