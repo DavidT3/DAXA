@@ -1,14 +1,16 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 11:32. Copyright (c) The Contributors
 
 import glob
 import os
 import os.path
 from random import randint
+from shutil import copytree
 from subprocess import Popen, PIPE, TimeoutExpired
 from typing import Tuple, List
 from warnings import warn
 
+from daxa import PFILES_PATH
 from daxa.archive import Archive
 
 
@@ -59,8 +61,11 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_in
     # Some processes may not need this however, in which case the working directory will be None
     if extra_info['working_dir'] is not None:
         tmp_ident = str(randint(0, int(1e+8)))
-        tmp_pfile_dir = os.path.join(os.path.dirname(extra_info['working_dir']), tmp_ident, 'pfiles/')
+        # Create file path and generate the temporary pfiles-containing directory
+        tmp_pfile_dir = os.path.join(os.path.dirname(extra_info['working_dir']), tmp_ident)
         os.makedirs(tmp_pfile_dir)
+        # Then copy over the pfiles to the temporary directory
+        copytree(PFILES_PATH, tmp_pfile_dir)
 
         # Now add the altered PFILES env variable to the beginning of the cmd - doesn't matter that
         #  I won't change it back as this spawns a new shell which then disappears at the end
