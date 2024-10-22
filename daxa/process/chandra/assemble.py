@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 12:20. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 12:28. Copyright (c) The Contributors
 import os
 from random import randint
 from warnings import warn
@@ -403,7 +403,7 @@ def cleaned_chandra_evts(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
                                               gr=allowed_grades, iev=int_evt_final_path, fgti=rel_flare_gti,
                                               fev=cl_evt_final_path)
                 # Here we have no energy cut
-                elif lo_en is None:
+                elif lo_en is None and inst != 'HRC':
                     cmd = no_en_clevt_cmd.format(d=temp_dir, ef=rel_evt, gr=allowed_grades, iev=int_evt_final_path,
                                                  fgti=rel_flare_gti, fev=cl_evt_final_path)
                 # And here we have an energy-cut-averse instrument (HRC) that also has fundamentally different
