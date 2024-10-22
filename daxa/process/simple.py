@@ -1,10 +1,11 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/10/2024, 16:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 22:04. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
+from daxa.process import chandra_repro
 from daxa.process.chandra import prepare_chandra_info
 from daxa.process.erosita.assemble import cleaned_evt_lists as eros_cleaned_evt_lists
 from daxa.process.erosita.clean import flaregti
@@ -152,4 +153,11 @@ def full_process_chandra(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
     # Firstly we run this function, which parses all the observation index files (OIFs) for the Chandra data
     #  in our archive - prepares the observation_summaries which are then used by other processing steps
     prepare_chandra_info(obs_archive)
+
+    # This is the next step, essentially a DAXA version/wrapping of the incredibly handy (thank you CXC)
+    #  Chandra reprocessing script (chandra_repro). This will automatically generate level-2 event lists, as well
+    #  as other necessary products, applying the current calibration.
+    # I won't let the user pass anything to this, as the arguments control relatively minor things, and they can
+    #  run it themselves if they want to.
+    chandra_repro(obs_archive)
 
