@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 11:45. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 12:04. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -220,7 +220,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                                                   'fov_reg': fov_final_path}
 
             # This is just used for populating a progress bar during the process run
-        process_message = 'Reprocessing Chandra data'
+        process_message = 'Reprocessing data'
 
         return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
@@ -293,10 +293,14 @@ def cleaned_chandra_evts(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
 
     # Make sure we're converted to the right units
     if all(en_check):
-        lo_en = lo_en.to('eV').astype(int)
-        hi_en = hi_en.to('eV').astype(int)
+        # First make sure we're in keV for energy identifier
+        lo_en = lo_en.to('keV')
+        hi_en = hi_en.to('keV')
         # This is added into the filtered event list name, but only if energy limits are applied
         en_ident = '_{l}_{h}keV'.format(l=lo_en.value, h=hi_en.value)
+        # Then make sure we're in eV for the filling in of the template command later
+        lo_en = lo_en.to('eV').astype(int)
+        hi_en = hi_en.to('eV').astype(int)
     else:
         en_ident = ''
 
@@ -388,8 +392,13 @@ def cleaned_chandra_evts(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
                     cmd = en_clevt_cmd.format(d=temp_dir, ef=rel_evt, lo_en=lo_en.value, hi_en=hi_en.value,
                                               gr=allowed_grades, iev=int_evt_final_path, fgti=rel_flare_gti,
                                               fev=cl_evt_final_path)
-                # Here we either have no cut, or an energy-cut-averse instrument
-                elif lo_en is None or inst == 'HRC':
+                # Here we have no energy cut
+                elif lo_en is None:
+                    cmd = no_en_clevt_cmd.format(d=temp_dir, ef=rel_evt, gr=allowed_grades, iev=int_evt_final_path,
+                                                 fgti=rel_flare_gti, fev=cl_evt_final_path)
+                # And here we have an energy-cut-averse instrument (HRC) that also has fundamentally different
+                #  information in the event lists
+                else:
                     cmd = no_en_clevt_cmd.format(d=temp_dir, ef=rel_evt, gr=allowed_grades, iev=int_evt_final_path,
                                                  fgti=rel_flare_gti, fev=cl_evt_final_path)
 
@@ -400,7 +409,7 @@ def cleaned_chandra_evts(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
                                                   'en_key': en_ident}
 
             # This is just used for populating a progress bar during the process run
-        process_message = 'Assembling cleaned Chandra event lists'
+        process_message = 'Assembling cleaned event lists'
 
         return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
