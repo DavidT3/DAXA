@@ -19,7 +19,7 @@ Welcome to Democratising Archival X-ray Astronomy (DAXA)'s documentation!
    Getting Support <support.rst>
 
 .. code-block::
-   :caption: If you make use of DAXA in academic work, please cite the following software paper and ASCL entry
+   :caption: If you make use of DAXA in academic work, please cite the following software paper
    :name: BibTeX Reference
 
    @ARTICLE{2024arXiv241011954T,
@@ -32,10 +32,10 @@ Welcome to Democratising Archival X-ray Astronomy (DAXA)'s documentation!
           eid = {arXiv:2410.11954},
         pages = {arXiv:2410.11954},
           doi = {10.48550/arXiv.2410.11954},
-archivePrefix = {arXiv},
+   archivePrefix = {arXiv},
        eprint = {2410.11954},
- primaryClass = {astro-ph.IM},
+    primaryClass = {astro-ph.IM},
        adsurl = {https://ui.adsabs.harvard.edu/abs/2024arXiv241011954T},
       adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-}
+   }
 
