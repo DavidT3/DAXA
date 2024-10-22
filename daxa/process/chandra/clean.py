@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 00:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 00:21. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -113,11 +113,10 @@ def deflare(obs_archive: Archive, method: str = 'sigma', allowed_sigma: float = 
         miss_final_paths[miss.name] = {}
         miss_extras[miss.name] = {}
 
+        # Getting all the ObsIDs that have been flagged as being able to be processed
         all_obs = obs_archive.get_obs_to_process(miss.name)
-        all_ois = np.array([en[0] for en in all_obs])
-
-        good_obs_sel = obs_archive.check_dependence_success(miss.name, all_ois, 'chandra_repro',
-                                                            no_success_error=False)
+        # Then filtering those based on which of them successfully passed the dependency function
+        good_obs_sel = obs_archive.check_dependence_success(miss.name, all_obs, 'chandra_repro', no_success_error=False)
         good_obs = np.array(all_obs)[good_obs_sel]
 
         # Have to check that there is something for us to work with here!
