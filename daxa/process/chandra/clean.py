@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 00:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 00:25. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -131,6 +131,9 @@ def deflare(obs_archive: Archive, method: str = 'sigma', allowed_sigma: float = 
             # Split out the information in obs_info
             obs_id, inst, exp_id = obs_info
 
+            # We will need the event list created by the 'chandra_repro' run, so the path must be retrieved
+            rel_evt = obs_archive.process_extra_info[miss.name][val_id]['evt_list']
+
             # This path is guaranteed to exist, as it was set up in _ciao_process_setup. This is where output
             #  files will be written to.
             dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
@@ -157,8 +160,8 @@ def deflare(obs_archive: Archive, method: str = 'sigma', allowed_sigma: float = 
                     os.makedirs(temp_dir)
 
                 # Fill out the template, and generate the command that we will run through subprocess
-                cmd = df_cmd.format(d=temp_dir, ef=None, lo_en=lc_lo_en.value, hi_en=lc_hi_en.value,
-                                    bc=time_bin_size.value, lc=lc_final_path, in_f=lc_final_path, out_f=gti_final_path,
+                cmd = df_cmd.format(d=temp_dir, ef=rel_evt, lo_en=lc_lo_en.value, hi_en=lc_hi_en.value,
+                                    bt=time_bin_size.value, lc=lc_final_path, in_f=lc_final_path, out_f=gti_final_path,
                                     me=method, s=allowed_sigma, ml=min_length)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
