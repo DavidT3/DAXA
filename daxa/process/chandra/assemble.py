@@ -1,15 +1,18 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 00:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 11:41. Copyright (c) The Contributors
 import os
 from random import randint
 
 import numpy as np
-from astropy.units import Quantity
+from astropy.units import Quantity, UnitConversionError
 
 from daxa import NUM_CORES
 from daxa.archive import Archive
 from daxa.exceptions import NoDependencyProcessError
 from daxa.process.chandra._common import _ciao_process_setup, ciao_call
+
+# All the ASCA system grade IDs that can be chosen
+ASCA_SYSTEM_GRADES = [0, 2, 3, 4, 6, 1, 5, 7]
 
 
 @ciao_call
@@ -222,8 +225,182 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
         return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
+@ciao_call
+def cleaned_chandra_evts(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quantity = None,
+                         allowed_grades: list = None, num_cores: int = NUM_CORES, disable_progress: bool = False,
+                         timeout: Quantity = None):
+    """
+    This function is used to apply the soft-proton filtering (along with any other filtering you may desire, including
+    the setting of energy limits) to Chandra event lists, resulting in the creation of sets of cleaned event lists
+    which are ready to be analysed. We require that the 'deflare' function has been run before
+    running 'cleaned_chandra_evts'.
 
+    Note that a STATUS=0 cut is applied to all cleaned event lists.
 
+    :param Archive obs_archive: An Archive instance containing a Chandra mission instance. This function will fail
+        if no Chandra missions are present in the archive.
+    :param Quantity lo_en: The lower bound of an energy filter to be applied to the cleaned, filtered, event lists. If
+        'lo_en' is set to an Astropy Quantity, then 'hi_en' must be as well. Default is None, in which case no
+        energy filter is applied. Note that no energy filter can be applied to HRC data.
+    :param Quantity hi_en: The upper bound of an energy filter to be applied to the cleaned, filtered, event lists. If
+        'hi_en' is set to an Astropy Quantity, then 'lo_en' must be as well. Default is None, in which case no
+        energy filter is applied. Note that no energy filter can be applied to HRC data.
+    :param list allowed_grades: A list of event grades that should be kept in the final cleaned event list. Default
+        is None, as the 'chandra_repro' step already imposes a filter of grades [0,2,3,4,6], any more conservative
+        grade filter should be passed as a list of integers. Note that passed values should be in the ASCA grade
+        system, NOT THE ACIS FLIGHT GRADE SYSTEM.
+    :param int num_cores: The number of cores to use, default is set to 90% of available.
+    :param bool disable_progress: Setting this to true will turn off the CIAO generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire process, but a timeout for individual
+        ObsID-Inst processes.
+    """
+    # Run the setup for Chandra processes, which checks that CIAO is installed (as well as CALDB), and checks that the
+    #  archive has at least one Chandra mission in it, and
+    ciao_vers, caldb_vers, chan_miss = _ciao_process_setup(obs_archive)
+
+    # Setting up the simple commands to make the cleaned event lists from the user arguments - have to make two
+    #  commands because we can't apply any energy filtering to HRC event lists. Also, the user won't necessarily
+    #  want to apply energy filtering to ACIS data.
+    en_clevt_cmd = ('cd {d}; dmcopy infile="{ef}[EVENTS][energy={lo_en}:{hi_en},grade={gr},status=0]" outfile={iev} '
+                    'verbose=5; punlearn dmcopy; dmcopy infile="{iev}[EVENTS][@{fgti}]" outfile={fev} verbose=5; ')
+    # cd ..; rm -r {d}
+
+    no_en_clevt_cmd = ('cd {d}; dmcopy infile="{ef}[EVENTS][grade={gr},status=0]" outfile={iev} verbose=5; '
+                       'punlearn dmcopy; dmcopy infile="{iev}[EVENTS][@{fgti}]" outfile={fev} verbose=5; ')
+    # cd ..; rm -r {d}
+
+    # Interim event name template - for the midway point where the initial filtering has been applied, but
+    #  not yet the flaring GTIs
+    int_evt_name = "obsid{o}-inst{i}-subexp{se}-en{en_id}-interimevents.fits"
+
+    # Final name template for the cleaned event lists
+    cl_evt_name = "obsid{o}-inst{i}-subexp{se}-en{en_id}-cleanevents.fits"
+
+    # ---------------------------------- Checking and converting user inputs ----------------------------------
+    # Here we are making sure that the input energy limits are legal and sensible
+    en_check = [en is not None for en in [lo_en, hi_en]]
+    # Both lo_en and hi_en have to be set
+    if not all(en_check) and any(en_check):
+        raise ValueError("If one energy limit is set (e.g. 'lo_en') then the other energy limit must also be set.")
+    elif (lo_en is not None and not lo_en.unit.is_equivalent('eV')) or \
+            (hi_en is not None and not hi_en.unit.is_equivalent('eV')):
+        raise UnitConversionError("The lo_en and hi_en arguments must be astropy quantities in units "
+                                  "that can be converted to eV.")
+    # Obviously the upper limit can't be lower than the lower limit, or equal to it.
+    elif hi_en is not None and lo_en is not None and hi_en <= lo_en:
+        raise ValueError("The hi_en argument must be larger than the lo_en argument.")
+
+    # Make sure we're converted to the right units
+    if all(en_check):
+        lo_en = lo_en.to('eV').astype(int)
+        hi_en = hi_en.to('eV').astype(int)
+        # This is added into the filtered event list name, but only if energy limits are applied
+        en_ident = '_{l}_{h}keV'.format(l=lo_en.value, h=hi_en.value)
+    else:
+        en_ident = ''
+
+    # Now we check the input acceptable event grades
+    if allowed_grades is None:
+        # Set up the default values in case chandra_repro ever changes so that it doesn't enforce them
+        allowed_grades = "0,2,3,4,6"
+    # Make sure that any passed values are actually valid in the ASCA grade system
+    elif not all([ag in ASCA_SYSTEM_GRADES for ag in allowed_grades]):
+        raise ValueError("An invalid event grade has been passed to 'allowed_grades' - only grades from the ASCA "
+                         "system may be passed; {asc}".format(asc=", ".join([str(acg) for acg in ASCA_SYSTEM_GRADES])))
+    else:
+        allowed_grades = ",".join([str(ag) for ag in allowed_grades])
+    # ---------------------------------------------------------------------------------------------------------
+
+    # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
+    #  extra information
+    miss_cmds = {}
+    miss_final_paths = {}
+    miss_extras = {}
+
+    # We are iterating through Chandra missions, though only one type exists in DAXA and I don't see that changing.
+    #  Much of this code is boilerplate that you'll see throughout the Chandra functions (and similar code in many of
+    #  the other telescope processing functions), but never mind - it doesn't need to be that different, so why
+    #  should we make it so?
+    for miss in chan_miss:
+        # Sets up the top level keys (mission name) in our storage dictionaries
+        miss_cmds[miss.name] = {}
+        miss_final_paths[miss.name] = {}
+        miss_extras[miss.name] = {}
+
+        # Getting all the ObsIDs that have been flagged as being able to be processed
+        all_obs = obs_archive.get_obs_to_process(miss.name)
+        # Then filtering those based on which of them successfully passed the dependency function
+        good_obs_sel = obs_archive.check_dependence_success(miss.name, all_obs, 'deflare', no_success_error=False)
+        good_obs = np.array(all_obs)[good_obs_sel]
+
+        # Have to check that there is something for us to work with here!
+        if len(good_obs) == 0:
+            raise NoDependencyProcessError("No observations have had successful 'deflare' runs, so "
+                                           "'cleaned_chandra_evts' cannot be run.")
+
+        for obs_info in good_obs:
+            # This is the valid id that allows us to retrieve the specific product for this ObsID-Inst-sub-exposure
+            #  (though for Chandra the sub-exposure ID matters very VERY rarely) combo
+            val_id = ''.join(obs_info)
+            # Split out the information in obs_info
+            obs_id, inst, exp_id = obs_info
+
+            # We will need the event list created by the 'chandra_repro' run, so the path must be retrieved
+            rel_evt = obs_archive.process_extra_info[miss.name]['chandra_repro'][val_id]['evt_list']
+            # We will also need the flaring GTI produced by 'deflare', and again that is in the process extra info
+            rel_flare_gti = obs_archive.process_extra_info[miss.name]['deflare'][val_id]['flaring_gti']
+
+            # This path is guaranteed to exist, as it was set up in _ciao_process_setup. This is where output
+            #  files will be written to.
+            dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
+
+            # Set up a temporary directory to work in (probably not really necessary in this case, but will be
+            #  in other processing functions).
+            r_id = randint(0, int(1e+8))
+            temp_name = "tempdir_{}".format(r_id)
+            temp_dir = dest_dir + temp_name + "/"
+
+            # ------------------------------ Creating final name for output evt file ------------------------------
+            # Also need to set up the name for the interim event list, where filtering expressions. Note that this
+            #  lives in the temporary directory, and will be lost to the ages when that directory is deleted at
+            #  the end of the process.
+            int_evt_final_path = os.path.join(temp_dir, int_evt_name.format(o=obs_id, se=exp_id, i=inst))
+
+            # This is where the final 'clean' event list will live, hopefully devoid of flares and unpleasant events
+            cl_evt_final_path = os.path.join(dest_dir, 'events', cl_evt_name.format(o=obs_id, se=exp_id, i=inst))
+            # -----------------------------------------------------------------------------------------------------
+
+            # If it doesn't already exist then we will create commands to generate it
+            if ('cleaned_chandra_evts' not in obs_archive.process_success[miss.name] or
+                    val_id not in obs_archive.process_success[miss.name]['cleaned_chandra_evts']):
+                # Make the temporary directory for processing - this (along with the temporary PFILES that
+                #  the execute_cmd function will create) should help avoid any file collisions
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
+
+                # Slightly different commands based on whether the user wants us to apply an energy cut or not (or
+                #  if an energy cut can't be applied - HRC data)
+                if lo_en is not None:
+                    # Fill out the template, and generate the command that we will run through subprocess
+                    cmd = en_clevt_cmd.format(d=temp_dir, ef=rel_evt, lo_en=lo_en.value, hi_en=hi_en.value,
+                                              gr=allowed_grades, iev=int_evt_final_path, fgti=rel_flare_gti,
+                                              fev=cl_evt_final_path)
+                # Here we either have no cut, or an energy-cut-averse instrument
+                elif lo_en is None or inst == 'HRC':
+                    cmd = no_en_clevt_cmd.format(d=temp_dir, ef=rel_evt, gr=allowed_grades, iev=int_evt_final_path,
+                                                 fgti=rel_flare_gti, fev=cl_evt_final_path)
+
+                # Now store the bash command, the path, and extra info in the dictionaries
+                miss_cmds[miss.name][val_id] = cmd
+                miss_final_paths[miss.name][val_id] = cl_evt_final_path
+                miss_extras[miss.name][val_id] = {'working_dir': temp_dir, 'cleaned_events': cl_evt_final_path,
+                                                  'en_key': en_ident}
+
+            # This is just used for populating a progress bar during the process run
+        process_message = 'Assembling cleaned Chandra event lists'
+
+        return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
 
