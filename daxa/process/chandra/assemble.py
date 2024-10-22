@@ -1,7 +1,8 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 12:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 12:11. Copyright (c) The Contributors
 import os
 from random import randint
+from warnings import warn
 
 import numpy as np
 from astropy.units import Quantity, UnitConversionError
@@ -13,6 +14,8 @@ from daxa.process.chandra._common import _ciao_process_setup, ciao_call
 
 # All the ASCA system grade IDs that can be chosen
 ASCA_SYSTEM_GRADES = [0, 2, 3, 4, 6, 1, 5, 7]
+# The default grades selected by chandra_repro - need to show a warning if they select any that aren't here
+REPRO_GRADES = [0, 2, 3, 4, 6]
 
 
 @ciao_call
@@ -307,13 +310,16 @@ def cleaned_chandra_evts(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
     # Now we check the input acceptable event grades
     if allowed_grades is None:
         # Set up the default values in case chandra_repro ever changes so that it doesn't enforce them
-        allowed_grades = "0,2,3,4,6"
+        allowed_grades = REPRO_GRADES
     # Make sure that any passed values are actually valid in the ASCA grade system
     elif not all([ag in ASCA_SYSTEM_GRADES for ag in allowed_grades]):
         raise ValueError("An invalid event grade has been passed to 'allowed_grades' - only grades from the ASCA "
                          "system may be passed; {asc}".format(asc=", ".join([str(acg) for acg in ASCA_SYSTEM_GRADES])))
-    else:
-        allowed_grades = ",".join([str(ag) for ag in allowed_grades])
+    elif any([ag not in REPRO_GRADES for ag in allowed_grades]):
+        warn("An event grade that is not selected by chandra_repro has been passed to 'allowed_grades', this will "
+             "likely have no effect, or will result in no events left after filtering.", stacklevel=2)
+
+    allowed_grades = ",".join([str(ag) for ag in allowed_grades])
     # ---------------------------------------------------------------------------------------------------------
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
