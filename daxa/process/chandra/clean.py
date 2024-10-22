@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 00:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 08:58. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -36,9 +36,11 @@ def deflare(obs_archive: Archive, method: str = 'sigma', allowed_sigma: float = 
     :param Quantity time_bin_size: Sets the size of the time bin that will be used to generate a light curve for
         the deflaring method to work with. Default is 200 seconds.
     :param Quantity lc_lo_en: The lower energy bound for the light curve used for soft proton flaring
-        identification. Default is 0.5 keV.
+        identification in ACIS data, it will be ignored for HRC due to the limited energy resolution. Default
+        is 0.5 keV.
     :param Quantity lc_hi_en: The upper energy bound for the light curve used for soft proton flaring
-        identification. Default is 7.0 keV.
+        identification in ACIS data, it will be ignored for HRC due to the limited energy resolution. Default
+        is 7.0 keV.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the CIAO generation progress bar.
     :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
@@ -51,8 +53,14 @@ def deflare(obs_archive: Archive, method: str = 'sigma', allowed_sigma: float = 
 
     # We're going to wrap the 'deflare' tool that is included in CIAO, which will make our shiny new GTIs that
     #  exclude periods of intense soft-proton flaring
-    df_cmd = ('cd {d}; dmextract infile="{ef}[energy={lo_en}:{hi_en}][bin time=::{bt}]" outfile={lc} opt="ltc1";'
-              'deflare infile={in_f} outfile={out_f} method={me} nsigma={s} minlength={ml} verbose=5; ')
+    # The ACIS command is slightly different from what we allow for HRC, as with ACIS the user can specify an energy
+    #  band to generate the light curve within, but HRC has essentially no energy resolution so that isn't
+    #  applicable for those data
+    acis_df_cmd = ('cd {d}; dmextract infile="{ef}[energy={lo_en}:{hi_en}][bin time=::{bt}]" outfile={lc} opt="ltc1";'
+                   'deflare infile={in_f} outfile={out_f} method={me} nsigma={s} minlength={ml} verbose=5; ')
+    # cd ..; rm -r {d}
+    hrc_df_cmd = ('cd {d}; dmextract infile="{ef}[bin time=::{bt}]" outfile={lc} opt="ltc1";'
+                  'deflare infile={in_f} outfile={out_f} method={me} nsigma={s} minlength={ml} verbose=5; ')
     # cd ..; rm -r {d}
 
     # This is the final name of the light-curve we're going to generate to use for the deflaring analysis
@@ -159,10 +167,17 @@ def deflare(obs_archive: Archive, method: str = 'sigma', allowed_sigma: float = 
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
 
-                # Fill out the template, and generate the command that we will run through subprocess
-                cmd = df_cmd.format(d=temp_dir, ef=rel_evt, lo_en=lc_lo_en.value, hi_en=lc_hi_en.value,
-                                    bt=time_bin_size.value, lc=lc_final_path, in_f=lc_final_path, out_f=gti_final_path,
-                                    me=method, s=allowed_sigma, ml=min_length)
+                # There are slightly different commands for ACIS and HRC observations - don't allow the user to
+                #  set energy bounds for the HRC lightcurve
+                if inst == 'ACIS':
+                    # Fill out the template, and generate the command that we will run through subprocess
+                    cmd = acis_df_cmd.format(d=temp_dir, ef=rel_evt, lo_en=lc_lo_en.value, hi_en=lc_hi_en.value,
+                                             bt=time_bin_size.value, lc=lc_final_path, in_f=lc_final_path,
+                                             out_f=gti_final_path, me=method, s=allowed_sigma, ml=min_length)
+                else:
+                    cmd = hrc_df_cmd.format(d=temp_dir, ef=rel_evt, bt=time_bin_size.value, lc=lc_final_path,
+                                            in_f=lc_final_path, out_f=gti_final_path, me=method, s=allowed_sigma,
+                                            ml=min_length)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
