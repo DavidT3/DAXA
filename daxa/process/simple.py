@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 22:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 22:48. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
@@ -159,5 +159,5 @@ def full_process_chandra(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
     #  as other necessary products, applying the current calibration.
     # I won't let the user pass anything to this, as the arguments control relatively minor things, and they can
     #  run it themselves if they want to.
-    chandra_repro(obs_archive)
+    chandra_repro(obs_archive, num_cores=num_cores, timeout=timeout)
 

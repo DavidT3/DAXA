@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 21:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 22:48. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -17,42 +17,34 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                   asol_update: bool = True, grating_pi_filter: bool = True, num_cores: int = NUM_CORES,
                   disable_progress: bool = False, timeout: Quantity = None):
     """
+    The DAXA implementation of the CIAO ('chandra_repro'; https://cxc.cfa.harvard.edu/ciao/ahelp/chandra_repro.html)
+    tool, which takes downloaded Chandra observations and re-reduces them, with the latest calibrations applied. It
+    is the first stage of most Chandra analyses, and we decided to implement a wrapper rather than re-creating the
+    whole process from the ground up. We provide most of the same configurations as the CIAO command-line tool.
 
-    NOTES:
-    - We will always produce new bad-pixel files, as we don't currently allow the user to pass their own
-    - We will also always produce a new event file with 'process_events', so we don't allow any choice. We want a new
-      calibrated level 1 (and from there level 2) event files in all cases.
-    - QUESTION FOR ME - set_ardlib controls whether the observation bad-pixel file is stored in the ardlib and (I
-      think) doesn't have to be supplied to other analyses. This won't play well with multi-processing I think, and I
-      do remember they mentioned ARDLIB in the multi-processing part of their docs. I'll either have to do it that way
-      or see whether the bad pixel file can be passed manually for each analysis we might do (which honestly is
-      probably the way because XGA is gonna be doing all that stuff). 'set_ardlib=FALSE' FOR NOW!!
-    - Following CIAO docs advice for the 'check_vf_pha' parameter and having it set to False by
-      default (https://cxc.harvard.edu/ciao/why/aciscleanvf.html.)
-    - Don't fully understand 'pix_adj' yet, but should probably include if I don't understand it well enough to not
-      be able to argue against it
-    - 'tg_zo_position' - this defines the coordinate of the target to be reduced in a grating observation, the 'zero
-      point' - we run into the same problem as processing RGS that we just want to prep the data without making
-      spectra, ARF, RMF, etc. - as this tool just prepares the data, and the user might not want to ultimately look
-      at the brightest source in the field. NOT SURE WHAT TO DO YET - STARTED BY LEAVING IT ON THE DEFAULT BEHAVIOUR
-    - 'asol_update' - again don't know why you wouldn't want to do this, but we'll leave the choice in
-    - 'pi_filter' - for the grating spectra, a low-cost way of lowering the background it seems? I'll leave the
-      choice and it'll be on by default
-    - I will initially set verbose to 5, to store the maximum amount of data for debugging
-    - The 'root' option, which I think essentially controls the prefix on the generated files, will be set to the
-      ObsID + instrument + randomly generated ID I think, just to be totally sure which ones we made (also while I
-      don't fully understand the behaviours of chandra_repro in practise I think it'll be a good way of tracking what
-      it is doing
+    This process requires that the 'prepare_chandra_info' function has been run on the observation archive, as without
+    it, we cannot know what data there are to process.
 
-    :param Archive obs_archive:
-    :param bool destreak:
-    :param bool check_very_faint:
-    :param str pix_adj:
-    :param bool asol_update:
-    :param bool grating_pi_filter:
-    :param int num_cores:
-    :param bool disable_progress:
-    :param Quantity timeout:
+    :param Archive obs_archive: An Archive instance containing a Chandra mission instance. This function will fail
+        if no Chandra missions are present in the archive.
+    :param bool destreak: Controls whether a 'destreaking' technique is applied to ACIS data, to account for a flaw
+        in the readout of one of the CCDs. Default is True, in which case streak events are filtered out of the
+        events list.
+    :param bool check_very_faint: Sets whether the ACIS particle background for 'very faint mode' observations is
+        cleaned, default is False. Setting to True can lead to good events being removed in observations with
+        modestly bright point sources.
+    :param str pix_adj: Controls the pixel randomization applied to ACIS data to avoid spatial aliasing effects. The
+        default is 'default' but 'edser', 'none', 'randomize' may also be passed - read more on the CIAO documentation
+        website (https://cxc.harvard.edu/ciao/why/acispixrand.html).
+    :param bool asol_update: If True (the default) then a boresight correction will be applied to the observation to
+        update the location of the aimpoint.
+    :param bool grating_pi_filter: This parameter controls whether an optional grating filter should be used, default
+        is True - the filter is meant to suppress the background.
+    :param int num_cores: The number of cores to use, default is set to 90% of available.
+    :param bool disable_progress: Setting this to true will turn off the CIAO generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire process, but a timeout for individual
+        ObsID-instrument processes.
     """
     # Runs standard checks, makes directories, returns CIAO versions, etc.
     ciao_vers, caldb_vers, chan_miss = _ciao_process_setup(obs_archive)
