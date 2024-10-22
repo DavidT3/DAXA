@@ -1,6 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/08/2024, 11:11. Copyright (c) The Contributors
-
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 16:31. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -18,13 +17,14 @@ from astropy.table import Table
 from astropy.time import Time
 from astropy.units import Quantity
 from bs4 import BeautifulSoup
+from tqdm import tqdm
+
 from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError, NoObsAfterFilterError
 from daxa.mission.base import BaseMission, _lock_check
-from tqdm import tqdm
 
 # Unlike NuSTAR, we should only need one directory to be present to download the unprocessed Chandra observations, but
-#  if we're downloading 'standard' data distributions we shall check that primary AND secondary are present
+#  if we're downloading 'standard' data distributions we shall check that primary AND secondary are present.
 REQUIRED_DIRS = {'raw': ['secondary/'], 'standard': ['primary/', 'secondary/']}
 GOOD_FILE_PATTERNS = {'primary/': ['.fits.gz'],
                       'secondary/': ['evt1.fits', 'mtl1.fits', 'bias0.fits', 'pbk0.fits', 'flt1.fits', 'bpix1.fits',
@@ -46,7 +46,8 @@ class Chandra(BaseMission):
     Functionally, this class is very similar to NuSTARPointed.
 
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
-            pass either a single string value or a list of strings. They may include ACIS-I, ACIS-S, HRC-I, and HRC-S.
+            pass either a single string value or a list of strings. Allowed instrument names are 'ACIS' and 'HRC' -
+            grating names can also be passed as instrument names here ('HETG' and 'LETG').
     :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
         state of a previously defined mission (the same filters having been applied etc.)
     """
@@ -66,7 +67,8 @@ class Chandra(BaseMission):
         Functionally, this class is very similar to NuSTARPointed.
 
         :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
-            pass either a single string value or a list of strings. They may include ACIS-I, ACIS-S, HRC-I, and HRC-S.
+            pass either a single string value or a list of strings. Allowed instrument names are 'ACIS' and 'HRC' -
+            grating names can also be passed as instrument names here ('HETG' and 'LETG').
         :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
             state of a previously defined mission (the same filters having been applied etc.)
         """
@@ -76,7 +78,7 @@ class Chandra(BaseMission):
         #  are configurable too but don't count as an instrument in the CHANMASTER table. They are in a separate
         #  grating column
         if insts is None:
-            insts = ['ACIS-I', 'ACIS-S', 'HRC-I', 'HRC-S']
+            insts = ['ACIS', 'HRC']
         elif isinstance(insts, str):
             # Makes sure that, if a single instrument is passed as a string, the insts variable is a list for the
             #  rest of the work done using it
@@ -87,8 +89,8 @@ class Chandra(BaseMission):
         # These are the allowed instruments for this mission - Chandra has two sets of instruments (HRC and
         #  ACIS), each with two sets of detectors (one for imaging one for grating spectroscopy). It also has
         #  two choices of grating spectroscopy (HETG and LETG).
-        self._miss_poss_insts = ['ACIS-I', 'ACIS-S', 'HRC-I', 'HRC-S', 'HETG', 'LETG']
-        self._alt_miss_inst_names = {}
+        self._miss_poss_insts = ['ACIS', 'HRC', 'HETG', 'LETG']
+        self._alt_miss_inst_names = {'ACIS-I': 'ACIS', 'ACIS-S': 'ACIS', 'HRC-I': 'HRC', 'HRC-S': 'HRC'}
 
         # Call the name property to set up the name and pretty name attributes
         self.name
@@ -114,17 +116,16 @@ class Chandra(BaseMission):
         # These are the 'translations' required between energy band and filename identifier for ROSAT images/expmaps -
         #  it is organised so that top level keys are instruments, middle keys are lower energy bounds, and the lower
         #  level keys are upper energy bounds, then the value is the filename identifier
-        self._template_en_trans = {'ACIS-I': {Quantity(0.5, 'keV'): {Quantity(7.0, 'keV'): ""}},
-                                   'ACIS-S': {Quantity(0.5, 'keV'): {Quantity(7.0, 'keV'): ""}},
-                                   'HRC-I': {Quantity(0.06, 'keV'): {Quantity(10.0, 'keV'): ""}},
-                                   'HRC-S': {Quantity(0.06, 'keV'): {Quantity(10.0, 'keV'): ""}}}
-        self._template_inst_trans = {'ACIS-I': 'acis', 'ACIS-S': 'acis', 'HRC-I': 'hrc', 'HRC-S': 'hrc'}
+        self._template_en_trans = {'ACIS': {Quantity(0.5, 'keV'): {Quantity(7.0, 'keV'): ""}},
+                                   'HRC': {Quantity(0.06, 'keV'): {Quantity(10.0, 'keV'): ""}}}
+        self._template_inst_trans = {'ACIS': 'acis', 'HRC': 'hrc'}
 
-        # We set up the ROSAT file name templates, so that the user (or other parts of DAXA) can retrieve paths
+        # We set up the Chandra file name templates, so that the user (or other parts of DAXA) can retrieve paths
         #  to the event lists, images, exposure maps, and background maps that can be downloaded
         # I added wildcards before the ObsID (and I hope this isn't going to break things) because irritatingly they
-        #  fill in zeroes before shorted ObsIDs I think - could add that functionality to the general get methods #
+        #  fill in zeroes before shorter ObsIDs I think - could add that functionality to the general get methods #
         #  but this could be easier
+        # The N* part accounts for the revision of the particular file
         self._template_evt_name = "primary/{i}f*{oi}N*_evt2.fits"
         self._template_img_name = "primary/{i}f*{oi}N*_full_img2.fits"
         self._template_exp_name = None
@@ -194,7 +195,7 @@ class Chandra(BaseMission):
         # I considered removing any gratings entries from inst, but it doesn't matter because I will just check
         #  which rows in the obs info table have instrument (i.e. detector) entries in the insts list, doesn't
         #  matter that gratings might be in there.
-        sel_inst_mask = (self._obs_info['instrument'].isin(new_insts)) & (self._obs_info['grating'].isin(val_gratings))
+        sel_inst_mask = (self._obs_info['instrument'].isin(new_insts)) | (self._obs_info['grating'].isin(val_gratings))
 
         # I can't think of a way this would happen, but I will just quickly ensure that this filtering didn't
         #  return zero results
@@ -246,8 +247,7 @@ class Chandra(BaseMission):
         # HRC I just took the length of HRC-S (99 arcmin) and divided it by two, it's such a big number (relatively
         #  speaking) that it should work okay as a catch-all.
         # This isn't an ideal solution though
-        self._approx_fov = {'ACIS-I': Quantity(27.8, 'arcmin'), 'ACIS-S': Quantity(27.8, 'arcmin'),
-                            'HRC-I': Quantity(49.5, 'arcmin'), 'HRC-S': Quantity(49.5, 'arcmin')}
+        self._approx_fov = {'ACIS': Quantity(27.8, 'arcmin'), 'HRC': Quantity(49.5, 'arcmin')}
         return self._approx_fov
 
     @property
@@ -423,6 +423,11 @@ class Chandra(BaseMission):
         rel_chandra.loc[misc_mask, 'target_category'] = rel_chandra[misc_mask].apply(
             lambda x: x.target_category if x.type in ['GO', 'GTO', 'CCT'] else conv_dict[x.type], axis=1)
 
+        # Convert the instrument column from specifying the array (i.e. ACIS-I vs ACIS-S) to just the instrument
+        #  name - this is because drawing an actual distinction between them when it comes to processing is difficult
+        #  to the point of futility
+        rel_chandra['instrument'] = rel_chandra['instrument'].apply(lambda x: x.split('-')[0])
+
         # Re-ordering the table, and not including certain columns which have served their purpose
         rel_chandra = rel_chandra[['ra', 'dec', 'ObsID', 'science_usable', 'proprietary_usable', 'start', 'end',
                                    'duration', 'proprietary_end_date', 'target_category', 'instrument', 'grating',
@@ -477,6 +482,16 @@ class Chandra(BaseMission):
             raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
                                     "directories; {rq}".format(o=observation_id, rq=", ".join(missing)))
 
+        # Before we get to cycling through the directories, we need to download the top-level oif.fits file, which
+        #  should act as an inventory of all the other files for the ObsID
+        down_url = top_url + 'oif.fits'
+        if not os.path.exists(raw_dir):
+            os.makedirs(raw_dir)
+        # Now download the file
+        with session.get(down_url, stream=True) as acquiro:
+            with open(raw_dir + '/oif.fits', 'wb') as writo:
+                copyfileobj(acquiro.raw, writo)
+
         for rd in req_dir:
 
             # This is the directory to which we will be saving this archive directories files
@@ -500,7 +515,6 @@ class Chandra(BaseMission):
 
             # Every file will need to be unzipped, as they all appear to be gunzipped when I've looked in
             #  the HEASARC directories
-
             for down_file in to_down:
                 down_url = rel_url + down_file
                 with session.get(down_url, stream=True) as acquiro:
@@ -637,7 +651,7 @@ class Chandra(BaseMission):
         else:
             warn("The raw data for this mission have already been downloaded.", stacklevel=2)
 
-    def assess_process_obs(self, obs_info: dict):
+    def assess_process_obs(self, obs_info: dict) -> dict:
         """
         A slightly unusual method which will allow the Chandra mission to assess the information on a particular
         observation that has been put together by an Archive (the archive assembles it because sometimes this
@@ -649,10 +663,49 @@ class Chandra(BaseMission):
 
         :param dict obs_info: The multi-level dictionary containing available observation information for an
             observation.
+        :return: Dictionary with instrument name as top level key, sub-exposure identifier as lower level key, and
+            True/False as the value.
+        :rtype: dict
         """
-        raise NotImplementedError("The check_process_obs method has not yet been implemented for Chandra, as we need "
-                                  "to see what detailed information are available once processing downloaded data has"
-                                  "begun.")
+        # TODO Will need to revisit this as I come to understand the Chandra archive/observing modes
+        #  better - would be nice to cut out some stuff that definitely won't be generally useful, like where
+        #  the ObsIDs 1304, 1306, and 1309 all have a really not-nominal value for the science instrument module
+        #  z position, and the chips are just right at the edge of the telescope FoV
+
+        # TODO ALSO HERE I'M CHECKING FOR ALTERNATING EXPOSURE MODE AND MULTI-OBI MODE OBSERVATIONS - I DON'T FULLY
+        #  UNDERSTAND HOW THEY WORK YET SO I'M NOT SETTING UP CHANDRA_REPRO TO SUPPORT THEM. OBVIOUSLY AT SOME
+        #  POINT I WANT TO, SO THIS WILL BE REMOVED THEN. ALSO I KNOW THAT PUTTING THE WARNING HERE WILL MEAN IT
+        #  COULD BE SHOWN MULTIPLE TIMES, BUT RIGHT NOW I DON'T CARE, EXCLUDING 'CLASSES' OF OBSERVATIONS FROM
+        #  PROCESSING IS WHAT THIS METHOD IS FOR
+        to_return = {}
+        for inst, info in obs_info.items():
+            # Just a quick of making sure that the warning below isn't shown for each sub-exposure - that would make
+            #  the problem of it being shown for every ObsID even more annoying
+            warn_shown = False
+            to_return.setdefault(inst, {})
+            for exp_id in info['sub_exp_ids']:
+                # From the start we assume we are going to be able to use this particular observation
+                to_use = True
+
+                # If the observation is marked as in-active, then we know we can't use it
+                if not info['active']:
+                    to_use = False
+
+                # If the observation is in alternating exposure mode, or multi OBI mode, then FOR NOW we're marking
+                #  it as not to use, and giving a warning
+                if info['alt_exp_mode'] or info['sub_exp']:
+                    if not warn_shown:
+                        warn_shown = True
+                        warn("An observation is in either alternating exposure mode or multi-OBI mode, which are "
+                             "not fully supported by DAXA yet - contact the developers if you require this "
+                             "feature.", stacklevel=2)
+                    # Have to set it False for now
+                    to_use = False
+
+                # Adding our entry into to_return
+                to_return[inst][exp_id] = to_use
+
+        return to_return
 
     def ident_to_obsid(self, ident: str):
         """
@@ -669,10 +722,9 @@ class Chandra(BaseMission):
 
         :param str ident: The unique identifier used in a particular processing step.
         """
-        # raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
-        #                           "clear to me what form the unique identifiers will take once we start processing"
-        #                           "{n} data ourselves.".format(n=self.pretty_name))
-        # Replaces any instance of any of the instrument names with nothing
+        # Replaces any instrument names with nothing, and splits on the 'E' identifier I add to sub-exposure IDs in
+        #  the parse_oif function (sub-exposures are incredibly uncommon, as I'm using that terminology to refer to
+        #  the multi-OBI mode which seems to hardly ever be used).
         for i in self._miss_poss_insts:
-            ident = ident.replace(i, '')
+            ident = ident.replace(i, '').split('E')[0]
         return ident

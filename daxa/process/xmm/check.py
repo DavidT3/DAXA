@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/09/2024, 12:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:17. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union, List
@@ -130,7 +130,7 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
                 miss_cmds[miss.name][val_id] = cmd
                 miss_final_paths[miss.name][val_id] = final_path
                 # Make sure to store the log file path, so it can be parsed later to see which CCDs to keep
-                miss_extras[miss.name][val_id] = {'log_path': final_path}
+                miss_extras[miss.name][val_id] = {'log_path': final_path, 'working_dir': temp_dir}
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Checking for MOS CCD anomalous states'

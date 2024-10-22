@@ -9,8 +9,12 @@ process.simple
    :undoc-members:
    :show-inheritance:
 
-
 .. automodule:: daxa.process.xmm
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: daxa.process.chandra
    :members:
    :undoc-members:
    :show-inheritance:
@@ -31,6 +35,7 @@ Mission Specific
    :caption: Contents:
 
     daxa.process.xmm <daxa.process.xmm.rst>
+    daxa.process.chandra <daxa.process.chandra.rst>
     daxa.process.erosita <daxa.process.erosita.rst>
     daxa.process.general <daxa.process.general.rst>
 

@@ -1,9 +1,9 @@
 Planned DAXA Features
 ========================
 
-* **NuSTAR Data** - Data can be acquired and downloaded, but not processed yet.
+* **Chandra Data** - Data can be selected and downloaded, and the DAXA version of chandra_repro is implemented.
 
-* **Chandra Data** - Data can be acquired and downloaded, but not processed yet. Data can also be downloaded in a form that will work with the standard Chandra reprocessing scripts.
+* **NuSTAR Data** - Data can be acquired and downloaded, but not processed yet.
 
 * **ROSAT Data** - Data can be acquired and downloaded, but not processed yet. Archived data products (images/exposure maps) can also be downloaded.
 
@@ -14,5 +14,3 @@ Planned DAXA Features
 * **ASCA Data** - Data can be acquired and downloaded, but not processed yet. Archived data products (images/exposure maps) can also be downloaded.
 
 * **INTEGRAL Data** - Data can be acquired and downloaded, but not processed yet. The downloaded data may not be in a structure compatible with OSA (work in progress).
-
-* **Data Versioning** - A key feature of DAXA will be the ability to version archives, so that any updates to calibration or re-processing will be reflected in a version number and changelog.
