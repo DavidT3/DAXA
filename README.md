@@ -66,8 +66,8 @@ of telescopes:_
 * XMM-Newton Pointed
 * eROSITA Commissioning
 * eROSITA All-Sky Survey DR1 (German Half)
+* **_[Under Development - reprocessing implemented]_** Chandra
 * **_[Under Development - data acquisition implemented]_** NuSTAR
-* **_[Under Development - data acquisition implemented]_** Chandra
 * **_[Under Development - RASS/pointed data acquisition implemented]_** ROSAT
 * **_[Under Development - XRT/BAT/UVOT data acquisition implemented]_** Swift
 * **_[Under Development - data acquisition implemented]_** Suzaku
