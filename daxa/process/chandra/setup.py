@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 16:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 13:42. Copyright (c) The Contributors
 
 import os
 
@@ -7,6 +7,7 @@ from astropy.io import fits
 from astropy.table import Table
 
 from daxa.archive import Archive
+from daxa.exceptions import NoProcessingError
 from daxa.process.chandra._common import _ciao_process_setup
 
 
@@ -149,7 +150,18 @@ def prepare_chandra_info(archive: Archive):
         proc_einfo.setdefault(miss.name, {})
         proc_conf.setdefault(miss.name, {})
 
+        # We want to see if this has been run before, and if it has are there any observations it has not been
+        #  run for yet - as this is the first process in the chain, we need to account for the fact that nothing
+        #  has been run before, and using the process_success property might raise an exception
+        try:
+            check_dict = archive.process_success[miss.name]['prepare_chandra_info']
+        except (NoProcessingError, KeyError):
+            check_dict = {}
+
         for oi in miss.filtered_obs_ids:
+            # If there has been a run of this function for this ObsID before, we can skip it
+            if oi in check_dict:
+                continue
             try:
                 # This sets up the absolute path to the 'oif.fits' file for the current Chandra mission and ObsID
                 cur_path = os.path.join(miss.raw_data_path, oi, 'oif.fits')

@@ -1,11 +1,11 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 00:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 13:36. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
-from daxa.process import chandra_repro
+from daxa.process import chandra_repro, cleaned_chandra_evts
 from daxa.process.chandra import prepare_chandra_info
 from daxa.process.chandra.clean import deflare
 from daxa.process.erosita.assemble import cleaned_evt_lists as eros_cleaned_evt_lists
@@ -166,3 +166,6 @@ def full_process_chandra(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
     #  to create GTIs that will allow us to remove it
     deflare(obs_archive, num_cores=num_cores, timeout=timeout)
 
+    # Now the flaring GTIs are used to create final cleaned event lists - we do allow the user to control the
+    #  cleaned event list energy bands, a departure from the default behaviour
+    cleaned_chandra_evts(obs_archive, lo_en=lo_en, hi_en=hi_en, num_cores=num_cores, timeout=timeout)
