@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 11:41. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 11:45. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -365,10 +365,12 @@ def cleaned_chandra_evts(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
             # Also need to set up the name for the interim event list, where filtering expressions. Note that this
             #  lives in the temporary directory, and will be lost to the ages when that directory is deleted at
             #  the end of the process.
-            int_evt_final_path = os.path.join(temp_dir, int_evt_name.format(o=obs_id, se=exp_id, i=inst))
+            int_evt_final_path = os.path.join(temp_dir, int_evt_name.format(o=obs_id, se=exp_id, i=inst,
+                                                                            en_id=en_ident))
 
             # This is where the final 'clean' event list will live, hopefully devoid of flares and unpleasant events
-            cl_evt_final_path = os.path.join(dest_dir, 'events', cl_evt_name.format(o=obs_id, se=exp_id, i=inst))
+            cl_evt_final_path = os.path.join(dest_dir, 'events', cl_evt_name.format(o=obs_id, se=exp_id, i=inst,
+                                                                                    en_id=en_ident))
             # -----------------------------------------------------------------------------------------------------
 
             # If it doesn't already exist then we will create commands to generate it
