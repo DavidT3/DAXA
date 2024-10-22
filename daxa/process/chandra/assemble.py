@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 12:11. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 12:20. Copyright (c) The Contributors
 import os
 from random import randint
 from warnings import warn
@@ -272,6 +272,10 @@ def cleaned_chandra_evts(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
     no_en_clevt_cmd = ('cd {d}; dmcopy infile="{ef}[EVENTS][grade={gr},status=0]" outfile={iev} verbose=5; '
                        'punlearn dmcopy; dmcopy infile="{iev}[EVENTS][@{fgti}]" outfile={fev} verbose=5; ')
     # cd ..; rm -r {d}
+    # HRC strikes again, doesn't have event grades like ACIS, so needs a whole separate command again
+    hrc_clevt_cmd = ('cd {d}; dmcopy infile="{ef}[EVENTS][status=0]" outfile={iev} verbose=5; punlearn dmcopy; '
+                     'dmcopy infile="{iev}[EVENTS][@{fgti}]" outfile={fev} verbose=5; ')
+    # cd ..; rm -r {d}
 
     # Interim event name template - for the midway point where the initial filtering has been applied, but
     #  not yet the flaring GTIs
@@ -405,8 +409,8 @@ def cleaned_chandra_evts(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
                 # And here we have an energy-cut-averse instrument (HRC) that also has fundamentally different
                 #  information in the event lists
                 else:
-                    cmd = no_en_clevt_cmd.format(d=temp_dir, ef=rel_evt, gr=allowed_grades, iev=int_evt_final_path,
-                                                 fgti=rel_flare_gti, fev=cl_evt_final_path)
+                    cmd = hrc_clevt_cmd.format(d=temp_dir, ef=rel_evt, iev=int_evt_final_path, fgti=rel_flare_gti,
+                                               fev=cl_evt_final_path)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
