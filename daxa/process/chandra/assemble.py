@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 16:39. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 21:56. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -67,9 +67,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     crp_cmd = ("cd {d}; chandra_repro indir={in_f} outdir={out_f} root={rn} badpixel='yes' process_events='yes' "
                "destreak={ds} set_ardlib='no' check_vf_pha={cvf} pix_adj={pa} tg_zo_position='evt2' "
                "asol_update={as_up} pi_filter={pf} cleanup='no' verbose=5; mv {oge} {fe}; mv {oggti} {fgti}; "
-               "mv {ogbp} {fbp}; mv {ogfov} {ffov}")
-    # cd ..; rm -r {d};
-
+               "mv {ogbp} {fbp}; mv {ogfov} {ffov}; cd ..; rm -r {d}")
 
     # The file patterns that should exist after the chandra_repro command has finished running - not just the event
     #  list but some other files as well
