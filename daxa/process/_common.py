@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 15:06. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 01:00. Copyright (c) The Contributors
 
 import glob
 import os
@@ -9,6 +9,7 @@ from typing import Tuple, List
 from warnings import warn
 
 from daxa.archive import Archive
+from daxa.process.chandra._common import ALLOWED_CHANDRA_MISSIONS
 
 
 def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_info: dict,
@@ -48,6 +49,12 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_in
     if 'esass_in_docker' in extra_info and extra_info['esass_in_docker']:
         raise NotImplementedError("The use of eSASS through Docker has not been implemented.")
 
+    # If the mission we're working on here is Chandra, we create an extra command that should reset the
+    #  parameter file values
+    if miss_name in ALLOWED_CHANDRA_MISSIONS:
+        extra_cmd = 'punlearn; '
+    else:
+        extra_cmd = ''
     # ---------------------------------------------------------------------------------------------
 
     # Keep an original copy of this variable for later
@@ -66,7 +73,7 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_in
         #  I won't change it back as this spawns a new shell which then disappears at the end. Including the
         #  existing PFILES path entry is apparently very important - this path needs to contain the directory
         #  where all the blank template par files live, or it can't make a new one in the temporary directory
-        cmd = 'export PFILES="{}:$PFILES"; '.format(new_pfiles) + cmd
+        cmd = 'export PFILES="{}:$PFILES"; '.format(new_pfiles) + extra_cmd + cmd
 
     # Starts the process running on a shell
     cmd_proc = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
