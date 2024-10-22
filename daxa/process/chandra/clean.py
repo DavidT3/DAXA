@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 00:25. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 00:30. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -132,7 +132,7 @@ def deflare(obs_archive: Archive, method: str = 'sigma', allowed_sigma: float = 
             obs_id, inst, exp_id = obs_info
 
             # We will need the event list created by the 'chandra_repro' run, so the path must be retrieved
-            rel_evt = obs_archive.process_extra_info[miss.name][val_id]['evt_list']
+            rel_evt = obs_archive.process_extra_info[miss.name]['chandra_repro'][val_id]['evt_list']
 
             # This path is guaranteed to exist, as it was set up in _ciao_process_setup. This is where output
             #  files will be written to.
