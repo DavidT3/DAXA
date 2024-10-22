@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 12:28. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 12:40. Copyright (c) The Contributors
 import os
 from random import randint
 from warnings import warn
@@ -266,16 +266,16 @@ def cleaned_chandra_evts(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
     #  commands because we can't apply any energy filtering to HRC event lists. Also, the user won't necessarily
     #  want to apply energy filtering to ACIS data.
     en_clevt_cmd = ('cd {d}; dmcopy infile="{ef}[EVENTS][energy={lo_en}:{hi_en},grade={gr},status=0]" outfile={iev} '
-                    'verbose=5; punlearn dmcopy; dmcopy infile="{iev}[EVENTS][@{fgti}]" outfile={fev} verbose=5; ')
-    # cd ..; rm -r {d}
+                    'verbose=5; punlearn dmcopy; dmcopy infile="{iev}[EVENTS][@{fgti}]" outfile={fev} verbose=5; '
+                    'cd ..; rm -r {d}')
 
     no_en_clevt_cmd = ('cd {d}; dmcopy infile="{ef}[EVENTS][grade={gr},status=0]" outfile={iev} verbose=5; '
-                       'punlearn dmcopy; dmcopy infile="{iev}[EVENTS][@{fgti}]" outfile={fev} verbose=5; ')
-    # cd ..; rm -r {d}
+                       'punlearn dmcopy; dmcopy infile="{iev}[EVENTS][@{fgti}]" outfile={fev} verbose=5; '
+                       'cd ..; rm -r {d}')
+
     # HRC strikes again, doesn't have event grades like ACIS, so needs a whole separate command again
     hrc_clevt_cmd = ('cd {d}; dmcopy infile="{ef}[EVENTS][status=0]" outfile={iev} verbose=5; punlearn dmcopy; '
-                     'dmcopy infile="{iev}[EVENTS][@{fgti}]" outfile={fev} verbose=5; ')
-    # cd ..; rm -r {d}
+                     'dmcopy infile="{iev}[EVENTS][@{fgti}]" outfile={fev} verbose=5; cd ..; rm -r {d}')
 
     # Interim event name template - for the midway point where the initial filtering has been applied, but
     #  not yet the flaring GTIs
