@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 00:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 00:48. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -51,9 +51,9 @@ def deflare(obs_archive: Archive, method: str = 'sigma', allowed_sigma: float = 
 
     # We're going to wrap the 'deflare' tool that is included in CIAO, which will make our shiny new GTIs that
     #  exclude periods of intense soft-proton flaring
-    df_cmd = ("cd {d}; dmextract infile={ef}[energy={lo_en}:{hi_en},bin time=::{bt}] outfile={lc} opt='ltc1';"
-              "deflare infile={in_f} outfile={out_f} method={me} nsigma={s} minlength={ml} verbose=5; cd ..; "
-              "rm -r {d}")
+    df_cmd = ('cd {d}; dmextract infile="{ef}[energy={lo_en}:{hi_en}][bin time=::{bt}]" outfile={lc} opt="ltc1";'
+              'deflare infile={in_f} outfile={out_f} method={me} nsigma={s} minlength={ml} verbose=5; ')
+    # cd ..; rm -r {d}
 
     # This is the final name of the light-curve we're going to generate to use for the deflaring analysis
     lc_name = "obsid{o}-inst{i}-subexp{se}-lightcurve.fits"
@@ -86,15 +86,15 @@ def deflare(obs_archive: Archive, method: str = 'sigma', allowed_sigma: float = 
         raise ValueError("The 'lc_hi_en' argument must be larger than the 'lc_lo_en' argument.")
     # Make sure we're converted to the right unit
     else:
-        lc_lo_en = lc_lo_en.to('eV')
-        lc_hi_en = lc_hi_en.to('eV')
+        lc_lo_en = lc_lo_en.to('eV').astype(int)
+        lc_hi_en = lc_hi_en.to('eV').astype(int)
 
     # Same deal with the time bin size - it must be in seconds
     if not time_bin_size.unit.is_equivalent('s'):
         raise UnitConversionError("The 'time_bin_size' argument must be an astropy quantity in units that can be "
                                   "converted to seconds.")
     else:
-        time_bin_size = time_bin_size.to('s')
+        time_bin_size = time_bin_size.to('s').astype(int)
     # ---------------------------------------------------------------------------------------------------------
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
