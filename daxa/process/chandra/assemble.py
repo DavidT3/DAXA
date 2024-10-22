@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 22:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 00:09. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -164,7 +164,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
             # Create the variable that points to the 'raw' data for this ObsID of this Chandra mission
             obs_data_path = miss.raw_data_path + obs_id + '/'
 
-            # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
+            # This path is guaranteed to exist, as it was set up in _ciao_process_setup. This is where output
             #  files will be written to.
             dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
 
@@ -188,7 +188,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
             # This is where the final output event list file will be stored - after moving and renaming
             evt_final_path = os.path.join(dest_dir, 'events', evt_list_name.format(o=obs_id, se=exp_id, i=inst))
             # And then all the others
-            gti_final_path = os.path.join(dest_dir, 'misc', gti_name.format(o=obs_id, se=exp_id, i=inst))
+            gti_final_path = os.path.join(dest_dir, 'cleaning', gti_name.format(o=obs_id, se=exp_id, i=inst))
             badpix_final_path = os.path.join(dest_dir, 'misc', bad_pix_name.format(o=obs_id, se=exp_id, i=inst))
             fov_final_path = os.path.join(dest_dir, 'misc', fov_name.format(o=obs_id, se=exp_id, i=inst))
             # ---------------------------------------------------------------------------------------------------
@@ -212,7 +212,9 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                 miss_cmds[miss.name][val_id] = cmd
                 # TODO CONSIDER WHAT FILES TO CHECK FOR ALTERNATING EXPOSURE AND MULTI-OBI MODES
                 miss_final_paths[miss.name][val_id] = evt_final_path
-                miss_extras[miss.name][val_id] = {'working_dir': temp_dir}
+                miss_extras[miss.name][val_id] = {'working_dir': temp_dir, 'evt_list': evt_final_path,
+                                                  'default_gti': gti_final_path, 'badpix': badpix_final_path,
+                                                  'fov_reg': fov_final_path}
 
             # This is just used for populating a progress bar during the process run
         process_message = 'Reprocessing Chandra data'

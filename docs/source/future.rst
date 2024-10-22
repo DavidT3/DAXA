@@ -1,7 +1,7 @@
 Planned DAXA Features
 ========================
 
-* **Chandra Data** - Data can be selected and downloaded, and the DAXA version of chandra_repro is implemented.
+* **Chandra Data** - Data can be selected, downloaded, re-reduced, and flaring GTIs created.
 
 * **NuSTAR Data** - Data can be acquired and downloaded, but not processed yet.
 

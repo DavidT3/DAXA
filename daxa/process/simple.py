@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 22:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 00:15. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
@@ -7,6 +7,7 @@ from daxa import NUM_CORES
 from daxa.archive.base import Archive
 from daxa.process import chandra_repro
 from daxa.process.chandra import prepare_chandra_info
+from daxa.process.chandra.clean import deflare
 from daxa.process.erosita.assemble import cleaned_evt_lists as eros_cleaned_evt_lists
 from daxa.process.erosita.clean import flaregti
 from daxa.process.xmm._common import ALLOWED_XMM_MISSIONS
@@ -160,4 +161,8 @@ def full_process_chandra(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
     # I won't let the user pass anything to this, as the arguments control relatively minor things, and they can
     #  run it themselves if they want to.
     chandra_repro(obs_archive, num_cores=num_cores, timeout=timeout)
+
+    # Now we use the 'deflare' function to attempt to automatically find any flaring in the Chandra observations, and
+    #  to create GTIs that will allow us to remove it
+    deflare(obs_archive, num_cores=num_cores, timeout=timeout)
 
