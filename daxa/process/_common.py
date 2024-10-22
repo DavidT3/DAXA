@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 01:09. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 08:55. Copyright (c) The Contributors
 
 import glob
 import os
@@ -91,8 +91,6 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_in
     err = err.decode("UTF-8", errors='ignore')
 
     # We also add the command string to the beginning of the stdout - this is for logging purposes
-    # out = og_cmd + '\n\n' + out
-    # TODO PERHAPS RESTORE
     out = cmd + '\n\n' + out
 
     # Simple check on whether the 'final file' passed into this function actually exists or not - even if there is only
