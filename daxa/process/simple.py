@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 13:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/10/2024, 15:24. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
@@ -132,7 +132,7 @@ def full_process_erosita(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
     # generate_images_expmaps(obs_archive, num_cores=num_cores)
 
 
-def full_process_chandra(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quantity = None,
+def full_process_chandra(obs_archive: Archive, evt_lo_en: Quantity = None, evt_hi_en: Quantity = None,
                          num_cores: int = NUM_CORES, timeout: Quantity = None):
     """
     This is a convenience function that will fully process and prepare Chandra data in an archive using the default
@@ -140,9 +140,9 @@ def full_process_chandra(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
     processing of your data then you can copy the steps of this function and alter the various parameter values.
 
     :param Archive obs_archive: An archive object that contains at least one Chandra mission to be processed.
-    :param Quantity lo_en: If an energy filter should be applied to the final cleaned event lists, this is the
+    :param Quantity evt_lo_en: If an energy filter should be applied to the final cleaned event lists, this is the
         lower energy bound. The default is None, in which case NO ENERGY FILTER is applied.
-    :param Quantity hi_en: If an energy filter should be applied to the final cleaned event lists, this is the
+    :param Quantity evt_hi_en: If an energy filter should be applied to the final cleaned event lists, this is the
         upper energy bound. The default is None, in which case NO ENERGY FILTER is applied.
     :param int num_cores: The number of cores that can be used by the processing functions. The default is set to
         the DAXA NUM_CORES parameter, which is configured to be 90% of the system's cores.
@@ -168,4 +168,4 @@ def full_process_chandra(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
 
     # Now the flaring GTIs are used to create final cleaned event lists - we do allow the user to control the
     #  cleaned event list energy bands, a departure from the default behaviour
-    cleaned_chandra_evts(obs_archive, lo_en=lo_en, hi_en=hi_en, num_cores=num_cores, timeout=timeout)
+    cleaned_chandra_evts(obs_archive, lo_en=evt_lo_en, hi_en=evt_hi_en, num_cores=num_cores, timeout=timeout)
