@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 12:40. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 23/10/2024, 12:47. Copyright (c) The Contributors
 import os
 from random import randint
 from warnings import warn
@@ -79,8 +79,9 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     #  this will be of any use to us, but we'll keep it for now
     prod_fov_name = "{rn}_repro_fov1.fits"
 
-    # These represent the final names and resting places of the event lists
-    evt_list_name = "obsid{o}-inst{i}-subexp{se}-events.fits"
+    # These represent the final names and resting places of the event lists (note that we include the energy bound
+    #  identifier in the filename, but include no bounds because none are applied right now
+    evt_list_name = "obsid{o}-inst{i}-subexp{se}-en-events.fits"
     # Now we do the same for the other file types we're pulling out of this command
     gti_name = "obsid{o}-inst{i}-subexp{se}-defaultGTI.fits"
     bad_pix_name = "obsid{o}-inst{i}-subexp{se}-badpix.fits"
@@ -222,10 +223,10 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                                                   'default_gti': gti_final_path, 'badpix': badpix_final_path,
                                                   'fov_reg': fov_final_path}
 
-            # This is just used for populating a progress bar during the process run
-        process_message = 'Reprocessing data'
+    # This is just used for populating a progress bar during the process run
+    process_message = 'Reprocessing data'
 
-        return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
 @ciao_call
@@ -418,10 +419,10 @@ def cleaned_chandra_evts(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
                 miss_extras[miss.name][val_id] = {'working_dir': temp_dir, 'cleaned_events': cl_evt_final_path,
                                                   'en_key': en_ident}
 
-            # This is just used for populating a progress bar during the process run
-        process_message = 'Assembling cleaned event lists'
+    # This is just used for populating a progress bar during the process run
+    process_message = 'Assembling cleaned event lists'
 
-        return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
+    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
 
