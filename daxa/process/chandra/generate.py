@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 15:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 15:23. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -68,13 +68,13 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
     #
     acis_fi_cmd = ('cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} bands={eb} binsize={bs} asolfile={asol} '
                    'badpixfile={bpf} units={m} psfecf=1 parallel="no" tmpdir={d} '
-                   'cleanup="yes" verbose=5; {mv_cmd}; ')
+                   'cleanup="yes" verbose=4; {mv_cmd}; ')
     # 'cd ..; rm -r {d}'
 
     # HRC strikes again, doesn't need energy bands of course, and wants another file (the dead time corrections)
     hrc_fi_cmd = ('cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} binsize={bs} asolfile={asol} '
                   'badpixfile={bpf} dtffile={dtf} background="default" units={m} psfecf=1 '
-                  'parallel="no" tmpdir={d} cleanup="yes" verbose=5; {mv_cmd}; ')
+                  'parallel="no" tmpdir={d} cleanup="yes" verbose=4; {mv_cmd}; ')
 
     prod_im_name = "{rn}_{l}-{u}_thresh.img"
     prod_ex_name = "{rn}_{l}-{u}_thresh.expmap"
@@ -231,8 +231,8 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                         final_flrt = fl_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
                         final_ex = w_ex_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
 
-                        final_out_files['fluxmap'] = final_flrt
-                        final_out_files['weighted_expmap'] = final_ex
+                        final_out_files['fluxmap'].append(os.path.join(dest_dir, 'images', final_flrt))
+                        final_out_files['weighted_expmap'].append(os.path.join(dest_dir, 'images', final_ex))
                     else:
                         final_out_files.setdefault('ratemap', [])
                         final_out_files.setdefault('expmap', [])
@@ -240,14 +240,14 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                         final_flrt = rt_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
                         final_ex = ex_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
 
-                        final_out_files['ratemap'] = final_flrt
-                        final_out_files['expmap'] = final_ex
+                        final_out_files['ratemap'].append(os.path.join(dest_dir, 'images', final_flrt))
+                        final_out_files['expmap'].append(os.path.join(dest_dir, 'images', final_ex))
 
                     final_im = im_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
                     final_psf = psf_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
 
-                    final_out_files['image'].append(final_im)
-                    final_out_files['psf'].append(final_psf)
+                    final_out_files['image'].append(os.path.join(dest_dir, 'images', final_im))
+                    final_out_files['psf'].append(os.path.join(dest_dir, 'images', final_psf))
 
                     mv_cmd += mv_temp.format(oim=cur_prod_im, fim=final_im, oex=cur_prod_ex, fex=final_ex,
                                              ofl=cur_prod_flrt, ffl=final_flrt, opsf=cur_prod_psf, fpsf=final_psf)
@@ -261,10 +261,10 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                 cur_prod_flrt = prod_hrc_flrt_name.format(rn=root_prefix)
                 if mode == 'flux':
                     final_flrt = fl_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_idents[0])
-                    final_out_files['fluxmap'] = [final_flrt]
+                    final_out_files['fluxmap'] = [os.path.join(dest_dir, 'images', final_flrt)]
                 else:
                     final_flrt = rt_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_idents[0])
-                    final_out_files['ratemap'] = [final_flrt]
+                    final_out_files['ratemap'] = [os.path.join(dest_dir, 'images', final_flrt)]
                 mv_cmd = "mv {ofl} {ffl}".format(ofl=cur_prod_flrt, ffl=final_flrt)
             # ----------------------------------------------------------------------------------------------------
 
