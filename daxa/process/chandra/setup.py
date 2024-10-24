@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 13:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 11:26. Copyright (c) The Contributors
 
 import os
 
@@ -103,6 +103,12 @@ def parse_oif(oif_path: str):
         sub_exp_ids = ['E001']
     # Then that list of sub-exposure IDs (or single ID in most cases) is stored in the output dictionary
     rel_tbl_info['sub_exp_ids'] = sub_exp_ids
+
+    # Now check to make sure that there are aspect solution files included somewhere - there are very small number
+    #  of observations which don't seem to have them, and probably can't be reprocessed (see issue #345), so
+    #  they are set as inactive
+    if 'ASPSOL' not in mem_type_cnts and 'ASPSOLOBI' not in mem_type_cnts:
+        rel_tbl_info['active'] = False
 
     # We're also going to store the counts of how many of each type of file are present - it might be useful later
     rel_tbl_info['file_content_counts'] = mem_type_cnts
