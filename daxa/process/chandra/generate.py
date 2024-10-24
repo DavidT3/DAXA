@@ -1,9 +1,9 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/10/2024, 15:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 08:59. Copyright (c) The Contributors
 
 from typing import Union
 
-from astropy.units import Quantity
+from astropy.units import Quantity, UnitConversionError
 
 from daxa import NUM_CORES
 from daxa.archive import Archive
@@ -61,19 +61,60 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
     ciao_vers, caldb_vers, chan_miss = _ciao_process_setup(obs_archive)
 
     #
-    en_clevt_cmd = ('cd {d}; dmcopy infile="{ef}[EVENTS][energy={lo_en}:{hi_en},grade={gr},status=0]" outfile={iev} '
-                    'verbose=5; punlearn dmcopy; dmcopy infile="{iev}[EVENTS][@{fgti}]" outfile={fev} verbose=5; '
-                    'cd ..; rm -r {d}')
+    acis_fi_cmd = ('cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} bands={eb} binsize={bs} asolfile={asol} '
+                   'badpixfile={bpf} units={m} expmapthresh={exth} psfecf="yes" parallel="no" tmpdir={d} '
+                   'cleanup="no" verbose=5; ')
+    # 'cd ..; rm -r {d}'
 
-    # HRC strikes again,
-    hrc_clevt_cmd = ('cd {d}; dmcopy infile="{ef}[EVENTS][status=0]" outfile={iev} verbose=5; punlearn dmcopy; '
-                     'dmcopy infile="{iev}[EVENTS][@{fgti}]" outfile={fev} verbose=5; cd ..; rm -r {d}')
+    # HRC strikes again, doesn't need energy bands of course, and wants another file (the dead time corrections)
+    hrc_fi_cmd = ('cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} binsize={bs} asolfile={asol} '
+                  'badpixfile={bpf} dtffile={dtf} background="default" units={m} expmapthresh={exth} psfecf="yes" '
+                  'parallel="no" tmpdir={d} cleanup="no" verbose=5; ')
 
+    # TODO ADD DEAD TIME CORRECTION FILE TO HRC COMMAND - WHEN I SAVE IT PROPERLY
+    # TODO CONSIDER LETTING USER DECIDE WHETHER TO APPLY PARTICLE BACKGROUND CORRECTION TO HRC-I DATA
 
-    # Final name template
-    cl_evt_name = "obsid{o}-inst{i}-subexp{se}-en{en_id}-cleanevents.fits"
+    # Final image, exposure map, rate map, and flux map name templates
+    im_name = ""
+    ex_name = ""
+    rt_name = ""
+    fl_name = ""
 
     # ---------------------------------- Checking and converting user inputs ----------------------------------
+    # Firstly, checking if the energy bounds or effective energies have been changed from default without
+    #  changing the other to match
+    if ((en_bounds != CSC_DEFAULT_EBOUNDS and effective_ens == CSC_DEFAULT_EFF_ENERGIES) or
+            (en_bounds == CSC_DEFAULT_EBOUNDS and effective_ens != CSC_DEFAULT_EFF_ENERGIES)):
+        raise ValueError("Either the 'en_bounds' or 'effective_ens' argument has been altered from default, without"
+                         "changing the other. If one is changed the other must also be altered.")
+
+    # Now will do some sanity checks on the inputs, if they have been changed - only need to check if the energy bounds
+    #  have changed here, because we know both have been altered as we got past the error above
+    if en_bounds != CSC_DEFAULT_EBOUNDS:
+
+        # If they've been altered, want to make sure they are in the expected format
+        if en_bounds.isscalar or effective_ens.isscalar:
+            raise ValueError("The 'en_bounds' and 'effective_ens' arguments must be arrays, not a scalar quantity.")
+        elif en_bounds.ndim != 2 or en_bounds.shape[1] != 2:
+            raise ValueError("The 'en_bounds' argument must be an Nx2 array of lower (first column) and upper "
+                             "(second column) energy bounds.")
+        elif effective_ens.ndim != 1 or len(effective_ens) != en_bounds.shape[0]:
+            raise ValueError("The 'effective_ens' argument must be a 1D quantity with the same number of entries "
+                             "as there are energy bounds defined by 'en_bounds'.")
+        elif not en_bounds.unit.is_equivalent('keV') or not effective_ens.unit.is_equivalent('keV'):
+            raise UnitConversionError("The 'en_bounds' and 'effective_ens' arguments must be in units convertible to"
+                                      " keV.")
+
+        # Make sure we convert the units to keV
+        en_bounds = en_bounds.to('keV')
+        effective_ens = effective_ens.to('keV')
+
+        # If we've gotten this far we know the energy bounds and effective energies are in the correct format, now
+        #  we'll check the validity of them as far as we can
+        if (en_bounds[:, 0] >= en_bounds[:, 1]).any():
+            raise ValueError("Lower energy bounds must be less than upper energy bounds.")
+        elif (effective_ens < en_bounds[:, 0]).any() or (effective_ens > en_bounds[:, 1]).any():
+            raise ValueError("The energies defined in 'effective_ens' must be within their matching energy bounds.")
 
     # ---------------------------------------------------------------------------------------------------------
 
