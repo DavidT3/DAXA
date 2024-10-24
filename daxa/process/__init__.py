@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 13:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 14:58. Copyright (c) The Contributors
 
 from daxa.process.chandra import prepare_chandra_info
 from daxa.process.chandra.assemble import chandra_repro, cleaned_chandra_evts
@@ -34,16 +34,21 @@ PROC_LOOKUP = {'xmm_pointed': {'epchain': epchain,
                             'espfilt': espfilt,
                             'cif_build': cif_build,
                             'odf_ingest': odf_ingest},
+
                'erosita_calpv': {'cleaned_evt_lists': ecleaned_evt_lists,
                                  'flaregti': flaregti},
+
                'erosita_all_sky_de_dr1': {'cleaned_evt_lists': ecleaned_evt_lists,
                                           'flaregti': flaregti},
+
                'nustar_pointed': {},
+
                'chandra': {'prepare_chandra_info': prepare_chandra_info,
                            'chandra_repro': chandra_repro,
                            'deflare': deflare,
                            'cleaned_chandra_evts': cleaned_chandra_evts,
                            'flux_image': flux_image},
+
                'rosat_all_sky': {},
                'rosat_pointed': {},
                'swift': {},

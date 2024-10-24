@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 13:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 14:58. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -67,16 +67,21 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
 
     #
     acis_fi_cmd = ('cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} bands={eb} binsize={bs} asolfile={asol} '
-                   'badpixfile={bpf} units={m} expmapthresh={exth} psfecf="yes" parallel="no" tmpdir={d} '
-                   'cleanup="no" verbose=5; ')
+                   'badpixfile={bpf} units={m} psfecf=1 parallel="no" tmpdir={d} '
+                   'cleanup="yes" verbose=5; {mv_cmd}; ')
     # 'cd ..; rm -r {d}'
 
     # HRC strikes again, doesn't need energy bands of course, and wants another file (the dead time corrections)
     hrc_fi_cmd = ('cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} binsize={bs} asolfile={asol} '
-                  'badpixfile={bpf} dtffile={dtf} background="default" units={m} expmapthresh={exth} psfecf="yes" '
-                  'parallel="no" tmpdir={d} cleanup="no" verbose=5; ')
+                  'badpixfile={bpf} dtffile={dtf} background="default" units={m} psfecf=1 '
+                  'parallel="no" tmpdir={d} cleanup="yes" verbose=5; {mv_cmd}; ')
 
-    # prod_evt_list_name = "{rn}_repro_evt2.fits"
+    prod_im_name = "{rn}_{l}-{u}_thresh.img"
+    prod_ex_name = "{rn}_{l}-{u}_thresh.expmap"
+    prod_flrt_name = "{rn}_{l}-{u}_flux.img"
+    prod_psf_name = "{rn}_{l}-{u}_thresh.psfmap"
+
+    prod_hrc_flrt_name = "{rn}_wide.img"
 
     # Final image, exposure map, rate map, and flux map name templates
     im_name = "obsid{oi}-inst{i}-subexp{se}-en{en_id}-image.fits"
@@ -84,6 +89,7 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
     w_ex_name = "obsid{oi}-inst{i}-subexp{se}-en{en_id}-weightedexpmap.fits"
     rt_name = "obsid{oi}-inst{i}-subexp{se}-en{en_id}-ratemap.fits"
     fl_name = "obsid{oi}-inst{i}-subexp{se}-en{en_id}-fluxmap.fits"
+    psf_name = "obsid{oi}-inst{i}-subexp{se}-en{en_id}-psfmap.fits"
 
     # ---------------------------------- Checking and converting user inputs ----------------------------------
     # Firstly, checking if the energy bounds or effective energies have been changed from default without
@@ -125,9 +131,9 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
     if mode not in ['flux', 'rate']:
         raise ValueError("'mode' argument must be set to either 'flux' or 'rate'.")
     elif mode == 'flux':
-        mode = 'default'
+        unit = 'default'
     else:
-        mode = 'time'
+        unit = 'time'
     # ---------------------------------------------------------------------------------------------------------
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
@@ -192,30 +198,74 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
             #  the ObsID + instrument identifier
             root_prefix = val_id + "_" + str(r_id)
 
-            en_idents = []
-            en_cmd_str = []
-            for en_ind, en_bnd in enumerate(en_bounds):
-                lo_en, hi_en = en_bnd
-                en_ident = '_{l}_{h}keV'.format(l=lo_en.value, h=hi_en.value)
-                en_idents.append(en_ident)
+            # ---------------------------- Creating move commands for generated files ----------------------------
+            # Slightly different setup for this function - there are going to be a series of generated files, with
+            #  the number decided by the energy bounds passed by the user (at least for ACIS)
 
-                eff_en = effective_ens[en_ind]
-                cur_en_str = "{l}:{h}:{e}".format(l=lo_en.value, h=hi_en.value, e=eff_en.value)
-                en_cmd_str.append(cur_en_str)
+            if inst == 'ACIS':
 
-            en_cmd_str = ",".join(en_cmd_str)
+                en_idents = []
 
-            # ------------------------------ Creating final name for output evt file ------------------------------
-            # Also need to set up the name for the interim event list, where filtering expressions. Note that this
-            #  lives in the temporary directory, and will be lost to the ages when that directory is deleted at
-            #  the end of the process.
-            # int_evt_final_path = os.path.join(temp_dir, int_evt_name.format(o=obs_id, se=exp_id, i=inst,
-            #                                                                 en_id=en_ident))
-            #
-            # # This is where the final 'clean' event list will live, hopefully devoid of flares and unpleasant events
-            # cl_evt_final_path = os.path.join(dest_dir, 'events', cl_evt_name.format(o=obs_id, se=exp_id, i=inst,
-            #                                                                         en_id=en_ident))
-            # -----------------------------------------------------------------------------------------------------
+                final_out_files = {'image': [], 'psf': []}
+                en_cmd_str = []
+                mv_cmd = ""
+                mv_temp = "mv {oim} {fim}; mv {oex} {fex}; mv {ofl} {ffl}; mv {opsf} {fpsf};"
+                for en_ind, en_bnd in enumerate(en_bounds):
+                    lo_en, hi_en = en_bnd
+                    en_ident = '_{l}_{h}keV'.format(l=lo_en.value, h=hi_en.value)
+                    en_idents.append(en_ident)
+
+                    eff_en = effective_ens[en_ind]
+                    cur_en_str = "{l}:{h}:{e}".format(l=lo_en.value, h=hi_en.value, e=eff_en.value)
+                    en_cmd_str.append(cur_en_str)
+
+                    cur_prod_im = prod_im_name.format(rn=root_prefix, l=lo_en, u=hi_en)
+                    cur_prod_ex = prod_ex_name.format(rn=root_prefix, l=lo_en, u=hi_en)
+                    cur_prod_flrt = prod_flrt_name.format(rn=root_prefix, l=lo_en, u=hi_en)
+                    cur_prod_psf = prod_psf_name.format(rn=root_prefix, l=lo_en, u=hi_en)
+
+                    if mode == 'flux':
+                        final_out_files.setdefault('fluxmap', [])
+                        final_out_files.setdefault('weighted_expmap', [])
+
+                        final_flrt = fl_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
+                        final_ex = w_ex_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
+
+                        final_out_files['fluxmap'] = final_flrt
+                        final_out_files['weighted_expmap'] = final_ex
+                    else:
+                        final_out_files.setdefault('ratemap', [])
+                        final_out_files.setdefault('expmap', [])
+
+                        final_flrt = rt_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
+                        final_ex = ex_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
+
+                        final_out_files['ratemap'] = final_flrt
+                        final_out_files['expmap'] = final_ex
+
+                    final_im = im_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
+                    final_psf = psf_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
+
+                    final_out_files['image'].append(final_im)
+                    final_out_files['psf'].append(final_psf)
+
+                    mv_cmd += mv_temp.format(oim=cur_prod_im, fim=final_im, oex=cur_prod_ex, fex=final_ex,
+                                             ofl=cur_prod_flrt, ffl=final_flrt, opsf=cur_prod_psf, fpsf=final_psf)
+
+                en_cmd_str = ",".join(en_cmd_str)
+
+            else:
+                final_out_files = {}
+                en_idents = ["0.06_10.0keV"]
+                cur_prod_flrt = prod_hrc_flrt_name.format(rn=root_prefix)
+                if mode == 'flux':
+                    final_flrt = fl_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_idents[0])
+                    final_out_files['fluxmap'] = [final_flrt]
+                else:
+                    final_flrt = rt_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_idents[0])
+                    final_out_files['ratemap'] = [final_flrt]
+                mv_cmd = "mv {ofl} {ffl}".format(ofl=cur_prod_flrt, ffl=final_flrt)
+            # ----------------------------------------------------------------------------------------------------
 
             # If it doesn't already exist then we will create commands to generate it
             if ('flux_image' not in obs_archive.process_success[miss.name] or
@@ -228,21 +278,19 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                 if inst == 'ACIS':
                     # Fill out the template, and generate the command that we will run through subprocess
                     cmd = acis_fi_cmd.format(d=temp_dir, cef=rel_evt, rn=root_prefix, eb=en_cmd_str, bs=acis_bin_size,
-                                             asol=rel_asol, bpf=rel_badpix, m=mode, exth="1.5%")
-
-                # 'cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} binsize={bs} asolfile={asol} '
-                # 'badpixfile={bpf} dtffile={dtf} background="default" units={m} expmapthresh={exth} psfecf="yes" '
-                # 'parallel="no" tmpdir={d} cleanup="no" verbose=5; '
+                                             asol=rel_asol, bpf=rel_badpix, m=unit, mv_cmd=mv_cmd)
 
                 # And here we have an energy-averse instrument (HRC)
                 else:
-                    cmd = hrc_fi_cmd.format(d=temp_dir, cef=rel_evt, rn=root_prefix, bs=acis_bin_size, dtf=rel_dtf,
-                                            asol=rel_asol, bpf=rel_badpix, m=mode, exth="1.5%")
+                    cmd = hrc_fi_cmd.format(d=temp_dir, cef=rel_evt, rn=root_prefix, bs=hrc_bin_size, dtf=rel_dtf,
+                                            asol=rel_asol, bpf=rel_badpix, m=unit, mv_cmd=mv_cmd)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
-                miss_final_paths[miss.name][val_id] = 'cl_evt_final_path'
-                miss_extras[miss.name][val_id] = {'working_dir': temp_dir}
+                files_to_check = final_out_files['fluxmap'] if mode == 'flux' else final_out_files['ratemap']
+                miss_final_paths[miss.name][val_id] = files_to_check
+                miss_extras[miss.name][val_id] = {'working_dir': temp_dir, 'en_idents': en_idents}
+                miss_extras[miss.name][val_id].update(final_out_files)
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Generating images & exposure/flux maps'
