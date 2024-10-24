@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 15:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 15:26. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -67,14 +67,14 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
 
     #
     acis_fi_cmd = ('cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} bands={eb} binsize={bs} asolfile={asol} '
-                   'badpixfile={bpf} units={m} psfecf=1 parallel="no" tmpdir={d} '
+                   'badpixfile={bpf} units={m} psfecf=1 parallel="no" tmpdir={td} '
                    'cleanup="yes" verbose=4; {mv_cmd}; ')
     # 'cd ..; rm -r {d}'
 
     # HRC strikes again, doesn't need energy bands of course, and wants another file (the dead time corrections)
     hrc_fi_cmd = ('cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} binsize={bs} asolfile={asol} '
                   'badpixfile={bpf} dtffile={dtf} background="default" units={m} psfecf=1 '
-                  'parallel="no" tmpdir={d} cleanup="yes" verbose=4; {mv_cmd}; ')
+                  'parallel="no" tmpdir={td} cleanup="yes" verbose=4; {mv_cmd}; ')
 
     prod_im_name = "{rn}_{l}-{u}_thresh.img"
     prod_ex_name = "{rn}_{l}-{u}_thresh.expmap"
@@ -279,12 +279,14 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                 if inst == 'ACIS':
                     # Fill out the template, and generate the command that we will run through subprocess
                     cmd = acis_fi_cmd.format(d=temp_dir, cef=rel_evt, rn=root_prefix, eb=en_cmd_str, bs=acis_bin_size,
-                                             asol=rel_asol, bpf=rel_badpix, m=unit, mv_cmd=mv_cmd)
+                                             asol=rel_asol, bpf=rel_badpix, m=unit, mv_cmd=mv_cmd,
+                                             td=temp_dir + 'sub_temp/')
 
                 # And here we have an energy-averse instrument (HRC)
                 else:
                     cmd = hrc_fi_cmd.format(d=temp_dir, cef=rel_evt, rn=root_prefix, bs=hrc_bin_size, dtf=rel_dtf,
-                                            asol=rel_asol, bpf=rel_badpix, m=unit, mv_cmd=mv_cmd)
+                                            asol=rel_asol, bpf=rel_badpix, m=unit, mv_cmd=mv_cmd,
+                                            td=temp_dir + 'sub_temp/')
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
