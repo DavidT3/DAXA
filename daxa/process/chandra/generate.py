@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 14:58. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 15:14. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -253,7 +253,8 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                                              ofl=cur_prod_flrt, ffl=final_flrt, opsf=cur_prod_psf, fpsf=final_psf)
 
                 en_cmd_str = ",".join(en_cmd_str)
-
+                # Remove the last ; so we don't have a double semi-colon in the command
+                mv_cmd = mv_cmd[:-1]
             else:
                 final_out_files = {}
                 en_idents = ["0.06_10.0keV"]
