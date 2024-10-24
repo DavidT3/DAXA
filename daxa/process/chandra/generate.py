@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 15:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 16:29. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -250,7 +250,7 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                     final_im = im_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
                     final_im = os.path.join(dest_dir, 'images', final_im)
                     final_psf = psf_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
-                    final_psf = os.path.join(dest_dir, 'images', final_psf)
+                    final_psf = os.path.join(dest_dir, 'misc', final_psf)
 
                     final_out_files['image'].append(final_im)
                     final_out_files['psf'].append(final_psf)

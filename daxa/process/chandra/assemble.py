@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 13:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 16:29. Copyright (c) The Contributors
 import os
 from random import randint
 from warnings import warn
@@ -77,6 +77,9 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     # The aspect solution file problem requires a little bash if-else
     asol_mv = ("if ls {rpasol} 1> /dev/null 2>&1; then mv {rpasol} {fasol}; else mv {altasol} {fasol}; fi; "
                "cd ..; rm -r {d}")
+    # asol_mv = ("if ls {rpasol} 3>&1 4>&2 1>/dev/null 2>&1; then mv {rpasol} {fasol} 1>&3 2>&4; else mv {altasol} "
+    #            "{fasol} 1>&3 2>&4; fi; "
+    #            "")
 
     # The file patterns that should exist after the chandra_repro command has finished running - not just the event
     #  list but some other files as well
@@ -97,7 +100,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     #  SOLUTION FILES. The asol.lis file contains a list of them, but that is hardly useful for us right now, to
     #  move and rename the asol files in the cmd line
     prod_asol_name = "pcadf{oi}_repro_asol1.fits"
-    prod_asol_alt_name = "pcadf{oi}_000N00*_asol1.fits"
+    prod_asol_alt_name = "pcadf{oi}_0*N00*_asol1.fits"
 
     # These represent the final names and resting places of the event lists (note that we include the energy bound
     #  identifier in the filename, but include no bounds because none are applied right now
