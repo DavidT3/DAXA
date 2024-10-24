@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 15:26. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 15:43. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -229,25 +229,31 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                         final_out_files.setdefault('weighted_expmap', [])
 
                         final_flrt = fl_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
+                        final_flrt = os.path.join(dest_dir, 'images', final_flrt)
                         final_ex = w_ex_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
+                        final_ex = os.path.join(dest_dir, 'images', final_ex)
 
-                        final_out_files['fluxmap'].append(os.path.join(dest_dir, 'images', final_flrt))
-                        final_out_files['weighted_expmap'].append(os.path.join(dest_dir, 'images', final_ex))
+                        final_out_files['fluxmap'].append(final_flrt)
+                        final_out_files['weighted_expmap'].append(final_ex)
                     else:
                         final_out_files.setdefault('ratemap', [])
                         final_out_files.setdefault('expmap', [])
 
                         final_flrt = rt_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
+                        final_flrt = os.path.join(dest_dir, 'images', final_flrt)
                         final_ex = ex_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
+                        final_ex = os.path.join(dest_dir, 'images', final_ex)
 
-                        final_out_files['ratemap'].append(os.path.join(dest_dir, 'images', final_flrt))
-                        final_out_files['expmap'].append(os.path.join(dest_dir, 'images', final_ex))
+                        final_out_files['ratemap'].append(final_flrt)
+                        final_out_files['expmap'].append(final_ex)
 
                     final_im = im_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
+                    final_im = os.path.join(dest_dir, 'images', final_im)
                     final_psf = psf_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_ident)
+                    final_psf = os.path.join(dest_dir, 'images', final_psf)
 
-                    final_out_files['image'].append(os.path.join(dest_dir, 'images', final_im))
-                    final_out_files['psf'].append(os.path.join(dest_dir, 'images', final_psf))
+                    final_out_files['image'].append(final_im)
+                    final_out_files['psf'].append(final_psf)
 
                     mv_cmd += mv_temp.format(oim=cur_prod_im, fim=final_im, oex=cur_prod_ex, fex=final_ex,
                                              ofl=cur_prod_flrt, ffl=final_flrt, opsf=cur_prod_psf, fpsf=final_psf)
@@ -261,10 +267,12 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                 cur_prod_flrt = prod_hrc_flrt_name.format(rn=root_prefix)
                 if mode == 'flux':
                     final_flrt = fl_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_idents[0])
-                    final_out_files['fluxmap'] = [os.path.join(dest_dir, 'images', final_flrt)]
+                    final_flrt = os.path.join(dest_dir, 'images', final_flrt)
+                    final_out_files['fluxmap'] = [final_flrt]
                 else:
                     final_flrt = rt_name.format(oi=obs_id, i=inst, se=exp_id, en_id=en_idents[0])
-                    final_out_files['ratemap'] = [os.path.join(dest_dir, 'images', final_flrt)]
+                    final_flrt = os.path.join(dest_dir, 'images', final_flrt)
+                    final_out_files['ratemap'] = [final_flrt]
                 mv_cmd = "mv {ofl} {ffl}".format(ofl=cur_prod_flrt, ffl=final_flrt)
             # ----------------------------------------------------------------------------------------------------
 
@@ -274,7 +282,7 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                 # Make the temporary directory for processing - this (along with the temporary PFILES that
                 #  the execute_cmd function will create) should help avoid any file collisions
                 if not os.path.exists(temp_dir):
-                    os.makedirs(temp_dir)
+                    os.makedirs(temp_dir + "sub_temp/")
 
                 if inst == 'ACIS':
                     # Fill out the template, and generate the command that we will run through subprocess
