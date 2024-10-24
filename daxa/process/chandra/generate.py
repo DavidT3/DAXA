@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 15:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 15:54. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -212,17 +212,17 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                 mv_temp = "mv {oim} {fim}; mv {oex} {fex}; mv {ofl} {ffl}; mv {opsf} {fpsf};"
                 for en_ind, en_bnd in enumerate(en_bounds):
                     lo_en, hi_en = en_bnd
-                    en_ident = '_{l}_{h}keV'.format(l=lo_en.value, h=hi_en.value)
+                    en_ident = '{l}_{h}keV'.format(l=lo_en.value, h=hi_en.value)
                     en_idents.append(en_ident)
 
                     eff_en = effective_ens[en_ind]
                     cur_en_str = "{l}:{h}:{e}".format(l=lo_en.value, h=hi_en.value, e=eff_en.value)
                     en_cmd_str.append(cur_en_str)
 
-                    cur_prod_im = prod_im_name.format(rn=root_prefix, l=lo_en, u=hi_en)
-                    cur_prod_ex = prod_ex_name.format(rn=root_prefix, l=lo_en, u=hi_en)
-                    cur_prod_flrt = prod_flrt_name.format(rn=root_prefix, l=lo_en, u=hi_en)
-                    cur_prod_psf = prod_psf_name.format(rn=root_prefix, l=lo_en, u=hi_en)
+                    cur_prod_im = prod_im_name.format(rn=root_prefix, l=lo_en.value, u=hi_en.value)
+                    cur_prod_ex = prod_ex_name.format(rn=root_prefix, l=lo_en.value, u=hi_en.value)
+                    cur_prod_flrt = prod_flrt_name.format(rn=root_prefix, l=lo_en.value, u=hi_en.value)
+                    cur_prod_psf = prod_psf_name.format(rn=root_prefix, l=lo_en.value, u=hi_en.value)
 
                     if mode == 'flux':
                         final_out_files.setdefault('fluxmap', [])
