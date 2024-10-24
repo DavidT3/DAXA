@@ -1,12 +1,16 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 08:59. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 13:48. Copyright (c) The Contributors
 
+import os
+from random import randint
 from typing import Union
 
+import numpy as np
 from astropy.units import Quantity, UnitConversionError
 
 from daxa import NUM_CORES
 from daxa.archive import Archive
+from daxa.exceptions import NoDependencyProcessError
 from daxa.process.chandra._common import ciao_call, _ciao_process_setup
 
 # These are the default Chandra Source Catalog (CSC) energy bounds and effective energies (which are used to calculate
@@ -34,6 +38,8 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
 
     :param Archive obs_archive: An Archive instance containing a Chandra mission instance. This function will fail
         if no Chandra missions are present in the archive.
+    :param str mode: Controls whether the function produces flux maps and weighted event lists ("flux"), or rate maps
+        and unweighted event lists ("rate") - default if "flux".
     :param Quantity en_bounds: The energy bounds in which to generate images, exposure maps, and flux maps/rate
         maps. Should be passed as a 2D array quantity with shape (N, 2), where N is the number of different energy
         bounds, in units convertible to keV. Default are the Chandra Source Catalog (CSC) boundaries - be aware that
@@ -49,7 +55,6 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
     :param int/float hrc_bin_size: The image binning factor to be applied to HRC image generation - this decides the
         size of output product pixels, with smaller values resulting in finer binning. The output product pixel size
         for HRC will be 'hrc_bin_size'*0.1318 arcseconds. Default is 16 (finer by default than CIAO flux_image).
-    :param str mode:
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the CIAO generation progress bar.
     :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
@@ -71,26 +76,26 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                   'badpixfile={bpf} dtffile={dtf} background="default" units={m} expmapthresh={exth} psfecf="yes" '
                   'parallel="no" tmpdir={d} cleanup="no" verbose=5; ')
 
-    # TODO ADD DEAD TIME CORRECTION FILE TO HRC COMMAND - WHEN I SAVE IT PROPERLY
-    # TODO CONSIDER LETTING USER DECIDE WHETHER TO APPLY PARTICLE BACKGROUND CORRECTION TO HRC-I DATA
+    # prod_evt_list_name = "{rn}_repro_evt2.fits"
 
     # Final image, exposure map, rate map, and flux map name templates
-    im_name = ""
-    ex_name = ""
-    rt_name = ""
-    fl_name = ""
+    im_name = "obsid{oi}-inst{i}-subexp{se}-en{en_id}-image.fits"
+    ex_name = "obsid{oi}-inst{i}-subexp{se}-en{en_id}-expmap.fits"
+    w_ex_name = "obsid{oi}-inst{i}-subexp{se}-en{en_id}-weightedexpmap.fits"
+    rt_name = "obsid{oi}-inst{i}-subexp{se}-en{en_id}-ratemap.fits"
+    fl_name = "obsid{oi}-inst{i}-subexp{se}-en{en_id}-fluxmap.fits"
 
     # ---------------------------------- Checking and converting user inputs ----------------------------------
     # Firstly, checking if the energy bounds or effective energies have been changed from default without
     #  changing the other to match
-    if ((en_bounds != CSC_DEFAULT_EBOUNDS and effective_ens == CSC_DEFAULT_EFF_ENERGIES) or
-            (en_bounds == CSC_DEFAULT_EBOUNDS and effective_ens != CSC_DEFAULT_EFF_ENERGIES)):
+    if (((en_bounds != CSC_DEFAULT_EBOUNDS).any() and (effective_ens == CSC_DEFAULT_EFF_ENERGIES).all()) or
+            ((en_bounds == CSC_DEFAULT_EBOUNDS).all() and (effective_ens != CSC_DEFAULT_EFF_ENERGIES).any())):
         raise ValueError("Either the 'en_bounds' or 'effective_ens' argument has been altered from default, without"
                          "changing the other. If one is changed the other must also be altered.")
 
     # Now will do some sanity checks on the inputs, if they have been changed - only need to check if the energy bounds
     #  have changed here, because we know both have been altered as we got past the error above
-    if en_bounds != CSC_DEFAULT_EBOUNDS:
+    if (en_bounds != CSC_DEFAULT_EBOUNDS).any():
 
         # If they've been altered, want to make sure they are in the expected format
         if en_bounds.isscalar or effective_ens.isscalar:
@@ -116,6 +121,13 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
         elif (effective_ens < en_bounds[:, 0]).any() or (effective_ens > en_bounds[:, 1]).any():
             raise ValueError("The energies defined in 'effective_ens' must be within their matching energy bounds.")
 
+    # Want to check that a valid 'mode' has been passed
+    if mode not in ['flux', 'rate']:
+        raise ValueError("'mode' argument must be set to either 'flux' or 'rate'.")
+    elif mode == 'flux':
+        mode = 'default'
+    else:
+        mode = 'time'
     # ---------------------------------------------------------------------------------------------------------
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
@@ -137,13 +149,14 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
         # Getting all the ObsIDs that have been flagged as being able to be processed
         all_obs = obs_archive.get_obs_to_process(miss.name)
         # Then filtering those based on which of them successfully passed the dependency function
-        good_obs_sel = obs_archive.check_dependence_success(miss.name, all_obs, 'deflare', no_success_error=False)
+        good_obs_sel = obs_archive.check_dependence_success(miss.name, all_obs, 'cleaned_chandra_evts',
+                                                            no_success_error=False)
         good_obs = np.array(all_obs)[good_obs_sel]
 
         # Have to check that there is something for us to work with here!
         if len(good_obs) == 0:
-            raise NoDependencyProcessError("No observations have had successful 'deflare' runs, so "
-                                           "'cleaned_chandra_evts' cannot be run.")
+            raise NoDependencyProcessError("No observations have had successful 'cleaned_chandra_evts' runs, so "
+                                           "'flux_image' cannot be run.")
 
         for obs_info in good_obs:
             # This is the valid id that allows us to retrieve the specific product for this ObsID-Inst-sub-exposure
@@ -152,10 +165,18 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
             # Split out the information in obs_info
             obs_id, inst, exp_id = obs_info
 
-            # We will need the event list created by the 'chandra_repro' run, so the path must be retrieved
-            rel_evt = obs_archive.process_extra_info[miss.name]['chandra_repro'][val_id]['evt_list']
-            # We will also need the flaring GTI produced by 'deflare', and again that is in the process extra info
-            rel_flare_gti = obs_archive.process_extra_info[miss.name]['deflare'][val_id]['flaring_gti']
+            # We will need the final cleaned event list - retrieve the path
+            rel_evt = obs_archive.process_extra_info[miss.name]['cleaned_chandra_evts'][val_id]['cleaned_events']
+            # Also need the aspect solution file
+            rel_asol = obs_archive.process_extra_info[miss.name]['chandra_repro'][val_id]['asol_file']
+            # And the bad-pixel file
+            rel_badpix = obs_archive.process_extra_info[miss.name]['chandra_repro'][val_id]['badpix']
+
+            # Finally, for HRC observations we need the path the dead time file
+            if inst == 'HRC':
+                rel_dtf = obs_archive.process_extra_info[miss.name]['chandra_repro'][val_id]['dead_time_file']
+            else:
+                rel_dtf = None
 
             # This path is guaranteed to exist, as it was set up in _ciao_process_setup. This is where output
             #  files will be written to.
@@ -167,50 +188,63 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
             temp_name = "tempdir_{}".format(r_id)
             temp_dir = dest_dir + temp_name + "/"
 
+            # Also make a root prefix for the files output by flux_image, with the random int above and
+            #  the ObsID + instrument identifier
+            root_prefix = val_id + "_" + str(r_id)
+
+            en_idents = []
+            en_cmd_str = []
+            for en_ind, en_bnd in enumerate(en_bounds):
+                lo_en, hi_en = en_bnd
+                en_ident = '_{l}_{h}keV'.format(l=lo_en.value, h=hi_en.value)
+                en_idents.append(en_ident)
+
+                eff_en = effective_ens[en_ind]
+                cur_en_str = "{l}:{h}:{e}".format(l=lo_en.value, h=hi_en.value, e=eff_en.value)
+                en_cmd_str.append(cur_en_str)
+
+            en_cmd_str = ",".join(en_cmd_str)
+
             # ------------------------------ Creating final name for output evt file ------------------------------
             # Also need to set up the name for the interim event list, where filtering expressions. Note that this
             #  lives in the temporary directory, and will be lost to the ages when that directory is deleted at
             #  the end of the process.
-            int_evt_final_path = os.path.join(temp_dir, int_evt_name.format(o=obs_id, se=exp_id, i=inst,
-                                                                            en_id=en_ident))
-
-            # This is where the final 'clean' event list will live, hopefully devoid of flares and unpleasant events
-            cl_evt_final_path = os.path.join(dest_dir, 'events', cl_evt_name.format(o=obs_id, se=exp_id, i=inst,
-                                                                                    en_id=en_ident))
+            # int_evt_final_path = os.path.join(temp_dir, int_evt_name.format(o=obs_id, se=exp_id, i=inst,
+            #                                                                 en_id=en_ident))
+            #
+            # # This is where the final 'clean' event list will live, hopefully devoid of flares and unpleasant events
+            # cl_evt_final_path = os.path.join(dest_dir, 'events', cl_evt_name.format(o=obs_id, se=exp_id, i=inst,
+            #                                                                         en_id=en_ident))
             # -----------------------------------------------------------------------------------------------------
 
             # If it doesn't already exist then we will create commands to generate it
-            if ('cleaned_chandra_evts' not in obs_archive.process_success[miss.name] or
-                    val_id not in obs_archive.process_success[miss.name]['cleaned_chandra_evts']):
+            if ('flux_image' not in obs_archive.process_success[miss.name] or
+                    val_id not in obs_archive.process_success[miss.name]['flux_image']):
                 # Make the temporary directory for processing - this (along with the temporary PFILES that
                 #  the execute_cmd function will create) should help avoid any file collisions
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
 
-                # Slightly different commands based on whether the user wants us to apply an energy cut or not (or
-                #  if an energy cut can't be applied - HRC data)
-                if lo_en is not None:
+                if inst == 'ACIS':
                     # Fill out the template, and generate the command that we will run through subprocess
-                    cmd = en_clevt_cmd.format(d=temp_dir, ef=rel_evt, lo_en=lo_en.value, hi_en=hi_en.value,
-                                              gr=allowed_grades, iev=int_evt_final_path, fgti=rel_flare_gti,
-                                              fev=cl_evt_final_path)
-                # Here we have no energy cut
-                elif lo_en is None and inst != 'HRC':
-                    cmd = no_en_clevt_cmd.format(d=temp_dir, ef=rel_evt, gr=allowed_grades, iev=int_evt_final_path,
-                                                 fgti=rel_flare_gti, fev=cl_evt_final_path)
-                # And here we have an energy-cut-averse instrument (HRC) that also has fundamentally different
-                #  information in the event lists
+                    cmd = acis_fi_cmd.format(d=temp_dir, cef=rel_evt, rn=root_prefix, eb=en_cmd_str, bs=acis_bin_size,
+                                             asol=rel_asol, bpf=rel_badpix, m=mode, exth="1.5%")
+
+                # 'cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} binsize={bs} asolfile={asol} '
+                # 'badpixfile={bpf} dtffile={dtf} background="default" units={m} expmapthresh={exth} psfecf="yes" '
+                # 'parallel="no" tmpdir={d} cleanup="no" verbose=5; '
+
+                # And here we have an energy-averse instrument (HRC)
                 else:
-                    cmd = hrc_clevt_cmd.format(d=temp_dir, ef=rel_evt, iev=int_evt_final_path, fgti=rel_flare_gti,
-                                               fev=cl_evt_final_path)
+                    cmd = hrc_fi_cmd.format(d=temp_dir, cef=rel_evt, rn=root_prefix, bs=acis_bin_size, dtf=rel_dtf,
+                                            asol=rel_asol, bpf=rel_badpix, m=mode, exth="1.5%")
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
-                miss_final_paths[miss.name][val_id] = cl_evt_final_path
-                miss_extras[miss.name][val_id] = {'working_dir': temp_dir, 'cleaned_events': cl_evt_final_path,
-                                                  'en_key': en_ident}
+                miss_final_paths[miss.name][val_id] = 'cl_evt_final_path'
+                miss_extras[miss.name][val_id] = {'working_dir': temp_dir}
 
     # This is just used for populating a progress bar during the process run
-    process_message = 'Assembling cleaned event lists'
+    process_message = 'Generating images & exposure/flux maps'
 
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout

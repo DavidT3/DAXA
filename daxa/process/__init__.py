@@ -1,9 +1,10 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 11:12. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 13:48. Copyright (c) The Contributors
 
 from daxa.process.chandra import prepare_chandra_info
 from daxa.process.chandra.assemble import chandra_repro, cleaned_chandra_evts
 from daxa.process.chandra.clean import deflare
+from daxa.process.chandra.generate import flux_image
 from daxa.process.erosita import flaregti
 from daxa.process.erosita.assemble import cleaned_evt_lists as ecleaned_evt_lists
 from daxa.process.xmm import epchain, emchain, rgs_events, rgs_angles, cleaned_rgs_event_lists, cleaned_evt_lists, \
@@ -41,7 +42,8 @@ PROC_LOOKUP = {'xmm_pointed': {'epchain': epchain,
                'chandra': {'prepare_chandra_info': prepare_chandra_info,
                            'chandra_repro': chandra_repro,
                            'deflare': deflare,
-                           'cleaned_chandra_evts': cleaned_chandra_evts},
+                           'cleaned_chandra_evts': cleaned_chandra_evts,
+                           'flux_image': flux_image},
                'rosat_all_sky': {},
                'rosat_pointed': {},
                'swift': {},
