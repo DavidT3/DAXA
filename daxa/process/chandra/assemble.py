@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 11:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 12:32. Copyright (c) The Contributors
 import os
 from random import randint
 from warnings import warn
@@ -66,7 +66,6 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                "destreak={ds} set_ardlib='no' check_vf_pha={cvf} pix_adj={pa} tg_zo_position='evt2' "
                "asol_update={as_up} pi_filter={pf} cleanup='no' verbose=5; mv {oge} {fe}; mv {oggti} {fgti}; "
                "mv {ogbp} {fbp}; mv {ogfov} {ffov}; ")
-    #mv {ogasol} {fasol}; cd ..; rm -r {d}
 
     # HRC has one slight addition to the command, so that re retrieve the dead time correction file produced for
     #  those instruments
@@ -74,7 +73,10 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                    "destreak={ds} set_ardlib='no' check_vf_pha={cvf} pix_adj={pa} tg_zo_position='evt2' "
                    "asol_update={as_up} pi_filter={pf} cleanup='no' verbose=5; mv {oge} {fe}; mv {oggti} {fgti}; "
                    "mv {ogbp} {fbp}; mv {ogfov} {ffov}; mv {ogdtf} {fdtf}; ")
-    # cd ..; rm -r {d}
+
+    # The aspect solution file problem requires a little bash if-else
+    asol_mv = ("if ls {rpasol} 1> /dev/null 2>&1; then mv {rpasol} {fasol}; else mv {altasol} {fasol}; fi; "
+               "cd ..; rm -r {d}")
 
     # The file patterns that should exist after the chandra_repro command has finished running - not just the event
     #  list but some other files as well
@@ -94,7 +96,8 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     #  the observation - many other processes require this - IRRITATINGLY IT SEEMS THERE CAN BE MULTIPLE ASPECT
     #  SOLUTION FILES. The asol.lis file contains a list of them, but that is hardly useful for us right now, to
     #  move and rename the asol files in the cmd line
-    prod_asol_name = "pcadf{oi}_*_asol1.fits"
+    prod_asol_name = "pcadf{oi}_repro_asol1.fits"
+    prod_asol_alt_name = "pcadf{oi}_000N00*_asol1.fits"
 
     # These represent the final names and resting places of the event lists (note that we include the energy bound
     #  identifier in the filename, but include no bounds because none are applied right now
@@ -105,7 +108,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     fov_name = "obsid{o}-inst{i}-subexp{se}-FOVreg.fits"
     # Now adding 'final' names for the aspect solution file (for ACIS AND HRC, definitely need it) and the dead time
     #  file, which is only for HRC as ACIS stores DTC differently I think
-    asol_name = ""
+    asol_name = "obsid{o}-inst{i}-subexp{se}-aspectsolution.fits"
     dtf_name = "obsid{o}-inst{i}-subexp{se}-deadtimefile.fits"
 
     # ---------------------------------- Checking and converting user inputs ----------------------------------
@@ -213,6 +216,13 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
             #  filling with zeros at the beginning of the ObsID to get up to five characters
             dtf_out_path = os.path.join(temp_dir, prod_dtf_name.format(oi=obs_id.zfill(5)))
 
+            # We treat the aspect solution files different, because sometimes there can be multiple, which is deeply
+            #  annoying - also according to the OIF files, sometimes there are no shipped asol files at all - then
+            #  things fall over, so I have currently marked all without ASPSOL or ASPSOLOBI entries their 'oif.fits' as
+            #  unusable
+            asol_repro_path = os.path.join(temp_dir, prod_asol_name.format(oi=obs_id.zfill(5)))
+            asol_alt_path = os.path.join(temp_dir, prod_asol_alt_name.format(oi=obs_id.zfill(5)))
+
             # This is where the final output event list file will be stored - after moving and renaming
             evt_final_path = os.path.join(dest_dir, 'events', evt_list_name.format(o=obs_id, se=exp_id, i=inst))
             # And then all the others
@@ -224,12 +234,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                 dtf_final_path = os.path.join(dest_dir, 'misc', dtf_name.format(o=obs_id, se=exp_id, i=inst))
             else:
                 dtf_final_path = None
-
-            # We treat the aspect solution files different, because sometimes there can be multiple, which is deeply
-            #  annoying - also according to the OIF files, sometimes there are no shipped asol files at all - then
-            #  things fall over, so I have currently marked all without ASPSOL or ASPSOLOBI entries their 'oif.fits' as
-            #  unusable
-            asol_out_path = ""
+            asol_final_path = os.path.join(dest_dir, 'misc', asol_name.format(o=obs_id, se=exp_id, i=inst))
 
             # ---------------------------------------------------------------------------------------------------
 
@@ -250,8 +255,6 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                                          ffov=fov_final_path)
 
                 else:
-                    # mv {ogasol} {fasol}; mv {ogdtf} {fdtf}
-
                     # Fill out the template, and generate the command that we will run through subprocess
                     cmd = hrc_crp_cmd.format(d=temp_dir, in_f=obs_data_path, out_f=temp_dir, rn=root_prefix,
                                              ds=destreak, cvf=check_very_faint, pa=pix_adj, as_up=asol_update,
@@ -260,13 +263,16 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                                              fbp=badpix_final_path, ogfov=fov_out_path, ffov=fov_final_path,
                                              ogdtf=dtf_out_path, fdtf=dtf_final_path)
 
+                # Now add the bash if-else that determines which aspect solution file name to try to move out
+                cmd += asol_mv.format(rpasol=asol_repro_path, altasol=asol_alt_path, fasol=asol_final_path)
+
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
                 # TODO CONSIDER WHAT FILES TO CHECK FOR ALTERNATING EXPOSURE AND MULTI-OBI MODES
                 miss_final_paths[miss.name][val_id] = evt_final_path
                 miss_extras[miss.name][val_id] = {'working_dir': temp_dir, 'evt_list': evt_final_path,
                                                   'default_gti': gti_final_path, 'badpix': badpix_final_path,
-                                                  'fov_reg': fov_final_path}
+                                                  'fov_reg': fov_final_path, 'asol_file': asol_final_path}
                 # Only store if an HRC observation
                 if dtf_final_path is not None:
                     miss_extras[miss.name][val_id]['dead_time_file'] = dtf_final_path
