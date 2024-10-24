@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 12:32. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 13:15. Copyright (c) The Contributors
 import os
 from random import randint
 from warnings import warn
@@ -264,7 +264,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                                              ogdtf=dtf_out_path, fdtf=dtf_final_path)
 
                 # Now add the bash if-else that determines which aspect solution file name to try to move out
-                cmd += asol_mv.format(rpasol=asol_repro_path, altasol=asol_alt_path, fasol=asol_final_path)
+                cmd += asol_mv.format(rpasol=asol_repro_path, altasol=asol_alt_path, fasol=asol_final_path, d=temp_dir)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
