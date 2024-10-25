@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 16:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 19:48. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -23,18 +23,21 @@ CSC_DEFAULT_EBOUNDS = Quantity([[0.5, 7.0], [0.5, 1.2], [1.2, 2.0], [2.0, 7.0], 
 CSC_DEFAULT_EFF_ENERGIES = Quantity([2.3, 0.92, 1.56, 3.8, 0.4], 'keV')
 
 
-@ciao_call
-def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = CSC_DEFAULT_EBOUNDS,
-               effective_ens: Quantity = CSC_DEFAULT_EFF_ENERGIES, acis_bin_size: Union[float, int] = 4,
-               hrc_bin_size: Union[float, int] = 16, num_cores: int = NUM_CORES, disable_progress: bool = False,
-               timeout: Quantity = None):
+def _internal_flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = CSC_DEFAULT_EBOUNDS,
+                         effective_ens: Quantity = CSC_DEFAULT_EFF_ENERGIES, acis_bin_size: Union[float, int] = 4,
+                         hrc_bin_size: Union[float, int] = 16, num_cores: int = NUM_CORES,
+                         disable_progress: bool = False, timeout: Quantity = None):
     """
-    This function is used to generate Chandra images, exposure maps, and flux (or rate, depending on 'mode') maps
-    from processed and cleaned event lists. The 'mode' parameter can be set to "flux" (equivalent to the default
-    behaviour of flux_image in CIAO, producing flux images with photon/cm^2/s units, and weighted exposure maps with
-    cm^2 s ct/photon units), or "rate" (which produces rate images with count/s units, and un-weighted exposure maps in
-    units of seconds). The energy bands and spatial binning can be controlled, with each run of this function
-    capable of producing a set of products in different energy bands.
+    Internal function that does all the heavy lifting to generate Chandra images, exposure maps, and flux (or rate,
+    depending on 'mode') maps from processed and cleaned event lists. The 'mode' parameter can be set to
+    "flux" (equivalent to the default behaviour of flux_image in CIAO, producing flux images with photon/cm^2/s
+    units, and weighted exposure maps with cm^2 s ct/photon units), or "rate" (which produces rate images with
+    count/s units, and un-weighted exposure maps in units of seconds). The energy bands and spatial binning can
+    be controlled, with each run of this function capable of producing a set of products in different energy bands.
+
+    This function does not face the user because I wanted to provide two discrete functions for flux and rate
+    products, that way it is possible to run both and have them show up separately in the archive processing
+    history with the current design.
 
     :param Archive obs_archive: An Archive instance containing a Chandra mission instance. This function will fail
         if no Chandra missions are present in the archive.
@@ -68,22 +71,25 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
     #
     acis_fi_cmd = ('cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} bands={eb} binsize={bs} asolfile={asol} '
                    'badpixfile={bpf} units={m} psfecf=1 parallel="no" tmpdir={td} '
-                   'cleanup="yes" verbose=4; {mv_cmd}; ')
-    # 'cd ..; rm -r {d}'
+                   'cleanup="yes" verbose=4; {mv_cmd}; cd ..; rm -r {d}')
 
     # HRC strikes again, doesn't need energy bands of course, and wants another file (the dead time corrections)
     hrc_fi_cmd = ('cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} binsize={bs} asolfile={asol} '
                   'badpixfile={bpf} dtffile={dtf} background="default" units={m} psfecf=1 '
-                  'parallel="no" tmpdir={td} cleanup="yes" verbose=4; {mv_cmd}; ')
+                  'parallel="no" tmpdir={td} cleanup="yes" verbose=4; {mv_cmd}; cd ..; rm -r {d}')
 
+    # The output file names - there have to be a few because this does make a bunch of stuff. The main output
+    #  is always the 'flux' file - and it is always called that regardless of the mode.
     prod_im_name = "{rn}_{l}-{u}_thresh.img"
     prod_ex_name = "{rn}_{l}-{u}_thresh.expmap"
     prod_flrt_name = "{rn}_{l}-{u}_flux.img"
     prod_psf_name = "{rn}_{l}-{u}_thresh.psfmap"
-
+    # The HRC file name is different, because we don't specify an energy bound - it also doesn't make all the other
+    #  stuff which is a real shame (exposure maps would have been particularly nice).
     prod_hrc_flrt_name = "{rn}_wide.img"
 
-    # Final image, exposure map, rate map, and flux map name templates
+    # Final image, exposure map, rate map, and flux map name templates - cover all eventualities in terms of
+    #  whether we're running in flux or rate mode
     im_name = "obsid{oi}-inst{i}-subexp{se}-en{en_id}-image.fits"
     ex_name = "obsid{oi}-inst{i}-subexp{se}-en{en_id}-expmap.fits"
     w_ex_name = "obsid{oi}-inst{i}-subexp{se}-en{en_id}-weightedexpmap.fits"
@@ -130,6 +136,7 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
     # Want to check that a valid 'mode' has been passed
     if mode not in ['flux', 'rate']:
         raise ValueError("'mode' argument must be set to either 'flux' or 'rate'.")
+    # Also create the variable values that actually need to be passed to the command
     elif mode == 'flux':
         unit = 'default'
     else:
@@ -201,13 +208,17 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
             # ---------------------------- Creating move commands for generated files ----------------------------
             # Slightly different setup for this function - there are going to be a series of generated files, with
             #  the number decided by the energy bounds passed by the user (at least for ACIS)
-
             if inst == 'ACIS':
-
+                # This will store the string energy-bound-identifiers for all the requested energy ranges
                 en_idents = []
-
+                # This dictionary will get filled with the output file paths (as there are a few different products
+                #  produced) - the image and psf types are a constant regardless of operating mode
                 final_out_files = {'image': [], 'psf': []}
+                # This will be appended too and eventually joined into a string to pass to the command to set
+                #  the energy boundaries and the effective energies
                 en_cmd_str = []
+                # This will be populated with ALL the move commands for all the product types for all the energies,
+                #  and then will get stuck on the end of the generation command
                 mv_cmd = ""
                 mv_temp = "mv {oim} {fim}; mv {oex} {fex}; mv {ofl} {ffl}; mv {opsf} {fpsf};"
                 for en_ind, en_bnd in enumerate(en_bounds):
@@ -215,16 +226,24 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                     en_ident = '{l}_{h}keV'.format(l=lo_en.value, h=hi_en.value)
                     en_idents.append(en_ident)
 
+                    # This is the format that the CIAO flux_image tool requires
                     eff_en = effective_ens[en_ind]
                     cur_en_str = "{l}:{h}:{e}".format(l=lo_en.value, h=hi_en.value, e=eff_en.value)
                     en_cmd_str.append(cur_en_str)
 
+                    # Setting up the file paths where we expect to see flux_image has made our products
                     cur_prod_im = prod_im_name.format(rn=root_prefix, l=lo_en.value, u=hi_en.value)
                     cur_prod_ex = prod_ex_name.format(rn=root_prefix, l=lo_en.value, u=hi_en.value)
                     cur_prod_flrt = prod_flrt_name.format(rn=root_prefix, l=lo_en.value, u=hi_en.value)
                     cur_prod_psf = prod_psf_name.format(rn=root_prefix, l=lo_en.value, u=hi_en.value)
 
+                    # Now we set up the final file paths and the move commands, storing the file paths in the out
+                    #  files dictionary (which later gets included in the extra_info dictionary). This is
+                    #  ugly and probably there is a better way of doing it but I was stressed out of my mind at this
+                    #  point so I simply do not care
                     if mode == 'flux':
+                        # In flux mode we make weighted (i.e. not just in seconds) exposure maps, and the
+                        #  flux images of photons per s per cm^2
                         final_out_files.setdefault('fluxmap', [])
                         final_out_files.setdefault('weighted_expmap', [])
 
@@ -236,6 +255,7 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                         final_out_files['fluxmap'].append(final_flrt)
                         final_out_files['weighted_expmap'].append(final_ex)
                     else:
+                        # This mode makes straight exposure maps in seconds, and count-rate maps in ct/s
                         final_out_files.setdefault('ratemap', [])
                         final_out_files.setdefault('expmap', [])
 
@@ -255,13 +275,18 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                     final_out_files['image'].append(final_im)
                     final_out_files['psf'].append(final_psf)
 
+                    # Adding to the move command so that this particular energy range products are put in their
+                    #  final places in DAXA's directory hierarchy
                     mv_cmd += mv_temp.format(oim=cur_prod_im, fim=final_im, oex=cur_prod_ex, fex=final_ex,
                                              ofl=cur_prod_flrt, ffl=final_flrt, opsf=cur_prod_psf, fpsf=final_psf)
 
+                # Make the final energy bound command by joining all our list entries
                 en_cmd_str = ",".join(en_cmd_str)
                 # Remove the last ; so we don't have a double semi-colon in the command
                 mv_cmd = mv_cmd[:-1]
             else:
+                # And the we have HRC, which is made simpler by a single non-configurable energy range, and the
+                #  fact that it only makes one product (which is a shame)
                 final_out_files = {}
                 en_idents = ["0.06_10.0keV"]
                 cur_prod_flrt = prod_hrc_flrt_name.format(rn=root_prefix)
@@ -284,6 +309,7 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir + "sub_temp/")
 
+                # The different instruments have different commands again
                 if inst == 'ACIS':
                     # Fill out the template, and generate the command that we will run through subprocess
                     cmd = acis_fi_cmd.format(d=temp_dir, cef=rel_evt, rn=root_prefix, eb=en_cmd_str, bs=acis_bin_size,
@@ -307,3 +333,81 @@ def flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Quantity = C
     process_message = 'Generating images & exposure/flux maps'
 
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
+
+
+@ciao_call
+def flux_image(obs_archive: Archive, en_bounds: Quantity = CSC_DEFAULT_EBOUNDS,
+               effective_ens: Quantity = CSC_DEFAULT_EFF_ENERGIES, acis_bin_size: Union[float, int] = 4,
+               hrc_bin_size: Union[float, int] = 16, num_cores: int = NUM_CORES, disable_progress: bool = False,
+               timeout: Quantity = None):
+    """
+    This function is used to generate Chandra images, weighted exposure maps, and flux maps from processed and
+    cleaned event lists - flux maps have units of photon/cm^2/s, and weighted exposure maps have units of
+    cm^2 s ct/photon. PSF radius maps are also produced by this function. The energy bands and spatial binning can
+    be controlled, with each run of this function capable of producing a set of products in different energy bands.
+
+    :param Archive obs_archive: An Archive instance containing a Chandra mission instance. This function will fail
+        if no Chandra missions are present in the archive.
+    :param Quantity en_bounds: The energy bounds in which to generate images, exposure maps, and flux maps/rate
+        maps. Should be passed as a 2D array quantity with shape (N, 2), where N is the number of different energy
+        bounds, in units convertible to keV. Default are the Chandra Source Catalog (CSC) boundaries - be aware that
+        changing the 'en_bounds' parameter will also necessitate changes to the 'effective_ens' parameter. Energy
+        bounds are NOT applied to HRC data products.
+    :param Quantity effective_ens: The effective energies for the energy bounds set in 'en_bounds' - consider them
+        almost as a "central energy" at which exposure maps are calculated. The default values are the Chandra
+        Source Catalog (CSC) effective energies (to match the default value of 'en_bounds'). If the 'en_bounds'
+        argument is altered, this argument will need to be changed as well.
+    :param int/float acis_bin_size: The image binning factor to be applied to ACIS image generation - this decides the
+        size of output product pixels, with smaller values resulting in finer binning. The output product pixel size
+        for ACIS will be 'acis_bin_size'*0.492 arcseconds. Default is 4 (finer by default than CIAO flux_image).
+    :param int/float hrc_bin_size: The image binning factor to be applied to HRC image generation - this decides the
+        size of output product pixels, with smaller values resulting in finer binning. The output product pixel size
+        for HRC will be 'hrc_bin_size'*0.1318 arcseconds. Default is 16 (finer by default than CIAO flux_image).
+    :param int num_cores: The number of cores to use, default is set to 90% of available.
+    :param bool disable_progress: Setting this to true will turn off the CIAO generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire process, but a timeout for individual
+        ObsID-Inst processes.
+    """
+
+    return _internal_flux_image(obs_archive, 'flux', en_bounds, effective_ens, acis_bin_size, hrc_bin_size, num_cores,
+                                disable_progress, timeout)
+
+
+@ciao_call
+def rate_image(obs_archive: Archive, en_bounds: Quantity = CSC_DEFAULT_EBOUNDS,
+               effective_ens: Quantity = CSC_DEFAULT_EFF_ENERGIES, acis_bin_size: Union[float, int] = 4,
+               hrc_bin_size: Union[float, int] = 16, num_cores: int = NUM_CORES, disable_progress: bool = False,
+               timeout: Quantity = None):
+    """
+    This function is used to generate Chandra images, exposure maps, and rate maps from processed and
+    cleaned event lists - rate maps have units of count/s, and weighted exposure maps have units of
+    seconds. PSF radius maps are also produced by this function. The energy bands and spatial binning can
+    be controlled, with each run of this function capable of producing a set of products in different energy bands.
+
+    :param Archive obs_archive: An Archive instance containing a Chandra mission instance. This function will fail
+        if no Chandra missions are present in the archive.
+    :param Quantity en_bounds: The energy bounds in which to generate images, exposure maps, and flux maps/rate
+        maps. Should be passed as a 2D array quantity with shape (N, 2), where N is the number of different energy
+        bounds, in units convertible to keV. Default are the Chandra Source Catalog (CSC) boundaries - be aware that
+        changing the 'en_bounds' parameter will also necessitate changes to the 'effective_ens' parameter. Energy
+        bounds are NOT applied to HRC data products.
+    :param Quantity effective_ens: The effective energies for the energy bounds set in 'en_bounds' - consider them
+        almost as a "central energy" at which exposure maps are calculated. The default values are the Chandra
+        Source Catalog (CSC) effective energies (to match the default value of 'en_bounds'). If the 'en_bounds'
+        argument is altered, this argument will need to be changed as well.
+    :param int/float acis_bin_size: The image binning factor to be applied to ACIS image generation - this decides the
+        size of output product pixels, with smaller values resulting in finer binning. The output product pixel size
+        for ACIS will be 'acis_bin_size'*0.492 arcseconds. Default is 4 (finer by default than CIAO flux_image).
+    :param int/float hrc_bin_size: The image binning factor to be applied to HRC image generation - this decides the
+        size of output product pixels, with smaller values resulting in finer binning. The output product pixel size
+        for HRC will be 'hrc_bin_size'*0.1318 arcseconds. Default is 16 (finer by default than CIAO flux_image).
+    :param int num_cores: The number of cores to use, default is set to 90% of available.
+    :param bool disable_progress: Setting this to true will turn off the CIAO generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire process, but a timeout for individual
+        ObsID-Inst processes.
+    """
+
+    return _internal_flux_image(obs_archive, 'rate', en_bounds, effective_ens, acis_bin_size, hrc_bin_size, num_cores,
+                                disable_progress, timeout)
