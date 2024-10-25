@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 20:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 20:04. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -301,9 +301,15 @@ def _internal_flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Qu
                 mv_cmd = "mv {ofl} {ffl}".format(ofl=cur_prod_flrt, ffl=final_flrt)
             # ----------------------------------------------------------------------------------------------------
 
+            # Depending on the mode the current function will have a different name in the DAXA histories
+            if mode == 'flux':
+                func_name = 'flux_image'
+            else:
+                func_name = 'rate_image'
+
             # If it doesn't already exist then we will create commands to generate it
-            if ('flux_image' not in obs_archive.process_success[miss.name] or
-                    val_id not in obs_archive.process_success[miss.name]['flux_image']):
+            if (func_name not in obs_archive.process_success[miss.name] or
+                    val_id not in obs_archive.process_success[miss.name][func_name]):
                 # Make the temporary directory for processing - this (along with the temporary PFILES that
                 #  the execute_cmd function will create) should help avoid any file collisions
                 if not os.path.exists(temp_dir):
