@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 20:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 20:08. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -376,7 +376,7 @@ def flux_image(obs_archive: Archive, en_bounds: Quantity = CSC_DEFAULT_EBOUNDS,
                                    num_cores, disable_progress, timeout)
     int_ret = list(int_ret)
     # This is just used for populating a progress bar during the process run
-    int_ret[3] = 'Generating images, weighted exposure maps, flux maps, and PSF maps'
+    int_ret[3] = 'Generating images, weighted exposure & flux & PSF maps'
 
     return int_ret
 
@@ -419,6 +419,6 @@ def rate_image(obs_archive: Archive, en_bounds: Quantity = CSC_DEFAULT_EBOUNDS,
                                    num_cores, disable_progress, timeout)
     int_ret = list(int_ret)
     # This is just used for populating a progress bar during the process run
-    int_ret[3] = 'Generating images, exposure maps, rate maps, and PSF maps'
+    int_ret[3] = 'Generating images, exposure & rate & PSF maps'
 
     return int_ret
