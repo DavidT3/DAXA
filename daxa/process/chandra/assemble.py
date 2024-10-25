@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 25/10/2024, 09:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 25/10/2024, 09:53. Copyright (c) The Contributors
 import os
 from random import randint
 from warnings import warn
@@ -265,6 +265,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                                          oge=evt_out_path, fe=evt_final_path, oggti=gti_out_path, fgti=gti_final_path,
                                          ogbp=badpix_out_path, fbp=badpix_final_path, ogfov=fov_out_path,
                                          ffov=fov_final_path)
+                    files_to_check = [evt_final_path, badpix_final_path, asol_final_path]
 
                 else:
                     # Fill out the template, and generate the command that we will run through subprocess
@@ -274,14 +275,16 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                                              oggti=gti_out_path, fgti=gti_final_path, ogbp=badpix_out_path,
                                              fbp=badpix_final_path, ogfov=fov_out_path, ffov=fov_final_path,
                                              ogdtf=dtf_out_path, fdtf=dtf_final_path)
+                    files_to_check = [evt_final_path, badpix_final_path, asol_final_path, dtf_final_path]
 
                 # Now add the bash if-else that determines which aspect solution file name to try to move out
                 cmd += asol_mv.format(rpasol=asol_repro_path, altasol=asol_alt_path, fasol=asol_final_path, d=temp_dir)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
-                # TODO CONSIDER WHAT FILES TO CHECK FOR ALTERNATING EXPOSURE AND MULTI-OBI MODES
-                miss_final_paths[miss.name][val_id] = evt_final_path
+                # We check for the files we must have out of this process - defined up above in the if statement
+                #  because it is slightly different for the two instruments
+                miss_final_paths[miss.name][val_id] = files_to_check
                 miss_extras[miss.name][val_id] = {'working_dir': temp_dir, 'evt_list': evt_final_path,
                                                   'default_gti': gti_final_path, 'badpix': badpix_final_path,
                                                   'fov_reg': fov_final_path, 'asol_file': asol_final_path}
