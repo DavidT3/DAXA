@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 16:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 25/10/2024, 09:51. Copyright (c) The Contributors
 import os
 from random import randint
 from warnings import warn
@@ -77,9 +77,6 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     # The aspect solution file problem requires a little bash if-else
     asol_mv = ("if ls {rpasol} 1> /dev/null 2>&1; then mv {rpasol} {fasol}; else mv {altasol} {fasol}; fi; "
                "cd ..; rm -r {d}")
-    # asol_mv = ("if ls {rpasol} 3>&1 4>&2 1>/dev/null 2>&1; then mv {rpasol} {fasol} 1>&3 2>&4; else mv {altasol} "
-    #            "{fasol} 1>&3 2>&4; fi; "
-    #            "")
 
     # The file patterns that should exist after the chandra_repro command has finished running - not just the event
     #  list but some other files as well
@@ -87,8 +84,13 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     # The GTI table - there also seems to sometimes be a file with 'flt2' in the name, but nowhere mentions it and
     #  thus I will go with the 'flt1' file
     prod_gti_name = "{rn}_repro_flt1.fits"
-    # Newly made bad-pixel file (remember we have chandr_repro configured so that we will ALWAYS make this
+
+    # Newly made bad-pixel file (remember we have chandra_repro configured so that we will ALWAYS make this)
     prod_bad_pix_name = "{rn}_repro_bpix1.fits"
+    # The chandra_repro tool can ignore the make new badpix setting in one circumstance though -  for ACIS data in
+    #  continuous clocking mode, in which case no new bad pixel file is created, and we'll need to grab the original
+    prod_alt_bad_pix_name = "acisf{zoi}_0*N0*_bpix1.fits"
+
     # And finally the 'FOV' file, which provides regions that describe the CCDs I think? - don't actually know if
     #  this will be of any use to us, but we'll keep it for now
     prod_fov_name = "{rn}_repro_fov1.fits"
@@ -213,11 +215,18 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
             # First where do we expect them to be before we move and rename them
             evt_out_path = os.path.join(temp_dir, prod_evt_list_name.format(rn=root_prefix))
             gti_out_path = os.path.join(temp_dir, prod_gti_name.format(rn=root_prefix))
-            badpix_out_path = os.path.join(temp_dir, prod_bad_pix_name.format(rn=root_prefix))
             fov_out_path = os.path.join(temp_dir, prod_fov_name.format(rn=root_prefix))
             # Only for HRC, the dead time file - note that these files ignore the root prefix, and so are back to
             #  filling with zeros at the beginning of the ObsID to get up to five characters
             dtf_out_path = os.path.join(temp_dir, prod_dtf_name.format(oi=obs_id.zfill(5)))
+            # The bad pixel file can either be brand new (in most cases) or the old one, with the old name, in the
+            #  case of continuous clocking mode being used on ACIS, so we account for this
+            if inst == 'ACIS' and 'CC' in obs_archive.observation_summaries[miss.name][val_id]['MODE']:
+                # This is the edge case, with the old bad pixel file our target
+                badpix_out_path = os.path.join(temp_dir, prod_alt_bad_pix_name.format(zoi=obs_id.zfill(5)))
+            else:
+                # And this is what will happen 99% of the time
+                badpix_out_path = os.path.join(temp_dir, prod_bad_pix_name.format(rn=root_prefix))
 
             # We treat the aspect solution files different, because sometimes there can be multiple, which is deeply
             #  annoying - also according to the OIF files, sometimes there are no shipped asol files at all - then
