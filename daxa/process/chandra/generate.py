@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 19:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 20:02. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -329,10 +329,7 @@ def _internal_flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Qu
                 miss_extras[miss.name][val_id] = {'working_dir': temp_dir, 'en_idents': en_idents}
                 miss_extras[miss.name][val_id].update(final_out_files)
 
-    # This is just used for populating a progress bar during the process run
-    process_message = 'Generating images & exposure/flux maps'
-
-    return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
+    return miss_cmds, miss_final_paths, miss_extras, "process_message", num_cores, disable_progress, timeout
 
 
 @ciao_call
@@ -369,9 +366,13 @@ def flux_image(obs_archive: Archive, en_bounds: Quantity = CSC_DEFAULT_EBOUNDS,
         Please note that this is not a timeout for the entire process, but a timeout for individual
         ObsID-Inst processes.
     """
+    int_ret = _internal_flux_image(obs_archive, 'flux', en_bounds, effective_ens, acis_bin_size, hrc_bin_size,
+                                   num_cores, disable_progress, timeout)
+    int_ret = list(int_ret)
+    # This is just used for populating a progress bar during the process run
+    int_ret[3] = 'Generating images, weighted exposure maps, flux maps, and PSF maps'
 
-    return _internal_flux_image(obs_archive, 'flux', en_bounds, effective_ens, acis_bin_size, hrc_bin_size, num_cores,
-                                disable_progress, timeout)
+    return int_ret
 
 
 @ciao_call
@@ -408,6 +409,10 @@ def rate_image(obs_archive: Archive, en_bounds: Quantity = CSC_DEFAULT_EBOUNDS,
         Please note that this is not a timeout for the entire process, but a timeout for individual
         ObsID-Inst processes.
     """
+    int_ret = _internal_flux_image(obs_archive, 'rate', en_bounds, effective_ens, acis_bin_size, hrc_bin_size,
+                                   num_cores, disable_progress, timeout)
+    int_ret = list(int_ret)
+    # This is just used for populating a progress bar during the process run
+    int_ret[3] = 'Generating images, exposure maps, rate maps, and PSF maps'
 
-    return _internal_flux_image(obs_archive, 'rate', en_bounds, effective_ens, acis_bin_size, hrc_bin_size, num_cores,
-                                disable_progress, timeout)
+    return int_ret
