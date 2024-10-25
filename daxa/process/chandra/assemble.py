@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 25/10/2024, 09:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 25/10/2024, 09:59. Copyright (c) The Contributors
 import os
 from random import randint
 from warnings import warn
@@ -221,7 +221,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
             dtf_out_path = os.path.join(temp_dir, prod_dtf_name.format(oi=obs_id.zfill(5)))
             # The bad pixel file can either be brand new (in most cases) or the old one, with the old name, in the
             #  case of continuous clocking mode being used on ACIS, so we account for this
-            if inst == 'ACIS' and 'CC' in obs_archive.observation_summaries[miss.name][obs_id]['MODE']:
+            if inst == 'ACIS' and 'CC' in obs_archive.observation_summaries[miss.name][obs_id][inst]['MODE']:
                 # This is the edge case, with the old bad pixel file our target
                 badpix_out_path = os.path.join(temp_dir, prod_alt_bad_pix_name.format(zoi=obs_id.zfill(5)))
             else:
