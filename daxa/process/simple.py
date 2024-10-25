@@ -1,11 +1,11 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 13:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 19:51. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
-from daxa.process import chandra_repro, cleaned_chandra_evts
+from daxa.process import chandra_repro, cleaned_chandra_evts, flux_image, rate_image
 from daxa.process.chandra import prepare_chandra_info
 from daxa.process.chandra.clean import deflare
 from daxa.process.erosita.assemble import cleaned_evt_lists as eros_cleaned_evt_lists
@@ -132,7 +132,7 @@ def full_process_erosita(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
     # generate_images_expmaps(obs_archive, num_cores=num_cores)
 
 
-def full_process_chandra(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quantity = None,
+def full_process_chandra(obs_archive: Archive, evt_lo_en: Quantity = None, evt_hi_en: Quantity = None,
                          num_cores: int = NUM_CORES, timeout: Quantity = None):
     """
     This is a convenience function that will fully process and prepare Chandra data in an archive using the default
@@ -140,9 +140,9 @@ def full_process_chandra(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
     processing of your data then you can copy the steps of this function and alter the various parameter values.
 
     :param Archive obs_archive: An archive object that contains at least one Chandra mission to be processed.
-    :param Quantity lo_en: If an energy filter should be applied to the final cleaned event lists, this is the
+    :param Quantity evt_lo_en: If an energy filter should be applied to the final cleaned event lists, this is the
         lower energy bound. The default is None, in which case NO ENERGY FILTER is applied.
-    :param Quantity hi_en: If an energy filter should be applied to the final cleaned event lists, this is the
+    :param Quantity evt_hi_en: If an energy filter should be applied to the final cleaned event lists, this is the
         upper energy bound. The default is None, in which case NO ENERGY FILTER is applied.
     :param int num_cores: The number of cores that can be used by the processing functions. The default is set to
         the DAXA NUM_CORES parameter, which is configured to be 90% of the system's cores.
@@ -168,4 +168,10 @@ def full_process_chandra(obs_archive: Archive, lo_en: Quantity = None, hi_en: Qu
 
     # Now the flaring GTIs are used to create final cleaned event lists - we do allow the user to control the
     #  cleaned event list energy bands, a departure from the default behaviour
-    cleaned_chandra_evts(obs_archive, lo_en=lo_en, hi_en=hi_en, num_cores=num_cores, timeout=timeout)
+    cleaned_chandra_evts(obs_archive, lo_en=evt_lo_en, hi_en=evt_hi_en, num_cores=num_cores, timeout=timeout)
+
+    # We run the flux image function, and the rate image function, to create a TONNE of photometric products. This
+    #  makes sure we have normal images, flux and rate maps, weighted and standard exposure maps, and PSF radius
+    #  maps - all in the default Chandra CSC bands
+    flux_image(obs_archive, num_cores=num_cores, timeout=timeout)
+    rate_image(obs_archive, num_cores=num_cores, timeout=timeout)
