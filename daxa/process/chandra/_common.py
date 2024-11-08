@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 20/10/2024, 16:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 16:36. Copyright (c) The Contributors
 
 from functools import wraps
 from inspect import signature, Parameter
@@ -100,7 +100,7 @@ def ciao_call(ciao_func):
         from daxa.process import PROC_LOOKUP
         for mn in miss_cmds:
             if ciao_func.__name__ not in PROC_LOOKUP[mn]:
-                raise DAXADeveloperError("The {p} process does not have an entry in process.PROC_FILTER for "
+                raise DAXADeveloperError("The {p} process does not have an entry in process.PROC_LOOKUP for "
                                          "{mn}.".format(p=ciao_func.__name__, mn=mn))
 
         # This just sets up a dictionary of how many tasks there are for each mission
@@ -147,8 +147,8 @@ def ciao_call(ciao_func):
                 rel_miss = obs_archive[miss_name]
 
                 # Set up a tqdm progress bar, as well as a Pool for multiprocessing (using the number of cores
-                #  specified in the eSASS task that this decorator wraps. We want to parallelize these tasks because
-                #  they tend to be embarrassingly parallelise
+                #  specified in the CIAO task that this decorator wraps. We want to parallelize these tasks because
+                #  they tend to be embarrassingly parallel
                 with tqdm(total=num_to_run[miss_name], desc=rel_miss.pretty_name + ' - ' + process_message,
                           disable=disable) as gen, Pool(cores) as pool:
 
