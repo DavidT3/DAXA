@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 15:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 15:26. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -265,7 +265,7 @@ class NuSTARPointed(BaseMission):
 
         # Important first step, making any global cuts to the dataframe to remove entries that are not going to be
         #  useful. For NuSTAR we first remove any observations with no ontime for either FPM
-        rel_nustar = rel_nustar[(rel_nustar['OnTime_A'] != 0.0) | (rel_nustar['OnTime_B'] != 0.0)]
+        rel_nustar = rel_nustar[(rel_nustar['ONTIME_A'] != 0.0) | (rel_nustar['ONTIME_B'] != 0.0)]
         # We throw a warning that some NuSTAR observations have been removed
         if len(rel_nustar) != pre_ontime_cut_obs_num:
             warn("{ta} of the {tot} observations located for NuSTARPointed have been removed due to all instrument "
@@ -276,7 +276,7 @@ class NuSTARPointed(BaseMission):
         #  have an effect if the user has chosen to only use a single focal-plane-module (no idea why they would
         #  do that but we like to be generalised).
         pre_inst_exp_check_num = len(rel_nustar)
-        rel_nustar = rel_nustar[np.logical_or.reduce([rel_nustar['OnTime_' + inst[-1]] != 0
+        rel_nustar = rel_nustar[np.logical_or.reduce([rel_nustar['ONTIME_' + inst[-1]] != 0
                                                       for inst in self.chosen_instruments])]
         # Warn the user if their chosen instruments have observations that have been removed
         if len(rel_nustar) != pre_inst_exp_check_num:
