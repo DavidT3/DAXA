@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 22:02. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2024, 22:10. Copyright (c) The Contributors
 
 
 class DAXAConfigError(Exception):
@@ -468,6 +468,26 @@ class CIAONotFoundError(Exception):
             return '{0} '.format(self.message)
         else:
             return 'CIAONotFoundError has been raised'
+
+
+class NuSTARDASNotFoundError(Exception):
+    def __init__(self, *args):
+        """
+        Exception raised if the NuSTARDAS software for NuSTAR processing cannot be found on the system.
+
+        :param expression:
+        :param message:
+        """
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return '{0} '.format(self.message)
+        else:
+            return 'NuSTARDASNotFoundError has been raised'
 
           
 class DAXADeveloperError(Exception):
