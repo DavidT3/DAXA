@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 15:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 15:48. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -590,9 +590,15 @@ class NuSTARPointed(BaseMission):
 
         :param dict obs_info: A dictionary with boolean entries for the two FPMs.
         """
-        # TODO NEED TO ACTUALLY MAKE THIS WORK PROPERLY, RATHER THAN JUST ASSUMING THAT BOTH INSTRUMENTS ARE ALWAYS
-        #  USABLE
-        return {'FPMA': True, 'FPMB': True}
+        # Incredibly simple and I think that all the 'active' flags will be True anyway, but ah well
+        to_return = {}
+        for inst in obs_info:
+            if obs_info[inst]['active']:
+                to_return[inst] = True
+            else:
+                to_return[inst] = False
+
+        return to_return
 
 
     def ident_to_obsid(self, ident: str):
