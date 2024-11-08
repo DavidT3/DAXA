@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 12:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 15:23. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -9,6 +9,7 @@ from shutil import copyfileobj
 from typing import List, Union, Any
 from warnings import warn
 
+import numpy as np
 import pandas as pd
 import requests
 from astropy.coordinates import BaseRADecFrame, FK5
@@ -258,6 +259,31 @@ class NuSTARPointed(BaseMission):
         rel_nustar = full_nustar[(full_nustar['OBSERVATION_MODE'] == 'SCIENCE') &
                                  (full_nustar['SPACECRAFT_MODE'] == 'INERTIAL') &
                                  (full_nustar['STATUS'].isin(['processed', 'archived']))]
+
+        # Record how many observations we started out with (after the big cuts above)
+        pre_ontime_cut_obs_num = len(rel_nustar)
+
+        # Important first step, making any global cuts to the dataframe to remove entries that are not going to be
+        #  useful. For NuSTAR we first remove any observations with no ontime for either FPM
+        rel_nustar = rel_nustar[(rel_nustar['OnTime_A'] != 0.0) | (rel_nustar['OnTime_B'] != 0.0)]
+        # We throw a warning that some NuSTAR observations have been removed
+        if len(rel_nustar) != pre_ontime_cut_obs_num:
+            warn("{ta} of the {tot} observations located for NuSTARPointed have been removed due to all instrument "
+                 "on-times being zero.".format(ta=pre_ontime_cut_obs_num - len(rel_nustar),
+                                              tot=pre_ontime_cut_obs_num), stacklevel=2)
+
+        # This removes any ObsIDs that have zero exposure time for the currently selected instruments - will only
+        #  have an effect if the user has chosen to only use a single focal-plane-module (no idea why they would
+        #  do that but we like to be generalised).
+        pre_inst_exp_check_num = len(rel_nustar)
+        rel_nustar = rel_nustar[np.logical_or.reduce([rel_nustar['OnTime_' + inst[-1]] != 0
+                                                      for inst in self.chosen_instruments])]
+        # Warn the user if their chosen instruments have observations that have been removed
+        if len(rel_nustar) != pre_inst_exp_check_num:
+            warn("{ta} of the {tot} observations located for NuSTARPointed have been removed due to all chosen "
+                 "instrument ({ci}) on-times being zero.".format(ta=pre_inst_exp_check_num - len(rel_nustar),
+                                                                 tot=pre_ontime_cut_obs_num,
+                                                                 ci=", ".join(self.chosen_instruments)), stacklevel=2)
 
         # Lower-casing all the column names (personal preference largely).
         rel_nustar = rel_nustar.rename(columns=str.lower)
