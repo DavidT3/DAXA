@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 11:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 12:54. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -258,18 +258,6 @@ class NuSTARPointed(BaseMission):
         rel_nustar = full_nustar[(full_nustar['OBSERVATION_MODE'] == 'SCIENCE') &
                                  (full_nustar['SPACECRAFT_MODE'] == 'INERTIAL') &
                                  (full_nustar['STATUS'].isin(['processed', 'archived']))]
-
-        # Add another filtering step to remove those observations that have been marked as having issues
-        # We keep track of the original number of observations before this step, so that we can show a warning if
-        #  we have removed any
-        og_rel_len = len(rel_nustar)
-        rel_nustar = rel_nustar[rel_nustar['ISSUE_FLAG'] != 1]
-        # Now check to see if there is a difference in length (unless they one day decide to remove all the
-        #  observations with issues from the archive then this is always going to be true, but I do still like
-        #  to be general)
-        if len(rel_nustar) != og_rel_len:
-            warn("{ta} of the {tot} observations located for NuSTARPointed have been removed as the "
-                 "issue flag was set to 1.".format(ta=og_rel_len - len(rel_nustar), tot=og_rel_len), stacklevel=2)
 
         # Lower-casing all the column names (personal preference largely).
         rel_nustar = rel_nustar.rename(columns=str.lower)
