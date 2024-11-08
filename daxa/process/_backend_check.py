@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2024, 22:54. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2024, 22:55. Copyright (c) The Contributors
 
 import os
 from shutil import which
@@ -198,7 +198,7 @@ def find_nustardas() -> Tuple[Version, Version]:
                                      "processed.")
     else:
         # If there was an output, it is very simple to strip the version out
-        ciao_version = Version(nu_out.split('_')[-1])
+        nudas_version = Version(nu_out.split('_')[-1])
 
     # If we've got to this point, then we know NuSTARDAS is installed - but we still need to check for the NuSTAR
     #  calibration files being present. Unfortunately, there doesn't appear to be a single handy command to pull out
@@ -215,4 +215,4 @@ def find_nustardas() -> Tuple[Version, Version]:
         # Strip out the CALDB version
         caldb_version = Version("v" + nu_cal_out.split('indx')[-1])
 
-    return ciao_version, caldb_version
+    return nudas_version, caldb_version
