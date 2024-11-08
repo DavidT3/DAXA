@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 09:43. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 11:01. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -565,9 +565,10 @@ class NuSTARPointed(BaseMission):
         :param dict obs_info: The multi-level dictionary containing available observation information for an
             observation.
         """
-        raise NotImplementedError("The check_process_obs method has not yet been implemented for NuSTARPointed, as "
-                                  "we need to see what detailed information are available once processing downloaded "
-                                  "data has begun.")
+        # TODO NEED TO ACTUALLY MAKE THIS WORK PROPERLY, RATHER THAN JUST ASSUMING THAT BOTH INSTRUMENTS ARE ALWAYS
+        #  USABLE
+        return {'FPMA': {'E001': True}, 'FPMB': {'E001': True}}
+
 
     def ident_to_obsid(self, ident: str):
         """
@@ -584,8 +585,5 @@ class NuSTARPointed(BaseMission):
 
         :param str ident: The unique identifier used in a particular processing step.
         """
-        # raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
-        #                           "clear to me what form the unique identifiers will take once we start processing"
-        #                           "{n} data ourselves.".format(n=self.pretty_name))
         # NuSTAR ObsIDs are always 11 digits, so we just retrieve the first 11
         return ident[:11]
