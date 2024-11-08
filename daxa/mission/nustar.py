@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 15:26. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 15:37. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -588,12 +588,11 @@ class NuSTARPointed(BaseMission):
         This method should never need to be triggered by the user, as it will be called automatically when detailed
         observation information becomes available to the Archive.
 
-        :param dict obs_info: The multi-level dictionary containing available observation information for an
-            observation.
+        :param dict obs_info: A dictionary with boolean entries for the two FPMs.
         """
         # TODO NEED TO ACTUALLY MAKE THIS WORK PROPERLY, RATHER THAN JUST ASSUMING THAT BOTH INSTRUMENTS ARE ALWAYS
         #  USABLE
-        return {'FPMA': {'E001': True}, 'FPMB': {'E001': True}}
+        return {'FPMA': True, 'FPMB': True}
 
 
     def ident_to_obsid(self, ident: str):
