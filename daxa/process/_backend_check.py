@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2024, 22:32. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2024, 22:54. Copyright (c) The Contributors
 
 import os
 from shutil import which
@@ -202,14 +202,17 @@ def find_nustardas() -> Tuple[Version, Version]:
 
     # If we've got to this point, then we know NuSTARDAS is installed - but we still need to check for the NuSTAR
     #  calibration files being present. Unfortunately, there doesn't appear to be a single handy command to pull out
-    #  the NuSTAR CALDB version
-    caldb_version = Version('v1.0.0')
-    # readlink $CALDB/data/nustar/fpm/caldb.indx
-    # if 'not installed' in split_out[5].lower():
-    #     raise NuSTARDASNotFoundError("A NuSTAR CALDB installation cannot be identified on your system, and as such "
-    #                                  "NuSTAR data cannot be processed.")
-    # else:
-    #     # Strip out the CALDB version
-    #     caldb_version = Version(split_out[5].split(':')[-1].strip())
+    #  the NuSTAR CALDB version. We instead get the date that the NuSTAR CALDB was last updated
+    nu_cal_out, nu_cal_err = Popen("readlink $CALDB/data/nustar/fpm/caldb.indx", stdout=PIPE, stderr=PIPE,
+                                   shell=True).communicate()
+    # Just turn those pesky byte outputs into strings
+    nu_cal_out = nu_cal_out.decode("UTF-8")
+    nu_cal_err = nu_cal_err.decode("UTF-8")
+    if nu_cal_out == "":
+        raise NuSTARDASNotFoundError("A NuSTAR CALDB installation cannot be identified on your system, and as such "
+                                     "NuSTAR data cannot be processed.")
+    else:
+        # Strip out the CALDB version
+        caldb_version = Version("v" + nu_cal_out.split('indx')[-1])
 
     return ciao_version, caldb_version
