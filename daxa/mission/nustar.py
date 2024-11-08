@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 09:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 09:43. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -383,13 +383,17 @@ class NuSTARPointed(BaseMission):
 
         # Before we get to cycling through the directories, we need to download the top-level 'cat' file, which
         #  should act as an inventory of all the other files for the ObsID
-        down_url = top_url + "{}.cat.gz".format(observation_id)
+        down_url = top_url + "nu{}.cat.gz".format(observation_id)
         if not os.path.exists(raw_dir):
             os.makedirs(raw_dir)
+
         # Now download the file
         with session.get(down_url, stream=True) as acquiro:
-            with open(raw_dir + '/{}_obs_summ.fits'.format(observation_id), 'wb') as writo:
-                copyfileobj(acquiro.raw, writo)
+            # I funnel the streamed download straight into the gzip decompression
+            decomp_acquiro = gzip.open(acquiro.raw)
+            # Now write out the final decompressed catalog of observation files
+            with open(raw_dir + '/{}_cat.fits'.format(observation_id), 'wb') as writo:
+                copyfileobj(decomp_acquiro, writo)
 
         for dat_dir in top_data:
             # The lower level URL of the directory we're currently looking at
