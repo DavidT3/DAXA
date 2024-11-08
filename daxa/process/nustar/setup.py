@@ -1,7 +1,8 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 11:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 15:37. Copyright (c) The Contributors
 
 import os
+from warnings import simplefilter
 
 from astropy.io import fits
 from astropy.table import Table
@@ -9,6 +10,9 @@ from astropy.table import Table
 from daxa.archive import Archive
 from daxa.exceptions import NoProcessingError
 from daxa.process.nustar._common import _nustardas_process_setup
+
+# This is because astropy gets quite upset by one of the headers in the NuSTAR observation catalog files
+simplefilter('ignore', fits.card.AstropyUserWarning)
 
 
 def parse_cat(cat_path: str):
@@ -19,7 +23,7 @@ def parse_cat(cat_path: str):
 
     :param str cat_path: The path to the NuSTAR catalog file that is to be parsed into a dictionary of relevant
         information and returned.
-    :return: Multi-level dictionary of information.
+    :return: Observation summary dictionary - really simple in the case of NuSTAR.
     :rtype: dict
     """
 
@@ -29,103 +33,17 @@ def parse_cat(cat_path: str):
     # Read out the file table and convert to pandas because I prefer working with dataframes
     cat_tbl = Table(cat_file[1].data).to_pandas()
 
-    # This is the dictionary that will be returned at the end
-    obs_info = {}
+    # This is the dictionary that will be returned at the end - remember that there are two telescopes/instruments!
+    obs_info = {'FPMA': {}, 'FPMB': {}}
 
-
-
+    for inst in obs_info:
+        # If there are no raw events then we have to assume the instrument was not active
+        if any(cat_tbl['DESCRIP'].str.contains((inst + " raw unfiltered events"))):
+            obs_info[inst]['active'] = True
+        else:
+            obs_info[inst]['active'] = False
 
     return obs_info
-
-    # We're gonna make good use of the MEMBER_CONTENT column, but we wish to strip out the whitespace that can
-    #  be present there
-    # oif_tbl['MEMBER_CONTENT'] = oif_tbl['MEMBER_CONTENT'].str.strip()
-    #
-    # # This feels somehow wrong, but we're just going to pull out the header keywords that I know are relevant D: Won't
-    # #  do a huge load of individual commands though, we'll set up a one-liner. We'll also set it up so the original
-    # #  header names can be converted to another name if we want to (None means the original name will be kept).
-    # hdr_to_store = {'SEQ_NUM': 'SEQUENCE', 'INSTRUME': None, 'DETNAM': 'DETECTOR', 'GRATING': None,
-    #                 'OBS_MODE': None, 'DATAMODE': 'MODE', 'RA_NOM': None, 'DEC_NOM': None, 'ROLL_NOM': None,
-    #                 'SIM_X': 'SCIENCE_INST_MODULE_X', 'SIM_Y': 'SCIENCE_INST_MODULE_Y',
-    #                 'SIM_Z': 'SCIENCE_INST_MODULE_Z'}
-    # rel_hdr_info = {hdr_key if new_key is None else new_key: oif_hdr[hdr_key]
-    #                 for hdr_key, new_key in hdr_to_store.items()}
-    #
-    # # ------------------- ANY MODIFICATION OF HEADER DATA HAPPENS HERE ------------------
-    # rel_hdr_info['DETECTOR'] = rel_hdr_info['DETECTOR'].split('-')[-1]
-    # # Separate the GRATING info into a simple boolean look-up as to whether it has one deployed or not, and another
-    # #  header containing the name
-    # rel_hdr_info['GRATING_NAME'] = '' if rel_hdr_info['GRATING'] == 'NONE' else rel_hdr_info['GRATING']
-    # rel_hdr_info['GRATING'] = False if rel_hdr_info['GRATING'] == 'NONE' else True
-    # # -----------------------------------------------------------------------------------
-    #
-    # # This temporarily stores relevant quantities we derive from the file table
-    # rel_tbl_info = {}
-    # # Now we move to examining the data file table - first off we set an active value by checking if a processed
-    # #  event list exists
-    # rel_tbl_info['active'] = 'EVT2' in oif_tbl['MEMBER_CONTENT'].values
-    # # Quickly count the number of times each type of file is present, and convert to a dictionary
-    # mem_type_cnts = oif_tbl['MEMBER_CONTENT'].str.strip().value_counts().to_dict()
-    #
-    # alt_exp_mode = False
-    # sub_exp = False
-    # # Then we use them to try and determine if the data were taken in some unusual observing modes - we use the
-    # #  EVT1 count as a trigger because multi-OBI observations can combine their multiple exposures into a single
-    # #  EVT2 event list
-    # if 'EVT1' in mem_type_cnts and mem_type_cnts['EVT1'] > 1:
-    #     # First we look for 'alternating exposure mode', which would result in multiple event lists, one with e1 in
-    #     #  the name and another with e2 in the name
-    #     if (oif_tbl['MEMBER_LOCATION'].str.contains('_e2_').any() and
-    #             oif_tbl['MEMBER_LOCATION'].str.contains('_e1_').any()):
-    #         alt_exp_mode = True
-    #
-    #     # Now we arrive at 'multiple observation intervals', which seem equivalent to sub-exposures in the
-    #     #  XMM world (you can tell what X-ray telescope I 'grew up with' academically speaking). In the Chandra
-    #     #  archive they seem incredibly rare, at the time of writing the docs page
-    #     #  (https://cxc.harvard.edu/ciao/why/multiobi.html) only mentioned twenty ObsIDs
-    #     else:
-    #         sub_exp = True
-    # elif 'EVT1' not in mem_type_cnts:
-    #     # This happens for ObsID 94 and ObsID 107 - there are no EVT1 files listed in their OIF, and so I think
-    #     #  we just have to set them to inactive
-    #     rel_tbl_info['active'] = False
-    #
-    # # Add them into the information dictionary
-    # rel_tbl_info['alt_exp_mode'] = alt_exp_mode
-    # rel_tbl_info['sub_exp'] = sub_exp
-    #
-    # # We're also going to extract the sub-exposure IDs (multi-OBI mode is very rarely used it seems, but if I
-    # #  want to support those observations, which I do, then we need to read them out). We also need to set
-    # #  a sub-exposure ID in the case where it Chandra isn't in multi-OBI mode, as the infrastructure demands
-    # # that if one ObsID has sub-exposures then they all do
-    # if sub_exp:
-    #     evt1_files = oif_tbl[oif_tbl['MEMBER_CONTENT'] == 'EVT1']['MEMBER_LOCATION'].values
-    #     sub_exp_ids = ['E' + ev1_f.split('_')[-2].split('N')[0] for ev1_f in evt1_files]
-    #     sub_exp_ids.sort()
-    # else:
-    #     sub_exp_ids = ['E001']
-    # # Then that list of sub-exposure IDs (or single ID in most cases) is stored in the output dictionary
-    # rel_tbl_info['sub_exp_ids'] = sub_exp_ids
-    #
-    # # Now check to make sure that there are aspect solution files included somewhere - there are very small number
-    # #  of observations which don't seem to have them, and probably can't be reprocessed (see issue #345), so
-    # #  they are set as inactive
-    # if 'ASPSOL' not in mem_type_cnts and 'ASPSOLOBI' not in mem_type_cnts:
-    #     rel_tbl_info['active'] = False
-    #
-    # # We're also going to store the counts of how many of each type of file are present - it might be useful later
-    # rel_tbl_info['file_content_counts'] = mem_type_cnts
-    #
-    # # ------------------- HERE WE CONSTRUCT THE RETURN DICTIONARY -------------------
-    # # The observation_summaries property of Archive expects the level below ObsID to be instrument names, or
-    # #  in this case just the one instrument name
-    # obs_info = {rel_hdr_info['INSTRUME']: None}
-    # # Drop the INSTRUME entry from rel_hdr_info now, we don't need it there any longer
-    # inst = rel_hdr_info.pop('INSTRUME')
-    # obs_info[inst] = rel_hdr_info
-    # obs_info[inst].update(rel_tbl_info)
-    # # -------------------------------------------------------------------------------
-    #
 
 
 def prepare_nustar_info(archive: Archive):
@@ -198,6 +116,14 @@ def prepare_nustar_info(archive: Archive):
                 proc_logs[miss.name][oi] = ''
                 proc_einfo[miss.name][oi] = {}
                 proc_conf[miss.name][oi] = ''
+
+    # This just makes sure that at least one observation has an OIF file that we can use - if not then I think
+    #  it is likely something has gone wrong on the backend, but whatever the reason we can't continue into any
+    #  Chandra processing.
+    for miss in nustar_miss:
+        if all([len(en) == 0 for oi, en in obs_sums[miss.name].items()]):
+            raise FileNotFoundError("No {} observation catalog files could be found to "
+                                    "process.".format(miss.pretty_name))
 
     # Finally the fully populated dictionary is added to the archive - this will be what informs DAXA about
     #  which NuSTAR observations it can actually process into something usable
