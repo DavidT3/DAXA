@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/08/2024, 11:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 09:13. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -17,10 +17,11 @@ from astropy.table import Table
 from astropy.time import Time
 from astropy.units import Quantity
 from bs4 import BeautifulSoup
+from tqdm import tqdm
+
 from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
-from tqdm import tqdm
 
 # Don't require that the event_cl directory be present (cleaned events), as we download the level-1 data (event_uf)
 #  and process it ourselves - THAT IS UNLESS the user wants to download the processed data
@@ -379,6 +380,16 @@ class NuSTARPointed(BaseMission):
             missing = [rd for rd in req_dir if rd not in top_data]
             raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
                                     "directories; {rq}".format(o=observation_id, rq=", ".join(missing)))
+
+        # Before we get to cycling through the directories, we need to download the top-level 'cat' file, which
+        #  should act as an inventory of all the other files for the ObsID
+        down_url = top_url + "{}.cat.gz".format(observation_id)
+        if not os.path.exists(raw_dir):
+            os.makedirs(raw_dir)
+        # Now download the file
+        with session.get(down_url, stream=True) as acquiro:
+            with open(raw_dir + '/{}_obs_summ.fits'.format(observation_id), 'wb') as writo:
+                copyfileobj(acquiro.raw, writo)
 
         for dat_dir in top_data:
             # The lower level URL of the directory we're currently looking at
