@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 10:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 11:05. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -1203,8 +1203,12 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             else:
                 miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path}
 
+            # If we're performing an actual merge then we make sure that the actual temporary directory is
+            #  stored in the extra information - otherwise we just make sure it is None.
             if was_merged:
                 miss_extras[miss.name][obs_id+inst].update({'working_dir': temp_dir})
+            else:
+                miss_extras[miss.name][obs_id+inst].update({'working_dir': None})
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Generating final PN/MOS event lists'
