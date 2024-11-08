@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:16. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 10:03. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -1095,6 +1095,9 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             # If there is only one event list for a particular ObsID-instrument combination, then obviously merging
             #  is impossible/unnecessary, so in that case we just rename the file (which will have sub-exposure ID
             #  info in the name) to the same style of the merged files
+            # We add a boolean flag to make sure that we can identify cases where no merging occured at the end of
+            #  this preparation function
+            was_merged = False
             if len(to_combine[oi]) == 1 and inst == 'PN':
                 # In this case we make sure to move the OOT of time event list file as well, using the PN skew
                 #  of the rename command
@@ -1103,6 +1106,8 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             elif len(to_combine[oi]) == 1:
                 cmd = inst_cmds['mos']['rename'].format(cne=to_combine[oi][0][1], nne=final_path)
             else:
+                # If we've got to this point, we know we're going to merge some files so we changed the boolean flag
+                was_merged = True
 
                 # Set up a temporary directory to work in (probably not really necessary in this case, but will be
                 #  in other processing functions).
@@ -1194,10 +1199,12 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             miss_final_paths[miss.name][obs_id+inst] = final_path
             # Again accounting for whether a OOT merged event list has been produced here or not
             if inst == 'PN':
-                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path, 'final_oot_evt': final_oot_path,
-                                                       'working_dir': temp_dir}
+                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path, 'final_oot_evt': final_oot_path}
             else:
-                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path, 'working_dir': temp_dir}
+                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path}
+
+            if was_merged:
+                miss_extras[miss.name][obs_id+inst].update({'working_dir': temp_dir})
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Generating final PN/MOS event lists'
