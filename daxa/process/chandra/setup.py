@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 12:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 12:48. Copyright (c) The Contributors
 
 import os
 
@@ -197,8 +197,9 @@ def prepare_chandra_info(archive: Archive):
     # This just makes sure that at least one observation has an OIF file that we can use - if not then I think
     #  it is likely something has gone wrong on the backend, but whatever the reason we can't continue into any
     #  Chandra processing.
-    if all([len(en) == 0 for oi, en in obs_sums.items()]):
-        raise FileNotFoundError("No Chandra oif.fits files could be found to process.")
+    for miss in chandra_miss:
+        if all([len(en) == 0 for oi, en in obs_sums[miss.name].items()]):
+            raise FileNotFoundError("No {} oif.fits files could be found to process.".format(miss.pretty_name))
 
     # Finally the fully populated dictionary is added to the archive - this will be what informs DAXA about
     #  which Chandra observations it can actually process into something usable
