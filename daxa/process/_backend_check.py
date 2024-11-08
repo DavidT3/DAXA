@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 16/10/2024, 21:53. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/11/2024, 22:32. Copyright (c) The Contributors
 
 import os
 from shutil import which
@@ -8,7 +8,8 @@ from typing import Tuple
 
 from packaging.version import Version
 
-from ..exceptions import SASNotFoundError, SASVersionError, eSASSNotFoundError, BackendSoftwareError, CIAONotFoundError
+from ..exceptions import (SASNotFoundError, SASVersionError, eSASSNotFoundError, BackendSoftwareError,
+                          CIAONotFoundError, NuSTARDASNotFoundError)
 
 
 def find_sas() -> Version:
@@ -168,5 +169,47 @@ def find_ciao() -> Tuple[Version, Version]:
     else:
         # Strip out the CALDB version
         caldb_version = Version(split_out[5].split(':')[-1].strip())
+
+    return ciao_version, caldb_version
+
+
+def find_nustardas() -> Tuple[Version, Version]:
+    """
+    This function checks to ensure the presence of the NuSTARDAS software on the host system, and it will be called
+    before performing any data processing/reduction of NuSTAR data. An error will be thrown if CIAO (or CalDB NuSTAR
+    calibration files) cannot be identified on the system.
+
+    :return: The NuSTARDAS version that has been successfully identified, as an instance of the 'packaging'
+        module's Version class, and the NuSTAR CALDB version as another instance of the Version class.
+    :rtype: Tuple[Version, Version]
+    """
+    # Here we check to see whether NuSTARDAS is installed - if the user has a full HEASoft installation then it will
+    #  be - we're going to check with the 'nuversion' command that they created for this very purpose (it will also
+    #  give us the NuSTARDAS version, but not the NuSTAR CALDB version)
+    nu_out, nu_err = Popen("nuversion", stdout=PIPE, stderr=PIPE, shell=True).communicate()
+    # Just turn those pesky byte outputs into strings
+    nu_out = nu_out.decode("UTF-8")
+    nu_err = nu_err.decode("UTF-8")
+
+    # We initially check to see if our nuversion command ran at all, if it did then there is clearly a NuSTARDAS
+    #  installation, if not then we throw an exception, as it will be fatal to any hope of processing NuSTAR data
+    if "command not found" in nu_err:
+        raise NuSTARDASNotFoundError("NuSTARDAS cannot be identified on your system, and NuSTAR data cannot be "
+                                     "processed.")
+    else:
+        # If there was an output, it is very simple to strip the version out
+        ciao_version = Version(nu_out.split('_')[-1])
+
+    # If we've got to this point, then we know NuSTARDAS is installed - but we still need to check for the NuSTAR
+    #  calibration files being present. Unfortunately, there doesn't appear to be a single handy command to pull out
+    #  the NuSTAR CALDB version
+    caldb_version = Version('v1.0.0')
+    # readlink $CALDB/data/nustar/fpm/caldb.indx
+    # if 'not installed' in split_out[5].lower():
+    #     raise NuSTARDASNotFoundError("A NuSTAR CALDB installation cannot be identified on your system, and as such "
+    #                                  "NuSTAR data cannot be processed.")
+    # else:
+    #     # Strip out the CALDB version
+    #     caldb_version = Version(split_out[5].split(':')[-1].strip())
 
     return ciao_version, caldb_version
