@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 10:41. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 11:48. Copyright (c) The Contributors
 
 import os
 
@@ -26,10 +26,17 @@ def parse_cat(cat_path: str):
     # Reading in the file as a fits HDUList first
     cat_file = fits.open(cat_path)
 
-    # We want both the header and the table - the header will give us some instrument info
-    cat_hdr = cat_file[1].header
-    # Convert to pandas because I prefer working with dataframes
+    # Read out the file table and convert to pandas because I prefer working with dataframes
     cat_tbl = Table(cat_file[1].data).to_pandas()
+
+    # This is the dictionary that will be returned at the end
+    obs_info = {}
+
+
+
+
+    return obs_info
+
     # We're gonna make good use of the MEMBER_CONTENT column, but we wish to strip out the whitespace that can
     #  be present there
     # oif_tbl['MEMBER_CONTENT'] = oif_tbl['MEMBER_CONTENT'].str.strip()
@@ -119,7 +126,6 @@ def parse_cat(cat_path: str):
     # obs_info[inst].update(rel_tbl_info)
     # # -------------------------------------------------------------------------------
     #
-    # return obs_info
 
 
 def prepare_nustar_info(archive: Archive):
