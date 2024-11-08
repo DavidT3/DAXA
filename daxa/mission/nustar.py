@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/08/2024, 11:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 15:50. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -9,6 +9,7 @@ from shutil import copyfileobj
 from typing import List, Union, Any
 from warnings import warn
 
+import numpy as np
 import pandas as pd
 import requests
 from astropy.coordinates import BaseRADecFrame, FK5
@@ -17,10 +18,11 @@ from astropy.table import Table
 from astropy.time import Time
 from astropy.units import Quantity
 from bs4 import BeautifulSoup
+from tqdm import tqdm
+
 from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
-from tqdm import tqdm
 
 # Don't require that the event_cl directory be present (cleaned events), as we download the level-1 data (event_uf)
 #  and process it ourselves - THAT IS UNLESS the user wants to download the processed data
@@ -229,7 +231,7 @@ class NuSTARPointed(BaseMission):
         # SPACECRAFT_MODE is acquired because the 'STELLAR' mode might not be suitable for science so may be excluded
         which_cols = ['RA', 'DEC', 'TIME', 'OBSID', 'STATUS', 'EXPOSURE_A', 'OBSERVATION_MODE', 'PUBLIC_DATE',
                       'ISSUE_FLAG', 'END_TIME', 'EXPOSURE_B', 'INSTRUMENT_MODE', 'NUPSDOUT', 'ONTIME_A', 'ONTIME_B',
-                      'SPACECRAFT_MODE', 'SUBJECT_CATEGORY', 'OBS_TYPE']
+                      'SPACECRAFT_MODE', 'SUBJECT_CATEGORY', 'OBS_TYPE', 'NAME']
         # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
         #  but I curated it to only those I think might be useful for DAXA
         fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
@@ -258,12 +260,37 @@ class NuSTARPointed(BaseMission):
                                  (full_nustar['SPACECRAFT_MODE'] == 'INERTIAL') &
                                  (full_nustar['STATUS'].isin(['processed', 'archived']))]
 
+        # Record how many observations we started out with (after the big cuts above)
+        pre_ontime_cut_obs_num = len(rel_nustar)
+
+        # Important first step, making any global cuts to the dataframe to remove entries that are not going to be
+        #  useful. For NuSTAR we first remove any observations with no ontime for either FPM
+        rel_nustar = rel_nustar[(rel_nustar['ONTIME_A'] != 0.0) | (rel_nustar['ONTIME_B'] != 0.0)]
+        # We throw a warning that some NuSTAR observations have been removed
+        if len(rel_nustar) != pre_ontime_cut_obs_num:
+            warn("{ta} of the {tot} observations located for NuSTARPointed have been removed due to all instrument "
+                 "on-times being zero.".format(ta=pre_ontime_cut_obs_num - len(rel_nustar),
+                                              tot=pre_ontime_cut_obs_num), stacklevel=2)
+
+        # This removes any ObsIDs that have zero exposure time for the currently selected instruments - will only
+        #  have an effect if the user has chosen to only use a single focal-plane-module (no idea why they would
+        #  do that but we like to be generalised).
+        pre_inst_exp_check_num = len(rel_nustar)
+        rel_nustar = rel_nustar[np.logical_or.reduce([rel_nustar['ONTIME_' + inst[-1]] != 0
+                                                      for inst in self.chosen_instruments])]
+        # Warn the user if their chosen instruments have observations that have been removed
+        if len(rel_nustar) != pre_inst_exp_check_num:
+            warn("{ta} of the {tot} observations located for NuSTARPointed have been removed due to all chosen "
+                 "instrument ({ci}) on-times being zero.".format(ta=pre_inst_exp_check_num - len(rel_nustar),
+                                                                 tot=pre_ontime_cut_obs_num,
+                                                                 ci=", ".join(self.chosen_instruments)), stacklevel=2)
+
         # Lower-casing all the column names (personal preference largely).
         rel_nustar = rel_nustar.rename(columns=str.lower)
         # Changing a few column names to match what BaseMission expects
         rel_nustar = rel_nustar.rename(columns={'obsid': 'ObsID', 'time': 'start', 'end_time': 'end',
                                                 'public_date': 'proprietary_end_date',
-                                                'subject_category': 'target_category'})
+                                                'subject_category': 'target_category', 'name': 'target_name'})
 
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
         #  BaseMission time selection methods expect
@@ -325,7 +352,7 @@ class NuSTARPointed(BaseMission):
         # Re-ordering the table, and not including certain columns which have served their purpose
         rel_nustar = rel_nustar[['ra', 'dec', 'ObsID', 'science_usable', 'proprietary_usable', 'start', 'end',
                                  'duration', 'proprietary_end_date', 'target_category', 'exposure_a', 'exposure_b',
-                                 'ontime_a', 'ontime_b', 'nupsdout', 'issue_flag']]
+                                 'ontime_a', 'ontime_b', 'nupsdout', 'issue_flag', 'target_name']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
         #  the user would expect from  a fresh dataframe
@@ -379,6 +406,20 @@ class NuSTARPointed(BaseMission):
             missing = [rd for rd in req_dir if rd not in top_data]
             raise FileNotFoundError("The archive data directory for {o} does not contain the following required "
                                     "directories; {rq}".format(o=observation_id, rq=", ".join(missing)))
+
+        # Before we get to cycling through the directories, we need to download the top-level 'cat' file, which
+        #  should act as an inventory of all the other files for the ObsID
+        down_url = top_url + "nu{}.cat.gz".format(observation_id)
+        if not os.path.exists(raw_dir):
+            os.makedirs(raw_dir)
+
+        # Now download the file
+        with session.get(down_url, stream=True) as acquiro:
+            # I funnel the streamed download straight into the gzip decompression
+            decomp_acquiro = gzip.open(acquiro.raw)
+            # Now write out the final decompressed catalog of observation files
+            with open(raw_dir + '/{}_cat.fits'.format(observation_id), 'wb') as writo:
+                copyfileobj(decomp_acquiro, writo)
 
         for dat_dir in top_data:
             # The lower level URL of the directory we're currently looking at
@@ -547,12 +588,18 @@ class NuSTARPointed(BaseMission):
         This method should never need to be triggered by the user, as it will be called automatically when detailed
         observation information becomes available to the Archive.
 
-        :param dict obs_info: The multi-level dictionary containing available observation information for an
-            observation.
+        :param dict obs_info: A dictionary with boolean entries for the two FPMs.
         """
-        raise NotImplementedError("The check_process_obs method has not yet been implemented for NuSTARPointed, as "
-                                  "we need to see what detailed information are available once processing downloaded "
-                                  "data has begun.")
+        # Incredibly simple and I think that all the 'active' flags will be True anyway, but ah well
+        to_return = {}
+        for inst in obs_info:
+            if obs_info[inst]['active']:
+                to_return[inst] = True
+            else:
+                to_return[inst] = False
+
+        return to_return
+
 
     def ident_to_obsid(self, ident: str):
         """
@@ -569,8 +616,5 @@ class NuSTARPointed(BaseMission):
 
         :param str ident: The unique identifier used in a particular processing step.
         """
-        # raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
-        #                           "clear to me what form the unique identifiers will take once we start processing"
-        #                           "{n} data ourselves.".format(n=self.pretty_name))
         # NuSTAR ObsIDs are always 11 digits, so we just retrieve the first 11
         return ident[:11]

@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 19:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 15:42. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
@@ -10,6 +10,7 @@ from daxa.process.chandra import prepare_chandra_info
 from daxa.process.chandra.clean import deflare
 from daxa.process.erosita.assemble import cleaned_evt_lists as eros_cleaned_evt_lists
 from daxa.process.erosita.clean import flaregti
+from daxa.process.nustar.setup import prepare_nustar_info
 from daxa.process.xmm._common import ALLOWED_XMM_MISSIONS
 from daxa.process.xmm.assemble import (epchain, emchain, cleaned_evt_lists, merge_subexposures, rgs_events,
                                        rgs_angles, cleaned_rgs_event_lists)
@@ -175,3 +176,48 @@ def full_process_chandra(obs_archive: Archive, evt_lo_en: Quantity = None, evt_h
     #  maps - all in the default Chandra CSC bands
     flux_image(obs_archive, num_cores=num_cores, timeout=timeout)
     rate_image(obs_archive, num_cores=num_cores, timeout=timeout)
+
+
+def full_process_nustar(obs_archive: Archive, evt_lo_en: Quantity = None, evt_hi_en: Quantity = None,
+                        num_cores: int = NUM_CORES, timeout: Quantity = None):
+    """
+    This is a convenience function that will fully process and prepare NuSTAR data in an archive using the default
+    configuration settings of all the cleaning steps. If you wish to exercise finer grained control over the
+    processing of your data then you can copy the steps of this function and alter the various parameter values.
+
+    :param Archive obs_archive: An archive object that contains at least one NuSTAR mission to be processed.
+    :param Quantity evt_lo_en: If an energy filter should be applied to the final cleaned event lists, this is the
+        lower energy bound. The default is None, in which case NO ENERGY FILTER is applied.
+    :param Quantity evt_hi_en: If an energy filter should be applied to the final cleaned event lists, this is the
+        upper energy bound. The default is None, in which case NO ENERGY FILTER is applied.
+    :param int num_cores: The number of cores that can be used by the processing functions. The default is set to
+        the DAXA NUM_CORES parameter, which is configured to be 90% of the system's cores.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire processing stack, but a timeout for the individual
+        processes of each stage, whether they are at the ObsID or ObsID-Inst level of granularity.
+    """
+
+    # Firstly we run this function, which parses the observation catalog files that ship with NuSTAR data to
+    #  ascertain if the data can be used - frankly this doesn't do that much in NuSTAR's case
+    prepare_nustar_info(obs_archive)
+
+    # # This is the next step, essentially a DAXA version/wrapping of the incredibly handy (thank you CXC)
+    # #  Chandra reprocessing script (chandra_repro). This will automatically generate level-2 event lists, as well
+    # #  as other necessary products, applying the current calibration.
+    # # I won't let the user pass anything to this, as the arguments control relatively minor things, and they can
+    # #  run it themselves if they want to.
+    # chandra_repro(obs_archive, num_cores=num_cores, timeout=timeout)
+    #
+    # # Now we use the 'deflare' function to attempt to automatically find any flaring in the Chandra observations, and
+    # #  to create GTIs that will allow us to remove it
+    # deflare(obs_archive, num_cores=num_cores, timeout=timeout)
+    #
+    # # Now the flaring GTIs are used to create final cleaned event lists - we do allow the user to control the
+    # #  cleaned event list energy bands, a departure from the default behaviour
+    # cleaned_chandra_evts(obs_archive, lo_en=evt_lo_en, hi_en=evt_hi_en, num_cores=num_cores, timeout=timeout)
+    #
+    # # We run the flux image function, and the rate image function, to create a TONNE of photometric products. This
+    # #  makes sure we have normal images, flux and rate maps, weighted and standard exposure maps, and PSF radius
+    # #  maps - all in the default Chandra CSC bands
+    # flux_image(obs_archive, num_cores=num_cores, timeout=timeout)
+    # rate_image(obs_archive, num_cores=num_cores, timeout=timeout)
