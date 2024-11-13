@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/11/2024, 22:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 12/11/2024, 22:51. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -26,9 +26,9 @@ def nupipeline_calibrate(obs_archive: Archive, num_cores: int = NUM_CORES, disab
 
     # fpma_infile={evt_a} fpmb_infile={evt_b} attfile={att} "
     #                    "fpma_hkfile={hk_a} fpmb_hkfile={hk_b} cebhkfile={hk_ceb} inobebhkfile={hk_obeb}
-    stg_one_cmd = ("cd {d}; nupipeline indir={in_d} obsmode={om} instrument={inst} entrystage=1 exitstage=2 "
-                   "hpbinsize={hp_tb} hpcellsize={hp_cb} impfac={hp_imp} logpos={hp_lp} bthresh={hp_bt} "
-                   "aberration={asp_ab}")
+    stg_one_cmd = ("cd {d}; nupipeline indir={in_d} outdir='outputs' steminputs=nu{oi} obsmode={om} instrument={inst} "
+                   "entrystage=1 exitstage=2 hpbinsize={hp_tb} hpcellsize={hp_cb} impfac={hp_imp} logpos={hp_lp} "
+                   "bthresh={hp_bt} aberration={asp_ab}")
 
     # "obebhkfile={out_hk_obeb} outattfile={out_att} outpsdfile={out_psd} outpsdfilecor={out_corr_psd} "
     #                    "mastaspectfile={out_mask_asp} fpma_outbpfile={out_bp_a} fpmb_outbpfile={out_bp_b} "
@@ -41,7 +41,8 @@ def nupipeline_calibrate(obs_archive: Archive, num_cores: int = NUM_CORES, disab
     # ---------------------------------- Checking and converting user inputs ----------------------------------
 
     hot_pix_tbin = Quantity(600, 's')
-    hot_pix_cbin = Quantity(5, 'pix')
+    # MUST be an integer
+    hot_pix_cbin = Quantity(5, 'pix').astype(int)
     hot_pix_imp = 1
     hot_pix_lp = -6
     hot_pix_bt = 6
@@ -116,9 +117,11 @@ def nupipeline_calibrate(obs_archive: Archive, num_cores: int = NUM_CORES, disab
                 #                    "hpbinsize={hp_tb} hpcellsize={hp_cb} impfac={hp_imp} logpos={hp_lp} bthresh={hp_bt}"
                 #                    "aberration={asp_ab}"
 
-                cmd = stg_one_cmd.format(d=temp_dir, in_d=obs_data_path, inst=inst, om=obs_mode,
+                cmd = stg_one_cmd.format(d=temp_dir, in_d=obs_data_path, oi=obs_id, inst=inst, om=obs_mode,
                                          hp_tb=hot_pix_tbin.value, hp_cb=hot_pix_cbin.value, hp_imp=hot_pix_imp,
                                          hp_lp=hot_pix_lp, hp_bt=hot_pix_bt, asp_ab=asp_ab_corr)
+
+                print(cmd)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
