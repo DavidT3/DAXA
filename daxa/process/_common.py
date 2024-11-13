@@ -1,9 +1,9 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 22/10/2024, 08:55. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 13/11/2024, 12:57. Copyright (c) The Contributors
 
 import glob
 import os
-import os.path
+import sys
 from subprocess import Popen, PIPE, TimeoutExpired
 from typing import Tuple, List
 from warnings import warn
@@ -39,7 +39,16 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_in
     if isinstance(check_path, str):
         check_path = [check_path]
 
-    # ----------------------------- MISSION SPECIFIC CHECKS LIVE HERE -----------------------------
+    # ----------------------------- MISSION/PLATFORM SPECIFIC CHECKS LIVE HERE -----------------------------
+
+    # This chunk is a fix for problems with eSASS (eROSITA package) finding the correct libraries on Apple ARM based
+    #  systems, and just creates a new environment variable so it can locate them, if necessary
+    sys_env = os.environ.copy()
+    if sys.platform == 'darwin':
+        if "LD_LIBRARY_PATH" in sys_env:
+            cmd = f"export LD_LIBRARY_PATH={sys_env['LD_LIBRARY_PATH']} && {cmd}"
+        if "DYLD_LIBRARY_PATH" in sys_env:
+            cmd = f"export DYLD_LIBRARY_PATH={sys_env['DYLD_LIBRARY_PATH']} && {cmd}"
 
     # The eROSITA toolset eSASS is also available in a Docker container for macOS and Windows users
     # CURRENTLY we do not support it and actually an exception will be raised in the backend check, but we might
@@ -54,7 +63,7 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_in
         extra_cmd = 'punlearn; '
     else:
         extra_cmd = ''
-    # ---------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------
 
     # Keep an original copy of this variable for later
     og_cmd = cmd
@@ -72,7 +81,9 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_in
         #  I won't change it back as this spawns a new shell which then disappears at the end. Including the
         #  existing PFILES path entry is apparently very important - this path needs to contain the directory
         #  where all the blank template par files live, or it can't make a new one in the temporary directory
-        cmd = extra_cmd + 'export PFILES="{}:$PFILES"; '.format(new_pfiles) + cmd
+        # The HEADAS environment variables stop any processes trying to redirect to /dev/null
+        cmd = ("export HEADASNOQUERY=; export HEADASPROMPT=/dev/null; " + extra_cmd +
+               'export PFILES="{}:$PFILES"; '.format(new_pfiles) + cmd)
 
     # Starts the process running on a shell
     cmd_proc = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
