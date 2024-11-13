@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 12/11/2024, 22:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 13/11/2024, 11:54. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -27,7 +27,7 @@ def nupipeline_calibrate(obs_archive: Archive, num_cores: int = NUM_CORES, disab
     # fpma_infile={evt_a} fpmb_infile={evt_b} attfile={att} "
     #                    "fpma_hkfile={hk_a} fpmb_hkfile={hk_b} cebhkfile={hk_ceb} inobebhkfile={hk_obeb}
     stg_one_cmd = ("cd {d}; nupipeline indir={in_d} outdir='outputs' steminputs=nu{oi} obsmode={om} instrument={inst} "
-                   "entrystage=1 exitstage=2 hpbinsize={hp_tb} hpcellsize={hp_cb} impfac={hp_imp} logpos={hp_lp} "
+                   "entrystage=1 exitstage=1 hpbinsize={hp_tb} hpcellsize={hp_cb} impfac={hp_imp} logpos={hp_lp} "
                    "bthresh={hp_bt} aberration={asp_ab}")
 
     # "obebhkfile={out_hk_obeb} outattfile={out_att} outpsdfile={out_psd} outpsdfilecor={out_corr_psd} "
