@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 13/11/2024, 12:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 16:56. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -19,24 +19,49 @@ def nupipeline_calibrate(obs_archive: Archive, num_cores: int = NUM_CORES, disab
     # Runs standard checks, makes directories, returns NuSTARDAS versions, etc.
     nudas_vers, caldb_vers, nustar_miss = _nustardas_process_setup(obs_archive)
 
-
-
-
     # --------------------------------- Setting up command and file templates ---------------------------------
 
-    # fpma_infile={evt_a} fpmb_infile={evt_b} attfile={att} "
-    #                    "fpma_hkfile={hk_a} fpmb_hkfile={hk_b} cebhkfile={hk_ceb} inobebhkfile={hk_obeb}
     stg_one_cmd = ("cd {d}; nupipeline indir='{in_d}' outdir='outputs' steminputs='nu{oi}' obsmode='{om}' "
                    "instrument='{inst}' entrystage=1 exitstage=1 hpbinsize={hp_tb} hpcellsize={hp_cb} impfac={hp_imp} "
-                   "logpos={hp_lp} bthresh={hp_bt} aberration={asp_ab}")
+                   "logpos={hp_lp} bthresh={hp_bt} aberration={asp_ab}; mv {oge} {fe}")
 
     # "obebhkfile={out_hk_obeb} outattfile={out_att} outpsdfile={out_psd} outpsdfilecor={out_corr_psd} "
     #                    "mastaspectfile={out_mask_asp} fpma_outbpfile={out_bp_a} fpmb_outbpfile={out_bp_b} "
     #                    "fpma_outhpfile={out_hp_a} fpmb_outhpfile={out_hp_b}"
 
     # cd ..; rm -r {d}
-    # ---------------------------------------------------------------------------------------------------------
+    # TODO MAYBE ADD A LITTLE BASH CHECK FOR THE EXISTENCE OF THE SHARED FILES THAT ARE GENERATED NOT FOR SPECIFIC
+    #  INSTRUMENTS - DON'T WANT TO BE COPYING THEM OUT AND HAVE THEM COLLIDE
 
+    # The file patterns that should exist after the first stage of NuSTAR processing has finished running - they
+    #  will all be in the 'outputs' directory, as that is what we specified in the command above
+    prod_evt_list_name = "nu{oi}{si}_uf.evt"
+
+    prod_hotpix_name = "nu{oi}{si}_hp.fits"
+    prod_badpix_name = "nu{oi}{si}_bp.fits"
+
+    prod_detref_name = "nu{oi}{si}_det1.fits"
+
+    # The above were instrument specific, but these are generated regardless of whether FPMA or B is processed - as
+    #  such running each instrument separately is a bit wasteful, but it works better with the way DAXA is designed,
+    #  as it will make tracking of process failures for specific instruments much easier
+    # Attitude file for spacecraft
+    prod_att_name = "nu{oi}_att.fits"
+    # Mast movement file (I assume)
+    prod_mast_name = "nu{oi}_mast.fits"
+    prod_obeb_name = "nu{oi}_obeb.hk"
+    # Position sensing detector and corrected position sensing detector files
+    prod_psd_name = "nu{oi}_psd.fits"
+    prod_psdcorr_name = "nu{oi}_psdcorr.fits"
+
+    # These represent the final names and resting places of the event lists (note that we include the energy bound
+    #  identifier in the filename, but include no bounds because none are applied right now
+    evt_list_name = "obsid{o}-inst{i}-subexpALL-en-events.fits"
+    # Now we do the same for the other file types we're pulling out of this command
+    bad_pix_name = "obsid{o}-inst{i}-subexpALL-badpix.fits"
+    hot_pix_name = "obsid{o}-inst{i}-subexpALL-hotpix.fits"
+
+    # ---------------------------------------------------------------------------------------------------------
 
     # ---------------------------------- Checking and converting user inputs ----------------------------------
 
@@ -105,6 +130,26 @@ def nupipeline_calibrate(obs_archive: Archive, num_cores: int = NUM_CORES, disab
             temp_name = "tempdir_{}".format(r_id)
             temp_dir = dest_dir + temp_name + "/"
 
+            # ------------------------------ Creating final names for output files ------------------------------
+            # First where do we expect them to be before we move and rename them
+            evt_out_path = os.path.join(temp_dir, prod_evt_list_name.format(oi=obs_id, si=inst[-1]))
+            hotpix_out_path = os.path.join(temp_dir, prod_hotpix_name.format(oi=obs_id, si=inst[-1]))
+            badpix_out_path = os.path.join(temp_dir, prod_badpix_name.format(oi=obs_id, si=inst[-1]))
+            detref_out_path = os.path.join(temp_dir, prod_detref_name.format(oi=obs_id, si=inst[-1]))
+            # Then the non-instrument specific ones
+            att_out_path = os.path.join(temp_dir, prod_att_name.format(oi=obs_id))
+            mast_out_path = os.path.join(temp_dir, prod_mast_name.format(oi=obs_id))
+            obeb_out_path = os.path.join(temp_dir, prod_obeb_name.format(oi=obs_id))
+            psd_out_path = os.path.join(temp_dir, prod_psd_name.format(oi=obs_id))
+            psdcorr_out_path = os.path.join(temp_dir, prod_psdcorr_name.format(oi=obs_id))
+
+            # This is where the final output event list file will be stored - after moving and renaming
+            evt_final_path = os.path.join(dest_dir, 'events', evt_list_name.format(o=obs_id, i=inst))
+            hotpix_final_path = os.path.join(dest_dir, hot_pix_name.format(o=obs_id, i=inst))
+            badpix_final_path = os.path.join(dest_dir, bad_pix_name.format(o=obs_id, i=inst))
+
+            # ---------------------------------------------------------------------------------------------------
+
             # If it doesn't already exist then we will create commands to generate it
             if ('nupipeline_calibrate' not in obs_archive.process_success[miss.name] or
                     val_id not in obs_archive.process_success[miss.name]['nupipeline_calibrate']):
@@ -113,24 +158,15 @@ def nupipeline_calibrate(obs_archive: Archive, num_cores: int = NUM_CORES, disab
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
 
-                # ndir={in_d} obsmode={om} entrystage=1 exitstage=2 "
-                #                    "hpbinsize={hp_tb} hpcellsize={hp_cb} impfac={hp_imp} logpos={hp_lp} bthresh={hp_bt}"
-                #                    "aberration={asp_ab}"
-
                 cmd = stg_one_cmd.format(d=temp_dir, in_d=obs_data_path, oi=obs_id, inst=inst, om=obs_mode,
                                          hp_tb=hot_pix_tbin.value, hp_cb=hot_pix_cbin.value, hp_imp=hot_pix_imp,
-                                         hp_lp=hot_pix_lp, hp_bt=hot_pix_bt, asp_ab=asp_ab_corr)
-
-                print(cmd)
+                                         hp_lp=hot_pix_lp, hp_bt=hot_pix_bt, asp_ab=asp_ab_corr, oge=evt_out_path,
+                                         fe=evt_final_path)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
-                # TODO CONSIDER WHAT FILES TO CHECK FOR ALTERNATING EXPOSURE AND MULTI-OBI MODES
-                miss_final_paths[miss.name][val_id] = "evt_final_path"
-                miss_extras[miss.name][val_id] = {'working_dir': temp_dir, }
-                # 'evt_list': evt_final_path,
-                #                                                   'default_gti': gti_final_path, 'badpix': badpix_final_path,
-                #                                                   'fov_reg': fov_final_path, 'asol_file': asol_final_path
+                miss_final_paths[miss.name][val_id] = evt_final_path
+                miss_extras[miss.name][val_id] = {'working_dir': temp_dir, 'evt_list': evt_final_path}
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Calibrating data'
