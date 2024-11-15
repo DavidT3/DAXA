@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:18. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -16,7 +16,7 @@ from daxa.process.nustar._common import _nustardas_process_setup, nustardas_call
 @nustardas_call
 def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(600, 's'),
                          hp_cell_bin: Union[Quantity, int] = Quantity(5, 'pix'), hp_imp: float = 1.,
-                         hp_log_pos: float = -6., hp_bck_thr: float = 6., asp_ab_corr: bool = True,
+                         hp_log_pos: float = -6., hp_bck_thr: int = 6, asp_ab_corr: bool = True,
                          num_cores: int = NUM_CORES, disable_progress: bool = False,
                          timeout: Quantity = None):
     """
@@ -32,7 +32,7 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
         the input must be an odd number of pixels (greater than one).
     :param float hp_imp:
     :param float hp_log_pos:
-    :param float hp_bck_thr:
+    :param int hp_bck_thr:
     :param bool asp_ab_corr:
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the NuSTARDAS generation progress bar.
@@ -114,6 +114,9 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
     # This is the log of the Poisson probability threshold for rejecting a hot pixel, must be negative
     if hp_log_pos >= 0:
         raise ValueError("The 'hp_log_pos' argument must be negative.")
+
+    # Make sure the background threshold is an integer
+    hp_bck_thr = int(hp_bck_thr)
 
     # Aspect file aberration correction - can be turned off if the user wants
     if asp_ab_corr:
