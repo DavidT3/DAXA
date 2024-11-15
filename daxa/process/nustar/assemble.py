@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:34. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -30,10 +30,13 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
         600 seconds.
     :param Quantity/int hp_cell_bin: Spatial cell size to use when searching for hot pixels. Default is 5 pixels, and
         the input must be an odd number of pixels (greater than one).
-    :param float hp_imp:
-    :param float hp_log_pos:
-    :param int hp_bck_thr:
-    :param bool asp_ab_corr:
+    :param float hp_imp: The value used to compute the background level (input for the incomplete Gamma
+        function) for hot pixel search. Default is 1.
+    :param float hp_log_pos: Logarithm of the Poisson probability threshold for rejecting a hot pixel, default
+        is -6., and the value must be negative.
+    :param int hp_bck_thr: Background threshold used if the candidate hot/flickering pixel's neighborhood
+        has zero counts. Default is 6.
+    :param bool asp_ab_corr: Controls whether aberration is included in aspecting calculations. Default is True.
     :param int num_cores: The number of cores to use, default is set to 90% of available.
     :param bool disable_progress: Setting this to true will turn off the NuSTARDAS generation progress bar.
     :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
@@ -209,7 +212,6 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
             obeb_final_path = os.path.join(dest_dir, obeb_name.format(o=obs_id))
             psd_final_path = os.path.join(dest_dir, psd_name.format(o=obs_id))
             psdcorr_final_path = os.path.join(dest_dir, psdcorr_name.format(o=obs_id))
-
             # ---------------------------------------------------------------------------------------------------
 
             # If it doesn't already exist then we will create commands to generate it
