@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:34. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:44. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -50,13 +50,10 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
 
     stg_one_cmd = ("cd {d}; nupipeline indir='{in_d}' outdir='outputs' steminputs='nu{oi}' obsmode='{om}' "
                    "instrument='{inst}' entrystage=1 exitstage=1 hpbinsize={hp_tb} hpcellsize={hp_cb} impfac={hp_imp} "
-                   "logpos={hp_lp} bthresh={hp_bt} aberration={asp_ab}; mv {oge} {fe}")
+                   "logpos={hp_lp} bthresh={hp_bt} aberration={asp_ab}; mv {oge} {fe}; mv {oghp} {fhp}; "
+                   "mv {ogbp} {fbp}; mv {ogrp} {frp}; mv {oga} {fa}; mv {ogm} {fm}; mv {ogo} {fo}; mv {ogps} {fps}; "
+                   "mv {ogcps} {fcps}; cd ..; rm -r {d}")
 
-    # "obebhkfile={out_hk_obeb} outattfile={out_att} outpsdfile={out_psd} outpsdfilecor={out_corr_psd} "
-    #                    "mastaspectfile={out_mask_asp} fpma_outbpfile={out_bp_a} fpmb_outbpfile={out_bp_b} "
-    #                    "fpma_outhpfile={out_hp_a} fpmb_outhpfile={out_hp_b}"
-
-    # cd ..; rm -r {d}
     # TODO MAYBE ADD A LITTLE BASH CHECK FOR THE EXISTENCE OF THE SHARED FILES THAT ARE GENERATED NOT FOR SPECIFIC
     #  INSTRUMENTS - DON'T WANT TO BE COPYING THEM OUT AND HAVE THEM COLLIDE
 
@@ -94,7 +91,6 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
     obeb_name = "obsid{o}-obeb.fits"
     psd_name = "obsid{o}-psd.fits"
     psdcorr_name = "obsid{o}-psd.fits"
-
     # ---------------------------------------------------------------------------------------------------------
 
     # ---------------------------------- Checking and converting user inputs ----------------------------------
@@ -225,7 +221,11 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
                 cmd = stg_one_cmd.format(d=temp_dir, in_d=obs_data_path, oi=obs_id, inst=inst, om=obs_mode,
                                          hp_tb=hp_time_bin.value, hp_cb=hp_cell_bin.value, hp_imp=hp_imp,
                                          hp_lp=hp_log_pos, hp_bt=hp_bck_thr, asp_ab=asp_ab_corr, oge=evt_out_path,
-                                         fe=evt_final_path)
+                                         fe=evt_final_path, oghp=hotpix_out_path, fhp=hotpix_final_path,
+                                         ogbp=badpix_out_path, fbp=badpix_final_path, ogrp=detref_out_path,
+                                         frp=detref_final_path, oga=att_out_path, fa=att_final_path, ogm=mast_out_path,
+                                         fm=mast_final_path, ogo=obeb_out_path, fo=obeb_final_path, ogps=psd_out_path,
+                                         fps=psd_final_path, ogcps=psdcorr_out_path, fcps=psd_final_path)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
