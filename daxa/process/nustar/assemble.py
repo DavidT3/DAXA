@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:18. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:30. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -84,6 +84,14 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
     # Now we do the same for the other file types we're pulling out of this command
     bad_pix_name = "obsid{o}-inst{i}-subexpALL-badpix.fits"
     hot_pix_name = "obsid{o}-inst{i}-subexpALL-hotpix.fits"
+    det_ref_name = "obsid{o}-inst{i}-subexpALL-refpixel.fits"
+    # Now the files that are for the overall ObsID
+    att_name = "obsid{o}-attitude.fits"
+    mast_name = "obsid{o}-mast.fits"
+    obeb_name = "obsid{o}-obeb.fits"
+    psd_name = "obsid{o}-psd.fits"
+    psdcorr_name = "obsid{o}-psd.fits"
+
     # ---------------------------------------------------------------------------------------------------------
 
     # ---------------------------------- Checking and converting user inputs ----------------------------------
@@ -195,6 +203,12 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
             evt_final_path = os.path.join(dest_dir, 'events', evt_list_name.format(o=obs_id, i=inst))
             hotpix_final_path = os.path.join(dest_dir, hot_pix_name.format(o=obs_id, i=inst))
             badpix_final_path = os.path.join(dest_dir, bad_pix_name.format(o=obs_id, i=inst))
+            detref_final_path = os.path.join(dest_dir, det_ref_name.format(o=obs_id, i=inst))
+            att_final_path = os.path.join(dest_dir, att_name.format(o=obs_id))
+            mast_final_path = os.path.join(dest_dir, mast_name.format(o=obs_id))
+            obeb_final_path = os.path.join(dest_dir, obeb_name.format(o=obs_id))
+            psd_final_path = os.path.join(dest_dir, psd_name.format(o=obs_id))
+            psdcorr_final_path = os.path.join(dest_dir, psdcorr_name.format(o=obs_id))
 
             # ---------------------------------------------------------------------------------------------------
 
