@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:11. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -26,8 +26,10 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
 
     :param Archive obs_archive: An Archive instance containing a NuSTAR mission instance. This function will fail
         if no NuSTAR missions are present in the archive.
-    :param Quantity hp_time_bin:
-    :param Quantity/int hp_cell_bin:
+    :param Quantity hp_time_bin: Time bin size for the generation of images to search for hot pixels. Default is
+        600 seconds.
+    :param Quantity/int hp_cell_bin: Spatial cell size to use when searching for hot pixels. Default is 5 pixels, and
+        the input must be an odd number of pixels (greater than one).
     :param float hp_imp:
     :param float hp_log_pos:
     :param float hp_bck_thr:
@@ -103,6 +105,11 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
         hp_cell_bin = Quantity(hp_cell_bin, 'pix')
     # Make sure it is an integer
     hp_cell_bin = hp_cell_bin.astype(int)
+    # Final check (yes this is slightly inelegant but oh well)
+    if hp_cell_bin < 1:
+        raise ValueError("The 'hp_cell_bin' argument must be greater than or equal to one.")
+    elif hp_cell_bin % 2 == 0:
+        raise ValueError("The 'hp_cell_bin' argument must be an odd numbr.")
 
     # This is the log of the Poisson probability threshold for rejecting a hot pixel, must be negative
     if hp_log_pos >= 0:
