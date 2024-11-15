@@ -1,11 +1,11 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 15:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 15/11/2024, 00:11. Copyright (c) The Contributors
 
 from astropy.units import Quantity
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
-from daxa.process import chandra_repro, cleaned_chandra_evts, flux_image, rate_image
+from daxa.process import chandra_repro, cleaned_chandra_evts, flux_image, rate_image, nupipeline_calibrate
 from daxa.process.chandra import prepare_chandra_info
 from daxa.process.chandra.clean import deflare
 from daxa.process.erosita.assemble import cleaned_evt_lists as eros_cleaned_evt_lists
@@ -201,23 +201,7 @@ def full_process_nustar(obs_archive: Archive, evt_lo_en: Quantity = None, evt_hi
     #  ascertain if the data can be used - frankly this doesn't do that much in NuSTAR's case
     prepare_nustar_info(obs_archive)
 
-    # # This is the next step, essentially a DAXA version/wrapping of the incredibly handy (thank you CXC)
-    # #  Chandra reprocessing script (chandra_repro). This will automatically generate level-2 event lists, as well
-    # #  as other necessary products, applying the current calibration.
-    # # I won't let the user pass anything to this, as the arguments control relatively minor things, and they can
-    # #  run it themselves if they want to.
-    # chandra_repro(obs_archive, num_cores=num_cores, timeout=timeout)
-    #
-    # # Now we use the 'deflare' function to attempt to automatically find any flaring in the Chandra observations, and
-    # #  to create GTIs that will allow us to remove it
-    # deflare(obs_archive, num_cores=num_cores, timeout=timeout)
-    #
-    # # Now the flaring GTIs are used to create final cleaned event lists - we do allow the user to control the
-    # #  cleaned event list energy bands, a departure from the default behaviour
-    # cleaned_chandra_evts(obs_archive, lo_en=evt_lo_en, hi_en=evt_hi_en, num_cores=num_cores, timeout=timeout)
-    #
-    # # We run the flux image function, and the rate image function, to create a TONNE of photometric products. This
-    # #  makes sure we have normal images, flux and rate maps, weighted and standard exposure maps, and PSF radius
-    # #  maps - all in the default Chandra CSC bands
-    # flux_image(obs_archive, num_cores=num_cores, timeout=timeout)
-    # rate_image(obs_archive, num_cores=num_cores, timeout=timeout)
+    # Now we run the first stage of the NuSTARDAS nupipeline tool - this prepares the base data and necessary
+    #  files - applying the latest calibrations to the event lists
+    nupipeline_calibrate(obs_archive, num_cores=num_cores, timeout=timeout)
+

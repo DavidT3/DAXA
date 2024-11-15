@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 14:22. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 16:36. Copyright (c) The Contributors
 
 from enum import Flag
 from functools import wraps
@@ -108,7 +108,7 @@ def esass_call(esass_func):
         from daxa.process import PROC_LOOKUP
         for mn in miss_cmds:
             if esass_func.__name__ not in PROC_LOOKUP[mn]:
-                raise DAXADeveloperError("The {p} process does not have an entry in process.PROC_FILTER for "
+                raise DAXADeveloperError("The {p} process does not have an entry in process.PROC_LOOKUP for "
                                          "{mn}.".format(p=esass_func.__name__, mn=mn))
 
         # This just sets up a dictionary of how many tasks there are for each mission
