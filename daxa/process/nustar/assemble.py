@@ -1,10 +1,11 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 22:26. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:05. Copyright (c) The Contributors
 import os
 from random import randint
+from typing import Union
 
 import numpy as np
-from astropy.units import Quantity
+from astropy.units import Quantity, UnitConversionError
 
 from daxa import NUM_CORES
 from daxa.archive import Archive
@@ -13,9 +14,30 @@ from daxa.process.nustar._common import _nustardas_process_setup, nustardas_call
 
 
 @nustardas_call
-def nupipeline_calibrate(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False,
+def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(600, 's'),
+                         hp_cell_bin: Union[Quantity, int] = Quantity(5, 'pix'), hp_imp: float = 1.,
+                         hp_log_pos: float = -6., hp_bck_thr: float = 6., asp_ab_corr: bool = True,
+                         num_cores: int = NUM_CORES, disable_progress: bool = False,
                          timeout: Quantity = None):
+    """
+    The DAXA wrapper for stage one of the NuSTARDAS tool 'nupipeline', which prepares and calibrates NuSTAR raw
+    data - it also calculates aspect solutions, and the mast attitude. The main output are the
+    unfiltered, calibrated, event lists - but many other important files are created
 
+    :param Archive obs_archive: An Archive instance containing a NuSTAR mission instance. This function will fail
+        if no NuSTAR missions are present in the archive.
+    :param Quantity hp_time_bin:
+    :param Quantity/int hp_cell_bin:
+    :param float hp_imp:
+    :param float hp_log_pos:
+    :param float hp_bck_thr:
+    :param bool asp_ab_corr:
+    :param int num_cores: The number of cores to use, default is set to 90% of available.
+    :param bool disable_progress: Setting this to true will turn off the NuSTARDAS generation progress bar.
+    :param Quantity timeout: The amount of time each individual process is allowed to run for, the default is None.
+        Please note that this is not a timeout for the entire process, but a timeout for individual
+        ObsID-Inst processes.
+    """
     # Runs standard checks, makes directories, returns NuSTARDAS versions, etc.
     nudas_vers, caldb_vers, nustar_miss = _nustardas_process_setup(obs_archive)
 
@@ -36,10 +58,10 @@ def nupipeline_calibrate(obs_archive: Archive, num_cores: int = NUM_CORES, disab
     # The file patterns that should exist after the first stage of NuSTAR processing has finished running - they
     #  will all be in the 'outputs' directory, as that is what we specified in the command above
     prod_evt_list_name = "nu{oi}{si}_uf.evt"
-
+    # The hot and bad pixels identified by the processing
     prod_hotpix_name = "nu{oi}{si}_hp.fits"
     prod_badpix_name = "nu{oi}{si}_bp.fits"
-
+    # Not going to lie, not entirely sure what this is yet
     prod_detref_name = "nu{oi}{si}_det1.fits"
 
     # The above were instrument specific, but these are generated regardless of whether FPMA or B is processed - as
@@ -60,21 +82,37 @@ def nupipeline_calibrate(obs_archive: Archive, num_cores: int = NUM_CORES, disab
     # Now we do the same for the other file types we're pulling out of this command
     bad_pix_name = "obsid{o}-inst{i}-subexpALL-badpix.fits"
     hot_pix_name = "obsid{o}-inst{i}-subexpALL-hotpix.fits"
-
     # ---------------------------------------------------------------------------------------------------------
 
     # ---------------------------------- Checking and converting user inputs ----------------------------------
+    # Checking that the hot-pixel search time bin is the right type of variable and in the right units
+    if not isinstance(hp_time_bin, Quantity):
+        raise TypeError("The 'hp_time_bin' argument must be a Quantity.")
+    elif isinstance(hp_time_bin, Quantity) and not hp_time_bin.unit.is_equivalent('s'):
+        raise UnitConversionError("The 'hp_time_bin' argument must be in units convertible to seconds.")
+    else:
+        hp_time_bin = hp_time_bin.to('s').astype(int)
 
-    hot_pix_tbin = Quantity(600, 's')
-    # MUST be an integer
-    hot_pix_cbin = Quantity(5, 'pix').astype(int)
-    hot_pix_imp = 1
-    hot_pix_lp = -6
-    hot_pix_bt = 6
+    # Check the hot-pixel search spatial cell size - must be in pixels but we also allow an integer to be
+    #  passed, in which case we convert to a quantity
+    if not isinstance(hp_cell_bin, (Quantity, int)):
+        raise TypeError("The 'hp_cell_bin' argument must be an astropy quantity or an integer.")
+    elif isinstance(hp_cell_bin, Quantity) and not hp_cell_bin.unit.is_equivalent('pix'):
+        raise UnitConversionError("The 'hp_cell_bin' argument must be in units convertible to pixels.")
+    elif isinstance(hp_cell_bin, int):
+        hp_cell_bin = Quantity(hp_cell_bin, 'pix')
+    # Make sure it is an integer
+    hp_cell_bin = hp_cell_bin.astype(int)
 
-    # Aspect file aberration correction
-    asp_ab_corr = 'yes'
+    # This is the log of the Poisson probability threshold for rejecting a hot pixel, must be negative
+    if hp_log_pos >= 0:
+        raise ValueError("The 'hp_log_pos' argument must be negative.")
 
+    # Aspect file aberration correction - can be turned off if the user wants
+    if asp_ab_corr:
+        asp_ab_corr = 'yes'
+    else:
+        asp_ab_corr = 'no'
     # ---------------------------------------------------------------------------------------------------------
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
@@ -159,8 +197,8 @@ def nupipeline_calibrate(obs_archive: Archive, num_cores: int = NUM_CORES, disab
                     os.makedirs(temp_dir)
 
                 cmd = stg_one_cmd.format(d=temp_dir, in_d=obs_data_path, oi=obs_id, inst=inst, om=obs_mode,
-                                         hp_tb=hot_pix_tbin.value, hp_cb=hot_pix_cbin.value, hp_imp=hot_pix_imp,
-                                         hp_lp=hot_pix_lp, hp_bt=hot_pix_bt, asp_ab=asp_ab_corr, oge=evt_out_path,
+                                         hp_tb=hp_time_bin.value, hp_cb=hp_cell_bin.value, hp_imp=hp_imp,
+                                         hp_lp=hp_log_pos, hp_bt=hp_bck_thr, asp_ab=asp_ab_corr, oge=evt_out_path,
                                          fe=evt_final_path)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
