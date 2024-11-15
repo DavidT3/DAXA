@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:45. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -225,7 +225,7 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
                                          ogbp=badpix_out_path, fbp=badpix_final_path, ogrp=detref_out_path,
                                          frp=detref_final_path, oga=att_out_path, fa=att_final_path, ogm=mast_out_path,
                                          fm=mast_final_path, ogo=obeb_out_path, fo=obeb_final_path, ogps=psd_out_path,
-                                         fps=psd_final_path, ogcps=psdcorr_out_path, fcps=psd_final_path)
+                                         fps=psd_final_path, ogcps=psdcorr_out_path, fcps=psdcorr_final_path)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
