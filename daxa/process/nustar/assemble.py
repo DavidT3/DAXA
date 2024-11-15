@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 16:56. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 22:26. Copyright (c) The Contributors
 import os
 from random import randint
 
@@ -132,16 +132,16 @@ def nupipeline_calibrate(obs_archive: Archive, num_cores: int = NUM_CORES, disab
 
             # ------------------------------ Creating final names for output files ------------------------------
             # First where do we expect them to be before we move and rename them
-            evt_out_path = os.path.join(temp_dir, prod_evt_list_name.format(oi=obs_id, si=inst[-1]))
-            hotpix_out_path = os.path.join(temp_dir, prod_hotpix_name.format(oi=obs_id, si=inst[-1]))
-            badpix_out_path = os.path.join(temp_dir, prod_badpix_name.format(oi=obs_id, si=inst[-1]))
-            detref_out_path = os.path.join(temp_dir, prod_detref_name.format(oi=obs_id, si=inst[-1]))
+            evt_out_path = os.path.join(temp_dir, 'outputs', prod_evt_list_name.format(oi=obs_id, si=inst[-1]))
+            hotpix_out_path = os.path.join(temp_dir, 'outputs', prod_hotpix_name.format(oi=obs_id, si=inst[-1]))
+            badpix_out_path = os.path.join(temp_dir, 'outputs', prod_badpix_name.format(oi=obs_id, si=inst[-1]))
+            detref_out_path = os.path.join(temp_dir, 'outputs', prod_detref_name.format(oi=obs_id, si=inst[-1]))
             # Then the non-instrument specific ones
-            att_out_path = os.path.join(temp_dir, prod_att_name.format(oi=obs_id))
-            mast_out_path = os.path.join(temp_dir, prod_mast_name.format(oi=obs_id))
-            obeb_out_path = os.path.join(temp_dir, prod_obeb_name.format(oi=obs_id))
-            psd_out_path = os.path.join(temp_dir, prod_psd_name.format(oi=obs_id))
-            psdcorr_out_path = os.path.join(temp_dir, prod_psdcorr_name.format(oi=obs_id))
+            att_out_path = os.path.join(temp_dir, 'outputs', prod_att_name.format(oi=obs_id))
+            mast_out_path = os.path.join(temp_dir, 'outputs', prod_mast_name.format(oi=obs_id))
+            obeb_out_path = os.path.join(temp_dir, 'outputs', prod_obeb_name.format(oi=obs_id))
+            psd_out_path = os.path.join(temp_dir, 'outputs', prod_psd_name.format(oi=obs_id))
+            psdcorr_out_path = os.path.join(temp_dir, 'outputs', prod_psdcorr_name.format(oi=obs_id))
 
             # This is where the final output event list file will be stored - after moving and renaming
             evt_final_path = os.path.join(dest_dir, 'events', evt_list_name.format(o=obs_id, i=inst))
