@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:45. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:48. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -229,10 +229,16 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
-                miss_final_paths[miss.name][val_id] = evt_final_path
-                miss_extras[miss.name][val_id] = {'working_dir': temp_dir, 'evt_list': evt_final_path}
+                # Not much rhyme or reason to why we're only testing for some of the output files
+                miss_final_paths[miss.name][val_id] = [evt_final_path, hotpix_final_path, badpix_final_path,
+                                                       detref_final_path]
+                miss_extras[miss.name][val_id] = {'working_dir': temp_dir, 'evt_list': evt_final_path,
+                                                  'hot_pix': hotpix_final_path, 'bad_pix': badpix_final_path,
+                                                  'ref_pix': detref_final_path, 'attitude': att_final_path,
+                                                  'mast': mast_final_path, 'obeb': obeb_final_path,
+                                                  'psd': psd_final_path, 'psdcorr': psdcorr_final_path}
 
     # This is just used for populating a progress bar during the process run
-    process_message = 'Calibrating data'
+    process_message = 'Calibrating observations'
 
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
