@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:11. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/11/2024, 23:15. Copyright (c) The Contributors
 import os
 from random import randint
 from typing import Union
@@ -106,10 +106,10 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
     # Make sure it is an integer
     hp_cell_bin = hp_cell_bin.astype(int)
     # Final check (yes this is slightly inelegant but oh well)
-    if hp_cell_bin < 1:
+    if hp_cell_bin < Quantity(1, 'pix'):
         raise ValueError("The 'hp_cell_bin' argument must be greater than or equal to one.")
-    elif hp_cell_bin % 2 == 0:
-        raise ValueError("The 'hp_cell_bin' argument must be an odd numbr.")
+    elif hp_cell_bin.value % 2 == 0:
+        raise ValueError("The 'hp_cell_bin' argument must be an odd number of pixels.")
 
     # This is the log of the Poisson probability threshold for rejecting a hot pixel, must be negative
     if hp_log_pos >= 0:
