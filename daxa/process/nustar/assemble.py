@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/11/2024, 10:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/11/2024, 10:21. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -52,8 +52,8 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
     stg_one_cmd = ("cd {d}; nupipeline indir='{in_d}' outdir='outputs' steminputs='nu{oi}' obsmode='{om}' "
                    "instrument='{inst}' entrystage=1 exitstage=1 hpbinsize={hp_tb} hpcellsize={hp_cb} impfac={hp_imp} "
                    "logpos={hp_lp} bthresh={hp_bt} aberration={asp_ab}; mv {oge} {fe}; mv {oghp} {fhp}; "
-                   "mv {ogbp} {fbp}; mv {ogrp} {frp}; mv {oga} {fa}; mv {ogm} {fm}; mv {ogo} {fo}; mv {ogps} {fps}; "
-                   "mv {ogcps} {fcps}; cd ..; rm -r {d}")
+                   "mv {ogbp} {fbp}; mv {ogrp} {frp}; mv {ogoa} {foa}; mv {oga} {fa}; mv {ogm} {fm}; mv {ogo} {fo}; "
+                   "mv {ogps} {fps}; mv {ogcps} {fcps}; cd ..; rm -r {d}")
 
     # TODO MAYBE ADD A LITTLE BASH CHECK FOR THE EXISTENCE OF THE SHARED FILES THAT ARE GENERATED NOT FOR SPECIFIC
     #  INSTRUMENTS - DON'T WANT TO BE COPYING THEM OUT AND HAVE THEM COLLIDE
@@ -66,6 +66,8 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
     prod_badpix_name = "nu{oi}{si}_bp.fits"
     # Not going to lie, not entirely sure what this is yet
     prod_detref_name = "nu{oi}{si}_det1.fits"
+    # The optical axis file - the pointing position of each telescope as a function of time (I think)
+    prod_optax_name = "nu{oi}{si}_oa.fits"
 
     # The above were instrument specific, but these are generated regardless of whether FPMA or B is processed - as
     #  such running each instrument separately is a bit wasteful, but it works better with the way DAXA is designed,
@@ -86,6 +88,7 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
     bad_pix_name = "obsid{o}-inst{i}-subexpALL-badpix.fits"
     hot_pix_name = "obsid{o}-inst{i}-subexpALL-hotpix.fits"
     det_ref_name = "obsid{o}-inst{i}-subexpALL-refpixel.fits"
+    opt_axis_name = "obsid{o}-inst{i}-subexpALL-optaxis.fits"
     # Now the files that are for the overall ObsID
     att_name = "obsid{o}-attitude.fits"
     mast_name = "obsid{o}-mast.fits"
@@ -103,7 +106,7 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
     else:
         hp_time_bin = hp_time_bin.to('s').astype(int)
 
-    # Check the hot-pixel search spatial cell size - must be in pixels but we also allow an integer to be
+    # Check the hot-pixel search spatial cell size - must be in pixels, but we also allow an integer to be
     #  passed, in which case we convert to a quantity
     if not isinstance(hp_cell_bin, (Quantity, int)):
         raise TypeError("The 'hp_cell_bin' argument must be an astropy quantity or an integer.")
@@ -192,6 +195,7 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
             hotpix_out_path = os.path.join(temp_dir, 'outputs', prod_hotpix_name.format(oi=obs_id, si=inst[-1]))
             badpix_out_path = os.path.join(temp_dir, 'outputs', prod_badpix_name.format(oi=obs_id, si=inst[-1]))
             detref_out_path = os.path.join(temp_dir, 'outputs', prod_detref_name.format(oi=obs_id, si=inst[-1]))
+            optaxis_out_path = os.path.join(temp_dir, 'outputs', prod_optax_name.format(oi=obs_id, si=inst[-1]))
             # Then the non-instrument specific ones
             att_out_path = os.path.join(temp_dir, 'outputs', prod_att_name.format(oi=obs_id))
             mast_out_path = os.path.join(temp_dir, 'outputs', prod_mast_name.format(oi=obs_id))
@@ -204,6 +208,7 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
             hotpix_final_path = os.path.join(dest_dir, 'misc', hot_pix_name.format(o=obs_id, i=inst))
             badpix_final_path = os.path.join(dest_dir, 'misc', bad_pix_name.format(o=obs_id, i=inst))
             detref_final_path = os.path.join(dest_dir, 'misc', det_ref_name.format(o=obs_id, i=inst))
+            optaxis_final_path = os.path.join(dest_dir, 'misc', opt_axis_name.format(o=obs_id, i=inst))
             att_final_path = os.path.join(dest_dir, 'misc', att_name.format(o=obs_id))
             mast_final_path = os.path.join(dest_dir, 'misc', mast_name.format(o=obs_id))
             obeb_final_path = os.path.join(dest_dir, 'misc', obeb_name.format(o=obs_id))
@@ -224,20 +229,22 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
                                          hp_lp=hp_log_pos, hp_bt=hp_bck_thr, asp_ab=asp_ab_corr, oge=evt_out_path,
                                          fe=evt_final_path, oghp=hotpix_out_path, fhp=hotpix_final_path,
                                          ogbp=badpix_out_path, fbp=badpix_final_path, ogrp=detref_out_path,
-                                         frp=detref_final_path, oga=att_out_path, fa=att_final_path, ogm=mast_out_path,
-                                         fm=mast_final_path, ogo=obeb_out_path, fo=obeb_final_path, ogps=psd_out_path,
-                                         fps=psd_final_path, ogcps=psdcorr_out_path, fcps=psdcorr_final_path)
+                                         frp=detref_final_path, ogoa=optaxis_out_path, foa=optaxis_final_path,
+                                         oga=att_out_path, fa=att_final_path, ogm=mast_out_path, fm=mast_final_path,
+                                         ogo=obeb_out_path, fo=obeb_final_path, ogps=psd_out_path, fps=psd_final_path,
+                                         ogcps=psdcorr_out_path, fcps=psdcorr_final_path)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
                 # Not much rhyme or reason to why we're only testing for some of the output files
                 miss_final_paths[miss.name][val_id] = [evt_final_path, hotpix_final_path, badpix_final_path,
-                                                       detref_final_path]
+                                                       detref_final_path, optaxis_final_path]
                 miss_extras[miss.name][val_id] = {'working_dir': temp_dir, 'evt_list': evt_final_path,
                                                   'hot_pix': hotpix_final_path, 'bad_pix': badpix_final_path,
-                                                  'ref_pix': detref_final_path, 'attitude': att_final_path,
-                                                  'mast': mast_final_path, 'obeb': obeb_final_path,
-                                                  'psd': psd_final_path, 'psdcorr': psdcorr_final_path}
+                                                  'ref_pix': detref_final_path, 'opt_axis': optaxis_final_path,
+                                                  'attitude': att_final_path, 'mast': mast_final_path,
+                                                  'obeb': obeb_final_path, 'psd': psd_final_path,
+                                                  'psdcorr': psdcorr_final_path}
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Calibrating observations'
