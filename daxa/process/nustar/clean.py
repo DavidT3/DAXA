@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/11/2024, 10:27. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/11/2024, 10:52. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -62,9 +62,8 @@ def nupipeline_clean(obs_archive: Archive, num_cores: int = NUM_CORES, disable_p
         miss_extras[miss.name] = {}
 
         all_obs = obs_archive.get_obs_to_process(miss.name)
-        all_ois = np.array([en[0] for en in all_obs])
 
-        good_obs_sel = obs_archive.check_dependence_success(miss.name, all_ois, 'nupipeline_calibrate',
+        good_obs_sel = obs_archive.check_dependence_success(miss.name, all_obs, 'nupipeline_calibrate',
                                                             no_success_error=False)
         good_obs = np.array(all_obs)[good_obs_sel]
 
