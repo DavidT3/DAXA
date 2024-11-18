@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/11/2024, 10:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/11/2024, 12:10. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -94,7 +94,7 @@ def nupipeline_calibrate(obs_archive: Archive, hp_time_bin: Quantity = Quantity(
     mast_name = "obsid{o}-mast.fits"
     obeb_name = "obsid{o}-obeb.fits"
     psd_name = "obsid{o}-psd.fits"
-    psdcorr_name = "obsid{o}-psd.fits"
+    psdcorr_name = "obsid{o}-psdcorr.fits"
     # ---------------------------------------------------------------------------------------------------------
 
     # ---------------------------------- Checking and converting user inputs ----------------------------------

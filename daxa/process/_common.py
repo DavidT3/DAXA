@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 13/11/2024, 12:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/11/2024, 12:10. Copyright (c) The Contributors
 
 import glob
 import os
@@ -57,9 +57,9 @@ def execute_cmd(cmd: str, rel_id: str, miss_name: str, check_path: str, extra_in
     if 'esass_in_docker' in extra_info and extra_info['esass_in_docker']:
         raise NotImplementedError("The use of eSASS through Docker has not been implemented.")
 
-    # If the mission we're working on here is Chandra, we create an extra command that should reset the
-    #  parameter file values
-    if 'chandra' in miss_name:
+    # If the mission we're working on here is primarily using HEASoft tools, we create an extra command that
+    #  should reset the parameter file values
+    if any([ch_name in miss_name for ch_name in ['chandra']]):
         extra_cmd = 'punlearn; '
     else:
         extra_cmd = ''
