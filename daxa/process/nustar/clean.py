@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/11/2024, 10:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/11/2024, 10:27. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -21,12 +21,12 @@ def nupipeline_clean(obs_archive: Archive, num_cores: int = NUM_CORES, disable_p
 
     # --------------------------------- Setting up command and file templates ---------------------------------
 
-    stg_two_cmd = ("cd {d}; nupipeline indir='{in_d}' outdir='outputs' steminputs='nu{oi}' obsmode='{om}' "
-                   "instrument='{inst}' entrystage=1 exitstage=1 hpbinsize={hp_tb} hpcellsize={hp_cb} impfac={hp_imp} "
-                   "logpos={hp_lp} bthresh={hp_bt} aberration={asp_ab}; mv {oge} {fe}; mv {oghp} {fhp}; "
-                   "mv {ogbp} {fbp}; mv {ogrp} {frp}; mv {oga} {fa}; mv {ogm} {fm}; mv {ogo} {fo}; mv {ogps} {fps}; "
-                   "mv {ogcps} {fcps}; cd ..; rm -r {d}")
+    # indir='{in_d}'    steminputs='nu{oi}'
+    stg_two_cmd_a = ("cd {d}; nupipeline fpma_infile='{ef}' outdir='outputs' obsmode='{om}' "
+                    "instrument='A' entrystage=2 exitstage=2 inmastaspectfile={ma} fpma_inoptaxisfile={oa} "
+                    "fpma_indet1reffile={dr} inpsdfilecor={pc}")
 
+    # cd ..; rm -r {d}
 
     # File name templates for things produced by this task that we want to keep
     # TODO CHANGE OBVIOUSLY
@@ -100,6 +100,26 @@ def nupipeline_clean(obs_archive: Archive, num_cores: int = NUM_CORES, disable_p
             evt_final_path = os.path.join(dest_dir, 'events', evt_list_name.format(o=obs_id, i=inst))
             # ---------------------------------------------------------------------------------------------------
 
+            # ----------------------------- Retrieving files from the previous stage ----------------------------
+            # We need many of the files that were created in the first stage of processing ('nupipeline_calibrate')
+            # Firstly, the calibrated (but not yet cleaned!) event list
+            rel_evt = obs_archive.process_extra_info[miss.name]['nupipeline_calibrate'][val_id]['evt_list']
+
+            # Then the mast aspect file (which accounts for any flexing or deformation of the mast (I think?)
+            rel_mast = obs_archive.process_extra_info[miss.name]['nupipeline_calibrate'][val_id]['mast']
+
+            # The file that describes the pointing of each telescope (optical axis) as a function of time
+            rel_optax = obs_archive.process_extra_info[miss.name]['nupipeline_calibrate'][val_id]['opt_axis']
+
+            # Detector reference pixel file
+            rel_detref = obs_archive.process_extra_info[miss.name]['nupipeline_calibrate'][val_id]['ref_pix']
+
+            # This is the 'corrected' position sensing detector file - these track the positions of the two laser
+            #  points on the 'position sensing detectors', which are used to calculate the mast aspect file
+            rel_psdcorr = obs_archive.process_extra_info[miss.name]['nupipeline_calibrate'][val_id]['psdcorr']
+            # ---------------------------------------------------------------------------------------------------
+
+
             # If it doesn't already exist then we will create commands to generate it
             if ('nupipeline_clean' not in obs_archive.process_success[miss.name] or
                     val_id not in obs_archive.process_success[miss.name]['nupipeline_clean']):
@@ -108,7 +128,17 @@ def nupipeline_clean(obs_archive: Archive, num_cores: int = NUM_CORES, disable_p
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
 
-                cmd = stg_two_cmd.format(d=temp_dir, in_d=obs_data_path, oi=obs_id, inst=inst, om=obs_mode)
+                # stg_two_cmd_a = ("cd {d}; nupipeline fpma_infile='{ef}' outdir='outputs' obsmode='{om}' "
+                #                     "instrument='A' entrystage=2 exitstage=2 inmastaspectfile={ma} fpma_inoptaxisfile={oa} "
+                #                     "fpma_indet1reffile={dr} inpsdfilecor={pc}")
+
+                # We have two slightly different templates for the two FPMs - simply because the input parameter
+                #  names are instrument specific, the setup and processes run are the same
+                if inst == 'FPMA':
+                    cmd = stg_two_cmd_a.format(d=temp_dir, oi=obs_id, om=obs_mode, ef=rel_evt, ma=rel_mast,
+                                               oa=rel_optax, dr=rel_detref, pc=rel_psdcorr)
+                elif inst == 'FPMB':
+                    raise NotImplementedError("Nope")
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
