@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/11/2024, 10:52. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 18/11/2024, 10:57. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -23,7 +23,7 @@ def nupipeline_clean(obs_archive: Archive, num_cores: int = NUM_CORES, disable_p
 
     # indir='{in_d}'    steminputs='nu{oi}'
     stg_two_cmd_a = ("cd {d}; nupipeline fpma_infile='{ef}' outdir='outputs' obsmode='{om}' "
-                    "instrument='A' entrystage=2 exitstage=2 inmastaspectfile={ma} fpma_inoptaxisfile={oa} "
+                    "instrument='FPMA' entrystage=2 exitstage=2 inmastaspectfile={ma} fpma_inoptaxisfile={oa} "
                     "fpma_indet1reffile={dr} inpsdfilecor={pc}")
 
     # cd ..; rm -r {d}
@@ -78,6 +78,10 @@ def nupipeline_clean(obs_archive: Archive, num_cores: int = NUM_CORES, disable_p
             val_id = ''.join(obs_info)
             # Split out the information in obs_info
             obs_id, inst = obs_info
+
+            # TODO REALLY VERY MUCH DO NEED TO REMOVE THIS OF COURSE
+            if inst == 'FPMB':
+                continue
 
             # Create the variable that points to the 'raw' data for this ObsID of this NuSTAR mission
             obs_data_path = miss.raw_data_path + obs_id + '/'
