@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 18/11/2024, 10:57. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/01/2025, 15:50. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -22,9 +22,9 @@ def nupipeline_clean(obs_archive: Archive, num_cores: int = NUM_CORES, disable_p
     # --------------------------------- Setting up command and file templates ---------------------------------
 
     # indir='{in_d}'    steminputs='nu{oi}'
-    stg_two_cmd_a = ("cd {d}; nupipeline fpma_infile='{ef}' outdir='outputs' obsmode='{om}' "
-                    "instrument='FPMA' entrystage=2 exitstage=2 inmastaspectfile={ma} fpma_inoptaxisfile={oa} "
-                    "fpma_indet1reffile={dr} inpsdfilecor={pc}")
+    stg_two_cmd_a = ("cd {d}; nupipeline indir='{in_d}' fpma_infile='../events/{ef}' outdir='outputs' obsmode='{om}' steminputs='nu{oi}' "
+                    "instrument='FPMA' entrystage=2 exitstage=2 inmastaspectfile='{ma}' fpma_inoptaxisfile='{oa}' "
+                    "fpma_indet1reffile='{dr}' inpsdfilecor='{pc}' chatter=5 clobber='yes'")
 
     # cd ..; rm -r {d}
 
@@ -107,6 +107,7 @@ def nupipeline_clean(obs_archive: Archive, num_cores: int = NUM_CORES, disable_p
             # We need many of the files that were created in the first stage of processing ('nupipeline_calibrate')
             # Firstly, the calibrated (but not yet cleaned!) event list
             rel_evt = obs_archive.process_extra_info[miss.name]['nupipeline_calibrate'][val_id]['evt_list']
+            rel_evt = os.path.basename(rel_evt)
 
             # Then the mast aspect file (which accounts for any flexing or deformation of the mast (I think?)
             rel_mast = obs_archive.process_extra_info[miss.name]['nupipeline_calibrate'][val_id]['mast']
@@ -130,16 +131,13 @@ def nupipeline_clean(obs_archive: Archive, num_cores: int = NUM_CORES, disable_p
                 #  the execute_cmd function will create) should help avoid any file collisions
                 if not os.path.exists(temp_dir):
                     os.makedirs(temp_dir)
-
-                # stg_two_cmd_a = ("cd {d}; nupipeline fpma_infile='{ef}' outdir='outputs' obsmode='{om}' "
-                #                     "instrument='A' entrystage=2 exitstage=2 inmastaspectfile={ma} fpma_inoptaxisfile={oa} "
-                #                     "fpma_indet1reffile={dr} inpsdfilecor={pc}")
+                    os.symlink()
 
                 # We have two slightly different templates for the two FPMs - simply because the input parameter
                 #  names are instrument specific, the setup and processes run are the same
                 if inst == 'FPMA':
-                    cmd = stg_two_cmd_a.format(d=temp_dir, oi=obs_id, om=obs_mode, ef=rel_evt, ma=rel_mast,
-                                               oa=rel_optax, dr=rel_detref, pc=rel_psdcorr)
+                    cmd = stg_two_cmd_a.format(d=temp_dir, in_d=obs_data_path, oi=obs_id, om=obs_mode, ef=rel_evt,
+                                               ma=rel_mast, oa=rel_optax, dr=rel_detref, pc=rel_psdcorr)
                 elif inst == 'FPMB':
                     raise NotImplementedError("Nope")
 
