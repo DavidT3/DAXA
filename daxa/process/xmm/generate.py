@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 23/04/2024, 15:45. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/01/2025, 15:57. Copyright (c) The Contributors
 import os
 import shutil
 from typing import Tuple
@@ -236,7 +236,13 @@ def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.
 
             # We make sure that directory exists (can't think why it wouldn't, but better to be safe).
             if os.path.exists(cur_path):
-                for file_name in os.listdir(cur_path):
+                # Make a list of the files at the current path, but making sure to exclude the calibration index
+                #  file that we know will be there as well - everything else is something that we want to rename
+                #  and move to the final images directory
+                rel_files = [f for f in os.listdir(cur_path) if 'ccf' not in f]
+
+                # Now we iterate through the identified files, setup their final names/full paths, and move them
+                for file_name in rel_files:
 
                     # We convert them to the new DAXA naming convention for files
                     if 'img' in file_name:
