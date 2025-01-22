@@ -44,7 +44,8 @@ def filter_on_positions(positions: Union[list, np.ndarray, SkyCoord],
     Convenience function to search around a position for observations across multiple missions. By
     default this function will search all available missions supported by DAXA. This will set up 
     Mission objects and filter their observations based on the input positions and search_distance
-    argument.
+    argument. If a mission does not have any observations matched after the filtering, they will not
+    be included in the dictionary output.
 
     :param list/np.ndarray/SkyCoord positions: The positions for which you wish to search for observations. They
         can be passed either as a list or nested list (i.e. [r, d] OR [[r1, d1], [r2, d2]]), a numpy array, or
@@ -61,9 +62,17 @@ def filter_on_positions(positions: Union[list, np.ndarray, SkyCoord],
         basis using the different field of views.
     :param list[str] missions: list of mission names that will have the filter performed on. If set 
         to None, this function will perform the search on all missions available within DAXA.
+    :return: A dictionary of missions that have observations associated with them. The keys are 
+        strings of the mission's names, and the values are the Mission objects that have had the
+        filtering applied and have found matching observations.
+    :rtype: dict[str, daxa.mission.BaseMission]
     """
     # TODO should we allow custom search distances for different telescopes here?
 
+    # User inputs to the positions and search_distance argument are checked within the 
+    # BaseMission.filter_on_positions method, so we dont check them here
+
+    # Checking inputs to missions argument
     if missions is not None:
         if not isinstance(missions, list):
             raise ValueError("The missions argument must be input as a list of strings.")
@@ -80,7 +89,7 @@ def filter_on_positions(positions: Union[list, np.ndarray, SkyCoord],
     else:
         mission_keys = MISS_INDEX.keys()
 
-    # Check input to missions argument
+    # This will be appended to if observations are found for a mission
     mission_dict = {}
     for mission_key in mission_keys:
         mission = MISS_INDEX[mission_key]()
@@ -91,5 +100,7 @@ def filter_on_positions(positions: Union[list, np.ndarray, SkyCoord],
             warn(f'No observations found after the filter for {mission_key}, will not be included '
                  'in the output dictionary.', stacklevel=2)
             continue
+        # All other errors are to do with the user input arguments to positions and 
+        # search_distance so we still want to raise those
     
     return mission_dict
