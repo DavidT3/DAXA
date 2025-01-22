@@ -23,9 +23,9 @@ def multi_mission_filter_on_positions(positions: Union[list, np.ndarray, SkyCoor
         observations. They can be passed either as a list or nested list (i.e. [r, d] OR [[r1, d1],
         [r2, d2]]), a numpy array, or an already defined SkyCoord. If a list or array is passed then
         the coordinates are assumed to be in degrees, and the default mission frame will be used.
-    :param Quantity/dict distance: The distance to search for observations within, the default is 
-        None in which case standard search distances for different missions are used. The user may 
-        pass a single Quantity to use for all missions or a dictionary with keys corresponding to 
+    :param Quantity/dict search_distance: The distance to search for observations within, the default 
+        is None in which case standard search distances for different missions are used. The user 
+        may pass a single Quantity to use for all missions or a dictionary with keys corresponding to 
         ALL or SOME of the missions specified by the 'mission' argument. In the case where only SOME
         of the missions are specified in a distance dictionary, the default DAXA values will be used
         for any that are missing. When specifying a search distance for a specific mission, this may 
@@ -43,10 +43,34 @@ def multi_mission_filter_on_positions(positions: Union[list, np.ndarray, SkyCoor
         Mission objects that have had the filtering applied and have found matching observations.
     :rtype: List[daxa.mission.BaseMission]
     """
-    # TODO should we allow custom search distances for different telescopes here?
+    # Checking the user inputs to the search_distance argument, we only check the mission level
+    # requirements to the input, for instrument specific checks, the indiviual filter_on_positions
+    # methods for each mission check this
+    if isinstance(search_distance, dict):
+        # check that all the keys are valid missions
+        if not all(miss in MISS_INDEX.keys() for miss in search_distance.keys()):
+            raise ValueError("Keys of the search_distance input ductionary not recognised, "
+                             f"acceptable input missions are as follows: {MISS_INDEX.keys()}")
+        # In the case that some missions are specified but not all of them, we need to use the 
+        # default search distances
+        if len(search_distance) != len(MISS_INDEX):
+            for miss in MISS_INDEX.keys():
+                if miss not in search_distance.keys():
+                    # By setting this to None, DAXA will use the default values
+                    search_distance[miss] = None
 
-    # User inputs to the positions and search_distance argument are checked within the 
-    # BaseMission.filter_on_positions method, so we dont check them here
+    # For all input types into search_distance we translate into a dictionary, so that the argument
+    # can be used generically later in the code
+    elif isinstance(search_distance, Quantity):
+        search_distance = {miss: Quantity for miss in MISS_INDEX.keys()}
+
+    elif search_distance is None:
+        search_distance = {miss: None for miss in MISS_INDEX.keys()}
+
+    else:
+        raise ValueError("The search distance argument must be input as either a Quantity, to be " 
+                         "applied to all missions, a dictionary with keys of some or all missions, " 
+                         "or left to None such that the DAXA default search distances are used.")
 
     # Checking inputs to missions argument
     if missions is not None:
@@ -70,7 +94,7 @@ def multi_mission_filter_on_positions(positions: Union[list, np.ndarray, SkyCoor
     for mission_key in mission_keys:
         mission = MISS_INDEX[mission_key]()
         try:
-            mission.filter_on_positions(positions, search_distance)
+            mission.filter_on_positions(positions, search_distance[mission_key])
             mission_list.append(mission)
         except NoObsAfterFilterError:
             warn(f'No observations found after the filter for {mission_key}, will not be included '
