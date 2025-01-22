@@ -19,19 +19,24 @@ def multi_mission_filter_on_positions(positions: Union[list, np.ndarray, SkyCoor
     argument. If a mission does not have any observations matched after the filtering, they will not
     be included in the dictionary output.
 
-    :param list/np.ndarray/SkyCoord positions: The positions for which you wish to search for observations. They
-        can be passed either as a list or nested list (i.e. [r, d] OR [[r1, d1], [r2, d2]]), a numpy array, or
-        an already defined SkyCoord. If a list or array is passed then the coordinates are assumed to be in
-        degrees, and the default mission frame will be used.
-    :param Quantity/float/int/list/np.ndarray/dict search_distance: The distance within which to search for
-        observations by this mission. Distance may be specified either as an Astropy Quantity that can be
-        converted to degrees (a float/integer will be assumed to be in units of degrees), as a dictionary of
-        quantities/floats/ints where the keys are names of different instruments (possibly with different field
-        of views), or as a non-scalar Quantity, list, or numpy array with one entry per set of coordinates (for
-        when you wish to use different search distances for each object). The default is None, in which case a
-        value of 1.2 times the approximate field of view defined for each instrument will be used; where different
-        instruments have different FoVs, observation searches will be undertaken on an instrument-by-instrument
-        basis using the different field of views.
+    :param list/np.ndarray/SkyCoord positions: The positions for which you wish to search for 
+        observations. They can be passed either as a list or nested list (i.e. [r, d] OR [[r1, d1],
+        [r2, d2]]), a numpy array, or an already defined SkyCoord. If a list or array is passed then
+        the coordinates are assumed to be in degrees, and the default mission frame will be used.
+    :param Quantity/dict distance: The distance to search for observations within, the default is 
+        None in which case standard search distances for different missions are used. The user may 
+        pass a single Quantity to use for all missions or a dictionary with keys corresponding to 
+        ALL or SOME of the missions specified by the 'mission' argument. In the case where only SOME
+        of the missions are specified in a distance dictionary, the default DAXA values will be used
+        for any that are missing. When specifying a search distance for a specific mission, this may 
+        be either an Astropy Quantity that can be converted to degrees (a float/integer will be 
+        assumed to be in units of degrees), as a dictionary of quantities/floats/ints where the keys
+        are names of different instruments (possibly with different field of views), or as a 
+        non-scalar Quantity, list, or numpy array with one entry per set of coordinates (for when 
+        you wish to use different search distances for each object). The default is None, in which 
+        case a value of 1.2 times the approximate field of view defined for each instrument will be 
+        used; where different instruments have different FoVs, observation searches will be 
+        undertaken on an instrument-by-instrument basis using the different field of views.
     :param list[str] missions: list of mission names that will have the filter performed on. If set 
         to None, this function will perform the search on all missions available within DAXA.
     :return: A list of missions that have observations associated with them. The list contains 
