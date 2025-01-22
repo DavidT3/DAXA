@@ -37,7 +37,7 @@ def dict_search(key: str, var: dict) -> list:
                     yield [str(k), result]
 
 
-def filter_on_position(positions: Union[list, np.ndarray, SkyCoord], 
+def filter_on_positions(positions: Union[list, np.ndarray, SkyCoord], 
                        search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
                        missions: List[str] = None) -> dict[str, BaseMission]:
     """
@@ -78,18 +78,18 @@ def filter_on_position(positions: Union[list, np.ndarray, SkyCoord],
             mission_keys = missions
             
     else:
-        mission_keys = MISS_INDEX.keys
+        mission_keys = MISS_INDEX.keys()
 
     # Check input to missions argument
     mission_dict = {}
     for mission_key in mission_keys:
         mission = MISS_INDEX[mission_key]()
         try:
-            mission.filter_on_position(positions, search_distance)
+            mission.filter_on_positions(positions, search_distance)
             mission_dict[mission_key] = mission
         except NoObsAfterFilterError:
             warn(f'No observations found after the filter for {mission_key}, will not be included '
-                 'in the output dictionary.')
+                 'in the output dictionary.', stacklevel=2)
             continue
     
     return mission_dict
