@@ -17,7 +17,7 @@ def multi_mission_filter_on_positions(positions: Union[list, np.ndarray, SkyCoor
     default this function will search all available missions supported by DAXA. This will set up 
     Mission objects and filter their observations based on the input positions and search_distance
     argument. If a mission does not have any observations matched after the filtering, they will not
-    be included in the dictionary output.
+    be included in the list output.
 
     :param list/np.ndarray/SkyCoord positions: The positions for which you wish to search for 
         observations. They can be passed either as a list or nested list (i.e. [r, d] OR [[r1, d1],
