@@ -62,7 +62,7 @@ def multi_mission_filter_on_positions(positions: Union[list, np.ndarray, SkyCoor
     # For all input types into search_distance we translate into a dictionary, so that the argument
     # can be used generically later in the code
     elif isinstance(search_distance, Quantity):
-        search_distance = {miss: Quantity for miss in MISS_INDEX.keys()}
+        search_distance = {miss: search_distance for miss in MISS_INDEX.keys()}
 
     elif search_distance is None:
         search_distance = {miss: None for miss in MISS_INDEX.keys()}
