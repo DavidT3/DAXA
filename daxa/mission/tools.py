@@ -34,10 +34,9 @@ def multi_mission_filter_on_positions(positions: Union[list, np.ndarray, SkyCoor
         basis using the different field of views.
     :param list[str] missions: list of mission names that will have the filter performed on. If set 
         to None, this function will perform the search on all missions available within DAXA.
-    :return: A dictionary of missions that have observations associated with them. The keys are 
-        strings of the mission's names, and the values are the Mission objects that have had the
-        filtering applied and have found matching observations.
-    :rtype: dict[str, daxa.mission.BaseMission]
+    :return: A list of missions that have observations associated with them. The list contains 
+        Mission objects that have had the filtering applied and have found matching observations.
+    :rtype: List[daxa.mission.BaseMission]
     """
     # TODO should we allow custom search distances for different telescopes here?
 
@@ -62,12 +61,12 @@ def multi_mission_filter_on_positions(positions: Union[list, np.ndarray, SkyCoor
         mission_keys = MISS_INDEX.keys()
 
     # This will be appended to if observations are found for a mission
-    mission_dict = {}
+    mission_list = []
     for mission_key in mission_keys:
         mission = MISS_INDEX[mission_key]()
         try:
             mission.filter_on_positions(positions, search_distance)
-            mission_dict[mission_key] = mission
+            mission_list.append(mission)
         except NoObsAfterFilterError:
             warn(f'No observations found after the filter for {mission_key}, will not be included '
                  'in the output dictionary.', stacklevel=2)
@@ -75,4 +74,4 @@ def multi_mission_filter_on_positions(positions: Union[list, np.ndarray, SkyCoor
         # All other errors are to do with the user input arguments to positions and 
         # search_distance so we still want to raise those
     
-    return mission_dict
+    return mission_list
