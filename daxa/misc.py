@@ -26,5 +26,3 @@ def dict_search(key: str, var: dict) -> list:
                     # ObsID and Instrument information from these product searches as well.
                     # This will mean the output is an unpleasantly nested list, but we can solve that.
                     yield [str(k), result]
-
-
