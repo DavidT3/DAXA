@@ -10,15 +10,15 @@ from .base import Archive
 from ..mission.tools import multi_mission_filter_on_positions
 
 def assemble_archive_from_positions(archive_name: str, positions: Union[list, np.ndarray, SkyCoord], 
-                       search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
-                       missions: List[str] = None, clobber: bool = False, 
-                       download_products: Union[bool, dict] = True, 
-                       use_preprocessed: Union[bool, dict] = False) -> Archive:
+                                    search_distance: Union[Quantity, float, int, list, np.ndarray, 
+                                    dict] = None, missions: List[str] = None, clobber: bool = False, 
+                                    download_products: Union[bool, dict] = True, 
+                                    use_preprocessed: Union[bool, dict] = False) -> Archive:
     """
     Assembles an archive from all observations that have been found by searching around a position.
     By default this function will search all available missions supported by DAXA. This will set up 
     Mission objects and filter their observations based on the input positions and search_distance
-    argument. If a mission does not have any observations matched after the filtering, they will not
+    argument. If a mission does not have any observations matched after the filtering, it will not
     be included in the final archive.
 
     :param str archive_name: Name of the archive to be assembled, it will be used for storage

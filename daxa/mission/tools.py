@@ -10,8 +10,9 @@ from . import MISS_INDEX
 from ..exceptions import NoObsAfterFilterError
 
 def multi_mission_filter_on_positions(positions: Union[list, np.ndarray, SkyCoord], 
-                       search_distance: Union[Quantity, float, int, list, np.ndarray, dict] = None,
-                       missions: List[str] = None) -> list[BaseMission]:
+                                      search_distance: Union[Quantity, float, int, list, 
+                                      np.ndarray, dict] = None, missions: List[str] = None
+                                      ) -> list[BaseMission]:
     """
     Convenience function to search around a position for observations across multiple missions. By
     default this function will search all available missions supported by DAXA. This will set up 
