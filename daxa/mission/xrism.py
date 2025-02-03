@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 14:10. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 14:28. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -116,9 +116,9 @@ class XRISMPointed(BaseMission):
         self.name
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = ['target_category', 'exposure', 'xtend_exposure', 'resolve_datamode',
-                                                'xtend_mode_ccd1-2', 'xtend_mode_ccd3-4', 'xtend_dataclass_ccd1-2',
-                                                'xtend_dataclass_ccd3-4']
+        self._required_mission_specific_cols = ['target_category', 'exposure', 'xtend_exposure', 'resolve_mode',
+                                                'xtend_mode1-2', 'xtend_mode3-4', 'xtend_dataclass1-2',
+                                                'xtend_dataclass3-4']
 
         # Runs the method which fetches information on all available Suzaku observations and stores that
         #  information in the all_obs_info property
@@ -264,16 +264,27 @@ class XRISMPointed(BaseMission):
                 for col in full_xrism.select_dtypes(['object']).columns:
                     full_xrism[col] = full_xrism[col].apply(lambda x: x.strip())
 
+        # Important first step, making any global cuts to the dataframe to remove entries with zero exposure, which
+        #  I think in this case should be data that haven't been taken. The 'exposure' column will preferentially be
+        #  RESOLVE exposure times, but if RESOLVE disabled will be XTEND
+        rel_xrism = full_xrism[(full_xrism['exposure'] != 0.0)]
+        # We throw a warning that some number of the Suzaku observations are dropped because it doesn't seem that they
+        #  will be at all useful
+        if len(rel_xrism) != len(full_xrism):
+            warn(
+                "{ta} of the {tot} observations located for XRISM Pointed have been removed due to all instrument "
+                "exposures being zero.".format(ta=len(full_xrism) - len(rel_xrism), tot=len(full_xrism)), stacklevel=2)
+
         # Lower-casing all the column names (personal preference largely).
-        rel_xrism = full_xrism.rename(columns=str.lower)
+        rel_xrism = rel_xrism.rename(columns=str.lower)
         # Changing a few column names to match what BaseMission expects
         rel_xrism = rel_xrism.rename(columns={'obsid': 'ObsID', 'time': 'start', 'end_time': 'end',
                                               'subject_category': 'target_category', 'xtd_expo': 'xtend_exposure',
-                                              'rsl_datamode': 'resolve_datamode',
-                                              'xtd_datamode1': 'xtend_mode_ccd1-2',
-                                              'xtd_datamode2': 'xtend_mode_ccd3-4',
-                                              'xtd_dataclas1': 'xtend_dataclass_ccd1-2',
-                                              'xtd_dataclas2': 'xtend_dataclass_ccd3-4'})
+                                              'rsl_datamode': 'resolve_mode',
+                                              'xtd_datamode1': 'xtend_mode1-2',
+                                              'xtd_datamode2': 'xtend_mode3-4',
+                                              'xtd_dataclas1': 'xtend_dataclass1-2',
+                                              'xtd_dataclas2': 'xtend_dataclass3-4'})
 
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
         #  BaseMission time selection methods expect
@@ -293,25 +304,28 @@ class XRISMPointed(BaseMission):
         rel_xrism['science_usable'] = True
 
         # Convert the categories of target that are present in the dataframe to the DAXA taxonomy
-        # The Suzaku category codes are here:
-        #  https://heasarc.gsfc.nasa.gov/W3Browse/suzaku/suzamaster.html#category_code
-        # These translations are pretty hand-wavey honestly
-        # conv_dict = {0: 'MISC', 1: 'CAL', 4: 'GS', 5: 'GS', 7: 'EGS', 8: 'GCL', 9: 'TOO'}
-        #
-        # # I construct a mask that tells me which entries have a recognised description - any that don't are set
-        # #  to the 'MISC' code
-        # type_recog = rel_xrism['target_category'].isin(list(conv_dict.keys()))
-        # # The recognized target category descriptions are converted to DAXA taxonomy
-        # rel_xrism.loc[type_recog, 'target_category'] = rel_xrism.loc[type_recog, 'target_category'].apply(
-        #     lambda x: conv_dict[x])
-        # # Now I set any unrecognized target category descriptions to MISC - there are none at the time of writing,
-        # #  but that could well change
-        # rel_xrism.loc[~type_recog, 'target_category'] = 'MISC'
+        # The Suzaku categories are here:
+        #  https://heasarc.gsfc.nasa.gov/W3Browse/xrism/xrismmastr.html#subject_category
+        conv_dict = {'Active galaxies and Quasars': 'AGN', 'Non-Proposal ToOs': 'TOO',
+                     'Galactic Compact Sources': 'GS', 'Solar System Objects': 'SOL',
+                     'Proposed ToOs and Directors Discretionary Time': 'TOO', 'Calibration Observations': 'CAL',
+                     'Non-ToO Supernovae, Supernova Remnants, and Galactic diffuse': 'SNR', 'Normal galaxies': 'NGS',
+                     'Galaxy clusters and extragalactic diffuse objects': 'GCL', 'Non-Pointing data': 'MISC'}
+
+        # I construct a mask that tells me which entries have a recognised description - any that don't are set
+        #  to the 'MISC' code
+        type_recog = rel_xrism['target_category'].isin(list(conv_dict.keys()))
+        # The recognized target category descriptions are converted to DAXA taxonomy
+        rel_xrism.loc[type_recog, 'target_category'] = rel_xrism.loc[type_recog, 'target_category'].apply(
+            lambda x: conv_dict[x])
+        # Now I set any unrecognized target category descriptions to MISC - there are none at the time of writing,
+        #  but that could well change
+        rel_xrism.loc[~type_recog, 'target_category'] = 'MISC'
 
         # Re-ordering the table, and not including certain columns which have served their purpose
         rel_xrism = rel_xrism[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category',
-                                'exposure', 'xtend_exposure', 'resolve_datamode', 'xtend_mode_ccd1-2',
-                               'xtend_mode_ccd3-4', 'xtend_dataclass_ccd1-2', 'xtend_dataclass_ccd3-4']]
+                                'exposure', 'xtend_exposure', 'resolve_mode', 'xtend_mode1-2',
+                               'xtend_mode3-4', 'xtend_dataclass1-2', 'xtend_dataclass3-4']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
         #  the user would expect from  a fresh dataframe
