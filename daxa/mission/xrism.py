@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 13:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 14:04. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -116,7 +116,7 @@ class XRISMPointed(BaseMission):
         self.name
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = ['target_category', 'resolve_expo', 'xtend_expo', 'resolve_mode',
+        self._required_mission_specific_cols = ['target_category', 'exposure', 'xtend_exposure', 'resolve_mode',
                                                 'xtend_mode_ccd1-2', 'xtend_mode_ccd3-4', 'xtend_dataclass_ccd1-2',
                                                 'xtend_dataclass_ccd3-4']
 
@@ -264,69 +264,60 @@ class XRISMPointed(BaseMission):
                 for col in full_xrism.select_dtypes(['object']).columns:
                     full_xrism[col] = full_xrism[col].apply(lambda x: x.strip())
 
-        print(full_xrism)
-        stop
-
-        # Important first step, making any global cuts to the dataframe to remove entries that are not going to be
-        #  useful. For Suzaku I have elected to remove any ObsID with zero exposure in all four XIS instruments
-        rel_suzaku = full_suzaku[(full_suzaku['XIS0_EXPO'] != 0.0) | (full_suzaku['XIS1_EXPO'] != 0.0) |
-                                 (full_suzaku['XIS2_EXPO'] != 0.0) | (full_suzaku['XIS3_EXPO'] != 0.0)]
-        # We throw a warning that some number of the Suzaku observations are dropped because it doesn't seem that they
-        #  will be at all useful
-        if len(rel_suzaku) != len(full_suzaku):
-            warn("{ta} of the {tot} observations located for Suzaku have been removed due to all instrument exposures "
-                 "being zero.".format(ta=len(full_suzaku) - len(rel_suzaku), tot=len(full_suzaku)), stacklevel=2)
-
         # Lower-casing all the column names (personal preference largely).
-        rel_suzaku = rel_suzaku.rename(columns=str.lower)
+        rel_xrism = full_xrism.rename(columns=str.lower)
         # Changing a few column names to match what BaseMission expects
-        rel_suzaku = rel_suzaku.rename(columns={'obsid': 'ObsID', 'time': 'start', 'stop_time': 'end',
-                                                'category_code': 'target_category'})
+        rel_xrism = rel_xrism.rename(columns={'obsid': 'ObsID', 'time': 'start', 'stop_time': 'end',
+                                                'Subject_Category': 'target_category', 'xtd_expo': 'xtend_exposure',
+                                                'Rsl_Datamode': 'resolve_mode', 'Xtd_Datamode1': 'xtend_mode_ccd1-2',
+                                                'Xtd_Datamode2': 'xtend_mode_ccd3-4',
+                                                'Xtd_Dataclas1': 'xtend_dataclass_ccd1-2',
+                                                'Xtd_Dataclas2': 'xtend_dataclass_ccd3-4'})
 
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
         #  BaseMission time selection methods expect
-        rel_suzaku['start'] = pd.to_datetime(Time(rel_suzaku['start'].values.astype(float), format='mjd',
-                                                  scale='utc').to_datetime())
-        rel_suzaku['end'] = pd.to_datetime(Time(rel_suzaku['end'].values.astype(float), format='mjd',
-                                                scale='utc').to_datetime())
+        rel_xrism['start'] = pd.to_datetime(Time(rel_xrism['start'].values.astype(float), format='mjd',
+                                                 scale='utc').to_datetime())
+        rel_xrism['end'] = pd.to_datetime(Time(rel_xrism['end'].values.astype(float), format='mjd',
+                                               scale='utc').to_datetime())
         # Then make a duration column by subtracting one from t'other - there are also exposure and ontime columns
         #  which I've acquired, but I think total duration is what I will go with here.
-        rel_suzaku['duration'] = rel_suzaku['end'] - rel_suzaku['start']
+        rel_xrism['duration'] = pd.to_timedelta(rel_xrism['duration'], 's')
 
         # Converting the exposure times to Pandas time deltas
-        for col in rel_suzaku.columns[rel_suzaku.columns.str.contains('expo')]:
-            rel_suzaku[col] = pd.to_timedelta(rel_suzaku[col], 's')
+        for col in rel_xrism.columns[rel_xrism.columns.str.contains('expo')]:
+            rel_xrism[col] = pd.to_timedelta(rel_xrism[col], 's')
 
         # No clear way of defining this from the tables, so we're going to assume that they all are
-        rel_suzaku['science_usable'] = True
+        rel_xrism['science_usable'] = True
 
         # Convert the categories of target that are present in the dataframe to the DAXA taxonomy
         # The Suzaku category codes are here:
         #  https://heasarc.gsfc.nasa.gov/W3Browse/suzaku/suzamaster.html#category_code
         # These translations are pretty hand-wavey honestly
-        conv_dict = {0: 'MISC', 1: 'CAL', 4: 'GS', 5: 'GS', 7: 'EGS', 8: 'GCL', 9: 'TOO'}
-
-        # I construct a mask that tells me which entries have a recognised description - any that don't will be set
-        #  to the 'MISC' code
-        type_recog = rel_suzaku['target_category'].isin(list(conv_dict.keys()))
-        # The recognized target category descriptions are converted to DAXA taxonomy
-        rel_suzaku.loc[type_recog, 'target_category'] = rel_suzaku.loc[type_recog, 'target_category'].apply(
-            lambda x: conv_dict[x])
-        # Now I set any unrecognized target category descriptions to MISC - there are none at the time of writing,
-        #  but that could well change
-        rel_suzaku.loc[~type_recog, 'target_category'] = 'MISC'
+        # conv_dict = {0: 'MISC', 1: 'CAL', 4: 'GS', 5: 'GS', 7: 'EGS', 8: 'GCL', 9: 'TOO'}
+        #
+        # # I construct a mask that tells me which entries have a recognised description - any that don't are set
+        # #  to the 'MISC' code
+        # type_recog = rel_xrism['target_category'].isin(list(conv_dict.keys()))
+        # # The recognized target category descriptions are converted to DAXA taxonomy
+        # rel_xrism.loc[type_recog, 'target_category'] = rel_xrism.loc[type_recog, 'target_category'].apply(
+        #     lambda x: conv_dict[x])
+        # # Now I set any unrecognized target category descriptions to MISC - there are none at the time of writing,
+        # #  but that could well change
+        # rel_xrism.loc[~type_recog, 'target_category'] = 'MISC'
 
         # Re-ordering the table, and not including certain columns which have served their purpose
-        rel_suzaku = rel_suzaku[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category',
-                                 'xis0_expo', 'xis0_num_modes', 'xis1_expo', 'xis1_num_modes',
-                                 'xis2_expo', 'xis2_num_modes', 'xis3_expo', 'xis3_num_modes']]
+        rel_xrism = rel_xrism[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category',
+                                'exposure', 'xtend_exposure', 'resolve_mode', 'xtend_mode_ccd1-2', 'xtend_mode_ccd3-4',
+                                'xtend_dataclass_ccd1-2', 'xtend_dataclass_ccd3-4']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
         #  the user would expect from  a fresh dataframe
-        rel_suzaku = rel_suzaku.reset_index(drop=True)
+        rel_xrism = rel_xrism.reset_index(drop=True)
 
         # Use the setter for all_obs_info to actually add this information to the instance
-        self.all_obs_info = rel_suzaku
+        self.all_obs_info = rel_xrism
 
     @staticmethod
     def _download_call(observation_id: str, insts: List[str], raw_dir: str, download_products: bool):
