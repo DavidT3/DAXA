@@ -67,6 +67,7 @@ of telescopes:_
 * eROSITA Commissioning
 * eROSITA All-Sky Survey DR1 (German Half)
 * **_[Under Development - reprocessing/flare identification/cleaned event lists/image & expmap & fluxmap generation implemented]_** Chandra
+* **_[Under Development - data acquisition implemented]_** XRISM
 * **_[Under Development - data acquisition implemented]_** NuSTAR
 * **_[Under Development - RASS/pointed data acquisition implemented]_** ROSAT
 * **_[Under Development - XRT/BAT/UVOT data acquisition implemented]_** Swift
