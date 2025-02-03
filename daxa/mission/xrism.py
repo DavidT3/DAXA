@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 14:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 14:10. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -116,7 +116,7 @@ class XRISMPointed(BaseMission):
         self.name
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = ['target_category', 'exposure', 'xtend_exposure', 'resolve_mode',
+        self._required_mission_specific_cols = ['target_category', 'exposure', 'xtend_exposure', 'resolve_datamode',
                                                 'xtend_mode_ccd1-2', 'xtend_mode_ccd3-4', 'xtend_dataclass_ccd1-2',
                                                 'xtend_dataclass_ccd3-4']
 
@@ -268,11 +268,12 @@ class XRISMPointed(BaseMission):
         rel_xrism = full_xrism.rename(columns=str.lower)
         # Changing a few column names to match what BaseMission expects
         rel_xrism = rel_xrism.rename(columns={'obsid': 'ObsID', 'time': 'start', 'end_time': 'end',
-                                                'Subject_Category': 'target_category', 'xtd_expo': 'xtend_exposure',
-                                                'Rsl_Datamode': 'resolve_mode', 'Xtd_Datamode1': 'xtend_mode_ccd1-2',
-                                                'Xtd_Datamode2': 'xtend_mode_ccd3-4',
-                                                'Xtd_Dataclas1': 'xtend_dataclass_ccd1-2',
-                                                'Xtd_Dataclas2': 'xtend_dataclass_ccd3-4'})
+                                              'subject_category': 'target_category', 'xtd_expo': 'xtend_exposure',
+                                              'rsl_datamode': 'resolve_datamode',
+                                              'xtd_datamode1': 'xtend_mode_ccd1-2',
+                                              'xtd_datamode2': 'xtend_mode_ccd3-4',
+                                              'xtd_dataclas1': 'xtend_dataclass_ccd1-2',
+                                              'xtd_dataclas2': 'xtend_dataclass_ccd3-4'})
 
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
         #  BaseMission time selection methods expect
@@ -309,8 +310,8 @@ class XRISMPointed(BaseMission):
 
         # Re-ordering the table, and not including certain columns which have served their purpose
         rel_xrism = rel_xrism[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category',
-                                'exposure', 'xtend_exposure', 'resolve_mode', 'xtend_mode_ccd1-2', 'xtend_mode_ccd3-4',
-                                'xtend_dataclass_ccd1-2', 'xtend_dataclass_ccd3-4']]
+                                'exposure', 'xtend_exposure', 'resolve_datamode', 'xtend_mode_ccd1-2',
+                               'xtend_mode_ccd3-4', 'xtend_dataclass_ccd1-2', 'xtend_dataclass_ccd3-4']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
         #  the user would expect from  a fresh dataframe
