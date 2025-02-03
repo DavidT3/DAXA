@@ -80,3 +80,11 @@ mission.integral module
    :members:
    :undoc-members:
    :show-inheritance:
+
+mission.xrism module
+----------------------
+
+.. automodule:: daxa.mission.xrism
+   :members:
+   :undoc-members:
+   :show-inheritance:

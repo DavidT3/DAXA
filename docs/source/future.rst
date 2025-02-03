@@ -1,9 +1,9 @@
 Planned DAXA Features
 ========================
 
-* **Chandra Data** - Data can be selected, downloaded, re-reduced, have flaring GTIs created, and have clean event lists made.
+* **NuSTAR Data** - Data can be acquired and downloaded, but full processing is not finished.
 
-* **NuSTAR Data** - Data can be acquired and downloaded, but not processed yet.
+* **XRISM Data** - Data can be acquired and downloaded, but not processed yet. Archived data products (images) can also be downloaded.
 
 * **ROSAT Data** - Data can be acquired and downloaded, but not processed yet. Archived data products (images/exposure maps) can also be downloaded.
 
