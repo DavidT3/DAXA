@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 13:38. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 13:48. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -222,9 +222,10 @@ class XRISMPointed(BaseMission):
     def _fetch_obs_info(self):
         """
         This method adapts the 'browse_extract.pl' script (a copy of which can be found in daxa/files for the proper
-        credit) to acquire the 'suzamaster' table from HEASArc - this method is much simpler, as it doesn't need to be
+        credit) to acquire the 'xrismmastr' table from HEASArc - this method is much simpler, as it doesn't need to be
         dynamic and accept different arguments, and we will filter observations locally. This table describes the
-        available Suzaku observations, with important information such as pointing coordinates, ObsIDs, and exposure.
+        available pointed XRISM observations, with important information such as pointing coordinates, ObsIDs, and
+        exposure.
         """
         # This is the web interface for querying NASA HEASArc catalogues
         host_url = "https://heasarc.gsfc.nasa.gov/db-perl/W3Browse/w3query.pl?"
@@ -236,17 +237,14 @@ class XRISMPointed(BaseMission):
         result_max = "&ResultMax=0"
         # This just tells the interface it's a query (I think?)
         action = "&Action=Query"
-        # Tells the interface that I want to retrieve from the suzamaster (Suzaku Master) catalogue
-        table_head = "tablehead=name=BATCHRETRIEVALCATALOG_2.0%20suzamaster"
+        # Tells the interface that I want to retrieve from the xrismmastr (XRISM Master) catalogue
+        table_head = "tablehead=name=BATCHRETRIEVALCATALOG_2.0%20xrismmastr"
 
         # The definition of all of these fields can be found here:
-        #  (https://heasarc.gsfc.nasa.gov/W3Browse/suzaku/suzamaster.html)
-        # All the proprietary periods for Suzaku data have passed, so we don't need to download them at this point
-        #  like we do with some other missions
-        which_cols = ['RA', 'DEC', 'OBSID', 'TIME', 'STOP_TIME', 'Category_Code',
-                      'XIS0_Expo', 'XIS0_Num_Modes', 'XIS1_Expo', 'XIS1_Num_Modes', 'XIS2_Expo', 'XIS2_Num_Modes',
-                      'XIS3_Expo', 'XIS3_Num_Modes']
-        # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
+        #  (https://heasarc.gsfc.nasa.gov/W3Browse/xrism/xrismmastr.html)
+        which_cols = ['RA', 'DEC', 'OBSID', 'TIME', 'END_TIME', 'Duration', 'Exposure', 'Xtd_Expo', 'Subject_Category',
+                      'Rsl_Datamode', 'Xtd_Datamode1', 'Xtd_Datamode2', 'Xtd_Dataclas1', 'Xtd_Dataclas2', 'Public_Date']
+        # This is what will be put into the URL to retrieve just those data fields - there are quite a few more,
         #  but I curated it to only those I think might be useful for DAXA
         fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
 
@@ -259,12 +257,15 @@ class XRISMPointed(BaseMission):
             #  first so that fits.open can access it as an already opened file handler).
             with fits.open(io.BytesIO(urlo.content)) as full_fits:
                 # Then convert the data in that fits file just into an astropy table object, and from there to a DF
-                full_suzaku = Table(full_fits[1].data).to_pandas()
+                full_xrism = Table(full_fits[1].data).to_pandas()
                 # This cycles through any column with the 'object' data type (string in this instance), and
                 #  strips it of white space (I noticed there was extra whitespace on the end of a lot of the
                 #  string data).
-                for col in full_suzaku.select_dtypes(['object']).columns:
-                    full_suzaku[col] = full_suzaku[col].apply(lambda x: x.strip())
+                for col in full_xrism.select_dtypes(['object']).columns:
+                    full_xrism[col] = full_xrism[col].apply(lambda x: x.strip())
+
+        print(full_xrism)
+        stop
 
         # Important first step, making any global cuts to the dataframe to remove entries that are not going to be
         #  useful. For Suzaku I have elected to remove any ObsID with zero exposure in all four XIS instruments
