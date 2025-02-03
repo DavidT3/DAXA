@@ -1,9 +1,10 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 14:29. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 14:46. Copyright (c) The Contributors
 
 import gzip
 import io
 import os
+from datetime import datetime
 from multiprocessing import Pool
 from shutil import copyfileobj
 from typing import List, Union, Any
@@ -267,7 +268,7 @@ class XRISMPointed(BaseMission):
         # Important first step, making any global cuts to the dataframe to remove entries with zero exposure, which
         #  I think in this case should be data that haven't been taken. The 'exposure' column will preferentially be
         #  RESOLVE exposure times, but if RESOLVE disabled will be XTEND
-        rel_xrism = full_xrism[(full_xrism['Exposure'] != 0.0)]
+        rel_xrism = full_xrism[(full_xrism['EXPOSURE'] != 0.0)]
         # We throw a warning that some number of the Suzaku observations are dropped because it doesn't seem that they
         #  will be at all useful
         if len(rel_xrism) != len(full_xrism):
@@ -284,7 +285,8 @@ class XRISMPointed(BaseMission):
                                               'xtd_datamode1': 'xtend_mode1-2',
                                               'xtd_datamode2': 'xtend_mode3-4',
                                               'xtd_dataclas1': 'xtend_dataclass1-2',
-                                              'xtd_dataclas2': 'xtend_dataclass3-4'})
+                                              'xtd_dataclas2': 'xtend_dataclass3-4',
+                                              'public_date': 'proprietary_end_date'})
 
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
         #  BaseMission time selection methods expect
@@ -299,6 +301,27 @@ class XRISMPointed(BaseMission):
         # Converting the exposure times to Pandas time deltas
         for col in rel_xrism.columns[rel_xrism.columns.str.contains('expo')]:
             rel_xrism[col] = pd.to_timedelta(rel_xrism[col], 's')
+
+        # Slightly more complicated with the public release dates, as some of them are set to 0 MJD, which makes the
+        #  conversion routine quite upset (0 is not valid) - as such I convert only those which aren't 0, then
+        #  replace the 0 valued ones with Pandas' Not a Time (NaT) value
+        val_end_dates = rel_xrism['proprietary_end_date'] != 0
+
+        # We make a copy of the proprietary end dates to work on because pandas will soon not allow us to set what
+        #  was previously an int column with a datetime - so we need to convert it but retain the original
+        #  data as well
+        prop_end_datas = rel_xrism['proprietary_end_date'].copy()
+        # Convert the original column to datetime
+        rel_xrism['proprietary_end_date'] = rel_xrism['proprietary_end_date'].astype('datetime64[ns]')
+        rel_xrism.loc[val_end_dates, 'proprietary_end_date'] = pd.to_datetime(
+            Time(prop_end_datas[val_end_dates.values], format='mjd', scale='utc').to_datetime())
+        rel_xrism.loc[~val_end_dates, 'proprietary_end_date'] = pd.NaT
+        # Grab the current date and time
+        today = datetime.today()
+        # Create a boolean column that describes whether the data are out of their proprietary period yet
+        rel_xrism['proprietary_usable'] = rel_xrism['proprietary_end_date'].apply(lambda x:
+                                                                                  ((x <= today) &
+                                                                                   (pd.notnull(x)))).astype(bool)
 
         # No clear way of defining this from the tables, so we're going to assume that they all are
         rel_xrism['science_usable'] = True
