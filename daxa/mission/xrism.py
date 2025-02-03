@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 14:04. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 14:05. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -267,7 +267,7 @@ class XRISMPointed(BaseMission):
         # Lower-casing all the column names (personal preference largely).
         rel_xrism = full_xrism.rename(columns=str.lower)
         # Changing a few column names to match what BaseMission expects
-        rel_xrism = rel_xrism.rename(columns={'obsid': 'ObsID', 'time': 'start', 'stop_time': 'end',
+        rel_xrism = rel_xrism.rename(columns={'obsid': 'ObsID', 'time': 'start', 'end_time': 'end',
                                                 'Subject_Category': 'target_category', 'xtd_expo': 'xtend_exposure',
                                                 'Rsl_Datamode': 'resolve_mode', 'Xtd_Datamode1': 'xtend_mode_ccd1-2',
                                                 'Xtd_Datamode2': 'xtend_mode_ccd3-4',
