@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 15:17. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 15:19. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -480,7 +480,7 @@ class XRISMPointed(BaseMission):
 
     def download(self, num_cores: int = NUM_CORES, download_products: bool = True):
         """
-        A method to acquire and download the Suzaku data that have not been filtered out (if a filter
+        A method to acquire and download the XRISM data that have not been filtered out (if a filter
         has been applied, otherwise all data will be downloaded). Instruments specified by the chosen_instruments
         property will be downloaded, which is set either on declaration of the class instance or by passing
         a new value to the chosen_instruments property.
@@ -492,7 +492,7 @@ class XRISMPointed(BaseMission):
             and images stored by HEASArc, or whether they are the original raw event lists. Default is True.
         """
 
-        # Ensures that a directory to store the 'raw' Suzaku data in exists - once downloaded and unpacked
+        # Ensures that a directory to store the 'raw' XRISM data in exists - once downloaded and unpacked
         #  this data will be processed into a DAXA 'archive' and stored elsewhere.
         if not os.path.exists(self.top_level_path + self.name + '_raw'):
             os.makedirs(self.top_level_path + self.name + '_raw')
@@ -584,7 +584,7 @@ class XRISMPointed(BaseMission):
 
     def assess_process_obs(self, obs_info: dict):
         """
-        A slightly unusual method which will allow the Suzaku mission to assess the information on a particular
+        A slightly unusual method which will allow the XRISM mission to assess the information on a particular
         observation that has been put together by an Archive (the archive assembles it because sometimes this
         detailed information only becomes available at the first stages of processing), and make a decision on whether
         that particular observation-instrument should be processed further for scientific use.
@@ -595,7 +595,7 @@ class XRISMPointed(BaseMission):
         :param dict obs_info: The multi-level dictionary containing available observation information for an
             observation.
         """
-        raise NotImplementedError("The check_process_obs method has not yet been implemented for Suzaku, as "
+        raise NotImplementedError("The check_process_obs method has not yet been implemented for XRISM, as "
                                   "we need to see what detailed information are available once processing downloaded "
                                   "data has begun.")
 
@@ -617,6 +617,6 @@ class XRISMPointed(BaseMission):
         # raise NotImplementedError("The check_process_obs method has not yet been implemented for {n}, as it isn't yet"
         #                           "clear to me what form the unique identifiers will take once we start processing"
         #                           "{n} data ourselves.".format(n=self.pretty_name))
-        # Suzaku ObsIDs are always 9 digits, so we just retrieve the first 9
+        # XRISM ObsIDs are always 9 digits, so we just retrieve the first 9
         return ident[:9]
 
