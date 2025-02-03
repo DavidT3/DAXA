@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 14:28. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 14:29. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -267,7 +267,7 @@ class XRISMPointed(BaseMission):
         # Important first step, making any global cuts to the dataframe to remove entries with zero exposure, which
         #  I think in this case should be data that haven't been taken. The 'exposure' column will preferentially be
         #  RESOLVE exposure times, but if RESOLVE disabled will be XTEND
-        rel_xrism = full_xrism[(full_xrism['exposure'] != 0.0)]
+        rel_xrism = full_xrism[(full_xrism['Exposure'] != 0.0)]
         # We throw a warning that some number of the Suzaku observations are dropped because it doesn't seem that they
         #  will be at all useful
         if len(rel_xrism) != len(full_xrism):
