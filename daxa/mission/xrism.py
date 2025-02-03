@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 15:25. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 15:38. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -24,10 +24,6 @@ from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
 
-# As we're only supporting XIS with the Suzaku mission class, I add that top level directory into all - but the
-#  sub-directories of XIS that we wish to download depend on whether the user wants pre-processed data or not
-# I'm using this - https://heasarc.gsfc.nasa.gov/docs/suzaku/analysis/abc/node6.html#SECTION00610000000000000000 -
-#  guide to determine which directories are needed
 REQUIRED_DIRS = {'all': ['auxil/', 'resolve/', 'xtend/'],
                  'raw': {'resolve': ['event_uf/', 'hk/', 'products/'],
                          'xtend': ['event_uf/', 'hk/', 'products/']},
@@ -121,7 +117,7 @@ class XRISMPointed(BaseMission):
                                                 'xtend_mode1-2', 'xtend_mode3-4', 'xtend_dataclass1-2',
                                                 'xtend_dataclass3-4']
 
-        # Runs the method which fetches information on all available Suzaku observations and stores that
+        # Runs the method which fetches information on all available XRISM observations and stores that
         #  information in the all_obs_info property
         self._fetch_obs_info()
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
@@ -269,7 +265,7 @@ class XRISMPointed(BaseMission):
         #  I think in this case should be data that haven't been taken. The 'exposure' column will preferentially be
         #  RESOLVE exposure times, but if RESOLVE disabled will be XTEND
         rel_xrism = full_xrism[(full_xrism['EXPOSURE'] != 0.0)]
-        # We throw a warning that some number of the Suzaku observations are dropped because it doesn't seem that they
+        # We throw a warning that some number of the XRISM observations are dropped because it doesn't seem that they
         #  will be at all useful
         if len(rel_xrism) != len(full_xrism):
             warn(
@@ -399,7 +395,7 @@ class XRISMPointed(BaseMission):
         session = requests.Session()
 
         # This uses the beautiful soup module to parse the HTML of the top level archive directory - I want to check
-        #  that the directories that I need to download unprocessed Suzaku data are present
+        #  that the directories that I need to download unprocessed XRISM data are present
         top_data = [en['href'] for en in BeautifulSoup(session.get(top_url).text, "html.parser").find_all("a")
                     if en['href'] in req_dir]
 
@@ -425,7 +421,7 @@ class XRISMPointed(BaseMission):
                 to_down = [en['href'] for en in BeautifulSoup(session.get(rel_url).text, "html.parser").find_all("a")
                            if '?' not in en['href'] and obs_dir not in en['href']]
             else:
-                # The way the Suzaku archives are laid out, XIS has its own directory, and sub-directories that we
+                # The way the XRISM archives are laid out, XIS has its own directory, and sub-directories that we
                 #  need to decide whether to download or not
                 rel_req_dir = dir_lookup[dat_dir[:-1]]
                 to_down = []
@@ -439,15 +435,6 @@ class XRISMPointed(BaseMission):
                         files = [en['href'] + '/' + fil['href']
                                  for fil in BeautifulSoup(session.get(low_rel_url).text, "html.parser").find_all("a")
                                  if '?' not in fil['href'] and obs_dir not in fil['href']]
-
-                        if en['href'] != 'hk/':
-                            # All instrument files are in the same directories in this archive, so we need to quickly
-                            #  sweep through and check the files are for the instruments the user has chosen. Though
-                            #  why they would decide to remove some of the XIS I don't know
-                            # Also add another entry to catch the gif images that they make with a slightly different
-                            #  naming scheme
-                            short_inst = ['xi' + inst[-1] for inst in insts if inst] + ['xis']
-                            files = [fil for fil in files for inst in short_inst if inst in fil]
                     else:
                         files = []
 
@@ -527,7 +514,7 @@ class XRISMPointed(BaseMission):
             if num_cores == 1:
                 with tqdm(total=len(self), desc="Downloading {} data".format(self._pretty_miss_name)) as download_prog:
                     for obs_id in self.filtered_obs_ids:
-                        # Use the internal static method I set up which both downloads and unpacks the Suzaku data
+                        # Use the internal static method I set up which both downloads and unpacks the XRISM data
                         self._download_call(obs_id, insts=self.chosen_instruments,
                                             raw_dir=stor_dir + '{o}'.format(o=obs_id),
                                             download_products=download_products)
