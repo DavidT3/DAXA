@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 15:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 15:17. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -306,8 +306,7 @@ class XRISMPointed(BaseMission):
         #  conversion routine quite upset (0 is not valid) - as such I convert only those which aren't 0, then
         #  replace the 0 valued ones with Pandas' Not a Time (NaT) value
         # The '88068' value is in 2099 (I think), which is the value set for public date for some entries
-        val_end_dates = rel_xrism[(rel_xrism['proprietary_end_date'] != 0) &
-                                  (rel_xrism['proprietary_end_date'] != 88068)]
+        val_end_dates = (rel_xrism['proprietary_end_date'] != 0) & (rel_xrism['proprietary_end_date'] != 88068)
 
         # We make a copy of the proprietary end dates to work on because pandas will soon not allow us to set what
         #  was previously an int column with a datetime - so we need to convert it but retain the original
@@ -329,13 +328,21 @@ class XRISMPointed(BaseMission):
         rel_xrism['science_usable'] = True
 
         # Convert the categories of target that are present in the dataframe to the DAXA taxonomy
-        # The Suzaku categories are here:
+        # The XRISM categories are here:
         #  https://heasarc.gsfc.nasa.gov/W3Browse/xrism/xrismmastr.html#subject_category
-        conv_dict = {'Active galaxies and Quasars': 'AGN', 'Non-Proposal ToOs': 'TOO',
-                     'Galactic Compact Sources': 'GS', 'Solar System Objects': 'SOL',
-                     'Proposed ToOs and Directors Discretionary Time': 'TOO', 'Calibration Observations': 'CAL',
-                     'Non-ToO Supernovae, Supernova Remnants, and Galactic diffuse': 'SNR', 'Normal galaxies': 'NGS',
-                     'Galaxy clusters and extragalactic diffuse objects': 'GCL', 'Non-Pointing data': 'MISC'}
+        conv_dict = {'Non-Jet-Dominated AGN': 'AGN',
+                     'Blazars and Other Jet-Dominated AGN': 'BLZ', 'Solar System': 'SOL',
+                     'Supernova Remnants': 'SNR',
+                     'Normal Galaxies: Integrated Emission': 'NGS',
+                     'Groups and Clusters of Galaxies': 'GCL',
+                     'Extragalactic Diffuse Emission and Surveys': 'EGS',
+                     'BH and NS Binaries': 'NS',
+                     'Non-Accreting Neutron Stars': 'NS',
+                     'Galactic Diffuse Emission and Surveys': 'GS',
+                     'Extragalactic Transients: SNe, GRBs, GW Events, and TDEs': 'EGS',
+                     'Astrophysical Processes': 'MISC',
+                     'Stellar Coronae, Winds, and Young Stars': 'STR',
+                     'Accreting White Dwarfs and Novae': 'STR'}
 
         # I construct a mask that tells me which entries have a recognised description - any that don't are set
         #  to the 'MISC' code
