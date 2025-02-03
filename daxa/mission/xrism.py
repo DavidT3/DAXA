@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 15:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 15:25. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -391,7 +391,7 @@ class XRISMPointed(BaseMission):
         cat_id = observation_id[0]
 
         # This is the path to the HEASArc data directory for this ObsID
-        obs_dir = "/FTP/suzaku/data/obs/{cid}/{oid}/".format(cid=cat_id, oid=observation_id)
+        obs_dir = "/FTP/xrism/data/obs/{cid}/{oid}/".format(cid=cat_id, oid=observation_id)
         top_url = "https://heasarc.gsfc.nasa.gov" + obs_dir
 
         # This opens a session that will persist - then a lot of the next session is for checking that the expected
