@@ -27,44 +27,44 @@ from daxa.mission.base import BaseMission
 #  sub-directories of XIS that we wish to download depend on whether the user wants pre-processed data or not
 # I'm using this - https://heasarc.gsfc.nasa.gov/docs/suzaku/analysis/abc/node6.html#SECTION00610000000000000000 -
 #  guide to determine which directories are needed
-REQUIRED_DIRS = {'all': ['auxil/', 'xis/'],
-                 'raw': {'xis': ['event_uf/', 'hk/', 'products/']},
-                 'processed': {'xis': ['event_uf/', 'event_cl/', 'hk/', 'products/']}}
+REQUIRED_DIRS = {'all': ['auxil/', 'resolve/', 'xtend/'],
+                 'raw': {'resolve': ['event_uf/', 'hk/', 'products/'],
+                         'xtend': ['event_uf/', 'hk/', 'products/']},
+                 'processed': {'resolve': ['event_uf/', 'event_cl/', 'hk/', 'products/'],
+                               'xtend': ['event_uf/', 'event_cl/', 'hk/', 'products/']}}
 
 
-class Suzaku(BaseMission):
+class XRISMPointed(BaseMission):
     """
-    The mission class for Suzaku observations, specifically those from the XIS instruments, as XRS' cooling system
-    was damaged soon after launch, and HXD was not an imaging instrument.
-    The available observation information is fetched from the HEASArc SUZAMASTER table, and data are downloaded from
+    The mission class for pointed XRISM observations, supporting the acquisition of data from both the RESOLVE
+    high-resolution spectrometer, and the XTEND wide-field CCD imager.
+    The available observation information is fetched from the HEASArc XRISMMASTER table, and data are downloaded from
     the HEASArc https access to their FTP server.
 
     :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
-        pass either a single string value or a list of strings. They may include XIS0, XIS1, XIS2, and XIS3 (the
-        default is all of them).
+        pass either a single string value or a list of strings. They may include RESOLVE and XTEND.
     :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
             state of a previously defined mission (the same filters having been applied etc.)
     """
 
     def __init__(self, insts: Union[List[str], str] = None, save_file_path: str = None):
         """
-        The mission class for Suzaku observations, specifically those from the XIS instruments, as XRS' cooling system
-        was damaged soon after launch, and HXD was not an imaging instrument.
-        The available observation information is fetched from the HEASArc SUZAMASTER table, and data are downloaded
-        from the HEASArc https access to their FTP server.
+    The mission class for XRISM observations, supporting the acquisition of data from both the RESOLVE
+    high-resolution spectrometer, and the XTEND wide-field CCD imager.
+    The available observation information is fetched from the HEASArc XRISMMASTER table, and data are downloaded from
+    the HEASArc https access to their FTP server.
 
-        :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
-            pass either a single string value or a list of strings. They may include XIS0, XIS1, XIS2, and XIS3 (the
-            default is all of them).
-        :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
+    :param List[str]/str insts: The instruments that the user is choosing to download/process data from. You can
+        pass either a single string value or a list of strings. They may include RESOLVE and XTEND.
+    :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
             state of a previously defined mission (the same filters having been applied etc.)
-        """
+    """
         super().__init__()
 
-        # Sets the default instruments - all the imaging spectrometers on Suzaku, and the only instruments supported
-        #  by DAXA
+        # Sets the default instruments - both instruments on XRISM (maybe the anti-coincidence detector will be
+        #  added at some point)
         if insts is None:
-            insts = ['XIS0', 'XIS1', 'XIS2', 'XIS3']
+            insts = ['RESOLVE', 'XTEND']
         elif isinstance(insts, str):
             # Makes sure that, if a single instrument is passed as a string, the insts variable is a list for the
             #  rest of the work done using it
@@ -72,27 +72,43 @@ class Suzaku(BaseMission):
         # Makes sure everything is uppercase
         insts = [i.upper() for i in insts]
 
-        # These are the allowed instruments for this mission - the XIS instruments all had their own telescopes
-        self._miss_poss_insts = ['XIS0', 'XIS1', 'XIS2', 'XIS3']
+        # These are the allowed instruments for this mission - both RESOLVE and XTEND have their own XRTs
+        self._miss_poss_insts = ['RESOLVE', 'XTEND']
         # The chosen_instruments property setter (see below) will use these to convert possible contractions
-        #  to the names that the module expects. I'm not that familiar with Suzaku currently, so
-        #  I've just put in X0, X1, ... without any real expectation that anyone would use them.
-        self._alt_miss_inst_names = {'X0': 'XIS0', 'X1': 'XIS1', 'X2': 'XIS2', 'X3': 'XIS3'}
+        #  to the names that the module expects. Technically XTEND is the XMA + SXI
+        self._alt_miss_inst_names = {}
 
         # Deliberately using the property setter, because it calls the internal _check_chos_insts function
         #  to make sure the input instruments are allowed
         self.chosen_instruments = insts
 
-        # These are the 'translations' required between energy band and filename identifier for Suzaku images/expmaps -
+        # These are the 'translations' required between energy band and filename identifier for XRISM images/expmaps -
         #  it is organised so that top level keys are instruments, middle keys are lower energy bounds, and the lower
         #  level keys are upper energy bounds, then the value is the filename identifier
-        self._template_en_trans = {Quantity(0.2, 'keV'): {Quantity(12, 'keV'): ""}}
-        self._template_inst_trans = {'XIS0': 'xi0', 'XIS1': 'xi1', 'XIS2': 'xi2', 'XIS3': 'xi3'}
+        self._template_en_trans = {'RESOLVE': {Quantity(1.7, 'keV'): {Quantity(12, 'keV'): ""}},
+                                   'XTEND': {Quantity(0.4, 'keV'): {Quantity(20, 'keV'): ""}}}
 
-        # We set up the Suzaku file name templates, so that the user (or other parts of DAXA) can retrieve paths
+        # TODO THIS MIGHT BE RELEVANT AGAIN AT SOME POINT - THESE ENERGY BANDS ARE FOR THE GIF PREVIEW IMAGES BUT
+        #  THEY DON'T NECESSARILY HAVE FITS COUNTERPARTS
+        # self._template_en_trans = {'RESOLVE': {Quantity(0.5, 'keV'): {Quantity(1, 'keV'): "0p5to1keV",
+        #                                                                       Quantity(2, 'keV'): "0p5to2keV"},
+        #                                                Quantity(2.0, 'keV'): {Quantity(10, 'keV'): "2to10keV"}},
+        #                                    'XTEND': {Quantity(0.5, 'keV'): {Quantity(2, 'keV'): "0p5to2keV"},
+        #                                              Quantity(2.0, 'keV'): {Quantity(10, 'keV'): "2to10keV"},
+        #                                              Quantity(0.4, 'keV'): {Quantity(20, 'keV'): "2to10keV"}}}
+
+        self._template_inst_trans = {}
+
+        # We set up the XRISM file name templates, so that the user (or other parts of DAXA) can retrieve paths
         #  to the event lists, images, exposure maps, and background maps that can be downloaded
-        self._template_evt_name = "xis/event_cl/ae{oi}{i}_*_cl.evt"
+        # The wild-carded string in XTEND event lists is the 'mode' of the detector
+        # The RESOLVE 'px1000' part is the open-filter mode (all others are for calibration)
+        self._template_evt_name = {'RESOLVE': 'resolve/event_cl/xa{oi}rsl_p0px1000_cl.evt.gz',
+                                   'XTEND': 'xtend/event_cl/xa{oi}xtd_p*_cl.evt.gz'}
         self._template_img_name = "xis/products/ae{oi}{i}_*_sk.img"
+        self._template_img_name = {'RESOLVE': 'resolve/products/xa{oi}rsl_p0px1000_cl.sky.img.gz',
+                                   'XTEND': 'xtend/products/xa{oi}xtd_p*_cl.sky.img.gz'}
+
         self._template_exp_name = None
         self._template_bck_name = None
 
@@ -100,9 +116,9 @@ class Suzaku(BaseMission):
         self.name
 
         # This sets up extra columns which are expected to be present in the all_obs_info pandas dataframe
-        self._required_mission_specific_cols = ['target_category', 'xis0_expo', 'xis0_num_modes', 'xis1_expo',
-                                                'xis1_num_modes', 'xis2_expo', 'xis2_num_modes', 'xis3_expo',
-                                                'xis3_num_modes']
+        self._required_mission_specific_cols = ['target_category', 'resolve_expo', 'xtend_expo', 'resolve_mode',
+                                                'xtend_mode_ccd1-2', 'xtend_mode_ccd3-4', 'xtend_dataclass_ccd1-2',
+                                                'xtend_dataclass_ccd3-4']
 
         # Runs the method which fetches information on all available Suzaku observations and stores that
         #  information in the all_obs_info property
@@ -126,9 +142,9 @@ class Suzaku(BaseMission):
         # The name is defined here because this is the pattern for this property defined in
         #  the BaseMission superclass. Suggest keeping this in a format that would be good for a unix
         #  directory name (i.e. lowercase + underscores), because it will be used as a directory name
-        self._miss_name = "suzaku"
+        self._miss_name = "xrism_pointed"
         # This won't be used to name directories, but will be used for things like progress bar descriptions
-        self._pretty_miss_name = "Suzaku"
+        self._pretty_miss_name = "XRISM Pointed"
         return self._miss_name
 
     @property
@@ -153,7 +169,7 @@ class Suzaku(BaseMission):
         :rtype: str
         """
         # The ObsID regular expression is defined here because this is the pattern for this property defined in
-        #  the BaseMission superclass - Suzaku observations seem to have a unique 9-digit ObsID, though I can find
+        #  the BaseMission superclass - XRISM observations have a unique 9-digit ObsID, though I can find
         #  no discussion of whether there is extra information in the ObsID (i.e. target type).
         self._id_format = '^[0-9]{9}$'
         return self._id_format
@@ -170,10 +186,9 @@ class Suzaku(BaseMission):
         :rtype: Union[Quantity, dict]
         """
         # The approximate field of view is defined here because I want to force implementation for each
-        #  new mission class - found slightly conflicting values for this, but went with the HEASArc info page's
-        #  number of 19'x19' (https://heasarc.gsfc.nasa.gov/docs/suzaku/about/overview.html). Only need one value
-        #  here because we're just supporting the XIS instruments for this mission
-        self._approx_fov = Quantity(9.5, 'arcmin')
+        #  new mission class - XTEND is huge, RESOLVE is tiny (both are square?)
+        self._approx_fov = {'XTEND': Quantity(19, 'arcmin'),
+                            'RESOLVE': Quantity(1.5, 'arcmin')}
         return self._approx_fov
 
     @property
