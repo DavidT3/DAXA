@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 14:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/02/2025, 15:01. Copyright (c) The Contributors
 
 import gzip
 import io
@@ -305,7 +305,9 @@ class XRISMPointed(BaseMission):
         # Slightly more complicated with the public release dates, as some of them are set to 0 MJD, which makes the
         #  conversion routine quite upset (0 is not valid) - as such I convert only those which aren't 0, then
         #  replace the 0 valued ones with Pandas' Not a Time (NaT) value
-        val_end_dates = rel_xrism['proprietary_end_date'] != 0
+        # The '88068' value is in 2099 (I think), which is the value set for public date for some entries
+        val_end_dates = rel_xrism[(rel_xrism['proprietary_end_date'] != 0) &
+                                  (rel_xrism['proprietary_end_date'] != 88068)]
 
         # We make a copy of the proprietary end dates to work on because pandas will soon not allow us to set what
         #  was previously an int column with a datetime - so we need to convert it but retain the original
@@ -346,9 +348,9 @@ class XRISMPointed(BaseMission):
         rel_xrism.loc[~type_recog, 'target_category'] = 'MISC'
 
         # Re-ordering the table, and not including certain columns which have served their purpose
-        rel_xrism = rel_xrism[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category',
-                                'exposure', 'xtend_exposure', 'resolve_mode', 'xtend_mode1-2',
-                               'xtend_mode3-4', 'xtend_dataclass1-2', 'xtend_dataclass3-4']]
+        rel_xrism = rel_xrism[['ra', 'dec', 'ObsID', 'science_usable', 'proprietary_usable', 'start', 'end',
+                               'duration', 'target_category', 'exposure', 'xtend_exposure', 'resolve_mode',
+                               'xtend_mode1-2', 'xtend_mode3-4', 'xtend_dataclass1-2', 'xtend_dataclass3-4']]
 
         # Reset the dataframe index, as some rows will have been removed and the index should be consistent with how
         #  the user would expect from  a fresh dataframe
