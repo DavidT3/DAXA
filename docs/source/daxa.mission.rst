@@ -9,6 +9,15 @@ mission.base module
    :undoc-members:
    :show-inheritance:
 
+mission.tools module
+-------------------
+
+.. automodule:: daxa.mission.tools
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
 mission.xmm module
 ----------------------
 
