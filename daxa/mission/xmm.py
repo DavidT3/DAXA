@@ -1,5 +1,6 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 17:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 17:23. Copyright (c) The Contributors
+import io
 import os.path
 import tarfile
 from datetime import datetime
@@ -9,7 +10,10 @@ from warnings import warn
 
 import numpy as np
 import pandas as pd
+import requests
 from astropy.coordinates import BaseRADecFrame, FK5
+from astropy.io import fits
+from astropy.table import Table
 from astropy.units import Quantity
 from astroquery import log
 from astroquery.esa.xmm_newton import XMMNewton as AQXMMNewton
@@ -236,8 +240,8 @@ class XMMPointed(BaseMission):
             # The definition of all of these fields can be found here:
             #  (https://heasarc.gsfc.nasa.gov/W3Browse/xmm-newton/xmmmaster.html)
             #
-            which_cols = ['RA', 'DEC', 'TIME', 'OBSID', 'STATUS', 'DURATION', 'PUBLIC_DATE', 'DATA_IN_HEASARC',
-                          'XMM_REVOLUTION']
+            which_cols = ['RA', 'DEC', 'TIME', 'OBSID', 'STATUS', 'DURATION', 'PUBLIC_DATE',
+                          'DATA_IN_HEASARC', 'XMM_REVOLUTION']
             # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
             #  but I curated it to only those I think might be useful for DAXA
             fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
@@ -256,7 +260,7 @@ class XMMPointed(BaseMission):
                     #  strips it of white space (I noticed there was extra whitespace on the end of a lot of the
                     #  string data).
                     for col in full_xmm.select_dtypes(['object']).columns:
-                        full_xmm[col] = full_nustar[col].apply(lambda x: x.strip())
+                        full_xmm[col] = full_xmm[col].apply(lambda x: x.strip())
 
             # This removes entries for XMM observations that aren't relevant to this class - most importantly the
             #  XMM slew observations (ObsIDs beginning with '9'), and any data that haven't been taken yet
@@ -286,7 +290,7 @@ class XMMPointed(BaseMission):
         #  to select which data source to use when defining the mission instance.
         if not self._use_heasarc:
             try:
-                obs_info_pd = aq_acquisition(count_tab)
+                obs_info_pd = aq_acquisition()
             except OSError:
                 self._use_heasarc = True
                 obs_info_pd = heasarc_acquisition()
