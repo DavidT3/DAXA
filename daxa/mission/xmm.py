@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 17:15. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 17:21. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -87,6 +87,12 @@ class XMMPointed(BaseMission):
         self._required_mission_specific_cols = ['proprietary_end_date', 'proprietary_usable', 'science_usable',
                                                 'revolution']
 
+        # This attribute is only present in XMM mission classes, as sometimes AstroQuery can have a hard time with
+        #  some HPC setups, and we wish to fail over to HEASARC data acquisition. If that happens we wish to keep
+        #  a record of it in this attribute, AND to allow the user to manually control whether they want to use
+        #  HEASARC instead of AstroQuery
+        self._use_heasarc = use_heasarc
+
         # Runs the method which fetches information on all available pointed XMM observations and stores that
         #  information in the all_obs_info property
         self._fetch_obs_info()
@@ -94,12 +100,6 @@ class XMMPointed(BaseMission):
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
-
-        # This attribute is only present in XMM mission classes, as sometimes AstroQuery can have a hard time with
-        #  some HPC setups, and we wish to fail over to HEASARC data acquisition. If that happens we wish to keep
-        #  a record of it in this attribute, AND to allow the user to manually control whether they want to use
-        #  HEASARC instead of AstroQuery
-        self._use_heasarc = use_heasarc
 
         # We now will read in the previous state, if there is one to be read in.
         if save_file_path is not None:
