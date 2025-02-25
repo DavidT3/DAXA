@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 17:11. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 17:15. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -274,6 +274,9 @@ class XMMPointed(BaseMission):
             #  column to be True for every observation
             rel_xmm['science_usable'] = True
 
+            # Also convert the 'data in HEASARC' column to a boolean value, rather than 'Y' or 'N'
+            rel_xmm['data_in_heasarc'] = rel_xmm['data_in_heasarc'].apply(lambda x: True if x == 'Y' else False)
+
             return rel_xmm
 
         # We have found that some HPC compute nodes don't allow AstroQuery to download anything, because of some
@@ -306,6 +309,12 @@ class XMMPointed(BaseMission):
         #  is now a datetime object.
         obs_info_pd['proprietary_usable'] = obs_info_pd['proprietary_end_date'].apply(
             lambda x: ((x <= today) & (pd.notnull(x)))).astype(bool)
+        # We have to do one extra check for the observation info table assembled from HEASARC (if AstroQuery has had
+        #  issues or if the user specified that they wished to use HEASARC) - there is a column that specifies
+        #  whether the data are actually in HEASARC yet, and we'll set them to proprietary usable False if the
+        #  data aren't there.
+        if self._use_heasarc:
+            obs_info_pd['proprietary_usable'] *= obs_info_pd['data_in_heasarc']
 
         # Just renaming some of the columns
         obs_info_pd = obs_info_pd.rename(columns={'observation_id': 'ObsID', 'with_science': 'science_usable',
