@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/05/2024, 10:25. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 16:44. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -13,11 +13,10 @@ from astropy.coordinates import BaseRADecFrame, FK5
 from astropy.units import Quantity
 from astroquery import log
 from astroquery.esa.xmm_newton import XMMNewton as AQXMMNewton
-from tqdm import tqdm
-
 from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
+from tqdm import tqdm
 
 log.setLevel(0)
 
@@ -34,8 +33,13 @@ class XMMPointed(BaseMission):
         Optical Monitor (OM), though it is an optical/UV telescope, and as such it is not selected by default.
     :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
         state of a previously defined mission (the same filters having been applied etc.)
+    :param bool use_heasarc: A boolean argument that controls how XMM data are acquired. The default
+        value (False) means that the AstroQuery module will be used to fetch information/data from XSA, and
+        setting it to True will tell this mission to acquire information/data from HEASARC instead. We find
+        that some HPC configurations don't allow AstroQuery to work properly, in which case this argument will
+        be automatically set to True, and data will be acquired from HEASARC instead.
     """
-    def __init__(self, insts: Union[List[str], str] = None, save_file_path: str = None):
+    def __init__(self, insts: Union[List[str], str] = None, save_file_path: str = None, use_heasarc: bool = False):
         """
         The mission class init for pointed XMM observations (i.e. slewing observations are NOT included in the data
         accessed and collected by instances of this class). The available observation information is fetched from
@@ -47,6 +51,11 @@ class XMMPointed(BaseMission):
             Optical Monitor (OM), though it is an optical/UV telescope, and as such it is not selected by default.
         :param str save_file_path: An optional argument that can use a DAXA mission class save file to recreate the
             state of a previously defined mission (the same filters having been applied etc.)
+        :param bool use_heasarc: A boolean argument that controls how XMM data are acquired. The default
+            value (False) means that the AstroQuery module will be used to fetch information/data from XSA, and
+            setting it to True will tell this mission to acquire information/data from HEASARC instead. We find
+            that some HPC configurations don't allow AstroQuery to work properly, in which case this argument will
+            be automatically set to True, and data will be acquired from HEASARC instead.
         """
         # Call the init of parent class with the required information
         super().__init__()
@@ -85,6 +94,12 @@ class XMMPointed(BaseMission):
         # Slightly cheesy way of setting the _filter_allowed attribute to be an array identical to the usable
         #  column of all_obs_info, rather than the initial None value
         self.reset_filter()
+
+        # This attribute is only present in XMM mission classes, as sometimes AstroQuery can have a hard time with
+        #  some HPC setups, and we wish to fail over to HEASARC data acquisition. If that happens we wish to keep
+        #  a record of it in this attribute, AND to allow the user to manually control whether they want to use
+        #  HEASARC instead of AstroQuery
+        self._use_heasarc = use_heasarc
 
         # We now will read in the previous state, if there is one to be read in.
         if save_file_path is not None:
@@ -180,24 +195,42 @@ class XMMPointed(BaseMission):
         down information on all of the pointed XMM observations which are stored in XSA. The data are processed
         into a Pandas dataframe and stored.
         """
-        # First of all I want to know how many entries there are in the 'all observations' table, because I need to
-        #  specify the number of rows to select in my ADQL (Astronomical Data Query Language) command for reasons
-        #  I'll explain in a second
-        count_tab = AQXMMNewton.query_xsa_tap('select count(observation_id) from xsa.v_all_observations')
-        # Then I round up to the nearest 1000, probably unnecessary but oh well
-        num_obs = np.ceil(count_tab['COUNT'].tolist()[0] / 1000).astype(int) * 1000
-        # Now I have to be a bit cheesy - If I used select * (which is what I would normally do in an SQL-derived
-        #  language to grab every row) it actually only returns the top 2000. I think that * is replaced with TOP 2000
-        #  before the query is sent to the server. However if I specify a TOP N, where N is greater than 2000, then it
-        #  works as intended. I hope this is a stable behaviour!
-        # TODO Might want to grab footprint_fov, stc_s at some point
-        obs_info = AQXMMNewton.query_xsa_tap("select TOP {} ra, dec, observation_id, start_utc, with_science, "
-                                             "duration, proprietary_end_date, revolution "
-                                             "from v_all_observations".format(num_obs))
-        # The above command has gotten some basic information; central coordinates, observation ID, start time
-        #  and duration, whether the data are proprietary etc. Now this Astropy table object is turned into a
-        #  Pandas dataframe (which I much prefer working with).
-        obs_info_pd: pd.DataFrame = obs_info.to_pandas()
+        def aq_acquisition() -> pd.DataFrame:
+            # First of all I want to know how many entries there are in the 'all observations' table, because
+            #  I need to specify the number of rows to select in my ADQL (Astronomical Data Query Language) command
+            #  for reasons I'll explain in a second
+            count_tab = AQXMMNewton.query_xsa_tap('select count(observation_id) from xsa.v_all_observations')
+
+            # Then I round up to the nearest 1000, probably unnecessary but oh well
+            num_obs = np.ceil(count_tab['COUNT'].tolist()[0] / 1000).astype(int) * 1000
+            # Now I have to be a bit cheesy - If I used select * (which is what I would normally do in an SQL-derived
+            #  language to grab every row) it actually only returns the top 2000. I think that * is replaced with
+            #  TOP 2000 before the query is sent to the server. However if I specify a TOP N, where N is greater
+            #  than 2000, then it works as intended. I hope this is a stable behaviour!
+            obs_info = AQXMMNewton.query_xsa_tap("select TOP {} ra, dec, observation_id, start_utc, with_science, "
+                                                 "duration, proprietary_end_date, revolution "
+                                                 "from v_all_observations".format(num_obs))
+            # The above command has gotten some basic information; central coordinates, observation ID, start time
+            #  and duration, whether the data are proprietary etc. Now this Astropy table object is turned into a
+            #  Pandas dataframe (which I much prefer working with).
+            obs_info_pd: pd.DataFrame = obs_info.to_pandas()
+
+        def heasarc_acquisition() -> pd.DataFrame:
+            pass
+
+        # We have found that some HPC compute nodes don't allow AstroQuery to download anything, because of some
+        #  proxy configuration(?) - ultimately it is more of an issue with how the HPC is set up than with
+        #  AstroQuery, but we still want to be able to deal with it. As such, we check to see if AstroQuery can
+        #  get the observation info table, and if not we switch over to a HEASARC-based method. We also allow the user
+        #  to select which data source to use when defining the mission instance.
+        if not self._use_heasarc:
+            try:
+                obs_info_pd = aq_acquisition(count_tab)
+            except OSError:
+                self._use_heasarc = True
+                obs_info_pd = heasarc_acquisition()
+        else:
+            obs_info_pd = heasarc_acquisition()
 
         # Convert the string representation of proprietary period ending into a datetime object. I have to use
         #  errors='coerce' here because for some reason some proprietary end times are set ~1000 years in
