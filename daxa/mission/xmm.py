@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 16:44. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 17:11. Copyright (c) The Contributors
 import os.path
 import tarfile
 from datetime import datetime
@@ -213,10 +213,68 @@ class XMMPointed(BaseMission):
             # The above command has gotten some basic information; central coordinates, observation ID, start time
             #  and duration, whether the data are proprietary etc. Now this Astropy table object is turned into a
             #  Pandas dataframe (which I much prefer working with).
-            obs_info_pd: pd.DataFrame = obs_info.to_pandas()
+            rel_df: pd.DataFrame = obs_info.to_pandas()
+
+            return rel_df
 
         def heasarc_acquisition() -> pd.DataFrame:
-            pass
+
+            # This is the web interface for querying NASA HEASArc catalogues
+            host_url = "https://heasarc.gsfc.nasa.gov/db-perl/W3Browse/w3query.pl?"
+
+            # This returns the requested information in a FITS format - the idea being I will stream this into memory
+            #  and then have a fits table that I can convert into a Pandas dataframe (which I much prefer working with).
+            down_form = "&displaymode=FitsDisplay"
+            # This should mean unlimited, as we don't know how many XMM observations there are, and the number will
+            #  increase with time (so long as the telescope doesn't break...)
+            result_max = "&ResultMax=0"
+            # This just tells the interface it's a query (I think?)
+            action = "&Action=Query"
+            # Tells the interface that I want to retrieve from the xmmmaster (XMM Master) catalogue
+            table_head = "tablehead=name=BATCHRETRIEVALCATALOG_2.0%20xmmmaster"
+
+            # The definition of all of these fields can be found here:
+            #  (https://heasarc.gsfc.nasa.gov/W3Browse/xmm-newton/xmmmaster.html)
+            #
+            which_cols = ['RA', 'DEC', 'TIME', 'OBSID', 'STATUS', 'DURATION', 'PUBLIC_DATE', 'DATA_IN_HEASARC',
+                          'XMM_REVOLUTION']
+            # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
+            #  but I curated it to only those I think might be useful for DAXA
+            fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
+
+            # The full URL that we will pull the data from, with all the components we have previously defined
+            fetch_url = host_url + table_head + action + result_max + down_form + fields
+
+            # Opening that URL, we can access the results of our request!
+            with requests.get(fetch_url, stream=True) as urlo:
+                # This opens the data as using the astropy fits interface (using io.BytesIO() to stream it into memory
+                #  first so that fits.open can access it as an already opened file handler).
+                with fits.open(io.BytesIO(urlo.content)) as full_fits:
+                    # Then convert the data in that fits file just into an astropy table object, and from there to a DF
+                    full_xmm = Table(full_fits[1].data).to_pandas()
+                    # This cycles through any column with the 'object' data type (string in this instance), and
+                    #  strips it of white space (I noticed there was extra whitespace on the end of a lot of the
+                    #  string data).
+                    for col in full_xmm.select_dtypes(['object']).columns:
+                        full_xmm[col] = full_nustar[col].apply(lambda x: x.strip())
+
+            # This removes entries for XMM observations that aren't relevant to this class - most importantly the
+            #  XMM slew observations (ObsIDs beginning with '9'), and any data that haven't been taken yet
+            rel_xmm = full_xmm[(full_xmm['OBSID'].str.startswith == '9') &
+                               (full_xmm['STATUS'].isin(['processed', 'archived']))]
+
+            # Lower-casing all the column names (personal preference largely).
+            rel_xmm = rel_xmm.rename(columns=str.lower)
+            # Changing a few column names to match what BaseMission expects
+            rel_xmm = rel_xmm.rename(columns={'obsid': 'ObsID', 'time': 'start_utc',
+                                              'public_date': 'proprietary_end_date',
+                                              'xmm_revolution': 'revolution'})
+
+            # The HEASARC table doesn't have a 'science usable' like XSA does, so unfortunately we just set the
+            #  column to be True for every observation
+            rel_xmm['science_usable'] = True
+
+            return rel_xmm
 
         # We have found that some HPC compute nodes don't allow AstroQuery to download anything, because of some
         #  proxy configuration(?) - ultimately it is more of an issue with how the HPC is set up than with
