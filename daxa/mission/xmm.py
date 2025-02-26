@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 26/02/2025, 00:37. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 26/02/2025, 00:42. Copyright (c) The Contributors
 import gzip
 import io
 import os.path
@@ -475,6 +475,9 @@ class XMMPointed(BaseMission):
                               and f.split(observation_id + '_')[1][:2] not in to_keep]
                 for for_removal in throw_away:
                     os.remove(untar_path + for_removal)
+
+            # Now write the OTHER way of downloading XMM data, which follows the pattern established for all the DAXA
+            #  missions that pull from HEASARC (the vast majority of them).
             else:
                 # This opens a session that will persist
                 session = requests.Session()
