@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 21:35. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 22:03. Copyright (c) The Contributors
 import io
 import os.path
 import tarfile
@@ -14,6 +14,7 @@ import requests
 from astropy.coordinates import BaseRADecFrame, FK5
 from astropy.io import fits
 from astropy.table import Table
+from astropy.time import Time
 from astropy.units import Quantity
 from astroquery import log
 from astroquery.esa.xmm_newton import XMMNewton as AQXMMNewton
@@ -219,6 +220,14 @@ class XMMPointed(BaseMission):
             #  Pandas dataframe (which I much prefer working with).
             rel_df: pd.DataFrame = obs_info.to_pandas()
 
+            # Convert the string representation of proprietary period ending into a datetime object. I have to use
+            #  errors='coerce' here because for some reason some proprietary end times are set ~1000 years in
+            #  the future, which Pandas implementation of datetime does not like. Errors coerce means that such
+            #  datetimes are just set to NaT (not a time) rather than erroring everything out.
+            rel_df['proprietary_end_date'] = pd.to_datetime(rel_df['proprietary_end_date'], utc=False, errors='coerce')
+            # Convert the start time to a datetime
+            rel_df['start_utc'] = pd.to_datetime(rel_df['start_utc'], utc=False, errors='coerce')
+
             return rel_df
 
         def heasarc_acquisition() -> pd.DataFrame:
@@ -239,7 +248,7 @@ class XMMPointed(BaseMission):
 
             # The definition of all of these fields can be found here:
             #  (https://heasarc.gsfc.nasa.gov/W3Browse/xmm-newton/xmmmaster.html)
-            which_cols = ['RA', 'DEC', 'TIME', 'OBSID', 'STATUS', 'DURATION', 'PUBLIC_DATE',
+            which_cols = ['RA', 'DEC', 'TIME', 'END_TIME', 'OBSID', 'STATUS', 'DURATION', 'PUBLIC_DATE',
                           'DATA_IN_HEASARC', 'XMM_REVOLUTION']
 
             # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
@@ -270,7 +279,7 @@ class XMMPointed(BaseMission):
 
             # This removes entries for XMM observations that aren't relevant to this class - most importantly the
             #  XMM slew observations (ObsIDs beginning with '9'), and any data that haven't been taken yet
-            rel_xmm = full_xmm[(full_xmm['OBSID'].str.startswith == '9') &
+            rel_xmm = full_xmm[(full_xmm['OBSID'].str.startswith('9')) &
                                (full_xmm['STATUS'].isin(['processed', 'archived']))]
 
             # Lower-casing all the column names (personal preference largely).
@@ -278,7 +287,8 @@ class XMMPointed(BaseMission):
             # Changing a few column names to match what BaseMission expects
             rel_xmm = rel_xmm.rename(columns={'obsid': 'ObsID', 'time': 'start_utc',
                                               'public_date': 'proprietary_end_date',
-                                              'xmm_revolution': 'revolution'})
+                                              'xmm_revolution': 'revolution',
+                                              'end_time': 'end'})
 
             # The HEASARC table doesn't have a 'science usable' like XSA does, so unfortunately we just set the
             #  column to be True for every observation
@@ -286,6 +296,25 @@ class XMMPointed(BaseMission):
 
             # Also convert the 'data in HEASARC' column to a boolean value, rather than 'Y' or 'N'
             rel_xmm['data_in_heasarc'] = rel_xmm['data_in_heasarc'].apply(lambda x: True if x == 'Y' else False)
+
+            # These times are in a different format to those acquired through HEASARC - so we convert them here
+            rel_xmm['start'] = pd.to_datetime(Time(rel_xmm['start'].values, format='mjd', scale='utc').to_datetime())
+            rel_xmm['end'] = pd.to_datetime(Time(rel_xmm['end'].values, format='mjd', scale='utc').to_datetime())
+
+            # Slightly more complicated with the public release dates, as some of them are set to 0 MJD, which makes the
+            #  conversion routine quite upset (0 is not valid) - as such I convert only those which aren't 0, then
+            #  replace the 0 valued ones with Pandas' Not a Time (NaT) value
+            val_end_dates = rel_xmm['proprietary_end_date'] != 0
+
+            # We make a copy of the proprietary end dates to work on because pandas will soon not allow us to set what
+            #  was previously an int column with a datetime - so we need to convert it but retain the original
+            #  data as well
+            prop_end_datas = rel_xmm['proprietary_end_date'].copy()
+            # Convert the original column to datetime
+            rel_xmm['proprietary_end_date'] = rel_xmm['proprietary_end_date'].astype('datetime64[ns]')
+            rel_xmm.loc[val_end_dates, 'proprietary_end_date'] = pd.to_datetime(
+                Time(prop_end_datas[val_end_dates.values], format='mjd', scale='utc').to_datetime())
+            rel_xmm.loc[~val_end_dates, 'proprietary_end_date'] = pd.NaT
 
             return rel_xmm
 
@@ -303,14 +332,6 @@ class XMMPointed(BaseMission):
         else:
             obs_info_pd = heasarc_acquisition()
 
-        # Convert the string representation of proprietary period ending into a datetime object. I have to use
-        #  errors='coerce' here because for some reason some proprietary end times are set ~1000 years in
-        #  the future, which Pandas implementation of datetime does not like. Errors coerce means that such
-        #  datetimes are just set to NaT (not a time) rather than erroring everything out.
-        obs_info_pd['proprietary_end_date'] = pd.to_datetime(obs_info_pd['proprietary_end_date'], utc=False,
-                                                             errors='coerce')
-        # Convert the start time to a datetime
-        obs_info_pd['start_utc'] = pd.to_datetime(obs_info_pd['start_utc'], utc=False, errors='coerce')
         # Grab the current date and time
         today = datetime.today()
 
@@ -347,7 +368,10 @@ class XMMPointed(BaseMission):
         #  than adding the radec_good column as another input to the usable column (see below) because having NaN
         #  positions really screws up the filter_on_positions method in BaseMission
         obs_info_pd = obs_info_pd[obs_info_pd['radec_good']]
-        # Don't really care about this column now so remove.
+        # Don't really care about this column now so remove
+
+        print(obs_info_pd)
+
         del obs_info_pd['radec_good']
 
         # This just resets the index, as some of the rows may have been removed
