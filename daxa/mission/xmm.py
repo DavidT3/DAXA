@@ -1,10 +1,12 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 23:53. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 26/02/2025, 00:37. Copyright (c) The Contributors
+import gzip
 import io
 import os.path
 import tarfile
 from datetime import datetime
 from multiprocessing import Pool
+from shutil import copyfileobj
 from typing import List, Union, Any
 from warnings import warn
 
@@ -18,6 +20,7 @@ from astropy.time import Time
 from astropy.units import Quantity
 from astroquery import log
 from astroquery.esa.xmm_newton import XMMNewton as AQXMMNewton
+from bs4 import BeautifulSoup
 from daxa import NUM_CORES
 from daxa.exceptions import DAXADownloadError
 from daxa.mission.base import BaseMission
@@ -394,7 +397,7 @@ class XMMPointed(BaseMission):
         self.all_obs_info = obs_info_pd
 
     @staticmethod
-    def _download_call(observation_id: str, insts: List[str], level: str, filename: str):
+    def _download_call(observation_id: str, insts: List[str], level: str, filename: str, use_heasarc: bool):
         """
         This internal static method is purely to enable parallelised downloads of XMM data, as defining
         an internal function within download causes issues with pickling for multiprocessing.
@@ -425,49 +428,83 @@ class XMMPointed(BaseMission):
             if os.path.exists(filename+'.tar.gz'):
                 os.remove(filename+'.tar.gz')
 
-            try:
-                # Download the requested data
-                AQXMMNewton.download_data(observation_id=observation_id, level=level, filename=filename)
-            except Exception as err:
-                os.chdir(og_dir)  # if an error is raised we still need to return to the original dir
-                raise Exception("{oi} data failed to download.".format(oi=observation_id)).with_traceback(err.__traceback__)
-            # As the above function downloads the data as compressed tars, we need to decompress them
-            with tarfile.open(filename+'.tar.gz') as zippo:
-                zippo.extractall(filename)
+            # There are two different ways this class can get its data - from XSA via AstroQuery, or from HEASARC. Here
+            #  we have to add downloading methods for both possibilities. Firstly, if we're just using AstroQuery
+            if not use_heasarc:
+                try:
+                    # Download the requested data
+                    AQXMMNewton.download_data(observation_id=observation_id, level=level, filename=filename)
+                except Exception as err:
+                    os.chdir(og_dir)  # if an error is raised we still need to return to the original dir
+                    raise Exception("{oi} data failed to "
+                                    "download.".format(oi=observation_id)).with_traceback(err.__traceback__)
+                # As the above function downloads the data as compressed tars, we need to decompress them
+                with tarfile.open(filename+'.tar.gz') as zippo:
+                    zippo.extractall(filename)
 
-            # Then remove the original compressed tar to save space
-            os.remove(filename+'.tar.gz')
+                # Then remove the original compressed tar to save space
+                os.remove(filename + '.tar.gz')
 
-            # Finally, the actual telescope data is in another .tar, so we expand that as well, first making
-            #  sure that there is only one tar in the observations folder
-            rel_tars = [f for f in os.listdir(filename) if "{o}.tar".format(o=observation_id) in f.lower()]
+                # Finally, the actual telescope data is in another .tar, so we expand that as well, first making
+                #  sure that there is only one tar in the observations folder
+                rel_tars = [f for f in os.listdir(filename) if "{o}.tar".format(o=observation_id) in f.lower()]
 
-            # Checks to make sure there is only one tarred file (otherwise I don't know what this will be
-            #  unzipping)
-            if len(rel_tars) == 0 or len(rel_tars) > 1:
-                os.chdir(og_dir)  # if an error is raised we still need to return to the original dir
-                raise ValueError("Multiple tarred ODFs were detected for {o}, and cannot be "
-                                 "unpacked".format(o=observation_id))
+                # Checks to make sure there is only one tarred file (otherwise I don't know what this will be
+                #  unzipping)
+                if len(rel_tars) == 0 or len(rel_tars) > 1:
+                    os.chdir(og_dir)  # if an error is raised we still need to return to the original dir
+                    raise ValueError("Multiple tarred ODFs were detected for {o}, and cannot be "
+                                     "unpacked".format(o=observation_id))
 
-            # Variable to store the name of the tarred file (included revolution number and ObsID, hence why
-            #  I don't just construct it myself, don't know the revolution number a priori)
-            to_untar = filename + '/{}'.format(rel_tars[0])
+                # Variable to store the name of the tarred file (included revolution number and ObsID, hence why
+                #  I don't just construct it myself, don't know the revolution number a priori)
+                to_untar = filename + '/{}'.format(rel_tars[0])
 
-            # Open and untar the file
-            with tarfile.open(to_untar) as tarro:
-                # untar_path = to_untar.split('.')[0] + '/'
-                untar_path = filename + '/'
-                tarro.extractall(untar_path)
-            # Then remove the tarred file to minimise storage usage
-            os.remove(to_untar)
+                # Open and untar the file
+                with tarfile.open(to_untar) as tarro:
+                    # untar_path = to_untar.split('.')[0] + '/'
+                    untar_path = filename + '/'
+                    tarro.extractall(untar_path)
+                # Then remove the tarred file to minimise storage usage
+                os.remove(to_untar)
 
-            # This part removes ODFs which belong to instruments the user hasn't requested, but we have
-            #  to make sure to add the code 'SC' otherwise spacecraft information files will get removed
-            to_keep = insts + ['SC']
-            throw_away = [f for f in os.listdir(untar_path) if 'MANIFEST' not in f
-                          and f.split(observation_id+'_')[1][:2] not in to_keep]
-            for for_removal in throw_away:
-                os.remove(untar_path + for_removal)
+                # This part removes ODFs which belong to instruments the user hasn't requested, but we have
+                #  to make sure to add the code 'SC' otherwise spacecraft information files will get removed
+                to_keep = insts + ['SC']
+                throw_away = [f for f in os.listdir(untar_path) if 'MANIFEST' not in f
+                              and f.split(observation_id + '_')[1][:2] not in to_keep]
+                for for_removal in throw_away:
+                    os.remove(untar_path + for_removal)
+            else:
+                # This opens a session that will persist
+                session = requests.Session()
+                h_url = "https://heasarc.gsfc.nasa.gov/FTP/xmm/data/rev0/{oi}/ODF/".format(oi=observation_id)
+
+                # Unlike with the astroquery method, we can exclude files for instruments that aren't selected
+                #  before we download them (with astroquery we deleted them after the fact)
+                to_keep = insts + ['SC']
+                to_down = [en['href'] for en in BeautifulSoup(session.get(h_url).text, "html.parser").find_all("a")
+                           if any([observation_id + "_" + tk in en['href'] for tk in to_keep]) or
+                           'MANIFEST' in en['href']]
+
+                # Make sure that the local directory is created
+                if not os.path.exists(filename):
+                    os.makedirs(filename)
+
+                # And now we can loop through our files of interest, and download them into a raw XMM data directory
+                for down_file in to_down:
+                    down_url = h_url + down_file
+                    with session.get(down_url, stream=True) as acquiro:
+                        with open(os.path.join(filename, down_file), 'wb') as writo:
+                            copyfileobj(acquiro.raw, writo)
+
+                    # Open and decompress the files
+                    with gzip.open(os.path.join(filename, down_file), 'rb') as compresso:
+                        # Open a new file handler for the decompressed data, then funnel the decompressed contents there
+                        with open(os.path.join(filename, down_file).split('.gz')[0], 'wb') as writo:
+                            copyfileobj(compresso, writo)
+                    # Then remove the tarred file to minimise storage usage
+                    os.remove(os.path.join(filename, down_file))
 
         os.chdir(og_dir)  # returning to the original working dir
 
@@ -531,7 +568,7 @@ class XMMPointed(BaseMission):
                     for obs_id in self.filtered_obs_ids:
                         # Use the internal static method I set up which both downloads and unpacks the XMM data
                         self._download_call(obs_id, insts=self.chosen_instruments, level='ODF',
-                                            filename=stor_dir + '{o}'.format(o=obs_id))
+                                            filename=stor_dir + '{o}'.format(o=obs_id), use_heasarc=self._use_heasarc)
                         # Update the progress bar
                         download_prog.update(1)
 
@@ -574,7 +611,8 @@ class XMMPointed(BaseMission):
                         # Add each download task to the pool
                         pool.apply_async(self._download_call,
                                          kwds={'observation_id': obs_id, 'insts': self.chosen_instruments,
-                                               'level': 'ODF', 'filename': stor_dir + '{o}'.format(o=obs_id)},
+                                               'level': 'ODF', 'filename': stor_dir + '{o}'.format(o=obs_id),
+                                               'use_heasarc': self._use_heasarc},
                                          error_callback=err_callback, callback=callback)
                     pool.close()  # No more tasks can be added to the pool
                     pool.join()  # Joins the pool, the code will only move on once the pool is empty.
