@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 17:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 21:35. Copyright (c) The Contributors
 import io
 import os.path
 import tarfile
@@ -239,15 +239,21 @@ class XMMPointed(BaseMission):
 
             # The definition of all of these fields can be found here:
             #  (https://heasarc.gsfc.nasa.gov/W3Browse/xmm-newton/xmmmaster.html)
-            #
             which_cols = ['RA', 'DEC', 'TIME', 'OBSID', 'STATUS', 'DURATION', 'PUBLIC_DATE',
                           'DATA_IN_HEASARC', 'XMM_REVOLUTION']
+
             # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
             #  but I curated it to only those I think might be useful for DAXA
             fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
 
+            # A fix to find only those entries with valid coordinates - we found that the HEASARC table has two
+            # entries with invalid RA and DEC values (just error) which really throw off the fits reader. We'll
+            # contact them to fix it, but this just performs a search across all the sky, which in turn picks up
+            # all entries with valid positions
+            pos = "&Coordinates=%27Equatorial%3a+R%2eA%2e+Dec%27&Equinox=2000&Radius=21600arcmin&Entry=0%2e0%2c0%2e0&"
+
             # The full URL that we will pull the data from, with all the components we have previously defined
-            fetch_url = host_url + table_head + action + result_max + down_form + fields
+            fetch_url = host_url + table_head + action + result_max + down_form + fields + pos
 
             # Opening that URL, we can access the results of our request!
             with requests.get(fetch_url, stream=True) as urlo:
