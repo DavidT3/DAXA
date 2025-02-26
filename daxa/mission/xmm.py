@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 26/02/2025, 00:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 26/02/2025, 00:46. Copyright (c) The Contributors
 import gzip
 import io
 import os.path
@@ -487,8 +487,8 @@ class XMMPointed(BaseMission):
                 #  before we download them (with astroquery we deleted them after the fact)
                 to_keep = insts + ['SC']
                 to_down = [en['href'] for en in BeautifulSoup(session.get(h_url).text, "html.parser").find_all("a")
-                           if any([observation_id + "_" + tk in en['href'] for tk in to_keep]) or
-                           'MANIFEST' in en['href']]
+                           if any([observation_id + "_" + tk in en['href'] for tk in to_keep])
+                           or 'MANIFEST' in en['href'] or 'SUM.ASC' in en['href']]
 
                 # Make sure that the local directory is created
                 if not os.path.exists(filename):
