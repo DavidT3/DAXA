@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 22:03. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 25/02/2025, 23:53. Copyright (c) The Contributors
 import io
 import os.path
 import tarfile
@@ -279,7 +279,7 @@ class XMMPointed(BaseMission):
 
             # This removes entries for XMM observations that aren't relevant to this class - most importantly the
             #  XMM slew observations (ObsIDs beginning with '9'), and any data that haven't been taken yet
-            rel_xmm = full_xmm[(full_xmm['OBSID'].str.startswith('9')) &
+            rel_xmm = full_xmm[(~full_xmm['OBSID'].str.startswith('9')) &
                                (full_xmm['STATUS'].isin(['processed', 'archived']))]
 
             # Lower-casing all the column names (personal preference largely).
@@ -290,6 +290,12 @@ class XMMPointed(BaseMission):
                                               'xmm_revolution': 'revolution',
                                               'end_time': 'end'})
 
+            # Remove the status column, we're done with it!
+            del rel_xmm['status']
+            # Also remove the search_offset_ column, a by-product of the bodge to get rid of the two messed up
+            #  entries in the HEASARC table
+            del rel_xmm['search_offset_']
+
             # The HEASARC table doesn't have a 'science usable' like XSA does, so unfortunately we just set the
             #  column to be True for every observation
             rel_xmm['science_usable'] = True
@@ -298,22 +304,25 @@ class XMMPointed(BaseMission):
             rel_xmm['data_in_heasarc'] = rel_xmm['data_in_heasarc'].apply(lambda x: True if x == 'Y' else False)
 
             # These times are in a different format to those acquired through HEASARC - so we convert them here
-            rel_xmm['start'] = pd.to_datetime(Time(rel_xmm['start'].values, format='mjd', scale='utc').to_datetime())
-            rel_xmm['end'] = pd.to_datetime(Time(rel_xmm['end'].values, format='mjd', scale='utc').to_datetime())
+            rel_xmm['start_utc'] = pd.to_datetime(Time(rel_xmm['start_utc'].values.astype(float).round(4), format='mjd',
+                                                       scale='utc').to_datetime())
+            rel_xmm['end'] = pd.to_datetime(Time(rel_xmm['end'].values.astype(float).round(4), format='mjd',
+                                                 scale='utc').to_datetime())
 
             # Slightly more complicated with the public release dates, as some of them are set to 0 MJD, which makes the
             #  conversion routine quite upset (0 is not valid) - as such I convert only those which aren't 0, then
             #  replace the 0 valued ones with Pandas' Not a Time (NaT) value
-            val_end_dates = rel_xmm['proprietary_end_date'] != 0
+            val_end_dates = (rel_xmm['proprietary_end_date'] != 0) & (rel_xmm['proprietary_end_date'] != 416422)
 
             # We make a copy of the proprietary end dates to work on because pandas will soon not allow us to set what
             #  was previously an int column with a datetime - so we need to convert it but retain the original
             #  data as well
-            prop_end_datas = rel_xmm['proprietary_end_date'].copy()
+            prop_end_dates = rel_xmm['proprietary_end_date'].copy()
             # Convert the original column to datetime
             rel_xmm['proprietary_end_date'] = rel_xmm['proprietary_end_date'].astype('datetime64[ns]')
             rel_xmm.loc[val_end_dates, 'proprietary_end_date'] = pd.to_datetime(
-                Time(prop_end_datas[val_end_dates.values], format='mjd', scale='utc').to_datetime())
+                Time(prop_end_dates[val_end_dates.values], format='mjd', scale='utc').to_datetime(), errors='coerce')
+
             rel_xmm.loc[~val_end_dates, 'proprietary_end_date'] = pd.NaT
 
             return rel_xmm
@@ -346,6 +355,8 @@ class XMMPointed(BaseMission):
         #  data aren't there.
         if self._use_heasarc:
             obs_info_pd['proprietary_usable'] *= obs_info_pd['data_in_heasarc']
+            # Don't need this anymore!
+            del obs_info_pd['data_in_heasarc']
 
         # Just renaming some of the columns
         obs_info_pd = obs_info_pd.rename(columns={'observation_id': 'ObsID', 'with_science': 'science_usable',
@@ -358,7 +369,9 @@ class XMMPointed(BaseMission):
         obs_info_pd['end'] = obs_info_pd.apply(lambda x: x.start + x.duration, axis=1)
 
         # This checks for NaN values of RA or Dec, which for some reason do appear sometimes??
-        obs_info_pd['radec_good'] = obs_info_pd.apply(lambda x: np.isfinite(x['ra']) & np.isfinite(x['dec']), axis=1)
+        obs_info_pd['radec_good'] = obs_info_pd.apply(lambda x: bool((np.isfinite(x['ra']) & np.isfinite(x['dec'])) &
+                                                                     (~((x['ra'] == 0) & (x['dec'] == 0)))), axis=1)
+
         # Throws a warning if there are some.
         if len(obs_info_pd) != obs_info_pd['radec_good'].sum():
             warn("{ta} of the {tot} observations located for this mission have been removed due to NaN "
@@ -369,13 +382,14 @@ class XMMPointed(BaseMission):
         #  positions really screws up the filter_on_positions method in BaseMission
         obs_info_pd = obs_info_pd[obs_info_pd['radec_good']]
         # Don't really care about this column now so remove
-
-        print(obs_info_pd)
-
         del obs_info_pd['radec_good']
 
         # This just resets the index, as some of the rows may have been removed
         obs_info_pd = obs_info_pd.reset_index(drop=True)
+
+        # Putting the columns in the order we want
+        obs_info_pd = obs_info_pd[['ra', 'dec', 'ObsID', 'start', 'science_usable', 'duration',
+                                   'proprietary_end_date', 'revolution', 'proprietary_usable', 'end']]
 
         self.all_obs_info = obs_info_pd
 
