@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 26/02/2025, 00:46. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 26/02/2025, 00:51. Copyright (c) The Contributors
 import gzip
 import io
 import os.path
@@ -488,7 +488,7 @@ class XMMPointed(BaseMission):
                 to_keep = insts + ['SC']
                 to_down = [en['href'] for en in BeautifulSoup(session.get(h_url).text, "html.parser").find_all("a")
                            if any([observation_id + "_" + tk in en['href'] for tk in to_keep])
-                           or 'MANIFEST' in en['href'] or 'SUM.ASC' in en['href']]
+                           or 'MANIFEST' in en['href']]
 
                 # Make sure that the local directory is created
                 if not os.path.exists(filename):
@@ -501,13 +501,14 @@ class XMMPointed(BaseMission):
                         with open(os.path.join(filename, down_file), 'wb') as writo:
                             copyfileobj(acquiro.raw, writo)
 
-                    # Open and decompress the files
-                    with gzip.open(os.path.join(filename, down_file), 'rb') as compresso:
-                        # Open a new file handler for the decompressed data, then funnel the decompressed contents there
-                        with open(os.path.join(filename, down_file).split('.gz')[0], 'wb') as writo:
-                            copyfileobj(compresso, writo)
-                    # Then remove the tarred file to minimise storage usage
-                    os.remove(os.path.join(filename, down_file))
+                    # Open and decompress the files that need it
+                    if 'gz' in down_file:
+                        with gzip.open(os.path.join(filename, down_file), 'rb') as compresso:
+                            # Open a new file handler for the decompressed data, then funnel the decompressed contents there
+                            with open(os.path.join(filename, down_file).split('.gz')[0], 'wb') as writo:
+                                copyfileobj(compresso, writo)
+                        # Then remove the tarred file to minimise storage usage
+                        os.remove(os.path.join(filename, down_file))
 
         os.chdir(og_dir)  # returning to the original working dir
 
