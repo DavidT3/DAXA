@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 26/02/2025, 00:51. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 27/02/2025, 10:53. Copyright (c) The Contributors
 import gzip
 import io
 import os.path
@@ -339,6 +339,8 @@ class XMMPointed(BaseMission):
             try:
                 obs_info_pd = aq_acquisition()
             except OSError:
+                warn("Astroquery is not able to connect to the XMM Science Archive, switching to using "
+                     "the HEASARC XMM-Newton archive.", stacklevel=2)
                 self._use_heasarc = True
                 obs_info_pd = heasarc_acquisition()
         else:
