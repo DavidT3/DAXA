@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import xga
 from astropy.units import Quantity, UnitConversionError
-from xga.sas import eexpmap
+from xga.generate.sas import eexpmap
 from xga.sources import NullSource
 
 from daxa import NUM_CORES
@@ -213,8 +213,8 @@ def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.
         xga.sources.base.xga_conf = xmm_config
         xga.sources.base.BLACKLIST = blacklist
         xga.sources.base.OUTPUT = new_out
-        xga.sas.phot.OUTPUT = new_out
-        xga.sas.misc.OUTPUT = new_out
+        xga.generate.sas.phot.OUTPUT = new_out
+        xga.generate.sas.misc.OUTPUT = new_out
 
         # Setting up a NullSource, which will contain every ObsID in this archive
         null_src = NullSource()
