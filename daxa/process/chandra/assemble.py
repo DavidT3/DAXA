@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/03/2025, 16:55. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2025, 17:17. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -77,8 +77,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
 
     # The aspect solution file problem requires a little bash if-else
     asol_mv = ("if ls {rpasol} 1> /dev/null 2>&1; then mv {rpasol} {fasol}; else mv {altasol} {fasol}; fi; "
-               "cd ..")
-    # ; rm -r {d}
+               "cd ..; rm -r {d}")
 
     # The file patterns that should exist after the chandra_repro command has finished running - not just the event
     #  list but some other files as well
@@ -217,7 +216,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
             evt_out_path = os.path.join(temp_dir, prod_evt_list_name.format(rn=root_prefix))
             gti_out_path = os.path.join(temp_dir, prod_gti_name.format(rn=root_prefix))
             badpix_out_path = os.path.join(temp_dir, prod_bad_pix_name.format(rn=root_prefix))
-            msk_out_path = os.path.join(temp_dir, prod_msk_name.format(oi=obs_id.zfill(5), i=inst))
+            msk_out_path = os.path.join(temp_dir, prod_msk_name.format(oi=obs_id.zfill(5), i=inst.lower()))
             fov_out_path = os.path.join(temp_dir, prod_fov_name.format(rn=root_prefix))
             # Only for HRC, the dead time file - note that these files ignore the root prefix, and so are back to
             #  filling with zeros at the beginning of the ObsID to get up to five characters
