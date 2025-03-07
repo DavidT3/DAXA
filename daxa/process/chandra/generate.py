@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 24/10/2024, 20:08. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2025, 17:26. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -71,12 +71,12 @@ def _internal_flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Qu
     #
     acis_fi_cmd = ('cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} bands={eb} binsize={bs} asolfile={asol} '
                    'badpixfile={bpf} units={m} psfecf=1 parallel="no" tmpdir={td} '
-                   'cleanup="yes" verbose=4; {mv_cmd}; cd ..; rm -r {d}')
+                   'cleanup="yes" verbose=4 maskfile={mf}; {mv_cmd}; cd ..; rm -r {d}')
 
     # HRC strikes again, doesn't need energy bands of course, and wants another file (the dead time corrections)
     hrc_fi_cmd = ('cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} binsize={bs} asolfile={asol} '
                   'badpixfile={bpf} dtffile={dtf} background="default" units={m} psfecf=1 '
-                  'parallel="no" tmpdir={td} cleanup="yes" verbose=4; {mv_cmd}; cd ..; rm -r {d}')
+                  'parallel="no" tmpdir={td} cleanup="yes" verbose=4 maskfile={mf}; {mv_cmd}; cd ..; rm -r {d}')
 
     # The output file names - there have to be a few because this does make a bunch of stuff. The main output
     #  is always the 'flux' file - and it is always called that regardless of the mode.
@@ -184,6 +184,8 @@ def _internal_flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Qu
             rel_asol = obs_archive.process_extra_info[miss.name]['chandra_repro'][val_id]['asol_file']
             # And the bad-pixel file
             rel_badpix = obs_archive.process_extra_info[miss.name]['chandra_repro'][val_id]['badpix']
+            # Also also the mask file, to show which part of the detectors were active
+            rel_msk = obs_archive.process_extra_info[miss.name]['chandra_repro'][val_id]['msk_file']
 
             # Finally, for HRC observations we need the path the dead time file
             if inst == 'HRC':
@@ -320,13 +322,13 @@ def _internal_flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Qu
                     # Fill out the template, and generate the command that we will run through subprocess
                     cmd = acis_fi_cmd.format(d=temp_dir, cef=rel_evt, rn=root_prefix, eb=en_cmd_str, bs=acis_bin_size,
                                              asol=rel_asol, bpf=rel_badpix, m=unit, mv_cmd=mv_cmd,
-                                             td=temp_dir + 'sub_temp/')
+                                             td=temp_dir + 'sub_temp/', mf=rel_msk)
 
                 # And here we have an energy-averse instrument (HRC)
                 else:
                     cmd = hrc_fi_cmd.format(d=temp_dir, cef=rel_evt, rn=root_prefix, bs=hrc_bin_size, dtf=rel_dtf,
                                             asol=rel_asol, bpf=rel_badpix, m=unit, mv_cmd=mv_cmd,
-                                            td=temp_dir + 'sub_temp/')
+                                            td=temp_dir + 'sub_temp/', mf=rel_msk)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
