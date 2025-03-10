@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 11/11/2024, 23:26. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 07/03/2025, 17:17. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -66,21 +66,18 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     crp_cmd = ("cd {d}; chandra_repro indir={in_f} outdir={out_f} root={rn} badpixel='yes' process_events='yes' "
                "destreak={ds} set_ardlib='no' check_vf_pha={cvf} pix_adj={pa} tg_zo_position='evt2' "
                "asol_update={as_up} pi_filter={pf} cleanup='no' verbose=5; mv {oge} {fe}; mv {oggti} {fgti}; "
-               "mv {ogbp} {fbp}; mv {ogfov} {ffov}; ")
+               "mv {ogbp} {fbp}; mv {ogfov} {ffov}; mv {mf} {fmf}; ")
 
     # HRC has one slight addition to the command, so that re retrieve the dead time correction file produced for
     #  those instruments
     hrc_crp_cmd = ("cd {d}; chandra_repro indir={in_f} outdir={out_f} root={rn} badpixel='yes' process_events='yes' "
                    "destreak={ds} set_ardlib='no' check_vf_pha={cvf} pix_adj={pa} tg_zo_position='evt2' "
                    "asol_update={as_up} pi_filter={pf} cleanup='no' verbose=5; mv {oge} {fe}; mv {oggti} {fgti}; "
-                   "mv {ogbp} {fbp}; mv {ogfov} {ffov}; mv {ogdtf} {fdtf}; ")
+                   "mv {ogbp} {fbp}; mv {ogfov} {ffov}; mv {ogdtf} {fdtf}; mv {mf} {fmf}; ")
 
     # The aspect solution file problem requires a little bash if-else
     asol_mv = ("if ls {rpasol} 1> /dev/null 2>&1; then mv {rpasol} {fasol}; else mv {altasol} {fasol}; fi; "
                "cd ..; rm -r {d}")
-    # asol_mv = ("if ls {rpasol} 3>&1 4>&2 1>/dev/null 2>&1; then mv {rpasol} {fasol} 1>&3 2>&4; else mv {altasol} "
-    #            "{fasol} 1>&3 2>&4; fi; "
-    #            "")
 
     # The file patterns that should exist after the chandra_repro command has finished running - not just the event
     #  list but some other files as well
@@ -102,6 +99,8 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     #  move and rename the asol files in the cmd line
     prod_asol_name = "pcadf{oi}_repro_asol1.fits"
     prod_asol_alt_name = "pcadf{oi}_0*N00*_asol1.fits"
+    # We will also need to keep the mask file, which seems to very simply define what is detector and what is not
+    prod_msk_name = "{i}f{oi}_0*N00*_msk1.fits"
 
     # These represent the final names and resting places of the event lists (note that we include the energy bound
     #  identifier in the filename, but include no bounds because none are applied right now
@@ -114,6 +113,8 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
     #  file, which is only for HRC as ACIS stores DTC differently I think
     asol_name = "obsid{o}-inst{i}-subexp{se}-aspectsolution.fits"
     dtf_name = "obsid{o}-inst{i}-subexp{se}-deadtimefile.fits"
+    # And the 'final' name for the mask file
+    msk_name = "obsid{o}-inst{i}-subexp{se}-mask.fits"
 
     # ---------------------------------- Checking and converting user inputs ----------------------------------
     # Make sure that destreak is the right type of object - then we convert to the string 'yes' or 'no' that
@@ -215,6 +216,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
             evt_out_path = os.path.join(temp_dir, prod_evt_list_name.format(rn=root_prefix))
             gti_out_path = os.path.join(temp_dir, prod_gti_name.format(rn=root_prefix))
             badpix_out_path = os.path.join(temp_dir, prod_bad_pix_name.format(rn=root_prefix))
+            msk_out_path = os.path.join(temp_dir, prod_msk_name.format(oi=obs_id.zfill(5), i=inst.lower()))
             fov_out_path = os.path.join(temp_dir, prod_fov_name.format(rn=root_prefix))
             # Only for HRC, the dead time file - note that these files ignore the root prefix, and so are back to
             #  filling with zeros at the beginning of the ObsID to get up to five characters
@@ -232,6 +234,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
             # And then all the others
             gti_final_path = os.path.join(dest_dir, 'cleaning', gti_name.format(o=obs_id, se=exp_id, i=inst))
             badpix_final_path = os.path.join(dest_dir, 'misc', bad_pix_name.format(o=obs_id, se=exp_id, i=inst))
+            msk_final_path = os.path.join(dest_dir, 'misc', msk_name.format(o=obs_id, se=exp_id, i=inst))
             fov_final_path = os.path.join(dest_dir, 'misc', fov_name.format(o=obs_id, se=exp_id, i=inst))
             # Only for HRC, the moved dead time file final name
             if inst == 'HRC':
@@ -256,7 +259,7 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                                          cvf=check_very_faint, pa=pix_adj, as_up=asol_update, pf=grating_pi_filter,
                                          oge=evt_out_path, fe=evt_final_path, oggti=gti_out_path, fgti=gti_final_path,
                                          ogbp=badpix_out_path, fbp=badpix_final_path, ogfov=fov_out_path,
-                                         ffov=fov_final_path)
+                                         ffov=fov_final_path, mf=msk_out_path, fmf=msk_final_path)
 
                 else:
                     # Fill out the template, and generate the command that we will run through subprocess
@@ -265,7 +268,8 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                                              pf=grating_pi_filter, oge=evt_out_path, fe=evt_final_path,
                                              oggti=gti_out_path, fgti=gti_final_path, ogbp=badpix_out_path,
                                              fbp=badpix_final_path, ogfov=fov_out_path, ffov=fov_final_path,
-                                             ogdtf=dtf_out_path, fdtf=dtf_final_path)
+                                             ogdtf=dtf_out_path, fdtf=dtf_final_path, mf=msk_out_path,
+                                             fmf=msk_final_path)
 
                 # Now add the bash if-else that determines which aspect solution file name to try to move out
                 cmd += asol_mv.format(rpasol=asol_repro_path, altasol=asol_alt_path, fasol=asol_final_path, d=temp_dir)
@@ -276,7 +280,8 @@ def chandra_repro(obs_archive: Archive, destreak: bool = True, check_very_faint:
                 miss_final_paths[miss.name][val_id] = evt_final_path
                 miss_extras[miss.name][val_id] = {'working_dir': temp_dir, 'evt_list': evt_final_path,
                                                   'default_gti': gti_final_path, 'badpix': badpix_final_path,
-                                                  'fov_reg': fov_final_path, 'asol_file': asol_final_path}
+                                                  'fov_reg': fov_final_path, 'asol_file': asol_final_path,
+                                                  'msk_file': msk_final_path}
                 # Only store if an HRC observation
                 if dtf_final_path is not None:
                     miss_extras[miss.name][val_id]['dead_time_file'] = dtf_final_path
