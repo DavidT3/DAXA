@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/03/2025, 12:08. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/03/2025, 12:42. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -71,14 +71,12 @@ def _internal_flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Qu
     #
     acis_fi_cmd = ('cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} bands={eb} binsize={bs} asolfile={asol} '
                    'badpixfile={bpf} units={m} psfecf=1 parallel="no" tmpdir={td} '
-                   'cleanup="yes" verbose=4 maskfile={mf}; {mv_cmd}; cd ..')
-    # ; rm -r {d}
+                   'cleanup="yes" verbose=4 maskfile={mf}; {mv_cmd}; cd ..; rm -r {d}')
 
     # HRC strikes again, doesn't need energy bands of course, and wants another file (the dead time corrections)
     hrc_fi_cmd = ('cd {d}; fluximage infile={cef}[EVENTS] outroot={rn} binsize={bs} asolfile={asol} '
                   'badpixfile={bpf} dtffile={dtf} background="default" units={m} psfecf=1 '
-                  'parallel="no" tmpdir={td} cleanup="yes" verbose=4 maskfile={mf}; {mv_cmd}; cd ..')
-    # ; rm -r {d}
+                  'parallel="no" tmpdir={td} cleanup="yes" verbose=4 maskfile={mf}; {mv_cmd}; cd ..; rm -r {d}')
 
     # The output file names - there have to be a few because this does make a bunch of stuff. The main output
     #  is always the 'flux' file - and it is always called that regardless of the mode.
