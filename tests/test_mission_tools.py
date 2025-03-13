@@ -75,4 +75,6 @@ class TestMultiMissionFilterOnPositions(unittest.TestCase):
         assert 'XRT' in chosen_insts
         assert 'BAT' not in chosen_insts
                                         
+if __name__ == '__main__':
+    unittest.main()
 
