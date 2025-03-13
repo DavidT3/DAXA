@@ -11,8 +11,8 @@ from ..exceptions import NoObsAfterFilterError
 
 def multi_mission_filter_on_positions(positions: Union[list, np.ndarray, SkyCoord], 
                                       search_distance: Union[Quantity, float, int, list, 
-                                      np.ndarray, dict] = None, missions: List[str] = None
-                                      ) -> list[BaseMission]:
+                                      np.ndarray, dict] = None, missions: List[str] = None,
+                                      insts: dict = None) -> list[BaseMission]:
     """
     Convenience function to search around a position for observations across multiple missions. By
     default this function will search all available missions supported by DAXA. This will set up 
@@ -40,6 +40,10 @@ def multi_mission_filter_on_positions(positions: Union[list, np.ndarray, SkyCoor
         undertaken on an instrument-by-instrument basis using the different field of views.
     :param list[str] missions: list of mission names that will have the filter performed on. If set 
         to None, this function will perform the search on all missions available within DAXA.
+    :param dict insts: Dictionary with mission names as keys, and values that are either Lists of 
+        strings or a string giving the instrument(s) to be used for the search. The values 
+        should be in the same format that you would parse to a Mission object when chosing 
+        instruments when the object is first instantiated.
     :return: A list of missions that have observations associated with them. The list contains 
         Mission objects that have had the filtering applied and have found matching observations.
     :rtype: List[daxa.mission.BaseMission]
@@ -89,11 +93,30 @@ def multi_mission_filter_on_positions(positions: Union[list, np.ndarray, SkyCoor
             
     else:
         mission_keys = MISS_INDEX.keys()
+    
+    if insts is not None:
+        # This is the only check we will do, the format of the insts values argument can be checked when
+        # the mission class is instantiated later
+        if not all(miss in mission_keys for miss in insts):
+            raise ValueError("Input Missions given in the 'insts' argument are not recognised. "
+                             "Either they have been misspelled or you have provided a mission to"
+                             " the 'insts' dictionary that is not in the 'missions' input to this"
+                             " function.")
 
     # This will be appended to if observations are found for a mission
     mission_list = []
     for mission_key in mission_keys:
-        mission = MISS_INDEX[mission_key]()
+        if insts is not None:
+            # For that case that only some of the missions select have a chosen instrument given
+            # in the 'insts' argument
+            try:
+                mission = MISS_INDEX[mission_key](insts=insts[mission_key])
+            except KeyError:
+                mission = MISS_INDEX[mission_key]()
+
+        else:
+            mission = MISS_INDEX[mission_key]()
+
         try:
             mission.filter_on_positions(positions, search_distance[mission_key])
             mission_list.append(mission)
