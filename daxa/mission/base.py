@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 03/10/2024, 22:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 13/03/2025, 22:19. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -1453,9 +1453,11 @@ class BaseMission(metaclass=ABCMeta):
                 #  associated with ObsIDs are just one of the returns from the search_around_sky method
                 pos_with_data_ind = which_pos
                 # This unfortunate one-liner connects position indices with specific ObsIDs that they were matched to,
-                #  and will be processed into a dataframe at the end
+                #  and will be processed into a dataframe at the end - only if the particular ObsID wasn't already
+                #  filtered out though.
                 which_pos_which_obs = {pos_ind: [self.obs_ids[obs_ind] for
-                                                 obs_ind in which_obs[np.where(which_pos == pos_ind)[0]]]
+                                                 obs_ind in which_obs[np.where(which_pos == pos_ind)[0]]
+                                                 if self.obs_ids[obs_ind] in self.filtered_obs_ids]
                                        for pos_ind in np.unique(which_pos)}
 
         elif isinstance(search_distance, Quantity) and not search_distance.isscalar:
@@ -1493,7 +1495,8 @@ class BaseMission(metaclass=ABCMeta):
                         #  to our list that keeps track of the positions which are associated with observations
                         pos_with_data_ind.append(sd_ind)
                         # Store the ObsIDs relevant to this position
-                        which_pos_which_obs[sd_ind] = list(self.obs_ids[which_obs])
+                        which_pos_which_obs[sd_ind] = list(np.intersect1d(self.obs_ids[which_obs],
+                                                                          self.filtered_obs_ids))
 
         else:
             # Hopefully every mission class's all_obs_info table had its indices reset at the end of the method
@@ -1548,7 +1551,14 @@ class BaseMission(metaclass=ABCMeta):
                     else which_pos_which_obs[pos_ind] + [rel_obs_ids[obs_ind]
                                                          for obs_ind in which_obs[np.where(which_pos == pos_ind)[0]]]
                               for pos_ind in np.unique(which_pos)}
-                    which_pos_which_obs.update(to_add)
+
+                    # Future David here, past David was an arse for leaving that disgusting bit of code above, and
+                    #  I am too scared to touch it now, so I'm going to check the ObsIDs to ensure they are in the
+                    #  filtered ObsIDs list here instead
+                    final_to_add = {pos_ind: [oi for oi in sel_obs_ids if oi in self.filtered_obs_ids]
+                                    for pos_ind, sel_obs_ids in to_add.items()}
+
+                    which_pos_which_obs.update(final_to_add)
 
             # Have to check whether any observations have actually been found, if not then we throw an error. Very
             #  similar to a check in the first part of the if statement, but here we only check at the end of the
