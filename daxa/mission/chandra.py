@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 21/10/2024, 16:31. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 13/03/2025, 22:30. Copyright (c) The Contributors
 import gzip
 import io
 import os
@@ -195,7 +195,7 @@ class Chandra(BaseMission):
         # I considered removing any gratings entries from inst, but it doesn't matter because I will just check
         #  which rows in the obs info table have instrument (i.e. detector) entries in the insts list, doesn't
         #  matter that gratings might be in there.
-        sel_inst_mask = (self._obs_info['instrument'].isin(new_insts)) | (self._obs_info['grating'].isin(val_gratings))
+        sel_inst_mask = (self._obs_info['instrument'].isin(new_insts)) & (self._obs_info['grating'].isin(val_gratings))
 
         # I can't think of a way this would happen, but I will just quickly ensure that this filtering didn't
         #  return zero results
