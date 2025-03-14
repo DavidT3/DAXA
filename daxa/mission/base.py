@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 13/03/2025, 23:01. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/03/2025, 10:22. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -1603,8 +1603,15 @@ class BaseMission(metaclass=ABCMeta):
             ret_df_cols = ['pos_ind', 'pos_ra', 'pos_dec', 'ObsIDs']
             ret_df_data = np.vstack([pos_with_data_ind, pos_with_data.ra.value, pos_with_data.dec.value,
                                      rel_obs_ids]).T
+            # Set up the return dataframe
+            pos_info_df = pd.DataFrame(ret_df_data, columns=ret_df_cols)
+            # Then make sure to drop rows that don't have ObsIDs - this can happen for missions like Chandra
+            #  and ROSAT, where different instruments don't observe simultaneously, and the instruments chosen
+            #  by the user are a subset of those available.
+            pos_info_df['ObsIDs'] = pos_info_df['ObsIDs'].replace('', np.nan)
+            pos_info_df = pos_info_df.dropna(subset=['ObsIDs']).reset_index(drop=True)
 
-            return pd.DataFrame(ret_df_data, columns=ret_df_cols)
+            return pos_info_df
 
     @_lock_check
     @_capture_filter
