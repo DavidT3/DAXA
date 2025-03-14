@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 13/03/2025, 22:19. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 13/03/2025, 23:01. Copyright (c) The Contributors
 import inspect
 import json
 import os.path
@@ -1174,18 +1174,21 @@ class BaseMission(metaclass=ABCMeta):
 
     @_lock_check
     @_capture_filter
-    def filter_on_obs_ids(self, allowed_obs_ids: Union[str, List[str]]):
+    def filter_on_obs_ids(self, allowed_obs_ids: Union[str, List[str]], invert: bool = False):
         """
-        This filtering method will select only observations with IDs specified by the allowed_obs_ids argument.
+        This filtering method will select only observations with IDs specified by the allowed_obs_ids argument (or
+        select only observations that AREN'T specified by the allowed_obs_ids argument, if invert=True).
 
         Please be aware that filtering methods are cumulative, so running another method will not remove the
         filtering that has already been applied, you can use the reset_filter method for that.
 
         :param str/List[str] allowed_obs_ids: The ObsID (or list of ObsIDs) that you wish to be let
-            through the filter.
+            through the filter (or exclude from it if invert=True).
+        :param bool invert: This argument can invert the behaviour of this filtering method, selecting every
+            ObsID that isn't specified in allowed_obs_ids. Default is False.
         """
         # Makes sure that the allowed_obs_ids variable is iterable over ObsIDs, even if just a single ObsID was passed
-        if not isinstance(allowed_obs_ids, list):
+        if not isinstance(allowed_obs_ids, (list, np.ndarray)):
             allowed_obs_ids = [allowed_obs_ids]
 
         # Just upper-cases everything, as that is what DAXA expects in cases where there are non-numerical characters
@@ -1203,6 +1206,11 @@ class BaseMission(metaclass=ABCMeta):
         # Uses the Pandas isin functionality to find the rows of the overall observation table that match the input
         #  ObsIDs. This outputs a boolean array.
         sel_obs_mask = self._obs_info['ObsID'].isin(allowed_obs_ids).values
+
+        # If the user wants the inverted behaviour, they want to include every ObsID apart from those specified, so
+        #  we will flip this interim filtering mask we've made
+        if invert:
+            sel_obs_mask = ~sel_obs_mask
 
         # A check to make sure that some ObsIDs made it past the filtering
         if (self.filter_array * sel_obs_mask).sum() == 0:
