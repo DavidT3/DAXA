@@ -11,7 +11,8 @@ from ..mission.tools import multi_mission_filter_on_positions
 
 def assemble_archive_from_positions(archive_name: str, positions: Union[list, np.ndarray, SkyCoord], 
                                     search_distance: Union[Quantity, float, int, list, np.ndarray, 
-                                    dict] = None, missions: List[str] = None, clobber: bool = False, 
+                                    dict] = None, missions: List[str] = None, 
+                                    insts: dict = None, clobber: bool = False, 
                                     download_products: Union[bool, dict] = True, 
                                     use_preprocessed: Union[bool, dict] = False) -> Archive:
     """
@@ -44,6 +45,10 @@ def assemble_archive_from_positions(archive_name: str, positions: Union[list, np
         undertaken on an instrument-by-instrument basis using the different field of views.
     :param list[str] missions: list of mission names that will have the filter performed on. If set 
         to None, this function will perform the search on all missions available within DAXA.
+    :param dict insts: Dictionary with mission names as keys, and values that are either Lists of 
+        strings or a string giving the instrument(s) to be used for the search. The values 
+        should be in the same format that you would parse to a Mission object when chosing 
+        instruments when the object is first instantiated.
     :param bool clobber: If an archive named 'archive_name' already exists, then setting clobber to True
         will cause it to be deleted and overwritten.
     :param bool/dict download_products: Controls whether pre-processed products should be downloaded for missions
@@ -58,7 +63,7 @@ def assemble_archive_from_positions(archive_name: str, positions: Union[list, np
         filtering by the given position.
     :rtype: daxa.archive.Archive
     """
-    miss_list = multi_mission_filter_on_positions(positions, search_distance, missions)
+    miss_list = multi_mission_filter_on_positions(positions, search_distance, missions, insts)
     archive = Archive(archive_name, miss_list, clobber, download_products, use_preprocessed)
 
     return archive
