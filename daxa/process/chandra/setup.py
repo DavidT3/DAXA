@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 12:48. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/03/2025, 20:23. Copyright (c) The Contributors
 
 import os
 
@@ -147,6 +147,11 @@ def prepare_chandra_info(archive: Archive):
     proc_logs = {}
     proc_einfo = {}
     proc_conf = {}
+
+    # We're going to have a single flag for each mission that will let us know further down if we skipped
+    #  running any of the ObsIDs because they are already loaded and processed
+    any_oi_already_proc = {}
+
     for miss in chandra_miss:
         # Add an entry for the current mission
         obs_sums.setdefault(miss.name, {})
@@ -164,9 +169,12 @@ def prepare_chandra_info(archive: Archive):
         except (NoProcessingError, KeyError):
             check_dict = {}
 
+        any_oi_already_proc[miss.name] = False
+
         for oi in miss.filtered_obs_ids:
             # If there has been a run of this function for this ObsID before, we can skip it
             if oi in check_dict:
+                any_oi_already_proc[miss.name] = True
                 continue
             try:
                 # This sets up the absolute path to the 'oif.fits' file for the current Chandra mission and ObsID
@@ -198,7 +206,7 @@ def prepare_chandra_info(archive: Archive):
     #  it is likely something has gone wrong on the backend, but whatever the reason we can't continue into any
     #  Chandra processing.
     for miss in chandra_miss:
-        if all([len(en) == 0 for oi, en in obs_sums[miss.name].items()]):
+        if not any_oi_already_proc[miss.name] and all([len(en) == 0 for oi, en in obs_sums[miss.name].items()]):
             raise FileNotFoundError("No {} oif.fits files could be found to process.".format(miss.pretty_name))
 
     # Finally the fully populated dictionary is added to the archive - this will be what informs DAXA about
