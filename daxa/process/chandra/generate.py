@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 10/03/2025, 12:42. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 14/03/2025, 20:15. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -102,14 +102,15 @@ def _internal_flux_image(obs_archive: Archive, mode: str = 'flux', en_bounds: Qu
     # ---------------------------------- Checking and converting user inputs ----------------------------------
     # Firstly, checking if the energy bounds or effective energies have been changed from default without
     #  changing the other to match
-    if (((en_bounds != CSC_DEFAULT_EBOUNDS).any() and (effective_ens == CSC_DEFAULT_EFF_ENERGIES).all()) or
-            ((en_bounds == CSC_DEFAULT_EBOUNDS).all() and (effective_ens != CSC_DEFAULT_EFF_ENERGIES).any())):
+    eb_equal_def = np.array_equal(en_bounds, CSC_DEFAULT_EBOUNDS)
+    ef_equal_def = np.array_equal(effective_ens, CSC_DEFAULT_EFF_ENERGIES)
+    if (not eb_equal_def and ef_equal_def) or (eb_equal_def and not ef_equal_def):
         raise ValueError("Either the 'en_bounds' or 'effective_ens' argument has been altered from default, without"
                          "changing the other. If one is changed the other must also be altered.")
 
     # Now will do some sanity checks on the inputs, if they have been changed - only need to check if the energy bounds
     #  have changed here, because we know both have been altered as we got past the error above
-    if (en_bounds != CSC_DEFAULT_EBOUNDS).any():
+    if not ef_equal_def:
 
         # If they've been altered, want to make sure they are in the expected format
         if en_bounds.isscalar or effective_ens.isscalar:
