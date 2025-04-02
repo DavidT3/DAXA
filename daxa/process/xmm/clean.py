@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 01/04/2025, 20:00. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 09:30. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -339,7 +339,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
                                                              u=filter_hi_en)
 
             # And where I want them to end up!
-            corn_evt_name = "obsid{o}-inst{i}-subexp{se}-cornerevents.fits".format(o=obs_id, i=inst, se=exp_id)
+            corn_evt_name = "obsid{o}-inst{i}-subexp{se}-gticornerevents.fits".format(o=obs_id, i=inst, se=exp_id)
             gti_name = "obsid{o}-inst{i}-subexp{se}-en{l}_{u}keV-gti.fits".format(i=inst, se=exp_id, l=filter_lo_en,
                                                                                   u=filter_hi_en, o=obs_id)
             hist_name = "obsid{o}-inst{i}-subexp{se}-en{l}_{u}keV-hist.qdp".format(i=inst, se=exp_id, l=filter_lo_en,
@@ -375,8 +375,8 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
                 miss_final_paths[miss.name][val_id] = final_paths
-                miss_extras[miss.name][val_id] = {'gti_path': gti_path, 'hist_path': hist_path,
-                                                  'working_dir': temp_dir}
+                miss_extras[miss.name][val_id] = {'corner_evts': corn_evt_path, 'gti_path': gti_path,
+                                                  'hist_path': hist_path, 'working_dir': temp_dir}
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Finding PN/MOS soft-proton flares'
