@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 12:14. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 12:20. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -326,18 +326,17 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
                 # Versions prior to SAS 21 had different output file patterns for espfilt
                 og_allgood_evt_name = "{i}{exp_id}-allevc-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id,
                                                                                l=filter_lo_en, u=filter_hi_en)
-                # If the instrument is PN, we want to save the OoT corner events as well
-                og_allgood_ootevt_name = "{i}{exp_id}-allevcoot-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id,
-                                                                                     l=filter_lo_en, u=filter_hi_en)
                 og_gti_name = "{i}{exp_id}-gti-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id, l=filter_lo_en,
                                                                     u=filter_hi_en)
                 og_hist_name = "{i}{exp_id}-hist-{l}-{u}.qdp".format(i=alt_inst, exp_id=exp_id, l=filter_lo_en,
                                                                      u=filter_hi_en)
             else:
                 og_allgood_evt_name = "{i}{exp_id}-allevc.fits".format(i=alt_inst, exp_id=exp_id)
-                og_allgood_ootevt_name = "{i}{exp_id}-allevcoot.fits".format(i=alt_inst, exp_id=exp_id)
                 og_gti_name = "{i}{exp_id}-gti.fits".format(i=alt_inst, exp_id=exp_id)
                 og_hist_name = "{i}{exp_id}-hist.qdp".format(i=alt_inst, exp_id=exp_id)
+
+            # This file name is the same regardless of version (we very much hope)
+            og_allgood_ootevt_name = "{i}{exp_id}-allevcoot.fits".format(i=alt_inst, exp_id=exp_id)
 
             # And where I want them to end up!
             allgood_evt_name = "obsid{o}-inst{i}-subexp{se}-allgoodevents.fits".format(o=obs_id, i=inst, se=exp_id)
