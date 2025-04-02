@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 17:23. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 17:55. Copyright (c) The Contributors
 
 from functools import wraps
 from inspect import signature, Parameter
@@ -304,12 +304,12 @@ def sas_call(sas_func):
                             #  an exception.
                             except (ValueError, UnicodeDecodeError) as err:
                                 if len(err.args) == 1:
-                                    err.args = (err.args[0] +
+                                    err.args = (str(err.args[0]) +
                                                 " [{mn}-{rel_id}].".format(mn=mission_name, rel_id=relevant_id),)
                                 else:
                                     err.args = (err.args[0],
-                                                err.args[1]+" [{mn}-{rel_id}].".format(mn=mission_name,
-                                                                                       rel_id=relevant_id),)
+                                                str(err.args[1])+" [{mn}-{rel_id}].".format(mn=mission_name,
+                                                                                            rel_id=relevant_id),)
 
                                 python_errors.append(err)
 
