@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 15:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 15:54. Copyright (c) The Contributors
 
 from functools import wraps
 from inspect import signature, Parameter
@@ -8,7 +8,6 @@ from typing import Tuple, List, Dict
 from warnings import warn
 
 from astropy.units import UnitConversionError
-from exceptiongroup import ExceptionGroup
 from packaging.version import Version
 from tqdm import tqdm
 
@@ -304,8 +303,10 @@ def sas_call(sas_func):
                             # Possible that this parsing doesn't go our way however, so we have to be able to catch
                             #  an exception.
                             except (ValueError, UnicodeDecodeError) as err:
+                                print(err.args[0])
                                 err.args = (err.args[0] +
                                             " [{mn}-{rel_id}].".format(mn=mission_name, rel_id=relevant_id),)
+                                print(err)
                                 python_errors.append(err)
 
                         # Make sure to update the progress bar
@@ -339,8 +340,9 @@ def sas_call(sas_func):
 
             # This uses the new ExceptionGroup class to raise a set of python errors (if there are any raised
             #  during the execute_cmd function calls)
-            if len(python_errors) != 0:
-                raise ExceptionGroup("Python errors raised during SAS commands", python_errors)
+            # TODO RESTORE THIS
+            # if len(python_errors) != 0:
+            #     raise ExceptionGroup("Python errors raised during SAS commands", python_errors)
 
             # Adding an entry of the run arguments for this processing step under the current mission name
             process_cinfo[miss_name] = run_args
