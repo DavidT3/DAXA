@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 18:10. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 18:13. Copyright (c) The Contributors
 
 from functools import wraps
 from inspect import signature, Parameter
@@ -310,6 +310,7 @@ def sas_call(sas_func):
                                                                                              rel_id=relevant_id)
                                 all_args[-1] = with_rel_id
                                 err.args = tuple(all_args)
+                                raise err
                                 python_errors.append(err)
 
                         # Make sure to update the progress bar
