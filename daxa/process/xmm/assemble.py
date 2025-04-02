@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 11:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 13:51. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -992,13 +992,23 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
     # I could have done this using a Python function (and did at first), but doing it this way means that there
     #  is an entry regarding this change in the log dictionaries.
     # The different instruments need different commands to deal with the fact that PN has OOT event lists as well
-    inst_cmds = {'mos': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}",
-                         "clean": "mv {ft} {fe}; cd ../ ; rm -r {d}",
-                         "rename": "mv {cne} {nne}"},
-                 'pn': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}; echo OOT MERGE; merge set1={oote_one}"
-                                 " set2={oote_two} outset={oote_fin}",
-                        "clean": "mv {ft} {fe}; mv {ootft} {ootfe}; cd ../ ; rm -r {d}",
-                        "rename": "mv {cne} {nne}; mv {ootcne} {ootnne}"},
+    inst_cmds = {'mos': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}; "
+                                  "merge set1={e_ag_one} set2={e_ag_two} outset={e_ag_fin}",
+                         "clean": "mv {ft} {fe}; mv {ag_ft} {ag_fe}; cd ../ ; rm -r {d}",
+                         "rename": "mv {cne} {nne}; mv {ag_cne} {ag_nne}"},
+
+                 'pn': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}; "
+                                 "echo OOT MERGE; "
+                                 "merge set1={oote_one} set2={oote_two} outset={oote_fin}; "
+                                 "echo FoV+CORNER GOOD MERGE; "
+                                 "merge set1={e_ag_one} set2={e_ag_two} outset={e_ag_fin}; "
+                                 "echo FoV+CORNER GOOD OOT MERGE; "
+                                 "merge set1={oote_ag_one} set2={oote_ag_two} outset={oote_ag_fin}",
+                        "clean": "mv {ft} {fe}; mv {ootft} {ootfe}; mv {ag_ft} {ag_fe}; mv {ag_ootft} {ag_ootfe}; "
+                                 "cd ../ ; rm -r {d}",
+                        "rename": "mv {cne} {nne}; mv {ootcne} {ootnne}; mv {ag_cne} {ag_nne}; "
+                                  "mv {ag_ootcne} {ag_ootnne}"},
+
                  'setup': "cd {d}"}
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
@@ -1041,14 +1051,21 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             #  observation-instrument-exposure combination lives, as well as the energy range applied by the
             #  user in the cleaning/filtering step.
             filt_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['evt_clean_path']
+            # We also keep the FoV+corner event lists with GTIs applied that espfilt makes - so we have to
+            #  make sure to add them together as well
+            all_good_evt = obs_archive.process_extra_info[miss.name]['espfilt'][val_id]['all_good_evts']
+
             en_key = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['en_key']
 
             # If the instrument is PN then we also need to know where the filtered out of time events live
             if inst == 'PN':
                 filt_oot_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['oot_evt_'
                                                                                                       'clean_path']
+                # There are also OoT FoV+corner GTI-applied events - need to add them together as well
+                all_good_oot_evt = obs_archive.process_extra_info[miss.name]['espfilt'][val_id]['all_good_oot_evts']
             else:
                 filt_oot_evt = None
+                all_good_oot_evt = None
 
             # Combines just the observation and instrument into a top-level key for the dictionary that is used
             #  to identify which event lists needed to be added together
@@ -1058,14 +1075,16 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             if oi_id not in to_combine:
                 # The OOT event list comprehension is slightly cheeky, but basically if it is set to None (for MOS)
                 #  then we'll just be adding an empty list. It saves on more if statements with instrument checking
-                to_combine[oi_id] = [[en_key, filt_evt] + [el for el in [filt_oot_evt] if el is not None]]
+                to_combine[oi_id] = [[en_key, filt_evt] + [el for el in [filt_oot_evt] if el is not None] +
+                                     [en_key, all_good_evt] + [el for el in [all_good_oot_evt] if el is not None]]
             # If there IS an entry, then we append the filtered event list path + energy key information
             else:
                 # The OOT event list comprehension is slightly cheeky, but basically if it is set to None (for MOS)
                 #  then we'll just be adding an empty list. It saves on more if statements with instrument checking
-                to_combine[oi_id].append([en_key, filt_evt] + [el for el in [filt_oot_evt] if el is not None])
+                to_combine[oi_id].append([en_key, filt_evt] + [el for el in [filt_oot_evt] if el is not None] +
+                                         [en_key, all_good_evt] + [el for el in [all_good_oot_evt] if el is not None])
 
-        # We've gone through all the observation-instrument-exposures that we have for the current mission and now
+        # We've gone through all the observation-instrument-exposures that we have for the current mission, and now
         #  we cycle through the ObsID-instrument combinations and start adding event lists together
         for oi in to_combine:
             # It seems very cyclical but ah well, we immediately split the storage key so we have the ObsID+instrument
@@ -1084,6 +1103,16 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             final_oot_evt_name = ("obsid{o}-inst{i}-subexpALL-en{en_id}-finalootevents."
                                   "fits").format(o=obs_id, i=inst, en_id=to_combine[oi][0][0])
             final_oot_path = os.path.join(dest_dir, 'events', final_oot_evt_name)
+
+            # And the same thing for the 'all good FoV+corner events' files
+            final_allgood_evt_name = ("obsid{o}-inst{i}-subexpALL-en{en_id}-finalallgoodevents."
+                                      "fits").format(o=obs_id, i=inst, en_id=to_combine[oi][0][0])
+            final_allgood_path = os.path.join(dest_dir, 'background', final_evt_name)
+            # And a possible accompanying OOT combined events file, not used if the instrument isn't PN but
+            #  always defined because its easier
+            final_allgood_oot_evt_name = ("obsid{o}-inst{i}-subexpALL-en{en_id}-finalallgoodootevents."
+                                          "fits").format(o=obs_id, i=inst, en_id=to_combine[oi][0][0])
+            final_allgood_oot_path = os.path.join(dest_dir, 'background', final_oot_evt_name)
 
             # We check if we've already run this for the current ObsID + instrument combo, as we don't need to do
             #  it again in that case - this has inverted logic compared to most of these, as we are checking if
@@ -1119,6 +1148,9 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                 temp_evt_name = "{i}{en_id}_clean_temp{ind}.fits"
                 # We also make one for OOT events, though it will only be used when merging PN events
                 temp_oot_evt_name = "{i}{en_id}_oot_clean_temp{ind}.fits"
+                # Same for the all good FoV+corner events
+                temp_allgood_evt_name = "{i}{en_id}_allgood_clean_temp{ind}.fits"
+                temp_allgood_oot_evt_name = "{i}{en_id}_allgood_oot_clean_temp{ind}.fits"
 
                 # Make the temporary directory (it shouldn't already exist but doing this to be safe)
                 if not os.path.exists(temp_dir):
