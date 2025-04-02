@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 16:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 15:18. Copyright (c) The Contributors
 
 from functools import wraps
 from inspect import signature, Parameter
@@ -303,7 +303,7 @@ def sas_call(sas_func):
                                                                                            relevant_id)
                             # Possible that this parsing doesn't go our way however, so we have to be able to catch
                             #  an exception.
-                            except ValueError as err:
+                            except (ValueError, UnicodeDecodeError) as err:
                                 python_errors.append(err)
 
                         # Make sure to update the progress bar
