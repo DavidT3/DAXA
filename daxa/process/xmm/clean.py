@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 09:30. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 10:21. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -175,7 +175,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
     if sas_version >= Version('21.0.0'):
         ef_cmd = "cd {d}; export SAS_CCF={ccf}; export SAS_VERBOSITY=2; espfilt eventfile={ef} withoot={woot} ootfile={oot} method={me} " \
                  "withsmoothing={ws} smooth={s} withbinning={wb} binsize={bs} ratio={r} elow={el} " \
-                 "ehigh={eh} rangescale={rs} allowsigma={asi} keepinterfiles=no limits={gls}; mv {ogti} {gti}; " \
+                 "ehigh={eh} rangescale={rs} allowsigma={asi} keepinterfiles=yes limits={gls}; mv {ogti} {gti}; " \
                  "mv {ocornevc} {cornevc}; mv {ohist} {hist}; cd ../; "
         # TODO RESTORE - rm -r {d}
 
@@ -184,7 +184,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
         #  cleaned events list within the energy bands, and the diagnostic histogram
         ef_cmd = "cd {d}; export SAS_CCF={ccf}; export SAS_VERBOSITY=2; espfilt eventfile={ef} withoot={woot} ootfile={oot} method={me} " \
                  "withsmoothing={ws} smooth={s} withbinning={wb} binsize={bs} ratio={r} withlongnames=yes elow={el} " \
-                 "ehigh={eh} rangescale={rs} allowsigma={asi} keepinterfiles=no limits={gls}; mv {ogti} {gti}; " \
+                 "ehigh={eh} rangescale={rs} allowsigma={asi} keepinterfiles=yes limits={gls}; mv {ogti} {gti}; " \
                  "mv {ocornevc} {cornevc}; mv {ohist} {hist}; cd ../; "
         # TODO RESTORE - rm -r {d}
 
@@ -326,6 +326,10 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
                 # Versions prior to SAS 21 had different output file patterns for espfilt
                 og_corn_evt_name = "{i}{exp_id}-corevc-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id,
                                                                             l=filter_lo_en, u=filter_hi_en)
+                # If the instrument is PN, we want to save the OoT corner events as well
+                # TODO MAKE DECISIONS
+                # og_oot_corn_evt_name = "{i}{exp_id}-corevc-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id,
+                #                                                                 l=filter_lo_en, u=filter_hi_en)
                 og_gti_name = "{i}{exp_id}-gti-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id, l=filter_lo_en,
                                                                     u=filter_hi_en)
                 og_hist_name = "{i}{exp_id}-hist-{l}-{u}.qdp".format(i=alt_inst, exp_id=exp_id, l=filter_lo_en,
