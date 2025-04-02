@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 10:21. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 12:14. Copyright (c) The Contributors
 
 import os
 from random import randint
@@ -176,7 +176,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
         ef_cmd = "cd {d}; export SAS_CCF={ccf}; export SAS_VERBOSITY=2; espfilt eventfile={ef} withoot={woot} ootfile={oot} method={me} " \
                  "withsmoothing={ws} smooth={s} withbinning={wb} binsize={bs} ratio={r} elow={el} " \
                  "ehigh={eh} rangescale={rs} allowsigma={asi} keepinterfiles=yes limits={gls}; mv {ogti} {gti}; " \
-                 "mv {ocornevc} {cornevc}; mv {ohist} {hist}; cd ../; "
+                 "mv {oallevc} {allevc}; mv {ohist} {hist};{mvoot} cd ../; "
         # TODO RESTORE - rm -r {d}
 
     elif sas_version == Version('20.0.0'):
@@ -185,7 +185,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
         ef_cmd = "cd {d}; export SAS_CCF={ccf}; export SAS_VERBOSITY=2; espfilt eventfile={ef} withoot={woot} ootfile={oot} method={me} " \
                  "withsmoothing={ws} smooth={s} withbinning={wb} binsize={bs} ratio={r} withlongnames=yes elow={el} " \
                  "ehigh={eh} rangescale={rs} allowsigma={asi} keepinterfiles=yes limits={gls}; mv {ogti} {gti}; " \
-                 "mv {ocornevc} {cornevc}; mv {ohist} {hist}; cd ../; "
+                 "mv {oallevc} {allevc}; mv {ohist} {hist};{mvoot} cd ../; "
         # TODO RESTORE - rm -r {d}
 
     else:
@@ -193,7 +193,7 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
             warn("SAS v{} does not support the 'histogram' method, this was only added in v20.0.0, switching to "
                  "'ratio' method.".format(str(sas_version)), stacklevel=2)
         ef_cmd = "cd {d}; export SAS_CCF={ccf}; export SAS_VERBOSITY=2; espfilt eventset={ef} method={me} withsmoothing={ws} smooth={s} " \
-                 "withbinning={wb} binsize={bs} ratio={r}; mv {ogti} {gti}; mv {ocornevc} {cornevc}; mv {ohist} {hist}; " \
+                 "withbinning={wb} binsize={bs} ratio={r}; mv {ogti} {gti}; mv {oallevc} {allevc}; mv {ohist} {hist};{mvoot} " \
                  "cd ../; "
     # TODO RESTORE - rm -r {d}
     # Need to change parameter to turn on smoothing if the user wants it. The parameter
@@ -324,35 +324,34 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
             #  to remain named with the alt instrument though, so we also define paths to move them to.
             if sas_version < Version("21.0.0"):
                 # Versions prior to SAS 21 had different output file patterns for espfilt
-                og_corn_evt_name = "{i}{exp_id}-corevc-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id,
-                                                                            l=filter_lo_en, u=filter_hi_en)
+                og_allgood_evt_name = "{i}{exp_id}-allevc-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id,
+                                                                               l=filter_lo_en, u=filter_hi_en)
                 # If the instrument is PN, we want to save the OoT corner events as well
-                # TODO MAKE DECISIONS
-                # og_oot_corn_evt_name = "{i}{exp_id}-corevc-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id,
-                #                                                                 l=filter_lo_en, u=filter_hi_en)
+                og_allgood_ootevt_name = "{i}{exp_id}-allevcoot-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id,
+                                                                                     l=filter_lo_en, u=filter_hi_en)
                 og_gti_name = "{i}{exp_id}-gti-{l}-{u}.fits".format(i=alt_inst, exp_id=exp_id, l=filter_lo_en,
                                                                     u=filter_hi_en)
                 og_hist_name = "{i}{exp_id}-hist-{l}-{u}.qdp".format(i=alt_inst, exp_id=exp_id, l=filter_lo_en,
                                                                      u=filter_hi_en)
             else:
-                og_corn_evt_name = "{i}{exp_id}-corevc.fits".format(i=alt_inst, exp_id=exp_id,
-                                                                    l=filter_lo_en, u=filter_hi_en)
-                og_gti_name = "{i}{exp_id}-gti.fits".format(i=alt_inst, exp_id=exp_id, l=filter_lo_en,
-                                                            u=filter_hi_en)
-                og_hist_name = "{i}{exp_id}-hist.qdp".format(i=alt_inst, exp_id=exp_id, l=filter_lo_en,
-                                                             u=filter_hi_en)
+                og_allgood_evt_name = "{i}{exp_id}-allevc.fits".format(i=alt_inst, exp_id=exp_id)
+                og_allgood_ootevt_name = "{i}{exp_id}-allevcoot.fits".format(i=alt_inst, exp_id=exp_id)
+                og_gti_name = "{i}{exp_id}-gti.fits".format(i=alt_inst, exp_id=exp_id)
+                og_hist_name = "{i}{exp_id}-hist.qdp".format(i=alt_inst, exp_id=exp_id)
 
             # And where I want them to end up!
-            corn_evt_name = "obsid{o}-inst{i}-subexp{se}-gticornerevents.fits".format(o=obs_id, i=inst, se=exp_id)
+            allgood_evt_name = "obsid{o}-inst{i}-subexp{se}-allgoodevents.fits".format(o=obs_id, i=inst, se=exp_id)
+            allgood_oot_evt_name = "obsid{o}-inst{i}-subexp{se}-allgoodOoTevents.fits".format(o=obs_id, i=inst,
+                                                                                              se=exp_id)
             gti_name = "obsid{o}-inst{i}-subexp{se}-en{l}_{u}keV-gti.fits".format(i=inst, se=exp_id, l=filter_lo_en,
                                                                                   u=filter_hi_en, o=obs_id)
             hist_name = "obsid{o}-inst{i}-subexp{se}-en{l}_{u}keV-hist.qdp".format(i=inst, se=exp_id, l=filter_lo_en,
                                                                                    u=filter_hi_en, o=obs_id)
 
-            corn_evt_path = os.path.join(dest_dir, 'background', corn_evt_name)
+            allgood_evt_path = os.path.join(dest_dir, 'background', allgood_evt_name)
+            allgood_oot_evt_path = os.path.join(dest_dir, 'background', allgood_oot_evt_name)
             gti_path = os.path.join(dest_dir, 'cleaning', gti_name)
             hist_path = os.path.join(dest_dir, 'cleaning', hist_name)
-            final_paths = [corn_evt_path, gti_path, hist_path]
 
             # If it doesn't already exist then we will create commands to generate it
             if ('espfilt' not in obs_archive.process_success[miss.name] or
@@ -366,21 +365,38 @@ def espfilt(obs_archive: Archive, method: str = 'histogram', with_smoothing: Uni
                 if inst == 'PN':
                     with_oot = 'yes'
                     rs = range_scale['pn']
+                    # An extra move command to ensure that the all-good OoT events are moved out before deletion
+                    oot_mv_cmd = " mv {og} {f};".format(og=og_allgood_ootevt_name, f=allgood_oot_evt_path)
                 else:
                     with_oot = 'no'
                     rs = range_scale['mos']
+                    # MOS doesn't have OoT events, so this command is blank
+                    oot_mv_cmd = ""
 
                 cmd = ef_cmd.format(d=temp_dir, ccf=ccf_path, ef=evt_list_file, woot=with_oot, oot=oot_evt_list_file,
                                     me=method, ws=with_smoothing, s=smooth_factor, wb=with_binning, bs=bin_size,
                                     r=ratio, el=filter_lo_en, eh=filter_hi_en, rs=rs, asi=allowed_sigma,
-                                    gls=gauss_fit_lims, gti=gti_path, hist=hist_path, ocornevc=og_corn_evt_name,
-                                    ogti=og_gti_name, ohist=og_hist_name, cornevc=corn_evt_path)
+                                    gls=gauss_fit_lims, gti=gti_path, hist=hist_path, oallevc=og_allgood_evt_name,
+                                    ogti=og_gti_name, ohist=og_hist_name, allevc=allgood_evt_path, mvoot=oot_mv_cmd)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][val_id] = cmd
+                if inst == 'PN':
+                    final_paths = [allgood_evt_path, allgood_oot_evt_path, gti_path, hist_path]
+                    final_extras = {'all_good_evts': allgood_evt_path,
+                                    'all_good_oot_evts': allgood_oot_evt_path,
+                                    'gti_path': gti_path,
+                                    'hist_path': hist_path,
+                                    'working_dir': temp_dir}
+                else:
+                    final_paths = [allgood_evt_path, gti_path, hist_path]
+                    final_extras = {'all_good_evts': allgood_evt_path,
+                                    'gti_path': gti_path,
+                                    'hist_path': hist_path,
+                                    'working_dir': temp_dir}
+
                 miss_final_paths[miss.name][val_id] = final_paths
-                miss_extras[miss.name][val_id] = {'corner_evts': corn_evt_path, 'gti_path': gti_path,
-                                                  'hist_path': hist_path, 'working_dir': temp_dir}
+                miss_extras[miss.name][val_id] = final_extras
 
     # This is just used for populating a progress bar during the process run
     process_message = 'Finding PN/MOS soft-proton flares'
