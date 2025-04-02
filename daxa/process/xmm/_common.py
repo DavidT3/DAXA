@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 18:13. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 18:33. Copyright (c) The Contributors
 
 from functools import wraps
 from inspect import signature, Parameter
@@ -303,15 +303,14 @@ def sas_call(sas_func):
                             # Possible that this parsing doesn't go our way however, so we have to be able to catch
                             #  an exception.
                             except (ValueError, UnicodeDecodeError) as err:
-                                # Adding the mission name and relevant ID to the error message - hopefully to
-                                #  make it easier to diagnose
-                                all_args = list(err.args)
-                                with_rel_id = str(err.args[-1]) + " [{mn}-{rel_id}].".format(mn=mission_name,
-                                                                                             rel_id=relevant_id)
-                                all_args[-1] = with_rel_id
-                                err.args = tuple(all_args)
-                                raise err
-                                python_errors.append(err)
+                                # We try making a new exception which has information about the data ID and
+                                #  the mission name, and then set the cause to be the error we just caught
+                                new_err = DAXADeveloperError("An issue with processing data from "
+                                                             "{mn}-{rid}".format(mn=mission_name, rid=relevant_id))
+                                new_err.__cause__ = err
+                                # So hopefully the exception group that is raised later will have some useful
+                                #  information to help track down the problem.
+                                python_errors.append(new_err)
 
                         # Make sure to update the progress bar
                         gen.update(1)
