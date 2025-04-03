@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 11:05. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 14:24. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -992,13 +992,23 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
     # I could have done this using a Python function (and did at first), but doing it this way means that there
     #  is an entry regarding this change in the log dictionaries.
     # The different instruments need different commands to deal with the fact that PN has OOT event lists as well
-    inst_cmds = {'mos': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}",
-                         "clean": "mv {ft} {fe}; cd ../ ; rm -r {d}",
-                         "rename": "mv {cne} {nne}"},
-                 'pn': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}; echo OOT MERGE; merge set1={oote_one}"
-                                 " set2={oote_two} outset={oote_fin}",
-                        "clean": "mv {ft} {fe}; mv {ootft} {ootfe}; cd ../ ; rm -r {d}",
-                        "rename": "mv {cne} {nne}; mv {ootcne} {ootnne}"},
+    inst_cmds = {'mos': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}; "
+                                  "merge set1={e_ag_one} set2={e_ag_two} outset={e_ag_fin}",
+                         "clean": "mv {ft} {fe}; mv {ag_ft} {ag_fe}; cd ../ ; rm -r {d}",
+                         "rename": "mv {cne} {nne}; mv {ag_cne} {ag_nne}"},
+
+                 'pn': {"merge": "merge set1={e_one} set2={e_two} outset={e_fin}; "
+                                 "echo OOT MERGE; "
+                                 "merge set1={oote_one} set2={oote_two} outset={oote_fin}; "
+                                 "echo FoV+CORNER GOOD MERGE; "
+                                 "merge set1={e_ag_one} set2={e_ag_two} outset={e_ag_fin}; "
+                                 "echo FoV+CORNER GOOD OOT MERGE; "
+                                 "merge set1={oote_ag_one} set2={oote_ag_two} outset={oote_ag_fin}",
+                        "clean": "mv {ft} {fe}; mv {ootft} {ootfe}; mv {ag_ft} {ag_fe}; mv {ag_ootft} {ag_ootfe}; "
+                                 "cd ../ ; rm -r {d}",
+                        "rename": "mv {cne} {nne}; mv {ootcne} {ootnne}; mv {ag_cne} {ag_nne}; "
+                                  "mv {ag_ootcne} {ag_ootnne}"},
+
                  'setup': "cd {d}"}
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
@@ -1041,14 +1051,21 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             #  observation-instrument-exposure combination lives, as well as the energy range applied by the
             #  user in the cleaning/filtering step.
             filt_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['evt_clean_path']
+            # We also keep the FoV+corner event lists with GTIs applied that espfilt makes - so we have to
+            #  make sure to add them together as well
+            all_good_evt = obs_archive.process_extra_info[miss.name]['espfilt'][val_id]['all_good_evts']
+
             en_key = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['en_key']
 
             # If the instrument is PN then we also need to know where the filtered out of time events live
             if inst == 'PN':
                 filt_oot_evt = obs_archive.process_extra_info[miss.name]['cleaned_evt_lists'][val_id]['oot_evt_'
                                                                                                       'clean_path']
+                # There are also OoT FoV+corner GTI-applied events - need to add them together as well
+                all_good_oot_evt = obs_archive.process_extra_info[miss.name]['espfilt'][val_id]['all_good_oot_evts']
             else:
                 filt_oot_evt = None
+                all_good_oot_evt = None
 
             # Combines just the observation and instrument into a top-level key for the dictionary that is used
             #  to identify which event lists needed to be added together
@@ -1058,14 +1075,16 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             if oi_id not in to_combine:
                 # The OOT event list comprehension is slightly cheeky, but basically if it is set to None (for MOS)
                 #  then we'll just be adding an empty list. It saves on more if statements with instrument checking
-                to_combine[oi_id] = [[en_key, filt_evt] + [el for el in [filt_oot_evt] if el is not None]]
+                to_combine[oi_id] = [[en_key, filt_evt] + [el for el in [filt_oot_evt] if el is not None] +
+                                     [all_good_evt] + [el for el in [all_good_oot_evt] if el is not None]]
             # If there IS an entry, then we append the filtered event list path + energy key information
             else:
                 # The OOT event list comprehension is slightly cheeky, but basically if it is set to None (for MOS)
                 #  then we'll just be adding an empty list. It saves on more if statements with instrument checking
-                to_combine[oi_id].append([en_key, filt_evt] + [el for el in [filt_oot_evt] if el is not None])
+                to_combine[oi_id].append([en_key, filt_evt] + [el for el in [filt_oot_evt] if el is not None] +
+                                         [all_good_evt] + [el for el in [all_good_oot_evt] if el is not None])
 
-        # We've gone through all the observation-instrument-exposures that we have for the current mission and now
+        # We've gone through all the observation-instrument-exposures that we have for the current mission, and now
         #  we cycle through the ObsID-instrument combinations and start adding event lists together
         for oi in to_combine:
             # It seems very cyclical but ah well, we immediately split the storage key so we have the ObsID+instrument
@@ -1085,6 +1104,16 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                                   "fits").format(o=obs_id, i=inst, en_id=to_combine[oi][0][0])
             final_oot_path = os.path.join(dest_dir, 'events', final_oot_evt_name)
 
+            # And the same thing for the 'all good FoV+corner events' files
+            final_allgood_evt_name = ("obsid{o}-inst{i}-subexpALL-en{en_id}-finalallgoodevents."
+                                      "fits").format(o=obs_id, i=inst, en_id=to_combine[oi][0][0])
+            final_allgood_evt_path = os.path.join(dest_dir, 'background', final_allgood_evt_name)
+            # And a possible accompanying OOT combined events file, not used if the instrument isn't PN but
+            #  always defined because its easier
+            final_allgood_oot_evt_name = ("obsid{o}-inst{i}-subexpALL-en{en_id}-finalallgoodootevents."
+                                          "fits").format(o=obs_id, i=inst, en_id=to_combine[oi][0][0])
+            final_allgood_oot_path = os.path.join(dest_dir, 'background', final_allgood_oot_evt_name)
+
             # We check if we've already run this for the current ObsID + instrument combo, as we don't need to do
             #  it again in that case - this has inverted logic compared to most of these, as we are checking if
             #  we want to break off this loop rather than actually execute the rest of it
@@ -1102,9 +1131,12 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                 # In this case we make sure to move the OOT of time event list file as well, using the PN skew
                 #  of the rename command
                 cmd = inst_cmds['pn']['rename'].format(cne=to_combine[oi][0][1], nne=final_path,
-                                                       ootcne=to_combine[oi][0][2], ootnne=final_oot_path)
+                                                       ootcne=to_combine[oi][0][2], ootnne=final_oot_path,
+                                                       ag_cne=to_combine[oi][0][3], ag_nne=final_allgood_evt_path,
+                                                       ag_ootcne=to_combine[oi][0][4], ag_ootnne=final_allgood_oot_path)
             elif len(to_combine[oi]) == 1:
-                cmd = inst_cmds['mos']['rename'].format(cne=to_combine[oi][0][1], nne=final_path)
+                cmd = inst_cmds['mos']['rename'].format(cne=to_combine[oi][0][1], nne=final_path,
+                                                        ag_cne=to_combine[oi][0][2], ag_nne=final_allgood_evt_path)
             else:
                 # If we've got to this point, we know we're going to merge some files so we changed the boolean flag
                 was_merged = True
@@ -1119,6 +1151,9 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                 temp_evt_name = "{i}{en_id}_clean_temp{ind}.fits"
                 # We also make one for OOT events, though it will only be used when merging PN events
                 temp_oot_evt_name = "{i}{en_id}_oot_clean_temp{ind}.fits"
+                # Same for the all good FoV+corner events
+                temp_allgood_evt_name = "{i}{en_id}_allgood_clean_temp{ind}.fits"
+                temp_allgood_oot_evt_name = "{i}{en_id}_allgood_oot_clean_temp{ind}.fits"
 
                 # Make the temporary directory (it shouldn't already exist but doing this to be safe)
                 if not os.path.exists(temp_dir):
@@ -1137,31 +1172,40 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                 for evt_ind, evt_path in enumerate(to_combine[oi][:-1]):
                     # If we haven't iterated yet then we use the current event list name as the
                     #  first event list.
-                    if evt_ind == 0 and len(evt_path) == 2:
+                    if evt_ind == 0 and len(evt_path) == 3:
                         first_evt = evt_path[1]
+                        first_allgood_evt = evt_path[2]
                     # There will be three entries in evt_path if the current instrument is PN, and I thought this
                     #  was easier to read versus nesting another if statement in the one above
-                    elif evt_ind == 0 and len(evt_path) == 3:
+                    elif evt_ind == 0 and len(evt_path) == 5:
                         first_evt = evt_path[1]
                         first_oot_evt = evt_path[2]
+                        first_allgood_evt = evt_path[3]
+                        first_allgood_oot_evt = evt_path[4]
                     # However if we HAVE iterated before, then the first event list should actually be the output of the
                     #  last merging step, not the CURRENT value of evt_path (as that has already been added into the
                     #  merged list).
-                    elif len(evt_path) == 2:
+                    elif len(evt_path) == 3:
                         # This is a bit cheeky, but this will never be used before its defined - it will always use the
                         #  value defined in the last iteration around
                         first_evt = cur_t_name
+                        first_allgood_evt = cur_ag_t_name
                     # This is the same as above, but again accounting for the fact that for PN we need to be merging
                     #  OOT events as well
                     else:
                         first_evt = cur_t_name
                         first_oot_evt = cur_oot_t_name
+                        first_allgood_evt = cur_ag_t_name
+                        first_allgood_oot_evt = cur_ag_oot_t_name
 
                     # The output of the merge has to be given a temporary name, as the merge command won't allow it to
                     #  have the same name as an existing file
                     cur_t_name = temp_evt_name.format(i=inst, en_id=to_combine[oi][0][0], ind=evt_ind)
+                    cur_ag_t_name = temp_allgood_evt_name.format(i=inst, en_id=to_combine[oi][0][0], ind=evt_ind)
                     if inst == 'PN':
                         cur_oot_t_name = temp_oot_evt_name.format(i=inst, en_id=to_combine[oi][0][0], ind=evt_ind)
+                        cur_ag_oot_t_name = temp_allgood_oot_evt_name.format(i=inst, en_id=to_combine[oi][0][0],
+                                                                             ind=evt_ind)
                         # This populated the command with the event list paths and output path (note where we add
                         #  1 to the evt_ind value). Also includes the OOT paths
                         cur_cmd = inst_cmds['pn']['merge'].format(e_one=first_evt,
@@ -1169,13 +1213,24 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                                                                   e_fin=cur_t_name,
                                                                   oote_one=first_oot_evt,
                                                                   oote_two=to_combine[oi][evt_ind + 1][2],
-                                                                  oote_fin=cur_oot_t_name)
+                                                                  oote_fin=cur_oot_t_name,
+                                                                  e_ag_one=first_allgood_evt,
+                                                                  e_ag_two=to_combine[oi][evt_ind + 1][3],
+                                                                  e_ag_fin=cur_ag_t_name,
+                                                                  oote_ag_one=first_allgood_oot_evt,
+                                                                  oote_ag_two=to_combine[oi][evt_ind + 1][4],
+                                                                  oote_ag_fin=cur_ag_oot_t_name
+                                                                  )
                     else:
                         # This populated the command with the event list paths and output path (note where we add
                         #  1 to the evt_ind value).
                         cur_cmd = inst_cmds['mos']['merge'].format(e_one=first_evt,
                                                                    e_two=to_combine[oi][evt_ind+1][1],
-                                                                   e_fin=cur_t_name)
+                                                                   e_fin=cur_t_name,
+                                                                   e_ag_one=first_allgood_evt,
+                                                                   e_ag_two=to_combine[oi][evt_ind + 1][2],
+                                                                   e_ag_fin=cur_ag_t_name
+                                                                   )
                     # Then the command is added to the command list
                     cur_merge_cmds.append(cur_cmd)
 
@@ -1183,12 +1238,19 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
                 #  (and all the transient part merged event lists that might have been created along the way).
                 # Again have to account for PN having OOT event lists as well
                 if inst == 'PN':
-                    cur_merge_cmds.append(inst_cmds['pn']['clean'].format(ft=cur_t_name, fe=final_path,
+                    cur_merge_cmds.append(inst_cmds['pn']['clean'].format(ft=cur_t_name,
+                                                                          fe=final_path,
                                                                           ootft=cur_oot_t_name,
                                                                           ootfe=final_oot_path,
+                                                                          ag_ft=cur_ag_t_name,
+                                                                          ag_fe=final_allgood_evt_path,
+                                                                          ag_ootft=cur_ag_oot_t_name,
+                                                                          ag_ootfe=final_allgood_oot_path,
                                                                           d=temp_dir))
                 else:
                     cur_merge_cmds.append(inst_cmds['mos']['clean'].format(ft=cur_t_name, fe=final_path,
+                                                                           ag_ft=cur_ag_t_name,
+                                                                           ag_fe=final_allgood_evt_path,
                                                                            d=temp_dir))
                 # Finally the list of commands is all joined together so it is one, like the commands of the rest
                 #  of the SAS wrapper functions
@@ -1199,9 +1261,13 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             miss_final_paths[miss.name][obs_id+inst] = final_path
             # Again accounting for whether a OOT merged event list has been produced here or not
             if inst == 'PN':
-                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path, 'final_oot_evt': final_oot_path}
+                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path,
+                                                       'final_oot_evt': final_oot_path,
+                                                       'final_allgood_evt': final_allgood_evt_path,
+                                                       'final_allgood_oot_evt': final_allgood_oot_path}
             else:
-                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path}
+                miss_extras[miss.name][obs_id+inst] = {'final_evt': final_path,
+                                                       'final_allgood_evt': final_allgood_evt_path}
 
             # If we're performing an actual merge then we make sure that the actual temporary directory is
             #  stored in the extra information - otherwise we just make sure it is None.

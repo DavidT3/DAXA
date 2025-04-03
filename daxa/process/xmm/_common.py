@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 08/11/2024, 16:36. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 18:33. Copyright (c) The Contributors
 
 from functools import wraps
 from inspect import signature, Parameter
@@ -8,7 +8,6 @@ from typing import Tuple, List, Dict
 from warnings import warn
 
 from astropy.units import UnitConversionError
-from exceptiongroup import ExceptionGroup
 from packaging.version import Version
 from tqdm import tqdm
 
@@ -303,8 +302,15 @@ def sas_call(sas_func):
                                                                                            relevant_id)
                             # Possible that this parsing doesn't go our way however, so we have to be able to catch
                             #  an exception.
-                            except ValueError as err:
-                                python_errors.append(err)
+                            except (ValueError, UnicodeDecodeError) as err:
+                                # We try making a new exception which has information about the data ID and
+                                #  the mission name, and then set the cause to be the error we just caught
+                                new_err = DAXADeveloperError("An issue with processing data from "
+                                                             "{mn}-{rid}".format(mn=mission_name, rid=relevant_id))
+                                new_err.__cause__ = err
+                                # So hopefully the exception group that is raised later will have some useful
+                                #  information to help track down the problem.
+                                python_errors.append(new_err)
 
                         # Make sure to update the progress bar
                         gen.update(1)
@@ -337,6 +343,7 @@ def sas_call(sas_func):
 
             # This uses the new ExceptionGroup class to raise a set of python errors (if there are any raised
             #  during the execute_cmd function calls)
+            # TODO RESTORE THIS
             if len(python_errors) != 0:
                 raise ExceptionGroup("Python errors raised during SAS commands", python_errors)
 

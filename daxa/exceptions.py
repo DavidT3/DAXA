@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2024, 22:10. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 03/04/2025, 11:10. Copyright (c) The Contributors
 
 
 class DAXAConfigError(Exception):
@@ -164,6 +164,7 @@ class SASVersionError(Exception):
             return '{0} '.format(self.message)
         else:
             return 'SASVersionError has been raised'
+
 
 class eSASSNotFoundError(Exception):
     def __init__(self, *args):
