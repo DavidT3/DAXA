@@ -54,13 +54,19 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
     sas_version = _sas_process_setup(obs_archive)
 
-    # Define the form of the odfingest command that must be run to create an ODF summary file
+    if str(sas_version) == "21.0.0":    # Define the form of the odfingest command that must be run to create an ODF summary file
     # Per the advice of the SAS epchain manual, the OOT event list epchain call is performed first, and its intermediate
     #  files are saved and then used for the normal call to epchain.
-    ep_cmd = "cd {d}; export SAS_CCF={ccf}; epchain odf={odf} odfaccess=odf exposure={e} schedule={s} ccds={c} " \
-             "runbackground=N keepintermediate=raw withoutoftime=Y; epchain odf={odf} odfaccess=odf exposure={e} " \
-             "schedule={s} ccds={c} runatthkgen=N runepframes=N runbadpixfind=N runbadpix=N; mv *EVLI*.FIT ../; " \
-             "mv *ATTTSR*.FIT ../;cd ..; rm -r {d}; mv {oge} {fe}; mv {ogoote} {foote}"
+        ep_cmd = "cd {d}; export SAS_CCF={ccf}; epchain odf={odf} odfaccess=odf exposure={e} schedule={s} ccds={c} " \
+                "runbackground=N keepintermediate=raw withoutoftime=Y runradmonfix=N; epchain odf={odf} odfaccess=odf exposure={e} " \
+                "schedule={s} ccds={c} runatthkgen=N runepframes=N runbadpixfind=N runbadpix=N runradmonfix=N; mv *EVLI*.FIT ../; " \
+                "mv *ATTTSR*.FIT ../;cd ..; rm -r {d}; mv {oge} {fe}; mv {ogoote} {foote}"
+    else:
+        ep_cmd = "cd {d}; export SAS_CCF={ccf}; epchain odf={odf} odfaccess=odf exposure={e} schedule={s} ccds={c} " \
+                "runbackground=N keepintermediate=raw withoutoftime=Y; epchain odf={odf} odfaccess=odf exposure={e} " \
+                "schedule={s} ccds={c} runatthkgen=N runepframes=N runbadpixfind=N runbadpix=N; mv *EVLI*.FIT ../; " \
+                "mv *ATTTSR*.FIT ../;cd ..; rm -r {d}; mv {oge} {fe}; mv {ogoote} {foote}"
+
 
     # The event list pattern that that should exist after the SAS process, which we will rename to our convention
     prod_evt_list_name = "P{o}PN{eid}PIEVLI0000.FIT"
