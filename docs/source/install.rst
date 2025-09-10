@@ -52,7 +52,7 @@ Required Dependencies for Processing Data
     - Chandra Interactive Analysis of Observations (CIAO) - v4.16 or above (installable through Conda)
 
 * eROSITA
-    - eROSITA Science Analysis Software System (eSASS) - both eSASS4EDR and eSASS4DR1 should be supported, but it is up to the user to choose [which is suitable for their use case](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/)
+    - eROSITA Science Analysis Software System (eSASS) - both eSASS4EDR and eSASS4DR1 should be supported, but it is up to the user to choose `which is suitable for their use case <https://erosita.mpe.mpg.de/dr1/eSASS4DR1/>`_.
     - HEASoft - tested on v6.29 and v6.31
 
 
