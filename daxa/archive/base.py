@@ -8,6 +8,9 @@ from copy import deepcopy
 from shutil import rmtree
 from typing import List, Union, Tuple
 from warnings import warn
+from packaging.version import Version
+from collections import defaultdict
+from typing import Union, List
 
 import numpy as np
 from astropy import wcs
@@ -18,7 +21,7 @@ from regions import Region, PixelRegion, Regions
 from daxa import BaseMission, OUTPUT, NUM_CORES
 from daxa.exceptions import DuplicateMissionError, NoProcessingError, NoDependencyProcessError, \
     ObsNotAssociatedError, MissionNotAssociatedError, PreProcessedNotAvailableError, eSASSNotFoundError
-from daxa.misc import dict_search
+from daxa.misc import dict_search, _find_best_version, XGA_VER_DICT
 from daxa.mission import MISS_INDEX
 
 
@@ -1983,6 +1986,93 @@ class Archive:
 
         # And we make sure to save!
         self.save()
+
+    def write_xga_config(self, xga_version: str = 'latest', 
+                        xga_output_path: str = 'xga_output', 
+                        num_cores: int = NUM_CORES, include_missions: Union[str, List] = None):
+        """
+        From an Archive object write an xga config file formatted with paths to the processed data 
+        in the Archive.
+
+        :param str xga_version: The xga version to write the config file for. Note that different
+            versions of xga have different telescopes that are compatible with it. By default this 
+            method writes a file for the latest version of xga.
+        :param str xga_output_path: The path in the config file describing where the xga_output
+            directory will be written. By default this is left as 'xga_output' which means the 
+            output of xga is written into the current working directory.
+        :param int num_cores: The default number of cores xga can use. By default this method uses 
+            the number of cores daxa uses.
+        :param include_missions: To only include certain missions from an Archive in the config 
+            file, list the mission names to be included in this argument. By default this method 
+            will use all mission in the archive that are compatible with the chosen xga version.
+        """
+        # From the user's input to the version argument, we want to get the key in XGA_VER_DICT that
+        # best matches it
+        if xga_version != 'latest':
+            version_key = _find_best_version(xga_version, XGA_VER_DICT)
+        else:
+            version_key = _find_best_version(xga_version, XGA_VER_DICT, use_latest=True)
+        
+        # From this version key, we can then select the allowed missions and appropriate config file
+        # for the chosen xga version
+        allowed_missions = XGA_VER_DICT[version_key]['missions']
+        config_file = XGA_VER_DICT[version_key]['config_file']
+
+        # Checking that the user's input into the include_missions argument is valid
+        if include_missions is not None:
+            if isinstance(include_missions, str):
+                if not include_missions in allowed_missions:
+                    raise ValueError("The mission given in the include_missions argument is "
+                                    "incompatible with the version of xga parsed to this method.")
+                else:
+                    # Parsing this into a list so it can be dealt with consistently later in the func
+                    include_missions = [include_missions]
+
+            elif isinstance(include_missions, list):
+                if not all(isinstance(miss, str) for miss in include_missions):
+                    raise ValueError("Please parse a list of strings of mission names into the "
+                                    "include_missions argument.")
+                if not all(miss in allowed_missions for miss in include_missions):
+                    raise ValueError("Some missions in the include_missions argument are not "
+                                    "compatible with the version of xga parsed to this method.")
+            else:
+                raise ValueError("include_missions must be either a string or a list of strings of "
+                                "mission names.")
+        
+        else:
+            include_missions = allowed_missions
+        
+        # parse missions in the user's archive, only want to keep missions that are allowed and that the
+        # user has requested in the include_missions argument
+        usable_missions = [miss for miss in self.mission_names if miss in include_missions]
+
+        if len(usable_missions) == 0:
+            raise ValueError("Archive parsed to this method has no missions compatible with XGA.")
+        
+        # This dict will store the strings that will be input into the config file
+        strings_for_config = {}
+        for mission in usable_missions:
+            strings_for_config[f'{mission}_dir'] = self.construct_processed_data_path(mission=mission).removesuffix('{oi}/')
+            strings_for_config[f'{mission}_regs'] = self.get_region_file_path(mission=mission)
+        
+        # We also add the user's choice for xga_output and num_cores
+        strings_for_config['output'] = xga_output_path
+        strings_for_config['cores'] = num_cores
+
+        # We then turn this dictionary into a defaultdict. When defaultdicts are queried for keys that
+        # dont exist, it returns a default value. We use this here, so that when we format the config
+        # file with this defaultdict, if there is a telescope that isn't in the user's archive, but is
+        # in the config, it will fill those strings with a default value: 'this/is/optional'
+        strs_for_cfg_inc_defaults = defaultdict(lambda: '/this/is/optional/', strings_for_config)
+        formatted_config = config_file.format_map(strs_for_cfg_inc_defaults)
+
+        # Finally we write the config file
+        cfg_dir = self.archive_path
+        cfg_path = cfg_dir + "xga.cfg"
+        with open(cfg_path, "w") as cfg:
+            cfg.write(formatted_config)
+        
+        print(f"Wrote config to {cfg_path}")
 
     def info(self):
         """
