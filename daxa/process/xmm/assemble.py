@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 14:24. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/09/2025, 10:14. Copyright (c) The Contributors
 
 import os
 from copy import deepcopy
@@ -8,6 +8,7 @@ from typing import Union, List, Tuple
 
 import numpy as np
 from astropy.units import Quantity, UnitConversionError
+from packaging.version import Version
 
 from daxa import NUM_CORES
 from daxa.archive.base import Archive
@@ -54,13 +55,21 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
     sas_version = _sas_process_setup(obs_archive)
 
-    # Define the form of the odfingest command that must be run to create an ODF summary file
+    # This is necessary because the radmonfix task was not included in SAS v21.0.0
+    #  See - https://www.cosmos.esa.int/web/xmm-newton/sas-watchout-2100-error-constituent
+    if sas_version == Version("21.0.0"):
     # Per the advice of the SAS epchain manual, the OOT event list epchain call is performed first, and its intermediate
     #  files are saved and then used for the normal call to epchain.
-    ep_cmd = "cd {d}; export SAS_CCF={ccf}; epchain odf={odf} odfaccess=odf exposure={e} schedule={s} ccds={c} " \
-             "runbackground=N keepintermediate=raw withoutoftime=Y; epchain odf={odf} odfaccess=odf exposure={e} " \
-             "schedule={s} ccds={c} runatthkgen=N runepframes=N runbadpixfind=N runbadpix=N; mv *EVLI*.FIT ../; " \
-             "mv *ATTTSR*.FIT ../;cd ..; rm -r {d}; mv {oge} {fe}; mv {ogoote} {foote}"
+        ep_cmd = "cd {d}; export SAS_CCF={ccf}; epchain odf={odf} odfaccess=odf exposure={e} schedule={s} ccds={c} " \
+                "runbackground=N keepintermediate=raw withoutoftime=Y runradmonfix=N; epchain odf={odf} odfaccess=odf exposure={e} " \
+                "schedule={s} ccds={c} runatthkgen=N runepframes=N runbadpixfind=N runbadpix=N runradmonfix=N; mv *EVLI*.FIT ../; " \
+                "mv *ATTTSR*.FIT ../;cd ..; rm -r {d}; mv {oge} {fe}; mv {ogoote} {foote}"
+    else:
+        ep_cmd = "cd {d}; export SAS_CCF={ccf}; epchain odf={odf} odfaccess=odf exposure={e} schedule={s} ccds={c} " \
+                "runbackground=N keepintermediate=raw withoutoftime=Y; epchain odf={odf} odfaccess=odf exposure={e} " \
+                "schedule={s} ccds={c} runatthkgen=N runepframes=N runbadpixfind=N runbadpix=N; mv *EVLI*.FIT ../; " \
+                "mv *ATTTSR*.FIT ../;cd ..; rm -r {d}; mv {oge} {fe}; mv {ogoote} {foote}"
+
 
     # The event list pattern that that should exist after the SAS process, which we will rename to our convention
     prod_evt_list_name = "P{o}PN{eid}PIEVLI0000.FIT"
