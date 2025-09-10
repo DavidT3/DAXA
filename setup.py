@@ -28,7 +28,7 @@ setup(
     setup_requires=[],
     install_requires=["numpy>=1.26.4", "astroquery>=0.4.7", "pandas>=2.2.2", "astropy>=6.1.2", "packaging>=24.1",
                       "tqdm>=4.66.4", "exceptiongroup>=1.0.4", "scipy>=1.14.0", "tabulate>=0.9.0", "unlzw3>=0.2.2",
-                      "xga>=0.5.0"],
+                      "xga>=0.6.0"],
     include_package_data=True,
     python_requires='>=3.10'
 )

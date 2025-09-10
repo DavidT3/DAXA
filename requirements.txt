@@ -13,4 +13,4 @@ beautifulsoup4>=4.12.3
 unlzw3>=0.2.2
 packaging>=24.1
 astroquery>=0.4.7
-xga>=0.5.0
+xga>=0.6.0
