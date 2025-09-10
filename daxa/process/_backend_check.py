@@ -1,5 +1,5 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-#  Last modified by David J Turner (turne540@msu.edu) 07/11/2024, 22:55. Copyright (c) The Contributors
+#  Last modified by David J Turner (turne540@msu.edu) 10/09/2025, 10:43. Copyright (c) The Contributors
 
 import os
 from shutil import which
@@ -31,7 +31,17 @@ def find_sas() -> Version:
         sas_avail = False
     else:
         sas_out, sas_err = Popen("sas --version", stdout=PIPE, stderr=PIPE, shell=True).communicate()
-        sas_version = Version(sas_out.decode("UTF-8").strip("]\n").split('-')[-1])
+        ver_str = sas_out.decode("UTF-8").strip("]\n").split('[')[-1]
+
+        # This is an unfortunate hard coding of parsing SAS version from the return of sas --version
+        #  It seems the version string structure changed in SAS 21/22, so we try to catch that here
+        # This is how SAS 20 needs to be treated
+        if ver_str[:6] == 'xmmsas':
+            sas_version = Version(ver_str.split('-')[-1])
+        # And hopefully this is how everything else needs to be treated
+        else:
+            sas_version = Version(ver_str.split('-')[0])
+
         sas_avail = True
 
     # This checks for the CCF path, which is required to use cifbuild, which is required to do basically

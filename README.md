@@ -82,17 +82,17 @@ _If you would like to help with any of the telescopes above, or adding another X
 DAXA makes significant use of existing processing software released by the telescope teams, and as such there are some
 specific non-Python dependencies that need to be installed if that mission is to be included in a DAXA generated archive.
 
-## An alternative to installing the dependencies yourself
-
-**_[Under Development]_** - A docker image containing relevant telescope-specific software is being created. The 
-built image will be released on DockerHub (or some other convenient platform), and the actual dockerfile used for
-building the image will also be released for anyone to use/modify. The dockerfile is heavily inspired by/based off of 
-the HEASoft docker image.
-
 ## XMM-Newton
-Science Analysis System (SAS) - v14 or higher
+- Science Analysis System (SAS) - v20 or above
+- HEASoft (lcurve is required for XMM processing) - tested on v6.29 and v6.31
 
-## 
+## Chandra
+- Chandra Interactive Analysis of Observations (CIAO) - v4.16 or above (installable through Conda)
+
+## eROSITA
+- eROSITA Science Analysis Software System (eSASS) - both eSASS4EDR and eSASS4DR1 should be supported, but it is up to the user to choose [which is suitable for their use case](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/)
+- HEASoft - tested on v6.29 and v6.31
+
 
 # Analysing the processed archives
 Once an archive of cleaned X-ray data has been created, it can be analysed in all the standard ways, however you may
