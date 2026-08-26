@@ -317,6 +317,10 @@ class Chandra(BaseMission):
         #  (https://heasarc.gsfc.nasa.gov/W3Browse/all/chanmaster.html)
         which_cols = ['RA', 'DEC', 'TIME', 'OBSID', 'STATUS', 'DETECTOR', 'GRATING', 'EXPOSURE', 'TYPE', 'DATA_MODE',
                       'CLASS', 'PUBLIC_DATE']
+        # This is a quick fix for issue 438, as this whole method will be replaced with a different way of
+        #  fetching the obs tables soon (famous last words).
+        which_cols = [en.lower() for en in which_cols]
+
         # This is what will be put into the URL to retrieve just those data fields - there are some more, but I
         #  curated it to only those I think might be useful for DAXA
         fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)

@@ -231,6 +231,10 @@ class Suzaku(BaseMission):
         which_cols = ['RA', 'DEC', 'OBSID', 'TIME', 'STOP_TIME', 'Category_Code',
                       'XIS0_Expo', 'XIS0_Num_Modes', 'XIS1_Expo', 'XIS1_Num_Modes', 'XIS2_Expo', 'XIS2_Num_Modes',
                       'XIS3_Expo', 'XIS3_Num_Modes']
+        # This is a quick fix for issue 438, as this whole method will be replaced with a different way of
+        #  fetching the obs tables soon (famous last words).
+        which_cols = [en.lower() for en in which_cols]
+
         # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
         #  but I curated it to only those I think might be useful for DAXA
         fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)

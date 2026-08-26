@@ -241,6 +241,10 @@ class XRISMPointed(BaseMission):
         #  (https://heasarc.gsfc.nasa.gov/W3Browse/xrism/xrismmastr.html)
         which_cols = ['RA', 'DEC', 'OBSID', 'TIME', 'END_TIME', 'Duration', 'Exposure', 'Xtd_Expo', 'Subject_Category',
                       'Rsl_Datamode', 'Xtd_Datamode1', 'Xtd_Datamode2', 'Xtd_Dataclas1', 'Xtd_Dataclas2', 'Public_Date']
+        # This is a quick fix for issue 438, as this whole method will be replaced with a different way of
+        #  fetching the obs tables soon (famous last words).
+        which_cols = [en.lower() for en in which_cols]
+
         # This is what will be put into the URL to retrieve just those data fields - there are quite a few more,
         #  but I curated it to only those I think might be useful for DAXA
         fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)

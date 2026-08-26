@@ -245,6 +245,10 @@ class INTEGRALPointed(BaseMission):
         #  instrument - but that would be a LOT of columns
         which_cols = ['RA', 'DEC', 'ScW_ID', 'Start_Date', 'End_Date', 'SPI_mode', 'Good_JEMX1', 'Good_JEMX2',
                       'Good_ISGRI', 'Good_PICSIT', 'Good_SPI', 'Data_In_HEASARC', 'ScW_Ver']
+        # This is a quick fix for issue 438, as this whole method will be replaced with a different way of
+        #  fetching the obs tables soon (famous last words).
+        which_cols = [en.lower() for en in which_cols]
+
         # Might add these at some point:
         # Obs_Type, 'JEMX1_mode', 'JEMX2_mode', 'IBIS_Mode'
 

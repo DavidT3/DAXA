@@ -231,6 +231,10 @@ class NuSTARPointed(BaseMission):
         which_cols = ['RA', 'DEC', 'TIME', 'OBSID', 'STATUS', 'EXPOSURE_A', 'OBSERVATION_MODE', 'PUBLIC_DATE',
                       'ISSUE_FLAG', 'END_TIME', 'EXPOSURE_B', 'INSTRUMENT_MODE', 'NUPSDOUT', 'ONTIME_A', 'ONTIME_B',
                       'SPACECRAFT_MODE', 'SUBJECT_CATEGORY', 'OBS_TYPE', 'NAME']
+        # This is a quick fix for issue 438, as this whole method will be replaced with a different way of
+        #  fetching the obs tables soon (famous last words).
+        which_cols = [en.lower() for en in which_cols]
+
         # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
         #  but I curated it to only those I think might be useful for DAXA
         fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
