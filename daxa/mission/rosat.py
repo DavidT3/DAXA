@@ -321,6 +321,10 @@ class ROSATPointed(BaseMission):
         #  (https://heasarc.gsfc.nasa.gov/W3Browse/rosat/rosmaster.html)
         which_cols = ['RA', 'DEC', 'Seq_ID', 'Start_Time', 'End_Time', 'Exposure', 'FITS_Type', 'Instrument',
                       'Filter', 'Proc_Rev', 'Subj_Cat', 'Name', 'Site']
+        # This is a quick fix for issue 438, as this whole method will be replaced with a different way of
+        #  fetching the obs tables soon (famous last words).
+        which_cols = [en.lower() for en in which_cols]
+
         # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
         #  but I curated it to only those I think might be useful for DAXA
         fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
@@ -832,6 +836,10 @@ class ROSATAllSky(BaseMission):
         #  in 'normal' mode, just so I can exclude those observations because frankly I don't know the difference
         # SPACECRAFT_MODE is acquired because the 'STELLAR' mode might not be suitable for science so may be excluded
         which_cols = ['RA', 'DEC', 'Seq_ID', 'Start_Date', 'End_Date', 'Exposure']
+        # This is a quick fix for issue 438, as this whole method will be replaced with a different way of
+        #  fetching the obs tables soon (famous last words).
+        which_cols = [en.lower() for en in which_cols]
+
         # This is what will be put into the URL to retrieve just those data fields - there are quite a few more
         #  but I curated it to only those I think might be useful for DAXA
         fields = '&Fields=' + '&varon=' + '&varon='.join(which_cols)
