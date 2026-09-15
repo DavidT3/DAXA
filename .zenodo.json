@@ -75,11 +75,5 @@
     "license": "bsd-3-clause",
     "upload_type": "software",
     "language": "eng",
-    "grants": [
-        {"id": "NASA: 80NSSC22K0476"},
-        {"id": "STFC: ST/T000473/1"},
-        {"id": "STFC: ST/X001040/1"},
-        {"id": "STFC: ST/X508822/1"}
-    ],
     "description": "DAXA is a Python module designed to make the acquisition and processing of archives of X-ray astronomy data as painless as possible. It provides a consistent interface to the downloading and cleaning processes of each telescope, allowing the user to easily create multi-mission X-ray archives, allowing for the community to make better use of archival X-ray data."
 }
