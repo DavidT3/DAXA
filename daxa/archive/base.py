@@ -1990,7 +1990,7 @@ class Archive:
         """
         print("\n-----------------------------------------------------")
         print(f"{self.archive_name}")
-        print("\n-----------------------------------------------------")
+        print("-----------------------------------------------------")
         print(f"Version - {str(self._version)}")
         print(f"Number of missions - {len(self)}")
         print(f"Total number of observations - {sum([len(m) for m in self._missions.values()])}")
