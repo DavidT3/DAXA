@@ -641,6 +641,26 @@ class BaseMission(metaclass=ABCMeta):
         return self._obs_info['ObsID'].values[self.filter_array]
 
     @property
+    def num_obs(self) -> int:
+        """
+        Property getter for the total number of observations associated with this mission.
+
+        :return: The total number of observations associated with this mission.
+        :rtype: int
+        """
+        return len(self.all_obs_info)
+
+    @property
+    def num_filtered_obs(self) -> int:
+        """
+        Property getter for the number of filtered observations associated with this mission.
+
+        :return: The number of filtered observations associated with this mission.
+        :rtype: int
+        """
+        return len(self.filtered_obs_info)
+
+    @property
     def download_completed(self) -> bool:
         """
         Property getter that describes whether the specified data for this mission have been
@@ -2538,22 +2558,22 @@ class BaseMission(metaclass=ABCMeta):
 
     def info(self):
         print("\n-----------------------------------------------------")
-        print("Number of Observations - {}".format(len(self)))
-        print("Number of Filtered Observations - {}".format(len(self.filtered_obs_info)))
-        print("Total Duration - {}".format(self.all_obs_info['duration'].sum()))
-        print("Total Filtered Duration - {}".format(self.filtered_obs_info['duration'].sum()))
-        print("Earliest Observation Date - {}".format(self.all_obs_info['start'].min()))
-        print("Latest Observation Date - {}".format(self.all_obs_info['end'].max()))
-        print("Earliest Filtered Observation Date - {}".format(self.filtered_obs_info['start'].min()))
-        print("Latest Filtered Observation Date - {}".format(self.filtered_obs_info['end'].max()))
+        print(f"Number of Observations - {self.num_obs}")
+        print(f"Number of Filtered Observations - {self.num_filtered_obs}")
+        print(f"Total Duration - {self.all_obs_info['duration'].sum()}")
+        print(f"Total Filtered Duration - {self.filtered_obs_info['duration'].sum()}")
+        print(f"Earliest Observation Date - {self.all_obs_info['start'].min()}")
+        print(f"Latest Observation Date - {self.all_obs_info['end'].max()}")
+        print(f"Earliest Filtered Observation Date - {self.filtered_obs_info['start'].min()}")
+        print(f"Latest Filtered Observation Date - {self.filtered_obs_info['end'].max()}")
         print("-----------------------------------------------------\n")
 
-    def __len__(self):
+    def __len__(self) -> int:
         """
-        The method triggered by the len() operator, returns the number of observations in the filtered,
-        info dataframe for this mission.
+        The method triggered by the len() operator, returns the number of observations in the
+        filtered info dataframe for this mission.
 
         :return: The number of observations for this mission that made it through the filter.
         :rtype: int
         """
-        return len(self.filtered_obs_info)
+        return self.num_filtered_obs

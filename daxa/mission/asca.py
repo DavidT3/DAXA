@@ -532,7 +532,7 @@ class ASCA(BaseMission):
             self._download_done = True
 
         else:
-            warn("The raw data for this mission have already been downloaded.")
+            warn("The raw data for this mission have already been downloaded.", stacklevel=2)
 
     def get_evt_list_path(self, obs_id: str, inst: str = None) -> str:
         """

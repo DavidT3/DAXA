@@ -159,8 +159,13 @@ def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
     sas_version = _sas_process_setup(obs_archive)
 
-    # Define the form of the odfingest command that must be run to create an ODF summary file
-    odf_cmd = "cd {d}; export SAS_CCF={ccf}; odfingest odfdir={odf_dir} outdir={out_dir} withodfdir=yes"
+    # Define the form of the odfingest command that must be run to create an ODF summary file. We
+    #  replace the file that shipped with the data we downloaded, as it is quite possible that
+    #  some instrument files were excluded and thus the original ODF summary is invalid.
+    # We also copy the new file to the archive directory, as we must make sure it is preserved if the user
+    #  deletes the raw data directory.
+    odf_cmd = ("cd {d}; export SAS_CCF={ccf}; odfingest odfdir={odf_dir} outdir={out_dir} withodfdir=yes; "
+               "cp {out_file} {arch_out_file}")
 
     # Sets up storage dictionaries for bash commands, final file paths (to check they exist at the end), and any
     #  extra information that might be useful to provide to the next step in the generation process
@@ -168,7 +173,7 @@ def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
     miss_final_paths = {}
     miss_extras = {}
 
-    # Just grabs the XMM missions, we already know there will be at least one because otherwise _sas_process_setup
+    # Just grabs the XMM missions - we already know there will be at least one because otherwise _sas_process_setup
     #  would have thrown an error
     xmm_miss = [mission for mission in obs_archive if mission.name in ALLOWED_XMM_MISSIONS]
     # We are iterating through XMM missions (options could include xmm_pointed and xmm_slew for instance).
@@ -179,20 +184,20 @@ def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
         miss_extras[miss.name] = {}
 
         # Grabs the Pandas dataframe of observation information for those observations that have been selected
-        #  by the mission - makes a copy just to be safe (I don't think its probably necessary but I'm doing it
+        #  by the mission - makes a copy just to be safe (probably unnecessary, but I'm doing it
         #  anyway).
         filtered_obs_info = miss.filtered_obs_info.copy()
 
-        # This allows us to get a boolean array corresponding to the ObsIDs letting us know which cifbuilds
+        # This allows us to get a boolean array corresponding to the ObsIDs letting us know which cifbuild runs
         #  worked, though tbh they should all work or none of them in my experience.
-        cif_good = obs_archive.check_dependence_success(miss.name, [[o] for o in filtered_obs_info['ObsID'].values],
+        cif_good = obs_archive.check_dependence_success(miss.name,
+                                                        [[o] for o in filtered_obs_info['ObsID'].values],
                                                         'cif_build')
 
         # Now we're iterating through the ObsIDs that have been selected for the current mission
         for obs_id in miss.filtered_obs_ids[cif_good]:
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
             #  files will be written to.
-            # dest_dir = obs_archive.get_processed_data_path(miss, obs_id)
             raw_dir = miss.raw_data_path + obs_id + '/'
             proc_dir = obs_archive.construct_processed_data_path(miss, obs_id)
             ccf_path = proc_dir + 'ccf.cif'
@@ -200,24 +205,31 @@ def odf_ingest(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progres
             rev = filtered_obs_info[filtered_obs_info['ObsID'] == obs_id].iloc[0]['revolution']
             rev = str(rev).zfill(4)
 
-            # This is where the final output observation summary file will be stored
-            final_path = raw_dir + "{r}_{o}_SCX00000SUM.SAS".format(r=rev, o=obs_id)
+            # This is the path to the copy of the new observation summary file that will be stored in the
+            #  raw data directory.
+            final_raw_path = os.path.join(raw_dir, f"{rev}_{obs_id}_SCX00000SUM.SAS")
             # This file should be deleted if it already exists - IF IT IS THE ORIGINAL THAT WAS DOWNLOADED. Hence
             #  why I've included the clunky extra logic. If a previous run of odf_ingest was successful then we don't
             #  need to redo anything
-            if os.path.exists(final_path) and ('odf_ingest' not in obs_archive.process_success[miss.name] or
-                                               obs_id not in obs_archive.process_success[miss.name]['odf_ingest'] or
-                                               not obs_archive.process_success[miss.name]['odf_ingest'][obs_id]):
-                os.remove(final_path)
+            if os.path.exists(final_raw_path) and ('odf_ingest' not in obs_archive.process_success[miss.name] or
+                                                   obs_id not in obs_archive.process_success[miss.name]['odf_ingest'] or
+                                                   not obs_archive.process_success[miss.name]['odf_ingest'][obs_id]):
+                os.remove(final_raw_path)
 
-            # If it doesn't already exist then we will create commands to generate it
+            # This is the path to the copy of the new observation summary file that will be stored
+            #  in the archive's directory structure (to ensure it isn't lost if the raw data
+            #  directory is deleted).
+            final_path = os.path.join(proc_dir, f"{rev}_{obs_id}_SCX00000SUM.SAS")
+
+            # If it doesn't already exist, then we will create commands to generate it
             if ('odf_ingest' not in obs_archive.process_success[miss.name] or
                     obs_id not in obs_archive.process_success[miss.name]['odf_ingest']):
                 # The path to the ODF (raw data) for this ObsID
                 odf_path = miss.raw_data_path + obs_id + '/'
 
                 # Construct the command with relevant information
-                cmd = odf_cmd.format(d=proc_dir, ccf=ccf_path, odf_dir=odf_path, out_dir=odf_path)
+                cmd = odf_cmd.format(d=proc_dir, ccf=ccf_path, odf_dir=odf_path, out_dir=odf_path,
+                                     out_file=final_raw_path, arch_out_file=final_path)
 
                 # Now store the bash command, the path, and extra info in the dictionaries
                 miss_cmds[miss.name][obs_id] = cmd

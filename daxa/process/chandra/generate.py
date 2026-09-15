@@ -19,7 +19,7 @@ from daxa.process.chandra._common import ciao_call, _ciao_process_setup
 #  the choice of effective energies was actually quite involved (see Appendix A
 #  of https://cxc.harvard.edu/csc/memos/files/Evans_Requirements.pdf) - hence why I haven't altered the defaults
 #  right now
-CSC_DEFAULT_EBOUNDS = Quantity([[0.5, 7.0], [0.5, 1.2], [1.2, 2.0], [2.0, 7.0], [0.2, 0.4]], 'keV')
+CSC_DEFAULT_EBOUNDS = Quantity([[0.5, 7.0], [0.5, 1.2], [1.2, 2.0], [2.0, 7.0], [0.2, 0.5]], 'keV')
 CSC_DEFAULT_EFF_ENERGIES = Quantity([2.3, 0.92, 1.56, 3.8, 0.4], 'keV')
 
 
