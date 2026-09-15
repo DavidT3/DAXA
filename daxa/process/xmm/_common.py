@@ -124,6 +124,12 @@ def parse_stderr(unprocessed_stderr: str) -> Tuple[List[str], List[Dict], List]:
         parsed_sas_errs, sas_err_lines = find_sas_error(err_lines, "error")
         parsed_sas_warns, sas_warn_lines = find_sas_error(err_lines, "warning")
 
+        # Parsing isn't perfect for warnings, and we can end up with a lot of blank entries, so we will
+        #  clean them up here.
+        good_warn = [(en['originator'] != "" and en['name'] != "" and en['message'] != "") for en in parsed_sas_warns]
+        parsed_sas_warns = [en for en, good in zip(parsed_sas_warns, good_warn) if good]
+        sas_warn_lines = [en for en, good in zip(sas_warn_lines, good_warn) if good]
+
         sas_errs_msgs = ["{e} raised by {t} - {b}".format(e=e["name"], t=e["originator"], b=e["message"])
                          for e in parsed_sas_errs]
 
