@@ -1,0 +1,85 @@
+{
+    "creators": [
+        {
+            "name": "Turner, David J.",
+            "orcid": "0000-0001-9658-1396",
+            "affiliation": "Center for Space Science and Technology, University of Maryland, Baltimore County (UMBC), Baltimore, Maryland, USA; High Energy Astrophysics Science Archive Research Center (HEASARC), NASA/GSFC, Greenbelt, Maryland, USA; Center for Research and Exploration in Space Science and Technology (CRESST II), NASA/GSFC, Greenbelt, Maryland, USA",
+            "type": "ProjectLeader"
+        },
+        {
+            "name": "Pilling, Jessica E.",
+            "orcid": "0000-0002-3211-928X",
+            "affiliation": "Department of Physics and Astronomy, University of Sussex, Brighton, UK",
+            "type": "ProjectMember"
+        },
+        {
+            "name": "Wang, Ray",
+            "orcid": "0000-0003-2102-8646",
+            "affiliation": "Department of Physics and Astronomy, Michigan State University, Lansing, Michigan, USA",
+            "type": "ProjectMember"
+        }
+    ],
+    "contributors": [
+        {
+            "name": "Donahue, Megan",
+            "orcid": "0000-0002-2808-0853",
+            "affiliation": "Department of Physics and Astronomy, Michigan State University, Lansing, Michigan, USA",
+            "type": "ProjectMember"
+        },
+        {
+            "name": "Giles, Paul A.",
+            "orcid": "0000-0003-4937-8453",
+            "affiliation": "Department of Physics and Astronomy, University of Sussex, Brighton, UK",
+            "type": "ProjectMember"
+        },
+        {
+            "name": "Romer, Kathy",
+            "orcid": "0000-0002-9328-879X",
+            "affiliation": "Department of Physics and Astronomy, University of Sussex, Brighton, UK",
+            "type": "ProjectMember"
+        },
+        {
+            "name": "Gupta, Agrim",
+            "affiliation": "Department of Physics and Astronomy, Michigan State University, Lansing, Michigan, USA",
+            "type": "RelatedPerson"
+        },
+        {
+            "name": "Wallage, Toby",
+            "affiliation": "Department of Physics and Astronomy, University of Sussex, Brighton, UK",
+            "type": "RelatedPerson"
+        }
+    ],
+    "title": "DAXA: Democratising Archival X-ray Astronomy",
+    "version": "0.3.7",
+    "access_right": "open",
+    "related_identifiers": [
+        {
+            "identifier": "https://github.com/DavidT3/DAXA",
+            "relation": "isSupplementTo",
+            "resource_type": "software"
+        },
+        {
+            "identifier": "https://doi.org/10.48550/arXiv.2410.11954",
+            "relation": "isDescribedBy",
+            "resource_type": "publication-article"
+        }
+    ],
+    "keywords": [
+        "Astronomy",
+        "Astrophysics",
+        "X-ray astronomy",
+        "Galaxy clusters",
+        "AGN",
+        "Data preparation"
+    ],
+    "license": "bsd-3-clause",
+    "upload_type": "software",
+    "language": "eng",
+    "grants": [
+        {"id": "NASA: 80NSSC22K0476"},
+        {"id": "STFC: ST/T000473/1"},
+        {"id": "STFC: ST/X001040/1"},
+        {"id": "STFC: ST/X508822/1"}
+    ],
+    "description": "DAXA is a Python module designed to make the acquisition and processing of archives of X-ray astronomy data as painless as possible. It provides a consistent interface to the downloading and cleaning processes of each telescope, allowing the user to easily create multi-mission X-ray archives, allowing for the community to make better use of archival X-ray data."
+}
