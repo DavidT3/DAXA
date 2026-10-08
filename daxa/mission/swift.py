@@ -301,12 +301,26 @@ class Swift(BaseMission):
         # Changing a few column names to match what BaseMission expects
         rel_swift = rel_swift.rename(columns={'obsid': 'ObsID', 'start_time': 'start', 'stop_time': 'end'})
 
+        # It is possible for an entry to have an invalid entry for start (or end) time
+        bad_start_times = rel_swift['start'] == ''
+        bad_end_times = rel_swift['end'] == ''
+
+        # Any bad times will eventually be replaced by NaT entries, but first we replace the empty
+        #  entries with a placeholder that won't be rejected by the Time(...) declaration below
+        rel_swift.loc[bad_start_times, 'start'] = 50000
+        rel_swift.loc[bad_end_times, 'end'] = 50000
+
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
         #  BaseMission time selection methods expect
         rel_swift['start'] = pd.to_datetime(Time(rel_swift['start'].values.astype(float), format='mjd',
                                                  scale='utc').to_datetime())
         rel_swift['end'] = pd.to_datetime(Time(rel_swift['end'].values.astype(float), format='mjd',
                                                scale='utc').to_datetime())
+
+        # Now the replacement of the placeholders with NaT values
+        rel_swift.loc[bad_start_times, 'start'] = pd.NaT
+        rel_swift.loc[bad_end_times, 'end'] = pd.NaT
+
         # Then make a duration column by subtracting the start MJD from the end MJD - not an exposure time but just
         #  how long the observation window was
         rel_swift['duration'] = rel_swift['end'] - rel_swift['start']
