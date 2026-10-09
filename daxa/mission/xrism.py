@@ -298,8 +298,8 @@ class XRISMPointed(BaseMission):
         bad_end_times = np.isnan(rel_xrism['end'])
 
         # Placeholder MJD values, will be replaced later
-        rel_xrism.loc[bad_start_times, 'start'] = '50000'
-        rel_xrism.loc[bad_end_times, 'end'] = '50000'
+        rel_xrism.loc[bad_start_times, 'start'] = 50000.
+        rel_xrism.loc[bad_end_times, 'end'] = 50000.
 
         # The conversion from MJD to Pandas datetime is performed
         rel_xrism['start'] = pd.to_datetime(Time(rel_xrism['start'].values.astype(float), format='mjd',
