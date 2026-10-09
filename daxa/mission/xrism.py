@@ -10,6 +10,7 @@ from shutil import copyfileobj
 from typing import List, Union, Any
 from warnings import warn
 
+import numpy as np
 import pandas as pd
 import requests
 from astropy.coordinates import BaseRADecFrame, FK5
@@ -289,11 +290,27 @@ class XRISMPointed(BaseMission):
                                               'public_date': 'proprietary_end_date'})
 
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
-        #  BaseMission time selection methods expect
+        #  BaseMission time selection methods expect. Any null entries are replaced by a placeholder to
+        #  make sure the Time conversion of mjd will work properly.
+
+        # It is possible for an entry to have an invalid entry for start (or end) time, we identify them here
+        bad_start_times = np.isnan(rel_xrism['start'])
+        bad_end_times = np.isnan(rel_xrism['end'])
+
+        # Placeholder MJD values, will be replaced later
+        rel_xrism.loc[bad_start_times, 'start'] = 50000.
+        rel_xrism.loc[bad_end_times, 'end'] = 50000.
+
+        # The conversion from MJD to Pandas datetime is performed
         rel_xrism['start'] = pd.to_datetime(Time(rel_xrism['start'].values.astype(float), format='mjd',
                                                  scale='utc').to_datetime())
         rel_xrism['end'] = pd.to_datetime(Time(rel_xrism['end'].values.astype(float), format='mjd',
                                                scale='utc').to_datetime())
+
+        # Now the replacement of the placeholders with NaT values
+        rel_xrism.loc[bad_start_times, 'start'] = pd.NaT
+        rel_xrism.loc[bad_end_times, 'end'] = pd.NaT
+
         # Then make a duration column by subtracting one from t'other - there are also exposure and ontime columns
         #  which I've acquired, but I think total duration is what I will go with here.
         rel_xrism['duration'] = pd.to_timedelta(rel_xrism['duration'], 's')

@@ -2,7 +2,7 @@ name: Weekly mission instance definition checks
 
 on:
   schedule:
-    - cron: '30 14 * * 5'   # every Friday 09:39 EST
+    - cron: '00 17 * * 5'   # every Friday 13:00 EST
   workflow_dispatch:        # Make sure we can trigger manually as well
 
 jobs:
