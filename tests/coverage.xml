@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <!--
-  ~ This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
-  ~ Last modified by David J Turner (turne540@msu.edu) 16/04/2025, 09:57. Copyright (c) The Contributors
+  ~ # This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
+  ~ Last modified by David J Turner (djturner@umbc.edu) 10/9/26, 9:52 AM. Copyright (c) The Contributors.
   -->
 
 <coverage version="7.8.0" timestamp="1744810932332" lines-valid="4706" lines-covered="2850" line-rate="0.6056" branches-covered="0" branches-valid="0" branch-rate="0" complexity="0">
