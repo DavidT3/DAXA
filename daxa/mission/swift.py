@@ -307,8 +307,8 @@ class Swift(BaseMission):
 
         # Any bad times will eventually be replaced by NaT entries, but first we replace the empty
         #  entries with a placeholder that won't be rejected by the Time(...) declaration below
-        rel_swift.loc[bad_start_times, 'start'] = 50000
-        rel_swift.loc[bad_end_times, 'end'] = 50000
+        rel_swift.loc[bad_start_times, 'start'] = '50000'
+        rel_swift.loc[bad_end_times, 'end'] = '50000'
 
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
         #  BaseMission time selection methods expect
