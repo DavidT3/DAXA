@@ -292,6 +292,7 @@ class XRISMPointed(BaseMission):
         #  BaseMission time selection methods expect
 
         print(rel_xrism['start'].dtype)
+
         for en in rel_xrism['start']:
             print(en)
 

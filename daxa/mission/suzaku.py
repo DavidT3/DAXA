@@ -304,7 +304,7 @@ class Suzaku(BaseMission):
         del rel_suzaku['target_category']
 
         # Default everything to misc, so that when we replace the recognized target categories with our
-        #  taxonomy values, everything unrecognized will just be "MISC" category.
+        #  taxonomy values, everything unrecognized will be in the "MISC" category.
         rel_suzaku['target_category'] = "MISC"
         rel_suzaku.loc[type_recog, 'target_category'] = new_cat_descs
 
