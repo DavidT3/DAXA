@@ -1,7 +1,7 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
 #  Last modified by David J Turner (turne540@msu.edu) 10/09/2025, 17:29. Copyright (c) The Contributors
 
-import importlib
+import importlib.resources
 import os
 from configparser import ConfigParser
 from warnings import warn
@@ -86,18 +86,18 @@ elif not os.path.exists(PFILES_PATH) and pfiles_user:
 OUTPUT = os.path.abspath(daxa_conf["DAXA_SETUP"]["daxa_save_path"]) + "/"
 
 # Here we read in files that list the errors and warnings in SAS
-errors = pd.read_csv(importlib.resources.files(__name__) / "files/sas_errors.csv", header="infer")
-warnings = pd.read_csv(importlib.resources.files(__name__) / "files/sas_warnings.csv", header="infer")
+errors = pd.read_csv(importlib.resources.files(__package__) / "files/sas_errors.csv", header="infer")
+warnings = pd.read_csv(importlib.resources.files(__package__) / "files/sas_warnings.csv", header="infer")
 # Just the names of the errors in two handy constants
 SASERROR_LIST = errors["ErrName"].values
 SASWARNING_LIST = warnings["WarnName"].values
 
 # Reading in the file with information on the eROSITA observations that were made available in the
 #  eROSITA CalPV release
-EROSITA_CALPV_INFO = pd.read_csv(importlib.resources.files(__name__) / "files/erosita_calpv_info.csv",
+EROSITA_CALPV_INFO = pd.read_csv(importlib.resources.files(__package__) / "files/erosita_calpv_info.csv",
                                  header="infer", dtype={'ObsID': str})
 # Then doing the same thing, but for the German eRASS:1 release
-ERASS_DE_DR1_INFO = pd.read_csv(importlib.resources.files(__name__) / "files/erass_de_dr1_info.csv",
+ERASS_DE_DR1_INFO = pd.read_csv(importlib.resources.files(__package__) / "files/erass_de_dr1_info.csv",
                                 header="infer", dtype={'ObsID': str, 'FIELD1': str, 'FIELD2': str, 'FIELD3': str,
                                                        'FIELD4': str, 'FIELD5': str, 'FIELD6': str, 'FIELD7': str,
                                                        'FIELD8': str, 'FIELD9': str})
