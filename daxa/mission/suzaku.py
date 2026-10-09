@@ -298,11 +298,15 @@ class Suzaku(BaseMission):
         #  to the 'MISC' code
         type_recog = rel_suzaku['target_category'].isin(list(conv_dict.keys()))
         # The recognized target category descriptions are converted to DAXA taxonomy
-        rel_suzaku.loc[type_recog, 'target_category'] = rel_suzaku.loc[type_recog, 'target_category'].apply(
-            lambda x: conv_dict[x])
-        # Now I set any unrecognized target category descriptions to MISC - there are none at the time of writing,
-        #  but that could well change
-        rel_suzaku.loc[~type_recog, 'target_category'] = 'MISC'
+        new_cat_descs = rel_suzaku.loc[type_recog, 'target_category'].apply(lambda x: conv_dict[x])
+
+        # Now we completely replace the target_category column, as we changing dtypes
+        del rel_suzaku['target_category']
+
+        # Default everything to misc, so that when we replace the recognized target categories with our
+        #  taxonomy values, everything unrecognized will just be "MISC" category.
+        rel_suzaku['target_category'] = "MISC"
+        rel_suzaku.loc[type_recog, 'target_category'] = new_cat_descs
 
         # Re-ordering the table, and not including certain columns which have served their purpose
         rel_suzaku = rel_suzaku[['ra', 'dec', 'ObsID', 'science_usable', 'start', 'end', 'duration', 'target_category',
