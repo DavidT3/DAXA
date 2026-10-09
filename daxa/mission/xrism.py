@@ -290,6 +290,11 @@ class XRISMPointed(BaseMission):
 
         # We convert the Modified Julian Date (MJD) dates into Pandas datetime objects, which is what the
         #  BaseMission time selection methods expect
+
+        print(rel_xrism['start'].dtype)
+        for en in rel_xrism['start']:
+            print(en)
+
         rel_xrism['start'] = pd.to_datetime(Time(rel_xrism['start'].values.astype(float), format='mjd',
                                                  scale='utc').to_datetime())
         rel_xrism['end'] = pd.to_datetime(Time(rel_xrism['end'].values.astype(float), format='mjd',
