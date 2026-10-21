@@ -183,7 +183,7 @@ def parse_emanom_out(log_file_path: str, acceptable_states: Union[List[str], str
                   for line in file_lines if 'CCD' in line}
 
     # Now we iterate through and just select those CCD IDs which are in the list of states provided by the user.
-    the_chosen = [int(ccd_id) for ccd_id in proc_lines if proc_lines[ccd_id] in val_states]
+    the_chosen = [int(ccd_id) for ccd_id in proc_lines if proc_lines[ccd_id] in acceptable_states]
 
     return the_chosen
 
