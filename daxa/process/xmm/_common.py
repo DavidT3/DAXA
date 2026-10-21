@@ -1,13 +1,15 @@
 #  This code is a part of the Democratising Archival X-ray Astronomy (DAXA) module.
 #  Last modified by David J Turner (turne540@msu.edu) 02/04/2025, 18:33. Copyright (c) The Contributors
 
+from copy import deepcopy
 from functools import wraps
 from inspect import signature, Parameter
 from multiprocessing.dummy import Pool
 from typing import Tuple, List, Dict
 from warnings import warn
 
-from astropy.units import UnitConversionError
+import numpy as np
+from astropy.units import Quantity, UnitConversionError
 from packaging.version import Version
 from tqdm import tqdm
 
@@ -145,6 +147,61 @@ def parse_stderr(unprocessed_stderr: str) -> Tuple[List[str], List[Dict], List]:
     return sas_errs_msgs, parsed_sas_warns, other_err_lines
 
 
+def _check_cleaning_settings(obs_archive: Archive, process_name: str, run_args: dict):
+    """Reject changes to recorded XMM cleaning settings before generating any commands."""
+    execution_args = {'num_cores', 'disable_progress', 'timeout'}
+
+    def normalise(settings):
+        settings = {key: value for key, value in settings.items() if key not in execution_args}
+        if process_name == 'espfilt':
+            if settings['range_scale'] is None:
+                settings['range_scale'] = {'mos': 6.0, 'pn': 15.0}
+            for key, seconds in [('with_smoothing', 51), ('with_binning', 60)]:
+                if settings[key] is True:
+                    settings[key] = Quantity(seconds, 's')
+        else:
+            for key in ['pn_filt_expr', 'mos_filt_expr', 'acc_mos_anom_states']:
+                if isinstance(settings[key], str):
+                    settings[key] = [settings[key]]
+            settings['acc_mos_anom_states'] = sorted(set(settings['acc_mos_anom_states']))
+        return settings
+
+    def equal(left, right):
+        if isinstance(left, Quantity) or isinstance(right, Quantity):
+            return (isinstance(left, Quantity) and isinstance(right, Quantity)
+                    and left.unit.is_equivalent(right.unit) and left.shape == right.shape
+                    and np.allclose(left.to_value(right.unit), right.value, rtol=1e-12, atol=0))
+        if isinstance(left, dict) or isinstance(right, dict):
+            return (isinstance(left, dict) and isinstance(right, dict) and left.keys() == right.keys()
+                    and all(equal(left[key], right[key]) for key in left))
+        if isinstance(left, (list, tuple)) or isinstance(right, (list, tuple)):
+            return (isinstance(left, (list, tuple)) and isinstance(right, (list, tuple))
+                    and len(left) == len(right) and all(equal(a, b) for a, b in zip(left, right)))
+        return np.array_equal(left, right)
+
+    requested = normalise(run_args)
+    for mission in obs_archive:
+        if mission.name not in ALLOWED_XMM_MISSIONS:
+            continue
+        previous = [entry[process_name] for entry in obs_archive.process_configurations.get(mission.name, [])
+                    if process_name in entry]
+        recorded = obs_archive.process_success.get(mission.name, {}).get(process_name, {})
+        if not previous and not recorded:
+            continue
+        if (len(previous) != 1 or not isinstance(previous[0], dict)
+                or not requested.keys() <= previous[0].keys()):
+            raise ValueError("Cannot verify previous {p} settings for {m}: the recorded configuration is missing "
+                             "or incomplete. Use a separate archive to process with these settings."
+                             .format(p=process_name, m=mission.name))
+        previous = normalise(previous[0])
+        changed = sorted(key for key in requested.keys() | previous.keys()
+                         if key not in requested or key not in previous or not equal(requested[key], previous[key]))
+        if changed:
+            raise ValueError("Cannot change {p} settings for {m}: {keys}. Existing products have not been "
+                             "regenerated. Reuse the recorded settings or process in a separate archive."
+                             .format(p=process_name, m=mission.name, keys=', '.join(changed)))
+
+
 def sas_call(sas_func):
     """
     This is used as a decorator for functions that produce SAS command strings.
@@ -168,6 +225,12 @@ def sas_call(sas_func):
             for ind in range(1, len(args)):
                 rel_key = all_arg_names[ind]
                 run_args[rel_key] = args[ind]
+
+        if sas_func.__name__ in ['espfilt', 'cleaned_evt_lists']:
+            run_args = deepcopy(run_args)
+            _check_cleaning_settings(obs_archive, sas_func.__name__, run_args)
+            args = (obs_archive,) + deepcopy(args[1:])
+            kwargs = deepcopy(kwargs)
 
         # This is the output from whatever function this is a decorator for
         miss_cmds, miss_final_paths, miss_extras, process_message, cores, disable, timeout = sas_func(*args, **kwargs)
