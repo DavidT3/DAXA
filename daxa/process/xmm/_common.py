@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 from daxa.archive.base import Archive
 from daxa.config import SASERROR_LIST, SASWARNING_LIST
-from daxa.exceptions import NoValidMissionsError, DAXADeveloperError
+from daxa.exceptions import NoValidMissionsError, DAXADeveloperError, NoProcessingError
 from daxa.process._backend_check import find_sas
 from daxa.process._common import execute_cmd, create_dirs
 
@@ -164,6 +164,11 @@ def _check_cleaning_settings(obs_archive: Archive, process_name: str, run_args: 
                 if isinstance(settings[key], str):
                     settings[key] = [settings[key]]
             settings['acc_mos_anom_states'] = sorted(set(settings['acc_mos_anom_states']))
+            if settings['lo_en'] is not None and settings['hi_en'] is not None:
+                energy_expr = '(PI in [{l}:{u}])'.format(l=settings['lo_en'].to_value('eV'),
+                                                       u=settings['hi_en'].to_value('eV'))
+                for key in ['pn_filt_expr', 'mos_filt_expr']:
+                    settings[key] = [expr for expr in settings[key] if expr != energy_expr]
         return settings
 
     def equal(left, right):
@@ -180,12 +185,16 @@ def _check_cleaning_settings(obs_archive: Archive, process_name: str, run_args: 
         return np.array_equal(left, right)
 
     requested = normalise(run_args)
+    try:
+        process_success = obs_archive.process_success
+    except NoProcessingError:
+        process_success = {}
     for mission in obs_archive:
         if mission.name not in ALLOWED_XMM_MISSIONS:
             continue
         previous = [entry[process_name] for entry in obs_archive.process_configurations.get(mission.name, [])
                     if process_name in entry]
-        recorded = obs_archive.process_success.get(mission.name, {}).get(process_name, {})
+        recorded = process_success.get(mission.name, {}).get(process_name, {})
         if not previous and not recorded:
             continue
         if (len(previous) != 1 or not isinstance(previous[0], dict)

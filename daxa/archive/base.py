@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 from copy import deepcopy
+from inspect import signature, Parameter
 from shutil import rmtree
 from typing import List, Union, Tuple
 from warnings import warn
@@ -1911,6 +1912,24 @@ class Archive:
         to this archive, in the correct order, with the same configuration as was originally used.
         """
         from daxa.process import PROC_LOOKUP
+        from daxa.process.xmm._common import ALLOWED_XMM_MISSIONS, _check_cleaning_settings
+
+        # Check saved cleaning settings before changing selections or running any processing.
+        for miss in self.missions:
+            if miss.name not in ALLOWED_XMM_MISSIONS:
+                continue
+            for proc_name in ['espfilt', 'cleaned_evt_lists']:
+                previous = [entry[proc_name] for entry in self.process_configurations.get(miss.name, [])
+                            if proc_name in entry]
+                recorded = self._process_success_flags.get(miss.name, {}).get(proc_name, {})
+                if not previous and not recorded:
+                    continue
+                run_args = {key: par.default for key, par in
+                            signature(PROC_LOOKUP[miss.name][proc_name]).parameters.items()
+                            if par.default is not Parameter.empty}
+                if previous and isinstance(previous[0], dict):
+                    run_args.update(previous[0])
+                _check_cleaning_settings(self, proc_name, run_args)
 
         # First of all, we run through the missions and re-run the filtering operations in order to find any new
         #  relevant data - this first step will also populate the 'updated_meta_info' property of each mission, which
