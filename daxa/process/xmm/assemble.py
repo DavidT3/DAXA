@@ -772,12 +772,12 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
 
     # Make sure we're converted to the right unit
     if all(en_check):
-        lo_en = lo_en.to('eV').value
-        hi_en = hi_en.to('eV').value
-        pn_filt_expr.append("(PI in [{l}:{u}])".format(l=lo_en, u=hi_en))
-        mos_filt_expr.append("(PI in [{l}:{u}])".format(l=lo_en, u=hi_en))
+        lo_en = lo_en.to('eV')
+        hi_en = hi_en.to('eV')
+        pn_filt_expr.append("(PI in [{l}:{u}])".format(l=lo_en.value, u=hi_en.value))
+        mos_filt_expr.append("(PI in [{l}:{u}])".format(l=lo_en.value, u=hi_en.value))
         # This is added into the filtered event list name, but only if energy limits are applied
-        en_ident = '_{l}_{h}keV'.format(l=lo_en.value, h=hi_en.value)
+        en_ident = '_{l}_{h}keV'.format(l=lo_en.to_value('keV'), h=hi_en.to_value('keV'))
     else:
         lo_en = ''
         hi_en = ''
