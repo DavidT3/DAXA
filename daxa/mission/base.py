@@ -142,7 +142,7 @@ def _capture_filter(change_func):
                         # In that case we can extract the value from the args tuple using the current positional index,
                         #  which I THINK should always correspond to the right value because meth_pars is an ordered
                         #  dictionary - this only works for non-keyword arguments though
-                        if cur_par.default is cur_par.empty:
+                        if par_ind < len(args):
                             pos_arg_vals[par_name] = args[par_ind]
                         # If a keyword argument has a default value, it won't appear in kwargs, and the above case
                         #  is for positional arguments, so now we extract the default value from the signature
