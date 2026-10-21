@@ -105,9 +105,10 @@ def _capture_filter(change_func):
             #  not saved
             _no_filtering_op_store = True
             # Then we run the filtering method, so we don't save a filtering method that failed
-            any_ret = change_func(*args, **kwargs)
-            # And now we reset the global flag and continue on with saving the information we need to save
-            _no_filtering_op_store = False
+            try:
+                any_ret = change_func(*args, **kwargs)
+            finally:
+                _no_filtering_op_store = False
 
             # The first argument will be 'self' for any class method, which we need so we can add to the filtering
             #  operations history
