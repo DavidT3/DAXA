@@ -111,8 +111,9 @@ class Archive:
                 miss.name: True if use_preprocessed and download_products[miss.name] and miss.downloaded_type in [
                     'preprocessed', 'proprocessed+raw'] else False for miss in missions}
 
-        # Store the archive name in an attribute
-        self._archive_name = archive_name
+        # Store the archive name in an attribute - make sure to replace em-dash with normal hyphen. There
+        #  are some backend tools (such as in SAS) which don't like em-dashes.
+        self._archive_name = archive_name.replace('—', '-')
 
         # An attribute for the path to the particular archive directory is also setup, as it's a very useful
         #  piece of information
