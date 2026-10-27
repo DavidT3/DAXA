@@ -772,8 +772,8 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity | None = None, hi_en
 
     # Make sure we're converted to the right unit
     if all(en_check):
-        lo_en = lo_en.to('eV')
-        hi_en = hi_en.to('eV')
+        lo_en = lo_en.to('eV').astype(int)
+        hi_en = hi_en.to('eV').astype(int)
         pn_filt_expr.append(f"(PI in [{lo_en.value}:{hi_en.value}])")
         mos_filt_expr.append(f"(PI in [{lo_en.value}:{hi_en.value}])")
         # This is added into the filtered event list name, but only if energy limits are applied
@@ -898,7 +898,8 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity | None = None, hi_en
             if inst in ['M1', 'M2'] and filt_mos_anom_state is not False:
                 log_path = obs_archive.process_extra_info[miss.name]['emanom'][val_id]['log_path']
                 allow_ccds = [str(c_id) for c_id in parse_emanom_out(log_path, acceptable_states=acc_mos_anom_states)]
-                ccd_expr = f"CCDNR in {','.join(allow_ccds)}"
+                allow_ccds_str = ','.join(allow_ccds)
+                ccd_expr = f"CCDNR in {allow_ccds_str}"
                 # We add it to the list of selection expression components that we have been constructing
                 cur_sel_expr.append(ccd_expr)
 
