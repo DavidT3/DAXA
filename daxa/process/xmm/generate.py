@@ -259,6 +259,8 @@ def generate_images_expmaps(obs_archive: Archive, lo_en: Quantity = Quantity([0.
                         cur_lo, cur_hi = file_name.split("_")[-1].split('keV')[0].split("-")
                         new_name = "obsid{oi}-inst{i}-subexpALL-en{l}_{h}keV-expmap.fits".format(oi=obs_id, i=inst,
                                                                                                  l=cur_lo, h=cur_hi)
+                    else:
+                        continue
                     # Move the file to its new home, with its new name
                     dest_file_path = dest_dir + new_name
 
