@@ -2,7 +2,7 @@
 #  Last modified by David J Turner (turne540@msu.edu) 17/10/2024, 15:17. Copyright (c) The Contributors
 import os
 from random import randint
-from typing import Union, List
+from typing import List, Tuple
 from warnings import warn
 
 import numpy as np
@@ -18,7 +18,7 @@ from daxa.process.xmm._common import ALLOWED_XMM_MISSIONS, _sas_process_setup, s
 def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
     """
     This function runs the SAS emanom function, which attempts to identify when MOS CCDs are have operated in an
-    'anomalous' state, where the  background at E < 1 keV is strongly enhanced. Data above 2 keV are unaffected, so
+    'anomalous' state, where the background at E < 1 keV is strongly enhanced. Data above 2 keV are unaffected, so
     CCDs in anomalous states used for science where the soft X-rays are unnecessary do not need to be excluded.
 
     The emanom task calculates the (2.5-5.0 keV)/(0.4-0.8 keV) hardness ratio from the corner data to determine
@@ -46,11 +46,10 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
     #  one XMM mission in it, and shows a warning if the XMM missions have already been processed
     sas_version = _sas_process_setup(obs_archive)
 
-    # As it turns out, emanom was only introduced in v19.0.0. Thankfully emanom is optional in processing XMM, so
+    # As it turns out, emanom was only introduced in v19.0.0. Thankfully, emanom is optional in processing XMM, so
     #  I don't have to change the required SAS version - I'll just put a version check here
     if sas_version < Version('19.0.0'):
-        warn("The emanom task was introduced in SAS v19.0.0, you have SAS {} - skipping "
-             "emanom.".format(str(sas_version)), stacklevel=2)
+        warn(f"The emanom task was introduced in SAS v19.0.0, you have SAS {str(sas_version)} - skipping", stacklevel=2)
         return {}, {}, {}, '', num_cores, disable_progress, timeout
 
     # Define the form of the emchain command that must be run to check for anomalous states in MOS CCDs
@@ -108,19 +107,18 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
 
             # Set up a temporary directory to work in (probably not really necessary in this case, but will be
             #  in other processing functions).
-            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
+            temp_name = f"tempdir_{randint(0, int(1e+8))}"
             temp_dir = dest_dir + temp_name + "/"
 
             # Checking for the output anom file created by the process (unless turned off with an argument)
-            log_name = "{i}{eid}-anom.log".format(i=alt_inst, eid=exp_id)
+            log_name = f"{alt_inst}{exp_id}-anom.log"
             final_path = dest_dir + log_name
 
             # If it doesn't already exist then we will create commands to generate it
             if ('emanom' not in obs_archive.process_success[miss.name] or
                     val_id not in obs_archive.process_success[miss.name]['emanom']):
                 # Make the temporary directory (it shouldn't already exist but doing this to be safe)
-                if not os.path.exists(temp_dir):
-                    os.makedirs(temp_dir)
+                os.makedirs(temp_dir, exist_ok=True)
 
                 # Format the blank command string defined near the top of this function with information
                 #  particular to the current mission and ObsID
@@ -138,7 +136,7 @@ def emanom(obs_archive: Archive, num_cores: int = NUM_CORES, disable_progress: b
     return miss_cmds, miss_final_paths, miss_extras, process_message, num_cores, disable_progress, timeout
 
 
-def parse_emanom_out(log_file_path: str, acceptable_states: Union[List[str], str] = ('G', 'I', 'U')) -> List[int]:
+def parse_emanom_out(log_file_path: str, acceptable_states: List[str] | str | Tuple[str] = ('G', 'I', 'U')) -> List[int]:
     """
     A simple function to parse the output file created by the emanom SAS task, which seeks to identify which MOS
     CCDs are in 'anomalous states'. The most relevant pieces of information contained in the output file are the
@@ -155,12 +153,12 @@ def parse_emanom_out(log_file_path: str, acceptable_states: Union[List[str], str
     :param str log_file_path: The path to the output file created by emanom.
     :param List[str]/str acceptable_states: The CCD states which should be accepted. If a CCD is accepted then its
         ID will be returned by this function.
-    :return: A list of CCD IDs which are in 'acceptable' states.
+    :return: A list of CCD IDs that are in 'acceptable' states.
     :rtype: List[int]
     """
     # Have to make sure that the file is actually there first.
     if not os.path.exists(log_file_path):
-        raise FileNotFoundError("That path ({}) to an emanom log file is not valid.".format(log_file_path))
+        raise FileNotFoundError(f"Invalid emanon log file path - {log_file_path}.")
 
     # It is possible for the user to just pass a single state, in which case we make it a list to allow
     #  for everything later on to be consistent
@@ -170,8 +168,10 @@ def parse_emanom_out(log_file_path: str, acceptable_states: Union[List[str], str
     # This just checks that all the user-passed states are actually valid states that can be generated by emanom.
     val_states = ['G', 'I', 'B', 'O', 'U']
     if not all([state in val_states for state in acceptable_states]):
-        raise ValueError("The values in 'acceptable_states' must be part of the following set: "
-                         "{}".format(', '.join(val_states)))
+        val_states_str = ', '.join(val_states)
+        # Keep this separate as older versions of Python won't allow ' within f-strings
+        raise ValueError(f"The values in 'acceptable_states' must be part of the following set:\n "
+                         "{val_states_str}.")
 
     # Open the file and read the lines out into a list
     with open(log_file_path, 'r') as loggo:
