@@ -135,7 +135,7 @@ def epchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
             ccd_str = ",".join([str(c_id) for c_id in sorted(ccd_ids)])
 
             # Set up a temporary directory to work in
-            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
+            temp_name = f"tempdir_{randint(0, int(1e+8))}"
             temp_dir = dest_dir + temp_name + "/"
             # This is where the processes will output the event list files
             og_out_path = os.path.join(dest_dir, prod_evt_list_name.format(o=obs_id, eid=exp_id))
@@ -301,7 +301,7 @@ def emchain(obs_archive: Archive, process_unscheduled: bool = True, num_cores: i
             # ccd_str = "'" + " ".join([str(c_id) for c_id in sorted(ccd_ids)]) + "'"
 
             # Set up a temporary directory to work in
-            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
+            temp_name = f"tempdir_{randint(0, int(1e+8))}"
             temp_dir = dest_dir + temp_name + "/"
 
             # This is where the final output event list file will be stored
@@ -430,7 +430,7 @@ def rgs_events(obs_archive: Archive, process_unscheduled: bool = True,  num_core
             odf_dir = miss.raw_data_path + obs_id + '/'
 
             # Set up a temporary directory to work in
-            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
+            temp_name = f"tempdir_{randint(0, int(1e+8))}"
             temp_dir = dest_dir + temp_name + "/"
 
             # This is where the final output event list file will be stored
@@ -698,11 +698,11 @@ def cleaned_rgs_event_lists(obs_archive: Archive,  num_cores: int = NUM_CORES, d
 
 
 @sas_call
-def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quantity = None,
-                      pn_filt_expr: Union[str, List[str]] = ("#XMMEA_EP", "(PATTERN <= 4)", "(FLAG .eq. 0)"),
-                      mos_filt_expr: Union[str, List[str]] = ("#XMMEA_EM", "(PATTERN <= 12)", "(FLAG .eq. 0)"),
+def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity | None = None, hi_en: Quantity | None = None,
+                      pn_filt_expr: str | List[str] | Tuple[str] = ("#XMMEA_EP", "(PATTERN <= 4)", "(FLAG .eq. 0)"),
+                      mos_filt_expr: str | List[str] | Tuple[str] = ("#XMMEA_EM", "(PATTERN <= 12)", "(FLAG .eq. 0)"),
                       filt_mos_anom_state: bool = False, acc_mos_anom_states: Union[List[str], str] = ('G', 'I', 'U'),
-                      num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity = None):
+                      num_cores: int = NUM_CORES, disable_progress: bool = False, timeout: Quantity | None = None):
     """
     This function is used to apply the soft-proton filtering (along with any other filtering you may desire, including
     the setting of energy limits) to XMM-Newton event lists, resulting in the creation of sets of cleaned event lists
@@ -774,10 +774,10 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
     if all(en_check):
         lo_en = lo_en.to('eV')
         hi_en = hi_en.to('eV')
-        pn_filt_expr.append("(PI in [{l}:{u}])".format(l=lo_en.value, u=hi_en.value))
-        mos_filt_expr.append("(PI in [{l}:{u}])".format(l=lo_en.value, u=hi_en.value))
+        pn_filt_expr.append(f"(PI in [{lo_en.value}:{hi_en.value}])")
+        mos_filt_expr.append(f"(PI in [{lo_en.value}:{hi_en.value}])")
         # This is added into the filtered event list name, but only if energy limits are applied
-        en_ident = '_{l}_{h}keV'.format(l=lo_en.to_value('keV'), h=hi_en.to_value('keV'))
+        en_ident = f"_{lo_en.to_value('keV')}_{hi_en.to_value('keV')}keV"
     else:
         lo_en = ''
         hi_en = ''
@@ -898,14 +898,14 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
             if inst in ['M1', 'M2'] and filt_mos_anom_state is not False:
                 log_path = obs_archive.process_extra_info[miss.name]['emanom'][val_id]['log_path']
                 allow_ccds = [str(c_id) for c_id in parse_emanom_out(log_path, acceptable_states=acc_mos_anom_states)]
-                ccd_expr = "CCDNR in {}".format(','.join(allow_ccds))
+                ccd_expr = f"CCDNR in {','.join(allow_ccds)}"
                 # We add it to the list of selection expression components that we have been constructing
                 cur_sel_expr.append(ccd_expr)
 
             # Read out where the GTIs created by espfilt live, and then create a filtering expression for the
             #  current mission-observation-instrument-subexposure (what a mouthful...)
             gti_path = obs_archive.process_extra_info[miss.name]['espfilt'][val_id]['gti_path']
-            cur_sel_expr.append("GTI({}, TIME)".format(gti_path))
+            cur_sel_expr.append(f"GTI({gti_path}, TIME)")
 
             # This path is guaranteed to exist, as it was set up in _sas_process_setup. This is where output
             #  files will be written to.
@@ -914,17 +914,14 @@ def cleaned_evt_lists(obs_archive: Archive, lo_en: Quantity = None, hi_en: Quant
 
             # Set up a temporary directory to work in (probably not really necessary in this case, but will be
             #  in other processing functions).
-            temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
+            temp_name = f"tempdir_{randint(0, int(1e+8))}"
             temp_dir = dest_dir + temp_name + "/"
 
             # Setting up the path to the event file
-            filt_evt_name = "obsid{o}-inst{i}-subexp{se}-en{en_id}-cleanevents.fits".format(i=inst, se=exp_id,
-                                                                                            en_id=en_ident, o=obs_id)
+            filt_evt_name = f"obsid{obs_id}-inst{inst}-subexp{exp_id}-en{en_ident}-cleanevents.fits"
             filt_evt_path = os.path.join(dest_dir, 'events', filt_evt_name)
             # And the same deal with the OOT event file, though of course that is only relevant to PN data
-            filt_oot_evt_name = "obsid{o}-inst{i}-subexp{se}-en{en_id}-cleanootevents.fits".format(i=inst, se=exp_id,
-                                                                                                   en_id=en_ident,
-                                                                                                   o=obs_id)
+            filt_oot_evt_name = f"obsid{obs_id}-inst{inst}-subexp{exp_id}-en{en_ident}-cleanootevents.fits"
             filt_oot_evt_path = os.path.join(dest_dir, 'events', filt_oot_evt_name)
 
             # The default final_paths declaration
@@ -1104,23 +1101,19 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
             dest_dir = obs_archive.construct_processed_data_path(miss, obs_id)
 
             # Setting up the path to the final combined event file
-            final_evt_name = "obsid{o}-inst{i}-subexpALL-en{en_id}-finalevents.fits".format(o=obs_id, i=inst,
-                                                                                            en_id=to_combine[oi][0][0])
+            final_evt_name = f"obsid{obs_id}-inst{inst}-subexpALL-en{to_combine[oi][0][0]}-finalevents.fits"
             final_path = os.path.join(dest_dir, 'events', final_evt_name)
             # And a possible accompanying OOT combined events file, not used if the instrument isn't PN but
             #  always defined because its easier
-            final_oot_evt_name = ("obsid{o}-inst{i}-subexpALL-en{en_id}-finalootevents."
-                                  "fits").format(o=obs_id, i=inst, en_id=to_combine[oi][0][0])
+            final_oot_evt_name = f"obsid{obs_id}-inst{inst}-subexpALL-en{to_combine[oi][0][0]}-finalootevents.fits"
             final_oot_path = os.path.join(dest_dir, 'events', final_oot_evt_name)
 
             # And the same thing for the 'all good FoV+corner events' files
-            final_allgood_evt_name = ("obsid{o}-inst{i}-subexpALL-en{en_id}-finalallgoodevents."
-                                      "fits").format(o=obs_id, i=inst, en_id=to_combine[oi][0][0])
+            final_allgood_evt_name = f"obsid{obs_id}-inst{inst}-subexpALL-en{to_combine[oi][0][0]}-finalallgoodevents.fits"
             final_allgood_evt_path = os.path.join(dest_dir, 'background', final_allgood_evt_name)
             # And a possible accompanying OOT combined events file, not used if the instrument isn't PN but
             #  always defined because its easier
-            final_allgood_oot_evt_name = ("obsid{o}-inst{i}-subexpALL-en{en_id}-finalallgoodootevents."
-                                          "fits").format(o=obs_id, i=inst, en_id=to_combine[oi][0][0])
+            final_allgood_oot_evt_name = f"obsid{obs_id}-inst{inst}-subexpALL-en{to_combine[oi][0][0]}-finalallgoodootevents.fits"
             final_allgood_oot_path = os.path.join(dest_dir, 'background', final_allgood_oot_evt_name)
 
             # We check if we've already run this for the current ObsID + instrument combo, as we don't need to do
@@ -1152,7 +1145,7 @@ def merge_subexposures(obs_archive: Archive, num_cores: int = NUM_CORES, disable
 
                 # Set up a temporary directory to work in (probably not really necessary in this case, but will be
                 #  in other processing functions).
-                temp_name = "tempdir_{}".format(randint(0, int(1e+8)))
+                temp_name = f"tempdir_{randint(0, int(1e+8))}"
                 temp_dir = dest_dir + temp_name + "/"
 
                 # As the merge command won't overwrite an existing file name, and we don't know how many times the loop
